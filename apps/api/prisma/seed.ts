@@ -7,6 +7,18 @@ import { seedSystemEventTypes } from "../src/lib/seed/systemEventTypes.js";
 
 const prisma = new PrismaClient();
 
+async function ensureAdminHousehold(userId: string): Promise<void> {
+  const existing = await prisma.householdMember.findFirst({ where: { userId } });
+  if (existing) return;
+
+  await prisma.$transaction(async (tx) => {
+    const household = await tx.household.create({ data: { name: "우리 집" } });
+    await tx.householdMember.create({
+      data: { householdId: household.id, userId, role: "OWNER" },
+    });
+  });
+}
+
 async function main() {
   const eventTypesCreated = await seedSystemEventTypes(prisma);
   if (eventTypesCreated.created > 0 || eventTypesCreated.updated > 0) {
@@ -23,12 +35,20 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
+    await ensureAdminHousehold(existing.id);
     console.log(`이미 존재하는 계정입니다: ${email}`);
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const admin = await prisma.user.create({ data: { name, email, passwordHash, role: "ADMIN" } });
+  const admin = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({ data: { name, email, passwordHash, role: "ADMIN" } });
+    const household = await tx.household.create({ data: { name: "우리 집" } });
+    await tx.householdMember.create({
+      data: { householdId: household.id, userId: created.id, role: "OWNER" },
+    });
+    return created;
+  });
 
   console.log(`관리자 계정 생성 완료: ${admin.email} (id: ${admin.id})`);
   if (!process.env.ADMIN_PASSWORD) {

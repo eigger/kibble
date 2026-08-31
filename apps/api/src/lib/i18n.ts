@@ -47,6 +47,16 @@ const MESSAGES = {
   },
   currentPasswordRequired: { ko: "현재 비밀번호를 입력하세요", en: "Current password is required" },
   userNotFound: { ko: "사용자를 찾을 수 없습니다", en: "User not found" },
+  noHousehold: {
+    ko: "가구에 소속되어 있지 않습니다. 관리자에게 문의하세요.",
+    en: "You are not in a household. Contact your administrator.",
+  },
+  householdNotFound: { ko: "가구를 찾을 수 없습니다", en: "Household not found" },
+  viewerReadOnly: { ko: "읽기 전용 권한으로는 변경할 수 없습니다", en: "Read-only access cannot make changes" },
+  systemEventTypesNotSeeded: {
+    ko: "시스템 이벤트 유형이 준비되지 않았습니다. 관리자에게 문의하세요.",
+    en: "System event types are not ready. Contact your administrator.",
+  },
   emailAlreadyInUse: { ko: "이미 사용 중인 이메일입니다", en: "Email is already in use" },
   incorrectCurrentPassword: { ko: "현재 비밀번호가 올바르지 않습니다", en: "Current password is incorrect" },
 

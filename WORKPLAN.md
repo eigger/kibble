@@ -591,16 +591,16 @@ UI:
 | P1-01 | §5.0 0~1단계: 섀시 복사 + 도메인 전멸 | **완료** — `build`+`lint`+`test` 통과, `docker compose config` 검증 |
 | P1-02 | §5.0 2단계: 이름 치환 | **완료** — 코드·compose·proxmox에서 `stash` 잔재 0건 (stash 저장소 출처 주석만 유지) |
 | P1-03 | Prisma 스키마 신규 작성 + 초기 마이그레이션. **Phase 2에서 쓸 테이블도 지금 만든다** — `PresetCode`, `Contact`(좌표 포함), `MedicationCourse`, `ApiToken` | **완료** — `PROJECT.md §4` 전체 + stash `Setting`·`UserRole`·`tokenVersion` 유지. `EventType_system_key_key` 부분 유니크 포함. `build`+`lint`+`test` 통과 |
-| P1-04 | EventType 시드 + **종별 기본 프리셋 템플릿** (P0-02) | **진행 중** — 시스템 EventType 시드·프리셋 템플릿·`ensurePresetsForPet`·i18n 키. pets API(P1-11) 연결 전 |
+| P1-04 | EventType 시드 + **종별 기본 프리셋 템플릿** (P0-02) | **완료** — `POST /api/pets`에서 `ensurePresetsForPet` 호출 |
 
 ### 5.2 인증 / 테넌시 / 온보딩
 
 | ID | 작업 | 완료 조건 |
 |---|---|---|
-| P1-05 | 인증 이식 + **JWT 30일** + `resolveJwtSecret` + 로그 마스킹 + 로그인 rate limit | 약한 `JWT_SECRET`으로 프로덕션 기동 시 종료됨을 테스트로 고정 |
-| P1-06 | `request.householdId` 데코레이터 + 스코프 헬퍼 (K-2) | 라우트에서 householdId를 직접 파싱하는 코드 0건 |
+| P1-05 | 인증 이식 + **JWT 30일** + `resolveJwtSecret` + 로그 마스킹 + 로그인 rate limit | **완료** — `jwtSecret.ts` + 프로덕션 약한 시크릿 테스트 |
+| P1-06 | `request.householdId` 데코레이터 + 스코프 헬퍼 (K-2) | **완료** — `authenticate` resolve + `householdWhere`/`requireHouseholdId` |
 | P1-06a | **`ApiToken` 발급/폐기 + `authenticate`가 Bearer 토큰도 수용** (§3.6) | 토큰 원문은 발급 시 1회만 노출(해시 저장). `event:create` 외 라우트는 403. **검증이 같은 커밋에 들어간다** (K-5) |
-| P1-07 | **온보딩**: 부트스트랩 시 가구 자동 생성 → 반려동물 등록(이름+종) → 기본 프리셋 자동 생성 | 신규 설치에서 **3분 안에 첫 기록**까지 도달 |
+| P1-07 | **온보딩**: 부트스트랩 시 가구 자동 생성 → 반려동물 등록(이름+종) → 기본 프리셋 자동 생성 | **진행 중** — API 완료. 홈 UI·PWA 안내는 P1-27a |
 | P1-08 | 가구 초대 / 역할 (OWNER / MEMBER / VIEWER) + 임시 비밀번호 1회 응답 | VIEWER 쓰기 403 |
 | P1-09 | **가구 격리 테스트 스위트** (K-3) | 타 가구의 pet / event / preset / attachment 접근이 전부 404 |
 | P1-10 | 미디어 접근 인증 (`purpose` 분리 쿠키) | `<img src>`가 인증 없이 뚫리지 않음. 개발 우회는 env opt-in + 경고 로그 |
