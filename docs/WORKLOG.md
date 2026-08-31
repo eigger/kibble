@@ -195,3 +195,16 @@
 - **P1-04 완료**: `POST /api/pets`에서 `ensurePresetsForPet` 호출 (P1-11과 함께)
 - **P1-05** JWT 30일·householdId 데코레이터
 - docker `migrate deploy` 후 `prisma db seed` 스모크 (로컬)
+
+### 2026-08-31 — PR #5 리뷰 11건 반영
+
+**한 일**
+
+- **init 마이그레이션 복원** + `20260831130000_kibble_domain` 신규 추가 (in-place 수정 철회 — P3006 방지)
+- `Event.householdId` + `@@unique([householdId, dedupeKey])`, `ApiToken`/`Reminder` FK, `Preset` 유니크 `(householdId, petId, eventTypeId)`
+- `ensurePresetsForPet`: petId 스코프, Pet 수로 isStarter, 트랜잭션 + skipDuplicates
+- `seedSystemEventTypes`: create + update, P2002 흡수
+- `t()` / `translate()` 미지 키 리터럴 폴백
+- `docs/seed-event-types.md` §4.0 petId 스코프로 정정
+
+**미완**: PR #5 머지

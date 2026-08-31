@@ -1,4 +1,5 @@
-import type { EventCategory, PrismaClient, ScaleType, Species } from "@prisma/client";
+import type { EventCategory, Prisma, PrismaClient, ScaleType, Species } from "@prisma/client";
+import { isUniqueConstraintError } from "../prismaErrors.js";
 
 export type SystemEventTypeSeed = {
   key: string;
@@ -169,33 +170,65 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
   },
 ];
 
-/** 시스템 EventType을 findFirst → create로 멱등 시드한다. upsert는 NULL unique 때문에 불가(§1.1). */
-export async function seedSystemEventTypes(prisma: PrismaClient): Promise<number> {
+function seedData(row: SystemEventTypeSeed): Prisma.EventTypeUncheckedCreateInput {
+  return {
+    householdId: null,
+    key: row.key,
+    label: row.label,
+    icon: row.icon,
+    color: row.color,
+    category: row.category,
+    defaultUnit: row.defaultUnit ?? null,
+    species: row.species ?? null,
+    aliases: row.aliases,
+    scaleType: row.scaleType ?? null,
+    sortOrder: row.sortOrder,
+  };
+}
+
+function seedUpdate(row: SystemEventTypeSeed): Prisma.EventTypeUpdateInput {
+  return {
+    label: row.label,
+    icon: row.icon,
+    color: row.color,
+    category: row.category,
+    defaultUnit: row.defaultUnit ?? null,
+    species: row.species ?? null,
+    aliases: row.aliases,
+    scaleType: row.scaleType ?? null,
+    sortOrder: row.sortOrder,
+  };
+}
+
+/** 시스템 EventType 시드 — 없으면 create, 있으면 메타데이터 update (K-8). */
+export async function seedSystemEventTypes(
+  prisma: PrismaClient,
+): Promise<{ created: number; updated: number }> {
   let created = 0;
+  let updated = 0;
 
   for (const row of SYSTEM_EVENT_TYPES) {
     const existing = await prisma.eventType.findFirst({
       where: { householdId: null, key: row.key },
     });
-    if (existing) continue;
 
-    await prisma.eventType.create({
-      data: {
-        householdId: null,
-        key: row.key,
-        label: row.label,
-        icon: row.icon,
-        color: row.color,
-        category: row.category,
-        defaultUnit: row.defaultUnit ?? null,
-        species: row.species ?? null,
-        aliases: row.aliases,
-        scaleType: row.scaleType ?? null,
-        sortOrder: row.sortOrder,
-      },
-    });
-    created += 1;
+    if (existing) {
+      await prisma.eventType.update({
+        where: { id: existing.id },
+        data: seedUpdate(row),
+      });
+      updated += 1;
+      continue;
+    }
+
+    try {
+      await prisma.eventType.create({ data: seedData(row) });
+      created += 1;
+    } catch (err) {
+      if (isUniqueConstraintError(err)) continue;
+      throw err;
+    }
   }
 
-  return created;
+  return { created, updated };
 }

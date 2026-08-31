@@ -8,7 +8,8 @@ const STORAGE_KEY = "kibble_locale";
 interface LocaleContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  /** i18n 키 또는 DB 리터럴(프리셋 사용자 지정명). 미지 키는 그대로 반환한다. */
+  t: (key: TranslationKey | string, params?: Record<string, string | number>) => string;
   formatDateTime: (iso: string) => string;
 }
 
@@ -37,9 +38,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = next;
   }
 
-  function t(key: TranslationKey, params?: Record<string, string | number>): string {
-    const entry = translations[key];
-    return interpolate(entry[locale], params);
+  function t(key: TranslationKey | string, params?: Record<string, string | number>): string {
+    const entry = translations[key as TranslationKey];
+    if (!entry) return interpolate(key, params);
+    return interpolate(entry[locale] ?? entry.ko, params);
   }
 
   function formatDateTime(iso: string): string {

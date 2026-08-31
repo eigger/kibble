@@ -16,7 +16,6 @@ describe("presetTemplatesForSpecies", () => {
     const catKeys = presetTemplatesForSpecies("CAT").map((t) => t.eventTypeKey);
     expect(dogKeys).toContain("walk");
     expect(catKeys).not.toContain("walk");
-    // litter_change는 EventType만 종 특화 — CAT 프리셋 템플릿(§4.2)에는 없음
     expect(catKeys).not.toContain("litter_change");
   });
 });
@@ -27,26 +26,25 @@ describe("selectPresetsToInsert", () => {
     templates.map((t) => [t.eventTypeKey, `id-${t.eventTypeKey}`]),
   );
 
-  it("inserts all templates on first pet", () => {
+  it("inserts all templates for first household pet with starters", () => {
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, new Set(), true);
     expect(rows).toHaveLength(7);
     expect(rows.filter((r) => r.applyStarter)).toHaveLength(3);
   });
 
-  it("skips existing event types on second pet", () => {
+  it("skips event types already on this pet (idempotent re-run)", () => {
     const existing = new Set(["id-meal", "id-water", "id-poop", "id-pee", "id-treat", "id-vomit"]);
-    const rows = selectPresetsToInsert(templates, eventTypeIdByKey, existing, false);
+    const rows = selectPresetsToInsert(templates, eventTypeIdByKey, existing, true);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.eventTypeKey).toBe("weight");
-    expect(rows[0]?.applyStarter).toBe(false);
   });
 
-  it("never sets isStarter on second pet even for new species-specific types", () => {
+  it("creates full species set for second pet without starters", () => {
     const dogTemplates = presetTemplatesForSpecies("DOG");
     const dogIds = new Map(dogTemplates.map((t) => [t.eventTypeKey, `id-${t.eventTypeKey}`]));
-    const existing = new Set(["id-meal", "id-water", "id-poop", "id-pee", "id-treat", "id-vomit"]);
-    const rows = selectPresetsToInsert(dogTemplates, dogIds, existing, false);
-    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["walk", "weight"]);
+    const rows = selectPresetsToInsert(dogTemplates, dogIds, new Set(), false);
+    expect(rows).toHaveLength(7);
+    expect(rows.some((r) => r.eventTypeKey === "walk")).toBe(true);
     expect(rows.every((r) => !r.applyStarter)).toBe(true);
   });
 });

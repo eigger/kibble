@@ -144,9 +144,13 @@ export const translations = dict;
 
 export type TranslationKey = keyof typeof dict;
 
-export function translate(locale: Locale, key: TranslationKey, params?: Record<string, string | number>): string {
-  const entry = dict[key];
-  const template = entry[locale] ?? entry.ko;
+export function translate(
+  locale: Locale,
+  key: TranslationKey | string,
+  params?: Record<string, string | number>,
+): string {
+  const entry = dict[key as TranslationKey];
+  const template = entry ? (entry[locale] ?? entry.ko) : key;
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
 }

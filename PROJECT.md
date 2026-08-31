@@ -104,6 +104,7 @@ model Household {
   contacts    Contact[]
   courses     MedicationCourse[]
   tokens      ApiToken[]
+  events      Event[]
 }
 
 model HouseholdMember {
@@ -247,6 +248,7 @@ model Preset {
   events    Event[]
   tokens    ApiToken[]
 
+  @@unique([householdId, petId, eventTypeId])
   @@index([householdId, archivedAt, sortOrder])
 }
 
@@ -288,6 +290,7 @@ enum CodeSource {
 // ---------- 이벤트 (핵심) ----------
 model Event {
   id           String   @id @default(cuid())
+  householdId  String              // K-1·dedupeKey 가구 스코프. pet.householdId와 동기화(createEvent 책임).
   petId        String              // NOT NULL 유지. 공용 이벤트를 위해 미리 nullable로 열지
                                    // 않는다 — 모든 쿼리·인덱스·가구 격리 검사가 분기로 오염된다.
   eventTypeId  String
@@ -314,12 +317,13 @@ model Event {
   needsReview  Boolean  @default(false)  // 파싱 제안을 아직 확인받지 않음
   source       EventSource @default(WEB)
   createdById  String?             // 시스템 생성 시 null
-  dedupeKey    String?  @unique    // 외부 자동화 재시도 중복 방지
+  dedupeKey    String?             // 외부 자동화 재시도 중복 방지. @@unique([householdId, dedupeKey])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   deletedAt    DateTime?
 
   pet         Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
   eventType   EventType         @relation(fields: [eventTypeId], references: [id])
   preset      Preset?           @relation(fields: [presetId], references: [id], onDelete: SetNull)
   contact     Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -331,6 +335,7 @@ model Event {
   @@index([petId, eventTypeId, occurredAt(sort: Desc)])
   @@index([medicationCourseId])
   @@index([entryId])
+  @@unique([householdId, dedupeKey])
 }
 
 enum EventSource {
@@ -397,6 +402,7 @@ model Reminder {
 
   pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
   eventType EventType @relation(fields: [eventTypeId], references: [id])
+  lastEvent Event?    @relation("ReminderLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
 
   @@index([petId, active, nextDueAt])
 }
@@ -456,6 +462,8 @@ model ApiToken {
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   preset    Preset?   @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  pet       Pet?      @relation(fields: [petId], references: [id], onDelete: SetNull)
+  eventType EventType? @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
 }
 ```
 
@@ -469,6 +477,7 @@ model ApiToken {
 - 소프트 삭제(`deletedAt`)를 쓴다. 오입력 복구가 실사용에서 자주 필요하다.
 - **`rawText`는 어떤 경우에도 버리지 않는다.** 파싱은 구조를 얻기 위한 것이고, 실패하면 `NOTE`로 흡수한다 — 사용자가 쓴 것을 앱이 되돌려보내면 안 된다.
 - **`PresetCode.value`는 `@@unique([householdId, value])`다.** 전역 유니크는 다중 테넌트에서 틀렸다 — 두 가구가 같은 제품 바코드를 쓴다. (stash가 전역 유니크로 마이그레이션한 이력이 있으니 복사하지 말 것.)
+- **`Event.dedupeKey`도 가구 스코프다** — `@@unique([householdId, dedupeKey])`. HA가 넣는 `ha-<entity>-<timestamp>` 형식은 가구 간 충돌할 수 있다.
 
 ---
 

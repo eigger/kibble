@@ -39,6 +39,7 @@ model Household {
   contacts    Contact[]
   courses     MedicationCourse[]
   tokens      ApiToken[]
+  events      Event[]
 }
 
 model HouseholdMember {
@@ -82,6 +83,7 @@ model Pet {
   presets   Preset[]
   reminders Reminder[]
   courses   MedicationCourse[]
+  apiTokens ApiToken[]
 
   @@index([householdId, archivedAt])
 }
@@ -99,10 +101,6 @@ enum Sex {
 }
 
 // ---------- 이벤트 타입 ----------
-// householdId가 null이면 시스템 기본 타입(시드). 사용자는 커스텀 타입 추가 가능.
-//
-// @@unique([householdId, key])는 시스템 행(householdId = null)에는 걸리지 않는다.
-// 시스템 행 전용 부분 유니크는 migration.sql에 raw SQL로 추가한다.
 model EventType {
   id          String        @id @default(cuid())
   householdId String?
@@ -122,6 +120,7 @@ model EventType {
   events    Event[]
   presets   Preset[]
   reminders Reminder[]
+  apiTokens ApiToken[]
 
   @@unique([householdId, key])
 }
@@ -165,6 +164,7 @@ model Preset {
   events    Event[]
   tokens    ApiToken[]
 
+  @@unique([householdId, petId, eventTypeId])
   @@index([householdId, archivedAt, sortOrder])
 }
 
@@ -202,6 +202,7 @@ enum CodeSource {
 // ---------- 이벤트 ----------
 model Event {
   id                 String      @id @default(cuid())
+  householdId        String
   petId              String
   eventTypeId        String
   presetId           String?
@@ -220,19 +221,22 @@ model Event {
   needsReview        Boolean     @default(false)
   source             EventSource @default(WEB)
   createdById        String?
-  dedupeKey          String?     @unique
+  dedupeKey          String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   deletedAt          DateTime?
 
-  pet       Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType EventType         @relation(fields: [eventTypeId], references: [id])
-  preset    Preset?           @relation(fields: [presetId], references: [id], onDelete: SetNull)
-  contact   Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  course    MedicationCourse? @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
-  createdBy User?             @relation("EventCreator", fields: [createdById], references: [id])
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet         Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType   EventType           @relation(fields: [eventTypeId], references: [id])
+  preset      Preset?             @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  contact     Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  course      MedicationCourse?   @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
+  createdBy   User?               @relation("EventCreator", fields: [createdById], references: [id])
   attachments Attachment[]
+  reminderLastFor Reminder[]      @relation("ReminderLastEvent")
 
+  @@unique([householdId, dedupeKey])
   @@index([petId, occurredAt(sort: Desc)])
   @@index([petId, eventTypeId, occurredAt(sort: Desc)])
   @@index([medicationCourseId])
@@ -297,8 +301,9 @@ model Reminder {
   lastEventId  String?
   active       Boolean      @default(true)
 
-  pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType EventType @relation(fields: [eventTypeId], references: [id])
+  pet       Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType EventType  @relation(fields: [eventTypeId], references: [id])
+  lastEvent Event?     @relation("ReminderLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
 
   @@index([petId, active, nextDueAt])
 }
@@ -351,8 +356,10 @@ model ApiToken {
   revokedAt   DateTime?
   createdAt   DateTime  @default(now())
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  preset    Preset?   @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  preset    Preset?    @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  pet       Pet?       @relation(fields: [petId], references: [id], onDelete: SetNull)
+  eventType EventType? @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
 }
 
 // ---------- stash 섀시: 외부 API 키·공개 URL 등 ----------

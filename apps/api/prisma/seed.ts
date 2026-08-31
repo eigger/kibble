@@ -9,10 +9,12 @@ const prisma = new PrismaClient();
 
 async function main() {
   const eventTypesCreated = await seedSystemEventTypes(prisma);
-  if (eventTypesCreated > 0) {
-    console.log(`시스템 EventType ${eventTypesCreated}건 생성`);
+  if (eventTypesCreated.created > 0 || eventTypesCreated.updated > 0) {
+    console.log(
+      `시스템 EventType — 생성 ${eventTypesCreated.created}건, 갱신 ${eventTypesCreated.updated}건`,
+    );
   } else {
-    console.log("시스템 EventType 이미 존재 — 건너뜀");
+    console.log("시스템 EventType 변경 없음");
   }
 
   const email = process.env.ADMIN_EMAIL ?? "admin@example.com";

@@ -55,7 +55,7 @@ export function selectPresetsToInsert(
   templates: PresetTemplateRow[],
   eventTypeIdByKey: Map<string, string>,
   existingEventTypeIds: Set<string>,
-  isFirstPet: boolean,
+  isFirstHouseholdPet: boolean,
 ): Array<PresetTemplateRow & { eventTypeId: string; applyStarter: boolean }> {
   const rows: Array<PresetTemplateRow & { eventTypeId: string; applyStarter: boolean }> = [];
 
@@ -66,7 +66,7 @@ export function selectPresetsToInsert(
     rows.push({
       ...template,
       eventTypeId,
-      applyStarter: template.isStarter && isFirstPet,
+      applyStarter: template.isStarter && isFirstHouseholdPet,
     });
   }
 
