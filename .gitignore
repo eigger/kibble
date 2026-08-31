@@ -18,6 +18,7 @@ uploads/
 fixtures/private/
 *.private.*
 
+.claude/
 .DS_Store
 Thumbs.db
 *.log
