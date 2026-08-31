@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.next/
+out/
+build/
+
+.env
+.env.*
+!.env.example
+
+# 업로드 볼륨 / 로컬 데이터
+uploads/
+*.db
+*.sqlite
+
+# 파싱 벤치마크 픽스처 (P0-09) — 실제 개인 기록이므로 커밋 금지.
+# 공개용 테스트는 합성 문장으로 별도 작성한다.
+fixtures/private/
+*.private.*
+
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+.vscode/
+.idea/
