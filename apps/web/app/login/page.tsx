@@ -104,7 +104,7 @@ export default function LoginPage() {
 
   return (
     <main className="container">
-      <h1>Stash</h1>
+      <h1>{t("appName")}</h1>
       {needsBootstrap ? (
         <>
           <p>{t("bootstrapIntro")}</p>

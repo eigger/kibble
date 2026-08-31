@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { getCachedTokenVersion } from "./tokenVersion.js";
 
 export const MEDIA_COOKIE_NAME = "kibble_media";
 /**
@@ -13,8 +14,6 @@ export function mediaCookieOptions() {
     path: "/api/attachments/file",
     httpOnly: true,
     sameSite: "lax" as const,
-    // Proxmox 기본 배포가 HTTP라 무조건 secure를 켜면 기본 설치에서 사진이 안 뜬다.
-    // HTTPS면 compose에 COOKIE_SECURE=true를 넘긴다.
     secure: process.env.COOKIE_SECURE === "true",
     maxAge: MEDIA_COOKIE_MAX_AGE_SEC,
   };
@@ -30,8 +29,6 @@ export function clearMediaCookieOptions() {
 }
 
 export function signMediaToken(app: FastifyInstance, userId: string): string {
-  // purpose:"media"만 담는다 — role/tv 없음. authenticate가 purpose === "media"를 거부해야
-  // 이 토큰이 Authorization Bearer로 API 전체에 쓰이지 않는다.
   return app.jwt.sign({ sub: userId, purpose: "media" }, { expiresIn: MEDIA_TOKEN_EXPIRES });
 }
 
@@ -43,15 +40,14 @@ export function clearMediaCookie(reply: FastifyReply): void {
   reply.clearCookie(MEDIA_COOKIE_NAME, clearMediaCookieOptions());
 }
 
-/** 개발(교차 오리진)에서만 명시적으로 끄는 opt-in. 기본은 항상 인증을 강제한다. */
 export function isMediaAuthDisabled(): boolean {
   return process.env.MEDIA_AUTH_DISABLED === "true";
 }
 
 /**
  * 첨부 파일 라우트 인증.
- * kibble_media 쿠키(purpose:media) 또는 Authorization Bearer(일반 API 토큰) 필수.
- * 교차 오리진 로컬 개발은 MEDIA_AUTH_DISABLED=true로만 우회한다 — NODE_ENV만으로는 끄지 않는다.
+ * kibble_media 쿠키(purpose:media) 또는 유효한 API Bearer JWT.
+ * backup 티켓·무효화된 tv·purpose:media Bearer는 API 전체 인증과 동일 규칙으로 거부한다.
  */
 export async function requireMediaAccess(
   app: FastifyInstance,
@@ -76,8 +72,22 @@ export async function requireMediaAccess(
   if (auth?.startsWith("Bearer ")) {
     try {
       await request.jwtVerify();
-      // 미디어 전용 토큰을 Bearer로 보내는 것은 허용(첨부 경로 한정).
-      // API 전용 토큰(purpose 없음)도 허용.
+      if (request.user.purpose === "backup") {
+        reply.code(401).send({ error: "unauthorized" });
+        return false;
+      }
+      if (request.user.purpose === "media") {
+        return true;
+      }
+      if (typeof request.user.tv !== "number") {
+        reply.code(401).send({ error: "unauthorized" });
+        return false;
+      }
+      const dbTv = await getCachedTokenVersion(request.user.sub);
+      if (dbTv === null || dbTv !== request.user.tv) {
+        reply.code(401).send({ error: "unauthorized" });
+        return false;
+      }
       return true;
     } catch {
       // fall through

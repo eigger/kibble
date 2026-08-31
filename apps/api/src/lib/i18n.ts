@@ -47,6 +47,7 @@ const MESSAGES = {
   },
   currentPasswordRequired: { ko: "현재 비밀번호를 입력하세요", en: "Current password is required" },
   userNotFound: { ko: "사용자를 찾을 수 없습니다", en: "User not found" },
+  emailAlreadyInUse: { ko: "이미 사용 중인 이메일입니다", en: "Email is already in use" },
   incorrectCurrentPassword: { ko: "현재 비밀번호가 올바르지 않습니다", en: "Current password is incorrect" },
 
   adminRoleRequired: { ko: "관리자 권한이 필요합니다", en: "Admin role required" },

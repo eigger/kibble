@@ -11,6 +11,7 @@ import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersion.js";
 import { clearMediaCookie, setMediaCookie } from "../lib/mediaAuth.js";
+import { isRecordNotFoundError, isUniqueConstraintError } from "../lib/prismaErrors.js";
 
 /** API JWT 수명 — 자체 호스팅이라 재로그인 부담을 고려해 7일로 둔다(기존 90일에서 단축). */
 const JWT_EXPIRES_IN = "7d";
@@ -32,12 +33,19 @@ export async function authRoutes(app: FastifyInstance) {
 
     const { name, email, password } = parsed.data;
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: { name, email, passwordHash, role: "ADMIN" },
-    });
-    return reply
-      .code(201)
-      .send({ id: user.id, name: user.name, email: user.email, role: user.role });
+    try {
+      const user = await prisma.user.create({
+        data: { name, email, passwordHash, role: "ADMIN" },
+      });
+      return reply
+        .code(201)
+        .send({ id: user.id, name: user.name, email: user.email, role: user.role });
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
+      }
+      throw err;
+    }
   });
 
   app.post(
@@ -87,7 +95,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.get("/me", { preHandler: [app.authenticate] }, async (request, reply) => {
     const user = await prisma.user.findUnique({ where: { id: request.user.sub } });
-    if (!user) return null;
+    if (!user) return reply.code(401).send({ error: t("userNotFound", request.locale) });
     // AuthProvider 마운트·탭 복귀(visibilitychange) 때마다 /me가 호출되므로
     // 여기서 미디어 쿠키를 슬라이딩 갱신한다. 로그인만 심으면 24h 뒤 JWT는 살아 있는데
     // 사진만 전부 401이 된다.
@@ -105,10 +113,17 @@ export async function authRoutes(app: FastifyInstance) {
 
       const { name, email, password, role } = parsed.data;
       const passwordHash = await bcrypt.hash(password, 10);
-      const user = await prisma.user.create({ data: { name, email, passwordHash, role } });
-      return reply
-        .code(201)
-        .send({ id: user.id, name: user.name, email: user.email, role: user.role });
+      try {
+        const user = await prisma.user.create({ data: { name, email, passwordHash, role } });
+        return reply
+          .code(201)
+          .send({ id: user.id, name: user.name, email: user.email, role: user.role });
+      } catch (err) {
+        if (isUniqueConstraintError(err)) {
+          return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
+        }
+        throw err;
+      }
     },
   );
 
@@ -128,7 +143,14 @@ export async function authRoutes(app: FastifyInstance) {
       if (id === request.user.sub) {
         return reply.code(400).send({ error: t("cannotDeleteSelf", request.locale) });
       }
-      await prisma.user.delete({ where: { id } });
+      try {
+        await prisma.user.delete({ where: { id } });
+      } catch (err) {
+        if (isRecordNotFoundError(err)) {
+          return reply.code(404).send({ error: t("userNotFound", request.locale) });
+        }
+        throw err;
+      }
       return reply.code(204).send();
     },
   );
@@ -186,7 +208,15 @@ export async function authRoutes(app: FastifyInstance) {
       updateData.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
-    const user = await prisma.user.update({ where: { id: userId }, data: updateData });
+    let user;
+    try {
+      user = await prisma.user.update({ where: { id: userId }, data: updateData });
+    } catch (err) {
+      if (isUniqueConstraintError(err)) {
+        return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
+      }
+      throw err;
+    }
     if (newPassword) {
       // 비밀번호가 바뀌면 기존 토큰을 전부 무효화한다(탈취 대응). 현재 세션도 재로그인 필요.
       await bumpTokenVersion(userId);

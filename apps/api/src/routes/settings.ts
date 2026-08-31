@@ -43,6 +43,7 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   app.delete("/:key", async (request, reply) => {
     const { key } = request.params as { key: string };
+    if (!MANAGED_KEYS.includes(key)) return reply.code(400).send({ error: t("unknownSettingKey", request.locale) });
     await prisma.setting.deleteMany({ where: { key } });
     return reply.code(204).send();
   });

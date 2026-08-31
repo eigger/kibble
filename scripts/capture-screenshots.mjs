@@ -3,13 +3,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs/promises";
 
-// 실제 로그인 세션으로 주요 화면을 캡처해 docs/screenshots/{ko,en}/ 에 저장한다.
-// README.md(영문)·README.ko.md(국문)가 이 이미지를 참조한다.
-//
-// 요구사항: API가 :8080, 웹이 :3000에서 떠 있어야 하고, 데모 데이터가 들어 있어야 한다.
-//   ADMIN_EMAIL / ADMIN_PASSWORD 로 로그인 계정을 지정한다(기본 admin@example.com / changeme).
-//   LOCALES=ko,en 으로 캡처할 로케일을 고른다.
-//   CHROME_PATH 로 사용할 Chromium 실행 파일 경로를 지정할 수 있다.
+// kibble 빈 껍데기 화면을 docs/screenshots/{ko,en}/ 에 저장한다.
+// 요구사항: API :8080, 웹 :3000, 데모 관리자 계정.
+//   ADMIN_EMAIL / ADMIN_PASSWORD (기본 admin@example.com / changeme)
+//   LOCALES=ko,en
+//   CHROME_PATH (선택)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -17,6 +15,12 @@ const OUT = path.resolve(__dirname, "../docs/screenshots");
 const email = process.env.ADMIN_EMAIL || "admin@example.com";
 const password = process.env.ADMIN_PASSWORD || "changeme";
 const locales = (process.env.LOCALES || "ko,en").split(",").map((s) => s.trim()).filter(Boolean);
+
+const PAGES = [
+  { path: "/", file: "01-home.png" },
+  { path: "/q", file: "02-quick-record.png" },
+  { path: "/settings", file: "03-settings.png" },
+];
 
 async function waitReady(page) {
   await page
@@ -28,7 +32,7 @@ async function waitReady(page) {
       { timeout: 20000 },
     )
     .catch(() => {});
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(400);
 }
 
 async function shot(page, filePath) {
@@ -44,24 +48,17 @@ async function captureLocale(locale) {
   const browser = await chromium.launch({
     headless: true,
     executablePath: process.env.CHROME_PATH || undefined,
-    args: [
-      // 카메라 스캔 화면에서 실제 getUserMedia가 동작하도록 가짜 미디어 장치를 붙인다.
-      "--use-fake-device-for-media-stream",
-      "--use-fake-ui-for-media-stream",
-    ],
   });
   const context = await browser.newContext({
     viewport: { width: 430, height: 932 },
     deviceScaleFactor: 2,
     locale: locale === "en" ? "en-US" : "ko-KR",
-    permissions: ["camera"],
   });
   const page = await context.newPage();
 
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.evaluate((loc) => localStorage.setItem("stash_locale", loc), locale);
+  await page.evaluate((loc) => localStorage.setItem("kibble_locale", loc), locale);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(600);
 
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
@@ -70,37 +67,10 @@ async function captureLocale(locale) {
     .waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15000 })
     .catch(async () => console.log(`[${locale}] still on login:`, (await page.innerText("body")).slice(0, 160)));
 
-  await page.evaluate((loc) => localStorage.setItem("stash_locale", loc), locale);
-
-  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
-  await shot(page, path.join(dir, "01-dashboard.png"));
-
-  await page.goto(`${BASE}/scan`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(1500); // 카메라 프리뷰가 뜰 시간을 준다
-  await shot(page, path.join(dir, "02-scan.png"));
-
-  await page.goto(`${BASE}/items`, { waitUntil: "domcontentloaded" });
-  await shot(page, path.join(dir, "03-items.png"));
-
-  const itemHref = await page
-    .locator('a.name[href^="/items/"]')
-    .first()
-    .getAttribute("href")
-    .catch(() => null);
-  if (itemHref && !itemHref.endsWith("/new")) {
-    await page.goto(`${BASE}${itemHref}`, { waitUntil: "domcontentloaded" });
-    await shot(page, path.join(dir, "04-item-detail.png"));
+  for (const { path: routePath, file } of PAGES) {
+    await page.goto(`${BASE}${routePath}`, { waitUntil: "domcontentloaded" });
+    await shot(page, path.join(dir, file));
   }
-
-  await page.goto(`${BASE}/shopping`, { waitUntil: "domcontentloaded" });
-  await shot(page, path.join(dir, "05-shopping.png"));
-
-  await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
-  await waitReady(page);
-  await page.locator("button.bottom-nav-more").click();
-  await page.waitForSelector(".sheet-card");
-  await page.waitForTimeout(300);
-  await shot(page, path.join(dir, "06-more.png"));
 
   await browser.close();
 }

@@ -168,3 +168,16 @@
 - `.env.example` 추가
 
 **다음**: P1-03 도메인 스키마
+
+### 2026-08-31 — PR #2 리뷰 반영 (11건)
+
+- README en/ko를 kibble 빈 껍데기용으로 전면 교체 (stash 출처 표기만 유지)
+- 로그인 `appName` i18n, `translations.ts` 재고 도메인 문자열 제거·셸 키만 유지
+- `fetchMe()` `res.ok` 검증 + 잘못된 캐시 제거
+- `docker-compose.yml`: `NODE_ENV=development`, `prisma migrate deploy` 추가
+- auth: P2002/P2025 처리, `/me` 404→401
+- `mediaAuth` Bearer 경로에 tv·purpose 검증
+- SW: `response.ok`일 때만 캐시
+- settings DELETE `MANAGED_KEYS` 검증
+- `*.tsbuildinfo` gitignore + 추적 해제
+- `capture-screenshots.mjs` kibble 경로·`kibble_locale`로 수정

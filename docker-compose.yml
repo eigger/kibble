@@ -24,12 +24,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    command: sh -lc "npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts && node apps/api/dist/index.js"
     volumes:
       - uploads:/app/uploads
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kibble}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-kibble}
       JWT_SECRET: ${JWT_SECRET}
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: "8080"
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost}
       COOKIE_SECURE: ${COOKIE_SECURE:-}

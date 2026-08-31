@@ -30,14 +30,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const res = await apiFetch("/api/auth/me");
-      if (res.status === 401) {
-        clearToken();
+      if (!res.ok) {
+        if (res.status === 401) {
+          clearToken();
+          localStorage.removeItem(CACHED_USER_KEY);
+          setUser(null);
+        } else {
+          // 5xx·파싱 실패 등 — 로그인 상태로 오인하지 않도록 캐시를 지운다.
+          localStorage.removeItem(CACHED_USER_KEY);
+          setUser(null);
+        }
+        setLoading(false);
+        return;
+      }
+      const me = (await res.json()) as User;
+      if (!me?.id || !me.email) {
         localStorage.removeItem(CACHED_USER_KEY);
         setUser(null);
         setLoading(false);
         return;
       }
-      const me = await res.json();
       setUser(me);
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify(me));
     } catch {
