@@ -6,21 +6,363 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------- stash 섀시: 전역 관리자 / 토큰 무효화 ----------
 enum UserRole {
   ADMIN
   GENERAL
 }
 
+// ---------- 사용자 / 가구 ----------
 model User {
   id           String   @id @default(cuid())
-  name         String
   email        String   @unique
   passwordHash String
+  name         String
   role         UserRole @default(GENERAL)
   tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
+
+  memberships HouseholdMember[]
+  events      Event[]           @relation("EventCreator")
 }
 
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  members     HouseholdMember[]
+  pets        Pet[]
+  eventTypes  EventType[]
+  presets     Preset[]
+  presetCodes PresetCode[]
+  contacts    Contact[]
+  courses     MedicationCourse[]
+  tokens      ApiToken[]
+  events      Event[]
+}
+
+model HouseholdMember {
+  id          String @id @default(cuid())
+  householdId String
+  userId      String
+  role        Role   @default(MEMBER)
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+enum Role {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+// ---------- 반려동물 ----------
+model Pet {
+  id             String    @id @default(cuid())
+  householdId    String
+  name           String
+  species        Species
+  breed          String?
+  sex            Sex?
+  neutered       Boolean   @default(false)
+  birthDate      DateTime?
+  adoptionDate   DateTime?
+  registrationNo String?
+  microchipNo    String?
+  photoPath      String?
+  color          String?
+  archivedAt     DateTime?
+  sortOrder      Int       @default(0)
+
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  events    Event[]
+  presets   Preset[]
+  reminders Reminder[]
+  courses   MedicationCourse[]
+  apiTokens ApiToken[]
+
+  @@index([householdId, archivedAt])
+}
+
+enum Species {
+  DOG
+  CAT
+  OTHER
+}
+
+enum Sex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+// ---------- 이벤트 타입 ----------
+model EventType {
+  id          String        @id @default(cuid())
+  householdId String?
+  key         String
+  label       String
+  icon        String
+  color       String
+  category    EventCategory
+  defaultUnit String?
+  species     Species?
+  aliases     String[]
+  scaleType   ScaleType?
+  sortOrder   Int           @default(0)
+  archivedAt  DateTime?
+
+  household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  events    Event[]
+  presets   Preset[]
+  reminders Reminder[]
+  apiTokens ApiToken[]
+
+  @@unique([householdId, key])
+}
+
+enum ScaleType {
+  FECAL_7
+  APPETITE_3
+  ENERGY_3
+}
+
+enum EventCategory {
+  FEEDING
+  EXCRETION
+  ACTIVITY
+  HEALTH
+  CARE
+  MEDICAL
+  NOTE
+}
+
+// ---------- 프리셋 ----------
+model Preset {
+  id          String    @id @default(cuid())
+  householdId String
+  petId       String?
+  eventTypeId String
+  label       String
+  quantity    Decimal?  @db.Decimal(10, 2)
+  unit        String?
+  note        String?
+  isStarter   Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  hiddenAt    DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet?         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType EventType    @relation(fields: [eventTypeId], references: [id])
+  codes     PresetCode[]
+  events    Event[]
+  tokens    ApiToken[]
+
+  @@unique([householdId, petId, eventTypeId])
+  @@index([householdId, archivedAt, sortOrder])
+}
+
+model PresetCode {
+  id          String        @id @default(cuid())
+  presetId    String
+  householdId String
+  value       String
+  symbology   CodeSymbology @default(QR)
+  source      CodeSource    @default(GENERATED)
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  preset    Preset    @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, value])
+  @@index([presetId, revokedAt])
+}
+
+enum CodeSymbology {
+  QR
+  EAN13
+  UPCA
+  CODE128
+  OTHER
+}
+
+enum CodeSource {
+  GENERATED
+  PRODUCT
+}
+
+// ---------- 이벤트 ----------
+model Event {
+  id                 String      @id @default(cuid())
+  householdId        String
+  petId              String
+  eventTypeId        String
+  presetId           String?
+  occurredAt         DateTime
+  quantity           Decimal?    @db.Decimal(10, 2)
+  quantityOffered    Decimal?    @db.Decimal(10, 2)
+  unit               String?
+  scaleValue         Int?
+  note               String?
+  costKrw            Int?
+  contactId          String?
+  medicationCourseId String?
+  payload            Json?
+  rawText            String?
+  entryId            String?
+  needsReview        Boolean     @default(false)
+  source             EventSource @default(WEB)
+  createdById        String?
+  dedupeKey          String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+
+  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet         Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType   EventType           @relation(fields: [eventTypeId], references: [id])
+  preset      Preset?             @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  contact     Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  course      MedicationCourse?   @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
+  createdBy   User?               @relation("EventCreator", fields: [createdById], references: [id])
+  attachments Attachment[]
+  reminderLastFor Reminder[]      @relation("ReminderLastEvent")
+
+  @@unique([householdId, dedupeKey])
+  @@index([petId, occurredAt(sort: Desc)])
+  @@index([petId, eventTypeId, occurredAt(sort: Desc)])
+  @@index([medicationCourseId])
+  @@index([entryId])
+}
+
+enum EventSource {
+  WEB
+  QUICK
+  SCAN
+  API
+  SHARE_TARGET
+  IMPORT
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  eventId   String
+  path      String
+  mime      String
+  size      Int
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------- 투약 과정 ----------
+model MedicationCourse {
+  id          String    @id @default(cuid())
+  householdId String
+  petId       String
+  name        String
+  dosesPerDay Int       @default(1)
+  totalDoses  Int?
+  startDate   DateTime
+  endDate     DateTime?
+  contactId   String?
+  note        String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  events    Event[]
+
+  @@index([householdId, petId, archivedAt])
+}
+
+// ---------- 리마인더 ----------
+model Reminder {
+  id           String       @id @default(cuid())
+  petId        String
+  eventTypeId  String
+  label        String
+  ruleType     ReminderRule
+  intervalDays Int?
+  fixedDate    DateTime?
+  nextDueAt    DateTime
+  lastEventId  String?
+  active       Boolean      @default(true)
+
+  pet       Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType EventType  @relation(fields: [eventTypeId], references: [id])
+  lastEvent Event?     @relation("ReminderLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
+
+  @@index([petId, active, nextDueAt])
+}
+
+enum ReminderRule {
+  INTERVAL
+  FIXED
+  VACCINE_SERIES
+}
+
+// ---------- 연락처 ----------
+model Contact {
+  id          String      @id @default(cuid())
+  householdId String
+  type        ContactType
+  name        String
+  phone       String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  placeUrl    String?
+  note        String?
+  isFavorite  Boolean     @default(false)
+
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  events    Event[]
+  courses   MedicationCourse[]
+}
+
+enum ContactType {
+  VET
+  GROOMER
+  SITTER
+  PHARMACY
+  OTHER
+}
+
+// ---------- API 토큰 ----------
+model ApiToken {
+  id          String    @id @default(cuid())
+  householdId String
+  name        String
+  tokenHash   String    @unique
+  scopes      String[]
+  presetId    String?
+  petId       String?
+  eventTypeId String?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  preset    Preset?    @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  pet       Pet?       @relation(fields: [petId], references: [id], onDelete: SetNull)
+  eventType EventType? @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
+}
+
+// ---------- stash 섀시: 외부 API 키·공개 URL 등 ----------
 model Setting {
   key   String @id
   value String

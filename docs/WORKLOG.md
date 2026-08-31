@@ -181,3 +181,30 @@
 - settings DELETE `MANAGED_KEYS` 검증
 - `*.tsbuildinfo` gitignore + 추적 해제
 - `capture-screenshots.mjs` kibble 경로·`kibble_locale`로 수정
+
+### 2026-08-31 — PR #2 스쿼시 머지 + P1-03 스키마 + P1-04 시드 초안
+
+**한 일**
+
+- PR #2 스쿼시 머지 (`chore: import stash chassis with domain wipe and kibble rename`)
+- **P1-03**: `PROJECT.md §4` 전체 Prisma 스키마 + `init` 마이그레이션 교체. stash `Setting`·`UserRole`·`tokenVersion` 유지. `EventType_system_key_key` 부분 유니크 raw SQL 추가
+- **P1-04 (부분)**: `seedSystemEventTypes` (findFirst→create), 종별 프리셋 템플릿·`ensurePresetsForPet`·단위 테스트, `translations.ts` eventType 키 ko/en
+
+**미완 / 다음**
+
+- **P1-04 완료**: `POST /api/pets`에서 `ensurePresetsForPet` 호출 (P1-11과 함께)
+- **P1-05** JWT 30일·householdId 데코레이터
+- docker `migrate deploy` 후 `prisma db seed` 스모크 (로컬)
+
+### 2026-08-31 — PR #5 리뷰 11건 반영
+
+**한 일**
+
+- **init 마이그레이션 복원** + `20260831130000_kibble_domain` 신규 추가 (in-place 수정 철회 — P3006 방지)
+- `Event.householdId` + `@@unique([householdId, dedupeKey])`, `ApiToken`/`Reminder` FK, `Preset` 유니크 `(householdId, petId, eventTypeId)`
+- `ensurePresetsForPet`: petId 스코프, Pet 수로 isStarter, 트랜잭션 + skipDuplicates
+- `seedSystemEventTypes`: create + update, P2002 흡수
+- `t()` / `translate()` 미지 키 리터럴 폴백
+- `docs/seed-event-types.md` §4.0 petId 스코프로 정정
+
+**미완**: PR #5 머지

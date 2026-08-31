@@ -120,15 +120,37 @@ const dict = {
   oneTimeSecretDownloadButton: { ko: "파일로 저장", en: "Save as file" },
   oneTimeSecretSavedCheckbox: { ko: "안전한 곳에 저장했습니다", en: "I saved these securely" },
   oneTimeSecretCloseButton: { ko: "닫기", en: "Close" },
+
+  // event types (docs/seed-event-types.md §3)
+  "eventType.meal": { ko: "사료", en: "Meal" },
+  "eventType.water": { ko: "물", en: "Water" },
+  "eventType.treat": { ko: "간식", en: "Treat" },
+  "eventType.poop": { ko: "대변", en: "Stool" },
+  "eventType.pee": { ko: "소변", en: "Urine" },
+  "eventType.vomit": { ko: "구토", en: "Vomit" },
+  "eventType.medication": { ko: "투약", en: "Medication" },
+  "eventType.weight": { ko: "체중", en: "Weight" },
+  "eventType.symptom": { ko: "증상", en: "Symptom" },
+  "eventType.play": { ko: "놀이", en: "Play" },
+  "eventType.grooming": { ko: "그루밍", en: "Grooming" },
+  "eventType.walk": { ko: "산책", en: "Walk" },
+  "eventType.litter_change": { ko: "모래갈이", en: "Litter change" },
+  "eventType.vet_visit": { ko: "병원", en: "Vet visit" },
+  "eventType.vaccination": { ko: "접종", en: "Vaccination" },
+  "eventType.note": { ko: "메모", en: "Note" },
 } as const;
 
 export const translations = dict;
 
 export type TranslationKey = keyof typeof dict;
 
-export function translate(locale: Locale, key: TranslationKey, params?: Record<string, string | number>): string {
-  const entry = dict[key];
-  const template = entry[locale] ?? entry.ko;
+export function translate(
+  locale: Locale,
+  key: TranslationKey | string,
+  params?: Record<string, string | number>,
+): string {
+  const entry = dict[key as TranslationKey];
+  const template = entry ? (entry[locale] ?? entry.ko) : key;
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
 }

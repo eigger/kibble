@@ -139,26 +139,25 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 
 반려동물 등록(`POST /api/pets`) 성공 시, 해당 종 템플릿으로 `Preset` 행을 **자동 생성**한다 (`petId = null` → 현재 선택 반려동물). 수량·단위는 **비워 둔다** — 가구마다 사료·급여량이 다르고, P0-01 실측 후 시드만 조정한다.
 
-### 4.0 두 번째 반려동물 — 중복 생성 금지
+### 4.0 두 번째 반려동물 — petId별 프리셋
 
-프리셋은 `petId = null`(가구 전체 적용)이므로 **등록할 때마다 무조건 삽입하면 중복된다.** 고양이를 등록해 CAT 템플릿 7개가 생긴 가구에 개를 추가하면 `meal`·`water`·`poop`·`pee`·`treat`·`weight` 6종이 두 벌이 되어, 홈 퀵 칩에 "사료"가 두 개 뜨고 `isStarter=true` 행이 6개가 되어 시작 3개 규칙(G-1)이 깨진다.
+온보딩 시드 프리셋은 **`petId`에 묶는다.** `petId = null`(가구 전유)이면 다종 가구에서 종 특화 칩(예: 개 `walk`)이 다른 반려동물 퀵바에도 노출된다.
 
-**삽입 규칙**
+**삽입 규칙** (반려동물 등록 직후, 해당 `petId`로):
 
 ```
 templates = species 템플릿 (§4.2~4.4)
-// archivedAt 조건을 걸지 않는다 — 사용자가 지운 프리셋을 되살리면 안 된다.
-existing  = 이 가구의 Preset 중 petId = null 인 것의 eventTypeId 집합
-isFirst   = existing.isEmpty
+existing  = 이 petId의 Preset eventTypeId 집합
+isFirst   = 가구 내 Pet 수 === 1 (등록 직후 count)
 
 for t in templates:
-    if t.eventTypeId in existing: continue      // 이미 있으면 건너뛴다
-    insert Preset(t, isStarter = t.isStarter AND isFirst)
+    if t.eventTypeId in existing: continue
+    insert Preset(t, petId, isStarter = t.isStarter AND isFirst)
 ```
 
-- **`isStarter`는 첫 반려동물 등록 때만 설정한다.** 두 번째 이후에는 항상 `false`로 넣어 시작 3개(G-1)를 유지한다.
-- 종 특화 타입(`walk`, `litter_change`)은 `existing`에 없으므로 정상적으로 추가된다 — 고양이 가구에 개를 들이면 `산책`만 늘어난다.
-- `existing`에 `archivedAt` 조건을 걸지 않는 이유: 사용자가 "간식" 칩을 숨겼는데 둘째를 등록하는 순간 되살아나면 안 된다.
+- **`isStarter`는 가구의 첫 반려동물 등록 때만** 설정한다 (G-1).
+- 둘째 반려동물(다른 종 포함)은 종 템플릿 전체를 **자기 petId**로 새로 넣는다 — 가구 공유 프리셋과 중복 검사하지 않는다.
+- 동시 등록 방어: `@@unique([householdId, petId, eventTypeId])` + 트랜잭션 + `createMany({ skipDuplicates: true })`.
 
 ### 4.1 공통 규칙
 
@@ -167,7 +166,7 @@ for t in templates:
 | `isStarter` | **true** = 온보딩 직후 퀵 칩 3개 (G-1: 사료·물·배변) |
 | `sortOrder` | 아래 표 순서 |
 | `quantity` / `unit` | `null` (1탭 기록은 타입만; 상세 시트에서 입력) |
-| `petId` | `null` |
+| `petId` | 등록한 반려동물 ID (종 특화 칩 분리) |
 
 ### 4.2 고양이 (`CAT`) — 7개
 
