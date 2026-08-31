@@ -208,3 +208,18 @@
 - `docs/seed-event-types.md` §4.0 petId 스코프로 정정
 
 **미완**: PR #5 머지
+
+### 2026-08-31 — P1-05/06 + 온보딩 API (P1-04 완료·P1-07 부분)
+
+**한 일**
+
+- JWT 30일, `resolveJwtSecret` 모듈화 + 프로덕션 약한 시크릿 테스트
+- `authenticate` → `request.householdId`, `householdWhere`/`requireHouseholdId` (K-2)
+- 부트스트랩 시 가구+"우리 집"+OWNER, 가족 계정 생성 시 MEMBER 멤버십
+- `POST/GET /api/pets`, `GET /api/onboarding/status`, `/api/auth/me`에 `needsPet`
+- P1-04 완료: `ensurePresetsForPet`를 pets 등록에 연결
+
+**미완 / 다음**
+
+- P1-07 UI: 반려동물 등록 화면·홈 프리셋 칩 (P1-27a)
+- P1-11 펫 CRUD 확장·P1-06a ApiToken

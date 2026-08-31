@@ -12,9 +12,8 @@ import { t } from "../lib/i18n.js";
 import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersion.js";
 import { clearMediaCookie, setMediaCookie } from "../lib/mediaAuth.js";
 import { isRecordNotFoundError, isUniqueConstraintError } from "../lib/prismaErrors.js";
-
-/** API JWT 수명 — 자체 호스팅이라 재로그인 부담을 고려해 7일로 둔다(기존 90일에서 단축). */
-const JWT_EXPIRES_IN = "7d";
+import { JWT_EXPIRES_IN } from "../lib/jwtSecret.js";
+import { householdWhere, requireHouseholdId } from "../lib/householdScope.js";
 
 export async function authRoutes(app: FastifyInstance) {
   app.get("/bootstrap/status", async () => {
@@ -34,8 +33,15 @@ export async function authRoutes(app: FastifyInstance) {
     const { name, email, password } = parsed.data;
     const passwordHash = await bcrypt.hash(password, 10);
     try {
-      const user = await prisma.user.create({
-        data: { name, email, passwordHash, role: "ADMIN" },
+      const user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: { name, email, passwordHash, role: "ADMIN" },
+        });
+        const household = await tx.household.create({ data: { name: "우리 집" } });
+        await tx.householdMember.create({
+          data: { householdId: household.id, userId: created.id, role: "OWNER" },
+        });
+        return created;
       });
       return reply
         .code(201)
@@ -81,7 +87,7 @@ export async function authRoutes(app: FastifyInstance) {
 
   // 기본 로그아웃은 이 기기의 미디어 쿠키만 지운다. tokenVersion을 올리면 폰에서 로그아웃할 때
   // 주방 태블릿까지 끊기므로, 전 기기 무효화는 /logout-all 과 비밀번호 변경에만 둔다.
-  // 트레이드오프: 기본 로그아웃 후에도 탈취된 Bearer는 최대 7일 유효하다.
+  // 트레이드오프: 기본 로그아웃 후에도 탈취된 Bearer는 최대 30일 유효하다(tokenVersion으로 즉시 무효화 가능).
   app.post("/logout", { preHandler: [app.authenticate] }, async (_request, reply) => {
     clearMediaCookie(reply);
     return reply.code(204).send();
@@ -100,7 +106,24 @@ export async function authRoutes(app: FastifyInstance) {
     // 여기서 미디어 쿠키를 슬라이딩 갱신한다. 로그인만 심으면 24h 뒤 JWT는 살아 있는데
     // 사진만 전부 401이 된다.
     setMediaCookie(app, reply, user.id);
-    return { id: user.id, name: user.name, email: user.email, role: user.role };
+
+    const householdId = request.householdId;
+    let needsPet = false;
+    if (householdId) {
+      const petCount = await prisma.pet.count({
+        where: { ...householdWhere(householdId), archivedAt: null },
+      });
+      needsPet = petCount === 0;
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      householdId,
+      needsPet,
+    };
   });
 
   // 공개 회원가입은 없다 — 관리자만 가족 구성원 계정을 만들 수 있다.
@@ -112,9 +135,18 @@ export async function authRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
       const { name, email, password, role } = parsed.data;
+      const householdId = requireHouseholdId(request, reply);
+      if (!householdId) return;
+
       const passwordHash = await bcrypt.hash(password, 10);
       try {
-        const user = await prisma.user.create({ data: { name, email, passwordHash, role } });
+        const user = await prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({ data: { name, email, passwordHash, role } });
+          await tx.householdMember.create({
+            data: { householdId, userId: created.id, role: "MEMBER" },
+          });
+          return created;
+        });
         return reply
           .code(201)
           .send({ id: user.id, name: user.name, email: user.email, role: user.role });
