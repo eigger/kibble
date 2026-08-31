@@ -53,6 +53,9 @@
 | R20 | 자동 입력(웹훅·토큰)을 Phase 2에 | **변경 → Phase 1** | Phase 1에 자동 입력이 0이면 게이트가 "수동 입력만으로 버티는가"만 묻게 되어, 실패 시 원인 구분이 안 된다 | — |
 | R21 | i18n(en)을 Phase 4에 | **변경 → Phase 1** | stash가 755줄을 소급 번역해야 했다. 키를 만들 때 en을 같이 쓰는 비용은 거의 0 | — |
 | R22 | JWT 수명 7일 (stash 값) | **변경 → 30일** | 게이트 2주 중 최소 1회 재로그인이 발생해 판정을 오염시킨다. `tokenVersion`으로 즉시 무효화가 가능한 것이 근거 | — |
+| R23 | 커뮤니티 은어를 `EventType.aliases` 시드에 포함 ("감자"=소변 등) | **기각** | 특정 집단의 말이라 개를 키우는 가구에서 오탐을 낸다. 공개 기본값은 누구에게나 통하는 일반어만(§7.2). Phase 2 설정 화면에서 **"추가할 만한 별칭" 후보로 제시**하고 사용자가 고르게 한다 | — |
+| R24 | 시드 프리셋 `label`에 한글 리터럴 저장 | **기각** | en 로케일 사용자가 첫 실행부터 한글 칩을 본다 (K-9 위반). 시드는 i18n 키, 사용자 수정분만 리터럴 | — |
+| R25 | 시스템 `EventType` 시드를 Prisma `upsert`로 | **기각** | 복합 unique에 NULL이 끼면 `where`를 만들 수 없어 실행 불가. 게다가 NULL은 UNIQUE에서 구별되는 값이라 중복이 막히지도 않는다 → 부분 유니크 인덱스 + `findFirst`/`create` | — |
 
 ---
 
@@ -93,6 +96,47 @@
 
 **미완 / 다음 세션이 이어받을 것**
 
-- Phase 0 잔여: P0-01(프리셋 후보 실측), P0-02(시드 목록)·P0-02a(대변 스코어 도판), P0-05(PWA 실기 확인), P0-06(패키지명 충돌), P0-08(shortcuts 갱신 검증), P0-09(파싱 벤치마크)
+- Phase 0 잔여 (사람): P0-01(프리셋 빈도 실측), P0-02a(대변 스코어 도판), P0-05(PWA 실기), P0-08(shortcuts 갱신 검증), P0-09(개인 일지 100문장 로컬 픽스처)
+- Phase 0 리뷰: [`docs/seed-event-types.md`](seed-event-types.md) 초안 — 확정 후 P0-02 완료 처리
 - `README.md` / `README.ko.md` 미작성 (P1-32)
-- Phase 0이 끝나기 전에는 애플리케이션 코드를 쓰지 않는다
+- **Phase 0 사람·리뷰 항목 완료 전에는 애플리케이션 코드를 쓰지 않는다** (§4, PROJECT §9)
+
+### 2026-08-31 — Phase 0 에이전트 산출물 (P0-02·P0-06·P0-09 보조)
+
+**한 일**
+
+- [`docs/seed-event-types.md`](seed-event-types.md): 시스템 EventType 14+2종, 종별 프리셋 템플릿(CAT/DOG/OTHER), `isStarter` 3개, `FECAL_7`, i18n 키표, aliases 제안
+- [`docs/package-names.md`](package-names.md): GitHub·npm·GHCR 충돌 조사 → `@kibble/*` 사용 가능, 루트 `private: true`
+- [`docs/parsing-benchmark-public.md`](parsing-benchmark-public.md): 공개 합성 파싱 케이스 ~25개 (P0-09 로컬 100문장과 병행)
+- `WORKPLAN.md` P0-02/P0-06/P0-09 상태 갱신
+
+**리뷰 필요 (사람)**
+
+1. **P0-02** — 시드 목록·프리셋 7개 구성·aliases가 공개 기본값으로 적절한지
+2. **P0-01** — 3일 실측 후 §6 조정 항목(기본 수량·프리셋 수) 반영
+3. **P0-02a** — 대변 스코어 1~7 도판 (라이선스 자유)
+4. **P0-05 / P0-08** — 실기기 PWA·shortcut 갱신
+5. **P0-09** — 개인 일지 100문장 → `fixtures/private/` (`.gitignore` 등재됨)
+
+**다음**: P0-02 리뷰 확정 → Phase 0 잔여 사람 항목 → **P1-01** stash 섀시 import
+
+### 2026-08-31 — PR #1 리뷰 반영 (문서 단계 수정)
+
+에이전트 리뷰 10건 중 문서로 해결 가능한 전부를 반영했다. 코드 이전이므로 문서에서 고쳤다.
+
+**확정한 것**
+
+- **시스템 `EventType`은 부분 유니크 인덱스가 필요하다.** `@@unique([householdId, key])`는 `householdId = null`인 시스템 행에 걸리지 않는다 — PostgreSQL이 UNIQUE에서 NULL을 서로 구별되는 값으로 보기 때문. 시드 재실행 시 조용히 중복된다. 초기 마이그레이션에 `CREATE UNIQUE INDEX ... WHERE "householdId" IS NULL`을 raw SQL로 넣고, 시드는 **`upsert` 대신 `findFirst` → `create`**로 쓴다 (`upsert`는 복합 unique에 NULL이 끼면 `where`를 만들 수 없어 실행 자체가 불가). `PROJECT.md §4`·`seed-event-types.md §1.1`
+- **둘째 반려동물 등록 시 프리셋을 중복 생성하지 않는다.** 프리셋은 `petId = null`(가구 전체)이므로 등록마다 삽입하면 "사료"가 두 개가 되고 `isStarter`가 6개가 되어 G-1이 깨진다. 이미 있는 `eventTypeId`는 건너뛰고, **`isStarter`는 첫 등록 때만** 설정한다. `existing` 집합에 `archivedAt` 조건을 걸지 않는다 — 사용자가 숨긴 칩이 되살아나면 안 되기 때문. `seed-event-types.md §4.0`
+- **시드 프리셋의 `label`은 i18n 키를 저장한다** (`eventType.meal`). 한글 리터럴을 넣으면 en 사용자가 첫 실행부터 한글 칩을 본다 (K-9 위반). 사용자가 이름을 고치면 리터럴로 바뀌고 그때부터 로케일을 따르지 않는 것이 맞다. 판별은 `eventType.`/`preset.` 접두사. `seed-event-types.md §3.1`
+- **파싱 상대 시각 기준값을 한 표로 고정**했다 (아침 08:00 / 저녁 19:00 …). **P1-24의 시각 빠른 버튼도 같은 표를 쓴다** — 두 경로가 다르면 타임라인 정렬이 어긋난다. `parsing-benchmark-public.md`
+- **`needsReview`가 true가 되는 조건 4가지를 확정**했다 (타입 후보 복수 / 상대 시각 추정 / 범위 환산 / `note` 흡수). `~정도`·`~인듯` 같은 근사 표현은 그 자체로는 true가 아니다 — 사용자는 원래 그렇게 쓴다(J10). `WORKPLAN §5.6`의 게이트 지표가 측정 가능해졌다
+- **범위 수량은 중간값**, 앞자리 생략(`7~80` → `70~80`)은 보정 후 중간값. 규칙 없이 기대값만 있어 테스트가 불가능했던 것을 고쳤다
+- **개인 픽스처 경로는 `fixtures/private/` 하나**로 통일했다
+
+**기각한 것** → §1에 R23 추가
+
+**고친 문서 정합성**
+
+- 벤치마크의 `rawLine` → `rawText`로 통일 (`PROJECT.md §4` 필드명). 여러 줄일 때 각 이벤트는 **그 줄만** 담고 `entryId`로 묶는다
+- 한국어 문서에 섞인 중국어 표기 2건 정정
