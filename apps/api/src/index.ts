@@ -13,8 +13,9 @@ import { localeFromRequest } from "./lib/i18n.js";
 import { getCachedTokenVersion } from "./lib/tokenVersion.js";
 import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
 import { resolveJwtSecret } from "./lib/jwtSecret.js";
-import { resolveHouseholdIdForUser } from "./lib/householdScope.js";
+import { getCachedHouseholdMembership } from "./lib/householdScope.js";
 import { prisma } from "./lib/prisma.js";
+import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
 import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 
@@ -54,6 +55,7 @@ await app.register(rateLimit, { global: false });
 
 app.decorateRequest("locale", "ko");
 app.decorateRequest("householdId", null);
+app.decorateRequest("householdRole", null);
 app.addHook("onRequest", async (request) => {
   request.locale = localeFromRequest(request);
 });
@@ -83,7 +85,9 @@ app.decorate("authenticate", async (request, reply) => {
     return;
   }
 
-  request.householdId = await resolveHouseholdIdForUser(userId);
+  const membership = await getCachedHouseholdMembership(userId);
+  request.householdId = membership?.householdId ?? null;
+  request.householdRole = membership?.role ?? null;
 });
 
 app.decorate("requireAdmin", async (request, reply) => {
@@ -115,6 +119,11 @@ await app.register(backupRoutes, { prefix: "/api/backup" });
 startTrashPurgeJob();
 
 const port = Number(process.env.PORT ?? 8080);
+
+const eventTypeSeed = await seedSystemEventTypes(prisma);
+if (eventTypeSeed.created > 0 || eventTypeSeed.updated > 0) {
+  app.log.info(eventTypeSeed, "system event types seeded on startup");
+}
 
 app.listen({ port, host: "0.0.0.0" }).catch((err) => {
   app.log.error(err);

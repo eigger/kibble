@@ -13,7 +13,14 @@ import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersi
 import { clearMediaCookie, setMediaCookie } from "../lib/mediaAuth.js";
 import { isRecordNotFoundError, isUniqueConstraintError } from "../lib/prismaErrors.js";
 import { JWT_EXPIRES_IN } from "../lib/jwtSecret.js";
-import { householdWhere, requireHouseholdId } from "../lib/householdScope.js";
+import { householdWhere, requireHouseholdId, findHouseholdMember, invalidateHouseholdCache } from "../lib/householdScope.js";
+
+class BootstrapDisabledError extends Error {
+  constructor() {
+    super("BOOTSTRAP_DISABLED");
+    this.name = "BootstrapDisabledError";
+  }
+}
 
 export async function authRoutes(app: FastifyInstance) {
   app.get("/bootstrap/status", async () => {
@@ -34,6 +41,9 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, 10);
     try {
       const user = await prisma.$transaction(async (tx) => {
+        const existingCount = await tx.user.count();
+        if (existingCount > 0) throw new BootstrapDisabledError();
+
         const created = await tx.user.create({
           data: { name, email, passwordHash, role: "ADMIN" },
         });
@@ -43,10 +53,14 @@ export async function authRoutes(app: FastifyInstance) {
         });
         return created;
       });
+      invalidateHouseholdCache(user.id);
       return reply
         .code(201)
         .send({ id: user.id, name: user.name, email: user.email, role: user.role });
     } catch (err) {
+      if (err instanceof BootstrapDisabledError) {
+        return reply.code(409).send({ error: t("bootstrapDisabled", request.locale) });
+      }
       if (isUniqueConstraintError(err)) {
         return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
       }
@@ -108,8 +122,10 @@ export async function authRoutes(app: FastifyInstance) {
     setMediaCookie(app, reply, user.id);
 
     const householdId = request.householdId;
-    let needsPet = false;
-    if (householdId) {
+    let needsPet: boolean;
+    if (!householdId) {
+      needsPet = true;
+    } else {
       const petCount = await prisma.pet.count({
         where: { ...householdWhere(householdId), archivedAt: null },
       });
@@ -147,6 +163,7 @@ export async function authRoutes(app: FastifyInstance) {
           });
           return created;
         });
+        invalidateHouseholdCache(user.id);
         return reply
           .code(201)
           .send({ id: user.id, name: user.name, email: user.email, role: user.role });
@@ -159,8 +176,12 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
-  app.get("/users", { preHandler: [app.authenticate, app.requireAdmin] }, async () => {
+  app.get("/users", { preHandler: [app.authenticate, app.requireAdmin] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
     const users = await prisma.user.findMany({
+      where: { memberships: { some: { householdId } } },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { createdAt: "asc" },
     });
@@ -171,10 +192,17 @@ export async function authRoutes(app: FastifyInstance) {
     "/users/:id",
     { preHandler: [app.authenticate, app.requireAdmin] },
     async (request, reply) => {
+      const householdId = requireHouseholdId(request, reply);
+      if (!householdId) return;
+
       const { id } = request.params as { id: string };
       if (id === request.user.sub) {
         return reply.code(400).send({ error: t("cannotDeleteSelf", request.locale) });
       }
+
+      const member = await findHouseholdMember(householdId, id);
+      if (!member) return reply.code(404).send({ error: t("userNotFound", request.locale) });
+
       try {
         await prisma.user.delete({ where: { id } });
       } catch (err) {
@@ -193,10 +221,16 @@ export async function authRoutes(app: FastifyInstance) {
     "/users/:id/reset-password",
     { preHandler: [app.authenticate, app.requireAdmin] },
     async (request, reply) => {
+      const householdId = requireHouseholdId(request, reply);
+      if (!householdId) return;
+
       const { id } = request.params as { id: string };
       if (id === request.user.sub) {
         return reply.code(400).send({ error: t("cannotResetOwnPassword", request.locale) });
       }
+
+      const member = await findHouseholdMember(householdId, id);
+      if (!member) return reply.code(404).send({ error: t("userNotFound", request.locale) });
 
       const target = await prisma.user.findUnique({ where: { id } });
       if (!target) return reply.code(404).send({ error: t("userNotFound", request.locale) });

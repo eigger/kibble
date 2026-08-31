@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
+import { t } from "../lib/i18n.js";
 import { requireHouseholdId } from "../lib/householdScope.js";
 
 export async function householdRoutes(app: FastifyInstance) {
@@ -11,7 +12,7 @@ export async function householdRoutes(app: FastifyInstance) {
       where: { id: householdId },
       select: { id: true, name: true, createdAt: true },
     });
-    if (!household) return reply.code(404).send({ error: "household_not_found" });
+    if (!household) return reply.code(404).send({ error: t("householdNotFound", request.locale) });
     return household;
   });
 }

@@ -1,4 +1,5 @@
 import "fastify";
+import type { Role } from "@prisma/client";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -9,6 +10,7 @@ declare module "fastify" {
     locale: "ko" | "en";
     /** K-2: authenticate가 사용자 멤버십에서 결정한다. */
     householdId: string | null;
+    householdRole: Role | null;
   }
 }
 
