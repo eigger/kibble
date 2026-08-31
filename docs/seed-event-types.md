@@ -11,9 +11,32 @@
 
 | 계층 | `householdId` | 생성 시점 | 비고 |
 |---|---|---|---|
-| **시스템 EventType** | `null` | `prisma db seed` (최초 배포) | 모든 가구가 공유. `@@unique([householdId, key])`에서 `null`은 시스템 행 |
+| **시스템 EventType** | `null` | `prisma db seed` (최초 배포) | 모든 가구가 공유 |
 | **가구 EventType** | 가구 ID | 사용자가 설정에서 추가 | K-8: 코드 변경 없이 데이터 추가 |
 | **Preset** | 가구 ID | **반려동물 등록 직후** | 종(`Pet.species`)에 맞는 템플릿에서 복사 |
+
+### 1.1 시스템 행의 유니크 제약 — `@@unique([householdId, key])`로는 부족하다
+
+**PostgreSQL은 UNIQUE 인덱스에서 NULL을 서로 구별되는 값으로 취급한다.** 따라서 `householdId = null`인 시스템 행에는 `@@unique([householdId, key])`가 **적용되지 않는다.** 이대로 두면:
+
+- `prisma db seed`를 두 번 실행하면 `(NULL, 'meal')`이 중복 삽입되고 **오류도 나지 않는다** (배포 스크립트 재실행, 컨테이너 재기동 시 seed 포함, 개발 중 반복 실행에서 실제로 발생)
+- 이후 §5의 key → `eventTypeId` resolve가 비결정적이 되어 홈 퀵 칩에 같은 타입이 두 번 뜬다
+- Prisma의 `upsert`는 **복합 unique의 구성 요소가 NULL이면 `where`에 그 unique 입력을 넘길 수 없어** 실행 자체가 불가능하다
+
+**대응 (P1-03 초기 마이그레이션에 포함)**
+
+1. `@@unique([householdId, key])`는 가구 커스텀 타입용으로 유지한다.
+2. 시스템 행 전용 **부분 유니크 인덱스**를 raw SQL로 추가한다. Prisma 스키마 문법으로는 표현할 수 없으므로 마이그레이션 파일에 직접 쓴다:
+
+```sql
+CREATE UNIQUE INDEX "EventType_system_key_key"
+  ON "EventType" ("key")
+  WHERE "householdId" IS NULL;
+```
+
+3. 시드는 **`upsert`가 아니라 `findFirst` → 없으면 `create`**로 쓴다.
+
+`PresetCode`는 `householdId`가 NOT NULL이라 이 문제가 없다.
 
 **i18n**: DB `label`은 시드 키(`eventType.meal` 등)를 저장하고, UI는 [`apps/web/lib/i18n/translations.ts`](../apps/web/lib/i18n/translations.ts)에서 ko/en을 렌더한다. 시드 스크립트는 키 문자열만 넣는다.
 
@@ -55,7 +78,9 @@
 
 ### 2.3 시스템 기본 aliases (가구 생성 시 복사)
 
-은어는 가구마다 다르다. 시드는 **흔한 한국어 키워드**만 넣고, 사용자가 설정에서 수정한다. 파서는 `EventType.aliases` + 프리셋 `label`을 함께 본다.
+은어는 가구마다 다르다. 시드는 **누구에게나 통하는 일반 한국어 키워드**만 넣고, 사용자가 설정에서 수정한다. 파서는 `EventType.aliases` + 프리셋 `label`을 함께 본다.
+
+**커뮤니티 은어는 시드에 넣지 않는다.** "감자"(소변 덩어리)·"맛동산"(대변) 같은 표현은 국내 반려묘 커뮤니티에서 널리 쓰이지만 특정 집단의 말이고, 개를 키우는 가구에서는 오탐을 유발한다. §6·§7의 "공개 저장소에 개인·가정 패턴을 넣지 않는다" 원칙과도 어긋난다. 대신 **설정 화면에서 "추가할 만한 별칭" 후보로 제시**하고 사용자가 고르게 한다 (Phase 2).
 
 | key | aliases (ko, 제안) |
 |---|---|
@@ -63,7 +88,7 @@
 | `water` | `물`, `급수`, `정수` |
 | `treat` | `간식`, `츄르`, `스낵` |
 | `poop` | `대변`, `똥`, `변`, `응가` |
-| `pee` | `소변`, `쉬`, `감자` |
+| `pee` | `소변`, `쉬`, `오줌` |
 | `vomit` | `구토`, `토`, `역류` |
 | `medication` | `약`, `투약`, `복약` |
 | `weight` | `체중`, `몸무게` |
@@ -95,13 +120,45 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 | `eventType.vaccination` | 접종 | Vaccination |
 | `eventType.note` | 메모 | Note |
 
-프리셋 `label`은 **구체 표시**를 위해 i18n 키 대신 짧은 ko 문자열을 DB에 둘 수 있다 (예: `사료`). en UI에서는 `preset.{key}` 키로 매핑하거나 `EventType` 라벨을 재사용한다.
+### 3.1 프리셋 라벨은 무엇을 저장하는가 — 확정
+
+한글 문자열을 그대로 넣으면 en 로케일 사용자가 첫 실행부터 `사료`·`물`·`대변`을 보게 되어 K-9(ko/en 동시 제공)와 P1-28 완료 조건("en 미번역 키 0건")을 위반한다. 공개 배포가 전제(§7.2)이므로 실제로 발생하는 경로다. 따라서:
+
+| 출처 | `Preset.label`에 들어가는 값 | 렌더링 |
+|---|---|---|
+| **시드 템플릿** (§4.2~4.4) | i18n 키 — 해당 `EventType`의 키를 그대로 (`eventType.meal`) | 사전에서 ko/en 해석 |
+| **사용자 생성·수정** | 사용자가 입력한 리터럴 (`저녁 사료 50g`) | 그대로 표시 |
+
+**판별 규칙**: `label`이 `eventType.` 또는 `preset.` 접두사로 시작하면 i18n 키로 보고 사전을 탄다. 그 외에는 리터럴로 그대로 렌더한다. 사용자가 시드 프리셋의 이름을 한 번이라도 고치면 리터럴로 바뀌고, 그 시점부터 로케일을 따르지 않는 것이 맞다 — 사용자가 직접 붙인 이름이기 때문이다.
+
+아래 §4.2~4.4 표의 `label (ko)` 열은 **사람이 읽기 위한 참고 표시**이며, 시드에 들어가는 실제 값은 `eventType.{key}`다.
 
 ---
 
 ## 4. 종별 프리셋 템플릿
 
 반려동물 등록(`POST /api/pets`) 성공 시, 해당 종 템플릿으로 `Preset` 행을 **자동 생성**한다 (`petId = null` → 현재 선택 반려동물). 수량·단위는 **비워 둔다** — 가구마다 사료·급여량이 다르고, P0-01 실측 후 시드만 조정한다.
+
+### 4.0 두 번째 반려동물 — 중복 생성 금지
+
+프리셋은 `petId = null`(가구 전체 적용)이므로 **등록할 때마다 무조건 삽입하면 중복된다.** 고양이를 등록해 CAT 템플릿 7개가 생긴 가구에 개를 추가하면 `meal`·`water`·`poop`·`pee`·`treat`·`weight` 6종이 두 벌이 되어, 홈 퀵 칩에 "사료"가 두 개 뜨고 `isStarter=true` 행이 6개가 되어 시작 3개 규칙(G-1)이 깨진다.
+
+**삽입 규칙**
+
+```
+templates = species 템플릿 (§4.2~4.4)
+// archivedAt 조건을 걸지 않는다 — 사용자가 지운 프리셋을 되살리면 안 된다.
+existing  = 이 가구의 Preset 중 petId = null 인 것의 eventTypeId 집합
+isFirst   = existing.isEmpty
+
+for t in templates:
+    if t.eventTypeId in existing: continue      // 이미 있으면 건너뛴다
+    insert Preset(t, isStarter = t.isStarter AND isFirst)
+```
+
+- **`isStarter`는 첫 반려동물 등록 때만 설정한다.** 두 번째 이후에는 항상 `false`로 넣어 시작 3개(G-1)를 유지한다.
+- 종 특화 타입(`walk`, `litter_change`)은 `existing`에 없으므로 정상적으로 추가된다 — 고양이 가구에 개를 들이면 `산책`만 늘어난다.
+- `existing`에 `archivedAt` 조건을 걸지 않는 이유: 사용자가 "간식" 칩을 숨겼는데 둘째를 등록하는 순간 되살아나면 안 된다.
 
 ### 4.1 공통 규칙
 
@@ -156,11 +213,12 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 ## 5. 시드 스크립트 동작 (P1-04 참고)
 
 ```
-1. 시스템 EventType upsert (householdId = null, key 기준)
+1. 시스템 EventType: key로 findFirst(householdId = null) → 없으면 create
+   ※ upsert 금지. 복합 unique에 NULL이 끼어 있어 Prisma가 where를 못 만든다 (§1.1)
 2. (부트스트랩·첫 가구 생성은 별도 — P1-07)
 3. POST /api/pets { name, species } 시:
    a. species 템플릿 선택 (§4.2~4.4)
-   b. Preset 행 bulk insert (householdId, eventTypeId resolve)
+   b. §4.0 삽입 규칙으로 Preset bulk insert — 이미 있는 eventTypeId는 건너뛴다
    c. EventType aliases는 시스템 행 참조 (가구 복사본은 Phase 2 커스텀 시)
 ```
 
@@ -181,8 +239,10 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 
 ## 7. 리뷰 체크리스트
 
-- [ ] 시작 3개(G-1): 사료·물·대변(배변) — **종无关 동일**
+- [ ] 시작 3개(G-1): 사료·물·대변(배변) — **종 무관 동일**
 - [ ] 공개 저장소에 개인 패턴·실제 반려동물 이름 없음
+- [ ] **§3.1** 시드 프리셋 `label`에 i18n 키를 넣는 방식이 맞는지 (한글 리터럴 대신)
+- [ ] **§2.3** 커뮤니티 은어를 시드에서 빼고 설정 후보로 미룬 판단이 맞는지
 - [ ] `poop` + `FECAL_7`만 Phase 1 척도 UI (§3.8)
 - [ ] 프리셋 ≤ 8 (종별)
 - [ ] P0-01 실측 빈도와 충돌 없음 (사람 확인)

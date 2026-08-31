@@ -165,6 +165,14 @@ enum Sex {
 
 // ---------- 이벤트 타입 ----------
 // householdId가 null이면 시스템 기본 타입(시드). 사용자는 커스텀 타입 추가 가능.
+//
+// 주의: 아래 @@unique([householdId, key])는 시스템 행(householdId = null)에는
+// 걸리지 않는다 — PostgreSQL은 UNIQUE에서 NULL을 서로 구별되는 값으로 취급한다.
+// 시드를 두 번 돌리면 (NULL, 'meal')이 조용히 중복된다. 초기 마이그레이션에
+// 부분 유니크 인덱스를 raw SQL로 추가하고, 시드는 upsert가 아니라
+// findFirst → create로 쓴다 (docs/seed-event-types.md §1.1):
+//   CREATE UNIQUE INDEX "EventType_system_key_key"
+//     ON "EventType" ("key") WHERE "householdId" IS NULL;
 model EventType {
   id           String   @id @default(cuid())
   householdId  String?
@@ -224,7 +232,9 @@ model Preset {
   quantity    Decimal? @db.Decimal(10, 2)
   unit        String?
   note        String?
-  isStarter   Boolean  @default(false)  // 온보딩 직후 노출할 3개. 나머지는 "더보기" 뒤
+  // 온보딩 직후 노출할 3개. 나머지는 "더보기" 뒤.
+  // 둘째 반려동물 등록 시에는 항상 false로 넣는다 — 아니면 시작 칩이 6개가 된다.
+  isStarter   Boolean  @default(false)
   sortOrder   Int      @default(0)
   hiddenAt    DateTime?        // 칩 길게 누르기 → 숨기기
   archivedAt  DateTime?
