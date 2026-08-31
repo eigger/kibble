@@ -72,9 +72,11 @@ Phase 0에서 실제 코드를 열어보고 재사용 범위를 확정할 것.
 
 ---
 
-## 4. 데이터 모델 (초안)
+## 4. 데이터 모델 (확정판)
 
-> **주의**: 이 절은 초안이며 WORKPLAN §3.2의 변경표가 우선한다. 확정판 반영은 P0-07.
+> **P0-07 완료.** WORKPLAN §3.2의 변경표가 이 절에 반영됐다. 이후 변경은 이 문서와 WORKPLAN을 **함께** 고친다.
+>
+> Phase 1 마이그레이션은 **Phase 2에서 쓸 테이블까지 한 번에 만든다** — `PresetCode`, `Contact`(좌표 포함), `MedicationCourse`, `ApiToken`. UI 없는 테이블이 있는 건 정상이며, 나중 마이그레이션을 회피하기 위한 의도적 선택이다.
 
 ```prisma
 // ---------- 사용자 / 가구 ----------
@@ -94,11 +96,14 @@ model Household {
   name      String
   createdAt DateTime @default(now())
 
-  members    HouseholdMember[]
-  pets       Pet[]
-  eventTypes EventType[]
-  contacts   Contact[]
-  tokens     ApiToken[]
+  members     HouseholdMember[]
+  pets        Pet[]
+  eventTypes  EventType[]
+  presets     Preset[]
+  presetCodes PresetCode[]
+  contacts    Contact[]
+  courses     MedicationCourse[]
+  tokens      ApiToken[]
 }
 
 model HouseholdMember {
@@ -139,7 +144,9 @@ model Pet {
 
   household  Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
   events     Event[]
+  presets    Preset[]
   reminders  Reminder[]
+  courses    MedicationCourse[]
 
   @@index([householdId, archivedAt])
 }
@@ -167,15 +174,29 @@ model EventType {
   color        String
   category     EventCategory
   defaultUnit  String?  // "g", "ml", "kg", "min"
-  isQuickAction Boolean @default(false)  // 홈 화면 그리드 노출 여부
+  // null이면 전 종 공통. 종 특화 타입 확장이 "데이터 추가"로 끝나게 한다.
+  species      Species?
+  // 가정 내 은어 매칭용 ("감자"→소변, "맛동산"→대변). 자유 텍스트 파싱이 참조한다.
+  aliases      String[]
+  // 이 타입이 쓰는 표준 척도. 초보 보호자는 서술을 못 하지만 단계는 고를 수 있다.
+  scaleType    ScaleType?
   sortOrder    Int      @default(0)
   archivedAt   DateTime?
 
   household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
   events    Event[]
+  presets   Preset[]
   reminders Reminder[]
 
   @@unique([householdId, key])
+}
+
+// 범용 정수 척도. 대변 굳기 1~7, 식욕·활력 1~3을 Event.scaleValue 컬럼 하나로 표현한다.
+// payload에 넣지 않는 이유는 추세 그래프의 대상이기 때문.
+enum ScaleType {
+  FECAL_7      // 대변 굳기 1~7
+  APPETITE_3   // 식욕: 평소대로 / 줄었음 / 거의 안 먹음
+  ENERGY_3     // 활력: 평소대로 / 처짐 / 많이 처짐
 }
 
 enum EventCategory {
@@ -188,37 +209,125 @@ enum EventCategory {
   NOTE        // 자유 메모
 }
 
+// ---------- 프리셋 (입력의 축) ----------
+// "무엇을 기록할지"를 미리 굳혀둔 것. 홈 퀵 칩이자 빠른 기록 항목이며,
+// 트리거 충족 시 인쇄 라벨의 대상이 된다. 표면이 여럿이고 실체는 하나다.
+// EventType.isQuickAction을 대체한다 — 다묘에서 "A 사료"와 "B 사료"는
+// 서로 다른 타일이어야 하는데 타입 플래그로는 표현할 수 없다.
+model Preset {
+  id          String   @id @default(cuid())
+  householdId String
+  petId       String?          // null = 현재 선택된 반려동물에 적용(홈 칩)
+                               // 지정 = 대상이 확정된 프리셋(인쇄 라벨용)
+  eventTypeId String
+  label       String           // "사료 50g"
+  quantity    Decimal? @db.Decimal(10, 2)
+  unit        String?
+  note        String?
+  isStarter   Boolean  @default(false)  // 온보딩 직후 노출할 3개. 나머지는 "더보기" 뒤
+  sortOrder   Int      @default(0)
+  hiddenAt    DateTime?        // 칩 길게 누르기 → 숨기기
+  archivedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  household Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet?        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType EventType   @relation(fields: [eventTypeId], references: [id])
+  codes     PresetCode[]
+  events    Event[]
+  tokens    ApiToken[]
+
+  @@index([householdId, archivedAt, sortOrder])
+}
+
+// 하나의 프리셋에 여러 코드를 붙인다 (stash의 Item:Barcode와 같은 모양).
+// Phase 1에는 행이 생기지 않는다 — 모델만 미리 둬서 Phase 2(제품 바코드)와
+// 인쇄 QR 복원이 마이그레이션 없이 끝나게 한다.
+model PresetCode {
+  id          String   @id @default(cuid())
+  presetId    String
+  // 가구 내에서만 유니크하다. 전역 유니크는 틀렸다 — 두 가구가 같은 사료 EAN을 쓴다.
+  householdId String
+  value       String
+  symbology   CodeSymbology @default(QR)
+  source      CodeSource    @default(GENERATED)
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  preset    Preset    @relation(fields: [presetId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, value])
+  @@index([presetId, revokedAt])
+}
+
+enum CodeSymbology {
+  QR
+  EAN13
+  UPCA
+  CODE128
+  OTHER
+}
+
+enum CodeSource {
+  GENERATED  // 우리가 발급해 인쇄한 QR (보류 — 트리거 충족 시)
+  PRODUCT    // 제품 포장의 기존 바코드 (Phase 2)
+}
+
 // ---------- 이벤트 (핵심) ----------
 model Event {
   id           String   @id @default(cuid())
-  petId        String
+  petId        String              // NOT NULL 유지. 공용 이벤트를 위해 미리 nullable로 열지
+                                   // 않는다 — 모든 쿼리·인덱스·가구 격리 검사가 분기로 오염된다.
   eventTypeId  String
-  occurredAt   DateTime            // 실제 발생 시각 (기본값 = 기록 시각)
-  quantity     Decimal? @db.Decimal(10, 2)
-  unit         String?
+  presetId     String?             // 어느 경로로 들어왔는지. 게이트에서 경로별 비중을 본다.
+  occurredAt   DateTime            // 실제 발생 시각. 실사용에서는 기록 시각과 다른 게 기본이다
+                                   // (밤에 아침 일을 적는다) — now() 기본값에 기대지 않는다.
+  // quantity는 "섭취량". 급여는 제공량과 섭취량이 다르고 실사용자는 둘 다 적는다
+  // ("100g 줬는데 30g 먹음"). 둘 다 추세 그래프 대상이라 payload가 아닌 컬럼이다.
+  quantity        Decimal? @db.Decimal(10, 2)
+  quantityOffered Decimal? @db.Decimal(10, 2)
+  unit            String?
+  // 표준 척도 값 (EventType.scaleType이 의미를 정한다). 초보 보호자용 입력 경로.
+  scaleValue   Int?
   note         String?
   costKrw      Int?                // 비용 추적 / 보험 청구용
-  payload      Json?               // 타입별 확장 필드
+  contactId    String?             // 병원 등. payload가 아닌 컬럼 — "이 병원 방문 이력",
+                                   // "병원별 비용"이 쿼리돼야 한다.
+  medicationCourseId String?       // 복약 이벤트가 어느 처방 과정에 속하는지
+  payload      Json?               // 타입별 확장 필드 (쿼리 대상이 아닌 것만)
+  // 사용자가 쓴 원문. 파싱해서 구조를 얻더라도 절대 버리지 않는다 —
+  // 오파싱이 복구 가능해야 하고, 파싱 실패는 NOTE로 흡수된다.
+  rawText      String?
+  entryId      String?             // 한 번에 쓴 글에서 나온 여러 이벤트를 묶는다
+  needsReview  Boolean  @default(false)  // 파싱 제안을 아직 확인받지 않음
   source       EventSource @default(WEB)
   createdById  String?             // 시스템 생성 시 null
-  dedupeKey    String?  @unique    // 웹훅 중복 방지
+  dedupeKey    String?  @unique    // 외부 자동화 재시도 중복 방지
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   deletedAt    DateTime?
 
-  pet         Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType   EventType   @relation(fields: [eventTypeId], references: [id])
-  createdBy   User?       @relation("EventCreator", fields: [createdById], references: [id])
+  pet         Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType   EventType         @relation(fields: [eventTypeId], references: [id])
+  preset      Preset?           @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  contact     Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  course      MedicationCourse? @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
+  createdBy   User?             @relation("EventCreator", fields: [createdById], references: [id])
   attachments Attachment[]
 
   @@index([petId, occurredAt(sort: Desc)])
   @@index([petId, eventTypeId, occurredAt(sort: Desc)])
+  @@index([medicationCourseId])
+  @@index([entryId])
 }
 
 enum EventSource {
   WEB
-  NFC
-  WEBHOOK        // HA, 물리 버튼
+  QUICK          // 빠른 기록 경량 화면
+  SCAN           // 제품 바코드 (Phase 2)
+  API            // 토큰 인증 외부 자동화 — 물리 버튼, 급식기, 단축어, 스크립트
   SHARE_TARGET   // PWA 사진 공유
   IMPORT
 }
@@ -234,6 +343,33 @@ model Attachment {
   createdAt DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+// ---------- 투약 과정 ----------
+// 처방 1건 = 과정 1개. 복약 자체는 별도 테이블을 만들지 않는다 —
+// 그냥 Event(eventType.key = "medication") + medicationCourseId 참조다 (§2-3 단일 테이블).
+// 남은 수량도 컬럼으로 두지 않는다: totalDoses - 연결된 이벤트 수로 유도한다.
+// 카운터를 따로 두면 소프트삭제·오기록 정정 후 반드시 어긋난다.
+model MedicationCourse {
+  id          String    @id @default(cuid())
+  householdId String
+  petId       String
+  name        String              // "○○ 캡슐"
+  dosesPerDay Int       @default(1)
+  totalDoses  Int?                // 총 처방 횟수. null이면 무기한(영양제 등)
+  startDate   DateTime
+  endDate     DateTime?
+  contactId   String?             // 처방한 병원
+  note        String?
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  events    Event[]
+
+  @@index([householdId, petId, archivedAt])
 }
 
 // ---------- 리마인더 ----------
@@ -262,6 +398,8 @@ enum ReminderRule {
 }
 
 // ---------- 연락처 ----------
+// 좌표는 이벤트가 아니라 Contact에 붙인다 — 동물병원은 단골이 있고 재방문한다.
+// (garage는 정비 기록에 직접 박는데, 정비소는 매번 다를 수 있어서다.)
 model Contact {
   id          String   @id @default(cuid())
   householdId String
@@ -269,10 +407,15 @@ model Contact {
   name        String
   phone       String?
   address     String?
+  latitude    Float?
+  longitude   Float?
+  placeUrl    String?            // 지도 서비스의 장소 상세 URL
   note        String?
   isFavorite  Boolean  @default(false)
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  household Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  events    Event[]
+  courses   MedicationCourse[]
 }
 
 enum ContactType {
@@ -283,13 +426,17 @@ enum ContactType {
   OTHER
 }
 
-// ---------- API 토큰 (NFC / 웹훅 인증) ----------
+// ---------- API 토큰 (외부 자동화 인증) ----------
+// 특정 연동을 구현하지 않고 이 토큰으로 열리는 API 하나만 둔다.
+// HA·물리버튼·ESPHome·단축어·Node-RED·curl이 전부 같은 문으로 들어온다.
 model ApiToken {
   id          String   @id @default(cuid())
   householdId String
-  name        String            // "현관 NFC", "HA 급식기"
-  tokenHash   String   @unique  // 원문은 저장하지 않음
-  scopes      String[]          // ["event:create"]
+  name        String            // "사료통 버튼", "자동급식기"
+  tokenHash   String   @unique  // 원문은 저장하지 않음. 발급 시 1회만 노출.
+  scopes      String[]          // Phase 1은 ["event:create"]만
+  // 프리셋에 묶으면 본문 없는 POST 한 줄로 기록된다 — 단순한 기기가 붙기 쉬워야 한다.
+  presetId    String?
   petId       String?           // 특정 반려동물로 스코프 제한
   eventTypeId String?           // 특정 이벤트 타입으로 스코프 제한
   lastUsedAt  DateTime?
@@ -298,16 +445,20 @@ model ApiToken {
   createdAt   DateTime @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  preset    Preset?   @relation(fields: [presetId], references: [id], onDelete: SetNull)
 }
 ```
 
 ### 모델 관련 결정 사항
 
-- `Event.payload`는 타입별 확장용이지만 **쿼리 대상이 되는 필드는 절대 payload에 넣지 않는다.** 그래프/집계에 쓰이는 값은 `quantity`/`unit`/`costKrw` 컬럼으로 승격.
+- `Event.payload`는 타입별 확장용이지만 **쿼리 대상이 되는 필드는 절대 payload에 넣지 않는다.** 그래프·집계에 쓰이는 값은 컬럼으로 승격한다 — `quantity`, `quantityOffered`, `scaleValue`, `costKrw`, `contactId`, `medicationCourseId`.
 - 체중은 별도 테이블이 아니라 `eventType.key = "weight"` + `quantity` 이벤트로 처리한다.
-- 병원 방문은 `MEDICAL` 카테고리 이벤트 + `payload: { diagnosis, vetContactId, prescription }` + `costKrw` + 영수증 `Attachment`.
-  - → *WORKPLAN §3.9에서 수정됨: `vetContactId`는 쿼리 대상이므로 `Event.contactId` 컬럼으로 승격*
+- 병원 방문은 `MEDICAL` 카테고리 이벤트 + `contactId`(병원) + `costKrw` + 영수증 `Attachment`. 진단명·처방 내용처럼 **쿼리하지 않는** 값만 `payload`에 남긴다.
+- 복약은 `Event` + `medicationCourseId`다. **복약 전용 테이블을 만들지 않는다.**
+- **남은 약 수량은 컬럼이 아니라 유도값이다** (`totalDoses` − 연결 이벤트 수). 카운터를 두면 소프트삭제·정정 후 어긋난다.
 - 소프트 삭제(`deletedAt`)를 쓴다. 오입력 복구가 실사용에서 자주 필요하다.
+- **`rawText`는 어떤 경우에도 버리지 않는다.** 파싱은 구조를 얻기 위한 것이고, 실패하면 `NOTE`로 흡수한다 — 사용자가 쓴 것을 앱이 되돌려보내면 안 된다.
+- **`PresetCode.value`는 `@@unique([householdId, value])`다.** 전역 유니크는 다중 테넌트에서 틀렸다 — 두 가구가 같은 제품 바코드를 쓴다. (stash가 전역 유니크로 마이그레이션한 이력이 있으니 복사하지 말 것.)
 
 ---
 
@@ -439,6 +590,10 @@ kibble/
 │   ├── db/                  # Prisma schema, migrations, seed
 │   └── shared/              # 타입, zod 스키마, 상수
 └── docs/
+    ├── WORKLOG.md           # 작업 이력 + 기각된 안 (릴리스 전 정리)
+    ├── scenarios.md
+    ├── api.md               # 외부 자동화 연동 (Phase 1)
+    └── deploy.md
 ```
 
 ---
