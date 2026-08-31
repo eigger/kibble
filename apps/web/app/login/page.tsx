@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL } from "../../lib/api";
-import { useAuth } from "../../lib/auth-context";
+import { postLoginPath, useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 
 export default function LoginPage() {
@@ -42,8 +42,8 @@ export default function LoginPage() {
         return;
       }
       const data = await res.json();
-      await login(data.token);
-      router.push("/");
+      const user = await login(data.token);
+      router.push(user ? postLoginPath(user) : "/");
     } catch {
       setError(t("connectionError"));
     } finally {
@@ -85,8 +85,8 @@ export default function LoginPage() {
         return;
       }
       const data = await loginRes.json();
-      await login(data.token);
-      router.push("/");
+      const user = await login(data.token);
+      router.push(user ? postLoginPath(user) : "/onboarding");
     } catch {
       setError(t("connectionError"));
     } finally {

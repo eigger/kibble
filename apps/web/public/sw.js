@@ -1,5 +1,5 @@
-const CACHE_NAME = "kibble-shell-v1";
-const SHELL_ASSETS = ["/", "/login", "/q", "/settings", "/users", "/offline"];
+const CACHE_NAME = "kibble-shell-v2";
+const SHELL_ASSETS = ["/", "/login", "/onboarding", "/q", "/settings", "/users", "/offline"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
