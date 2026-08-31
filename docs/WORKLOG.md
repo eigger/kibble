@@ -93,6 +93,26 @@
 
 **미완 / 다음 세션이 이어받을 것**
 
-- Phase 0 잔여: P0-01(프리셋 후보 실측), P0-02(시드 목록)·P0-02a(대변 스코어 도판), P0-05(PWA 실기 확인), P0-06(패키지명 충돌), P0-08(shortcuts 갱신 검증), P0-09(파싱 벤치마크)
+- Phase 0 잔여 (사람): P0-01(프리셋 빈도 실측), P0-02a(대변 스코어 도판), P0-05(PWA 실기), P0-08(shortcuts 갱신 검증), P0-09(개인 일지 100문장 로컬 픽스처)
+- Phase 0 리뷰: [`docs/seed-event-types.md`](seed-event-types.md) 초안 — 확정 후 P0-02 완료 처리
 - `README.md` / `README.ko.md` 미작성 (P1-32)
-- Phase 0이 끝나기 전에는 애플리케이션 코드를 쓰지 않는다
+- **Phase 0 사람·리뷰 항목 완료 전에는 애플리케이션 코드를 쓰지 않는다** (§4, PROJECT §9)
+
+### 2026-08-31 — Phase 0 에이전트 산출물 (P0-02·P0-06·P0-09 보조)
+
+**한 일**
+
+- [`docs/seed-event-types.md`](seed-event-types.md): 시스템 EventType 14+2종, 종별 프리셋 템플릿(CAT/DOG/OTHER), `isStarter` 3개, `FECAL_7`, i18n 키표, aliases 제안
+- [`docs/package-names.md`](package-names.md): GitHub·npm·GHCR 충돌 조사 → `@kibble/*` 사용 가능, 루트 `private: true`
+- [`docs/parsing-benchmark-public.md`](parsing-benchmark-public.md): 공개 합성 파싱 케이스 ~25개 (P0-09 로컬 100문장과 병행)
+- `WORKPLAN.md` P0-02/P0-06/P0-09 상태 갱신
+
+**리뷰 필요 (사람)**
+
+1. **P0-02** — 시드 목록·프리셋 7개 구성·aliases가 공개 기본값으로 적절한지
+2. **P0-01** — 3일 실측 후 §6 조정 항목(기본 수량·프리셋 수) 반영
+3. **P0-02a** — 대변 스코어 1~7 도판 (라이선스 자유)
+4. **P0-05 / P0-08** — 실기기 PWA·shortcut 갱신
+5. **P0-09** — 개인 일지 100문장 → `fixtures/private/` (gitignore已有)
+
+**다음**: P0-02 리뷰 확정 → Phase 0 잔여 사람 항목 → **P1-01** stash 섀시 import
