@@ -590,8 +590,8 @@ UI:
 |---|---|---|
 | P1-01 | §5.0 0~1단계: 섀시 복사 + 도메인 전멸 | **완료** — `build`+`lint`+`test` 통과, `docker compose config` 검증 |
 | P1-02 | §5.0 2단계: 이름 치환 | **완료** — 코드·compose·proxmox에서 `stash` 잔재 0건 (stash 저장소 출처 주석만 유지) |
-| P1-03 | Prisma 스키마 신규 작성 + 초기 마이그레이션. **Phase 2에서 쓸 테이블도 지금 만든다** — `PresetCode`, `Contact`(좌표 포함), `MedicationCourse`, `ApiToken` | `migrate dev` 성공, CI 더미 URL로 `generate` 통과. **UI 없는 테이블이 있는 건 정상이다** (나중 마이그레이션 회피) |
-| P1-04 | EventType 시드 + **종별 기본 프리셋 템플릿** (P0-02) | 빈 DB 시드 후 반려동물 등록만으로 홈이 채워짐. **시드는 코드 상수가 아니라 DB 행이다** (K-8) |
+| P1-03 | Prisma 스키마 신규 작성 + 초기 마이그레이션. **Phase 2에서 쓸 테이블도 지금 만든다** — `PresetCode`, `Contact`(좌표 포함), `MedicationCourse`, `ApiToken` | **완료** — `PROJECT.md §4` 전체 + stash `Setting`·`UserRole`·`tokenVersion` 유지. `EventType_system_key_key` 부분 유니크 포함. `build`+`lint`+`test` 통과 |
+| P1-04 | EventType 시드 + **종별 기본 프리셋 템플릿** (P0-02) | **진행 중** — 시스템 EventType 시드·프리셋 템플릿·`ensurePresetsForPet`·i18n 키. pets API(P1-11) 연결 전 |
 
 ### 5.2 인증 / 테넌시 / 온보딩
 
