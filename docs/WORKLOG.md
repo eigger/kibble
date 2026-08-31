@@ -140,3 +140,44 @@
 
 - 벤치마크의 `rawLine` → `rawText`로 통일 (`PROJECT.md §4` 필드명). 여러 줄일 때 각 이벤트는 **그 줄만** 담고 `entryId`로 묶는다
 - 한국어 문서에 섞인 중국어 표기 2건 정정
+
+### 2026-08-31 — PR #1 머지 + P1-01 섀시 import·도메인 전멸
+
+**한 일**
+
+- PR #1 머지 (`docs/seed-event-types.md`, `package-names.md`, `parsing-benchmark-public.md`)
+- stash v0.7.4 섀시 통째 복사 (git history 제외). kibble 문서·LICENSE·`.gitignore` 보존
+- §5.0 1단계 도메인 전멸: API 라우트 12개·lib 15개·web 페이지 10개·shared 도메인 모듈 삭제
+- 임시 스키마 `User`+`Setting`, `init` 마이그레이션 1개 (stash 마이그레이션 11개 미이식)
+- 홈·하단 네비·설정 화면을 빈 껍데기로 축소. 백업/복원은 users+settings만
+- `npm run build` · `lint` · `test` 전부 green
+
+**미완 / 다음**
+
+- **P1-03** kibble 도메인 스키마 전면 작성 (`PROJECT.md §4` 확정판)
+- Phase 0 사람 항목 병행: P0-02 리뷰, P0-01 실측, P0-02a 도판
+
+### 2026-08-31 — P1-02 이름 치환 완료
+
+**한 일**
+
+- `@stash/*` → `@kibble/*`, localStorage·쿠키·SW 캐시 키 전부 `kibble_*`로 치환
+- compose/proxmox: `POSTGRES_*` 기본값 `kibble`, GHCR 이미지 `kibble-api`/`kibble-web`
+- proxmox 스크립트 `kibble-install.sh` · `kibble.service` · `ct/kibble.sh`로 교체
+- manifest·layout·SW를 kibble 브랜딩으로, `/q` 플레이스홀더 추가
+- `.env.example` 추가
+
+**다음**: P1-03 도메인 스키마
+
+### 2026-08-31 — PR #2 리뷰 반영 (11건)
+
+- README en/ko를 kibble 빈 껍데기용으로 전면 교체 (stash 출처 표기만 유지)
+- 로그인 `appName` i18n, `translations.ts` 재고 도메인 문자열 제거·셸 키만 유지
+- `fetchMe()` `res.ok` 검증 + 잘못된 캐시 제거
+- `docker-compose.yml`: `NODE_ENV=development`, `prisma migrate deploy` 추가
+- auth: P2002/P2025 처리, `/me` 404→401
+- `mediaAuth` Bearer 경로에 tv·purpose 검증
+- SW: `response.ok`일 때만 캐시
+- settings DELETE `MANAGED_KEYS` 검증
+- `*.tsbuildinfo` gitignore + 추적 해제
+- `capture-screenshots.mjs` kibble 경로·`kibble_locale`로 수정

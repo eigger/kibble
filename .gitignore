@@ -3,6 +3,7 @@ dist/
 .next/
 out/
 build/
+*.tsbuildinfo
 
 .env
 .env.*
@@ -18,6 +19,7 @@ uploads/
 fixtures/private/
 *.private.*
 
+.claude/
 .DS_Store
 Thumbs.db
 *.log
