@@ -37,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(CACHED_USER_KEY);
           setUser(null);
         } else {
+          // 5xx·파싱 실패 등 — 로그인 상태로 오인하지 않도록 캐시를 지운다.
           localStorage.removeItem(CACHED_USER_KEY);
           setUser(null);
         }
@@ -54,6 +55,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(CACHED_USER_KEY, JSON.stringify(me));
       return me;
     } catch {
+      // 오프라인 등 네트워크 실패 — 토큰을 무효라고 단정하지 않고, 마지막으로 확인된
+      // 사용자 정보로 폴백한다. 그래야 오프라인에서 로딩 화면에 갇히지 않고 캐시된
+      // 앱 셸이 그대로 열린다. 다시 온라인이 되면 다음 마운트/새로고침 때 재검증된다.
       const cached = localStorage.getItem(CACHED_USER_KEY);
       const parsed = cached ? (JSON.parse(cached) as User) : null;
       setUser(parsed);
@@ -67,6 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void fetchMe();
   }, [fetchMe]);
 
+  // PWA/탭을 24h 넘게 리로드 없이 열어두면 미디어 쿠키만 만료되어 사진이 깨진다.
+  // 탭이 다시 보일 때 /me를 호출해 쿠키를 슬라이딩 갱신한다(백그라운드 폴링은 하지 않음).
   useEffect(() => {
     function onVisibility() {
       if (document.visibilityState === "visible" && getToken()) {
@@ -91,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    // 이 기기만 — 서버는 미디어 쿠키만 지우고 다른 기기 JWT는 유지한다.
     try {
       if (getToken()) {
         await apiFetch("/api/auth/logout", { method: "POST" });
@@ -102,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logoutAll() {
+    // 전 기기 — tokenVersion++. 비밀번호 변경과 같은 강도.
     try {
       if (getToken()) {
         await apiFetch("/api/auth/logout-all", { method: "POST" });

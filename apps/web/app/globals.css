@@ -414,6 +414,11 @@ button:disabled {
   background: var(--color-border);
 }
 
+.onboarding-escape {
+  margin-top: 24px;
+  text-align: center;
+}
+
 .field-label {
   display: block;
   font-size: 0.9rem;

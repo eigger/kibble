@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
-import type { Species } from "../../lib/types";
+import type { Pet, Species } from "../../lib/types";
 
 const SPECIES_OPTIONS: Species[] = ["CAT", "DOG", "OTHER"];
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading, refreshUser, logout } = useAuth();
   const { t } = useLocale();
   const [name, setName] = useState("");
   const [species, setSpecies] = useState<Species>("CAT");
@@ -26,16 +26,33 @@ export default function OnboardingPage() {
     if (!loading && user && !user.needsPet) router.push("/");
   }, [loading, user, router]);
 
+  async function confirmOnboardingComplete(): Promise<boolean> {
+    const me = await refreshUser();
+    if (me && !me.needsPet) return true;
+
+    const status = await apiJson<{ needsPet: boolean }>("/api/onboarding/status");
+    if (!status.needsPet) {
+      await refreshUser();
+      return true;
+    }
+    return false;
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await apiJson("/api/pets", {
+      await apiJson<Pet>("/api/pets", {
         method: "POST",
         body: JSON.stringify({ name: name.trim(), species }),
       });
-      await refreshUser();
+
+      const ready = await confirmOnboardingComplete();
+      if (!ready) {
+        setError(t("petRefreshError"));
+        return;
+      }
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("petCreateError"));
@@ -91,6 +108,12 @@ export default function OnboardingPage() {
         </button>
         {error && <p className="error-text">{error}</p>}
       </form>
+
+      <p className="onboarding-escape">
+        <button type="button" className="btn-link" onClick={() => void logout()}>
+          {t("logoutButton")}
+        </button>
+      </p>
     </main>
   );
 }

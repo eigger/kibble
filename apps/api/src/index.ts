@@ -19,6 +19,7 @@ import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
 import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 import { presetRoutes } from "./routes/presets.js";
+import { homeRoutes } from "./routes/home.js";
 
 const jwtSecret = resolveJwtSecret();
 
@@ -113,6 +114,7 @@ await app.register(petRoutes, { prefix: "/api/pets" });
 await app.register(onboardingRoutes, { prefix: "/api/onboarding" });
 await app.register(householdRoutes, { prefix: "/api/household" });
 await app.register(presetRoutes, { prefix: "/api/presets" });
+await app.register(homeRoutes, { prefix: "/api/home" });
 await app.register(attachmentRoutes, { prefix: "/api/attachments" });
 await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });
 await app.register(settingsRoutes, { prefix: "/api/settings" });

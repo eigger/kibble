@@ -2,20 +2,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiJson } from "../lib/api";
+import { ApiError, apiJson } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
 import type { Pet, Preset } from "../lib/types";
 
+interface HomePayload {
+  activePet: Pet | null;
+  presets: Preset[];
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const userId = user?.id;
+  const needsPet = user?.needsPet;
   const { t } = useLocale();
   const { show } = useToast();
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [activePet, setActivePet] = useState<Pet | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
@@ -23,30 +31,35 @@ export default function HomePage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (!loading && user?.needsPet) router.push("/onboarding");
-  }, [loading, user, router]);
+    if (!loading && needsPet) router.push("/onboarding");
+  }, [loading, needsPet, router]);
 
   useEffect(() => {
-    if (!user || user.needsPet) return;
+    if (!userId || needsPet) return;
     let cancelled = false;
     setDataLoading(true);
+    setLoadError(null);
     (async () => {
       try {
-        const petList = await apiJson<Pet[]>("/api/pets");
+        const data = await apiJson<HomePayload>("/api/home");
         if (cancelled) return;
-        setPets(petList);
-        const activePet = petList[0];
-        if (!activePet) {
-          setPresets([]);
-          return;
+        setActivePet(data.activePet);
+        setPresets(data.presets);
+      } catch (err) {
+        if (cancelled) return;
+        setActivePet(null);
+        setPresets([]);
+        if (err instanceof ApiError) {
+          if (err.status === 401) {
+            router.push("/login");
+            return;
+          }
+          if (err.status === 403) {
+            setLoadError(t("homeForbidden"));
+            return;
+          }
         }
-        const presetList = await apiJson<Preset[]>(`/api/presets?petId=${encodeURIComponent(activePet.id)}`);
-        if (!cancelled) setPresets(presetList);
-      } catch {
-        if (!cancelled) {
-          setPets([]);
-          setPresets([]);
-        }
+        setLoadError(t("homeLoadError"));
       } finally {
         if (!cancelled) setDataLoading(false);
       }
@@ -54,9 +67,8 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId, needsPet, router, t]);
 
-  const activePet = pets[0];
   const starterPresets = useMemo(() => presets.filter((p) => p.isStarter), [presets]);
   const morePresets = useMemo(() => presets.filter((p) => !p.isStarter), [presets]);
 
@@ -64,7 +76,7 @@ export default function HomePage() {
     show(t("recordComingSoon", { label: t(preset.label) }));
   }
 
-  if (loading || !user || user.needsPet) {
+  if (loading || !user || needsPet) {
     return (
       <main className="container">
         <p>{t("loading")}</p>
@@ -77,6 +89,8 @@ export default function HomePage() {
       <h1>{activePet ? activePet.name : t("appName")}</h1>
       {dataLoading ? (
         <p className="meta">{t("loading")}</p>
+      ) : loadError ? (
+        <p className="error-text">{loadError}</p>
       ) : (
         <>
           <section className="dashboard-section">

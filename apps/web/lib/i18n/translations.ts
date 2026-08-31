@@ -52,12 +52,24 @@ const dict = {
   "species.DOG": { ko: "개", en: "Dog" },
   "species.OTHER": { ko: "기타", en: "Other" },
   petCreateError: { ko: "등록에 실패했습니다. 다시 시도해주세요.", en: "Registration failed. Please try again." },
+  petRefreshError: {
+    ko: "등록은 완료됐지만 상태를 확인하지 못했습니다. 새로고침하거나 로그아웃 후 다시 로그인하세요. 같은 이름으로 다시 등록하지 마세요.",
+    en: "Registration succeeded but we could not refresh your session. Reload or log out and back in — do not register the same name again.",
+  },
 
   // home
   homeQuickRecord: { ko: "빠른 기록", en: "Quick record" },
   homeMorePresets: { ko: "더보기 ({count})", en: "More ({count})" },
   homeMorePresetsTitle: { ko: "더 많은 기록", en: "More records" },
-  homeNoPresets: { ko: "기록 칩을 준비하는 중입니다.", en: "Preparing record chips…" },
+  homeNoPresets: { ko: "아직 기록 칩이 없습니다.", en: "No record chips yet." },
+  homeLoadError: {
+    ko: "홈을 불러오지 못했습니다. 잠시 후 다시 시도하세요.",
+    en: "Could not load home. Please try again shortly.",
+  },
+  homeForbidden: {
+    ko: "가구에 소속되어 있지 않습니다. 관리자에게 문의하세요.",
+    en: "You are not in a household. Contact your administrator.",
+  },
   homeOnboardingHint: {
     ko: "칩을 누르면 기록됩니다. (이벤트 입력은 다음 단계에서 연결됩니다)",
     en: "Tap a chip to record. (Event logging connects in the next step.)",
