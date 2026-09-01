@@ -53,6 +53,7 @@ const MESSAGES = {
   },
   householdNotFound: { ko: "가구를 찾을 수 없습니다", en: "Household not found" },
   viewerReadOnly: { ko: "읽기 전용 권한으로는 변경할 수 없습니다", en: "Read-only access cannot make changes" },
+  ownerOnly: { ko: "가구 관리자만 할 수 있습니다", en: "Household owners only" },
   systemEventTypesNotSeeded: {
     ko: "시스템 이벤트 유형이 준비되지 않았습니다. 관리자에게 문의하세요.",
     en: "System event types are not ready. Contact your administrator.",

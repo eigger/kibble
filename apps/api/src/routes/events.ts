@@ -14,6 +14,7 @@ import {
   CreateEventNotFoundError,
   CreateEventValidationError,
   eventSelect,
+  eventWithRelationsSelect,
   validateScaleValue,
 } from "../services/createEvent.js";
 import type { EventSource } from "@prisma/client";
@@ -97,7 +98,12 @@ export async function eventRoutes(app: FastifyInstance) {
           void touchApiTokenLastUsed(request.apiTokenContext.id);
         }
 
-        return reply.code(201).send(event);
+        const enriched = await prisma.event.findFirst({
+          where: { id: event.id, ...householdWhere(householdId) },
+          select: eventWithRelationsSelect,
+        });
+
+        return reply.code(201).send(enriched ?? event);
       } catch (err) {
         if (err instanceof CreateEventNotFoundError) {
           const key =

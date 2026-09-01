@@ -63,6 +63,20 @@ export function requireHouseholdWrite(
   return householdId;
 }
 
+/** ApiToken 등 가구 관리 작업 — OWNER만 */
+export function requireHouseholdOwner(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): string | undefined {
+  const householdId = requireHouseholdId(request, reply);
+  if (!householdId) return undefined;
+  if (request.householdRole !== "OWNER") {
+    reply.code(403).send({ error: t("ownerOnly", request.locale) });
+    return undefined;
+  }
+  return householdId;
+}
+
 /** K-1: 대상 사용자가 요청자와 같은 가구 멤버인지 확인 */
 export async function findHouseholdMember(
   householdId: string,

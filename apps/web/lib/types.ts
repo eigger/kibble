@@ -30,4 +30,28 @@ export interface CreatedEvent {
   petId: string;
   presetId: string | null;
   occurredAt: string;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+  note: string | null;
+  preset: { id: string; label: string } | null;
+  eventType: { key: string; label: string; icon: string | null };
+}
+
+export interface TodaySummaryRow {
+  eventTypeKey: string;
+  label: string;
+  count: number;
+}
+
+export interface TimelineEvent {
+  id: string;
+  occurredAt: string;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+  scaleValue: number | null;
+  note: string | null;
+  preset: { id: string; label: string } | null;
+  eventType: { key: string; label: string; icon: string | null };
 }

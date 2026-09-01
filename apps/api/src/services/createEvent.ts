@@ -210,3 +210,13 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
 }
 
 export { eventSelect };
+
+export const eventWithRelationsSelect = {
+  ...eventSelect,
+  eventType: { select: { key: true, label: true, icon: true } },
+  preset: { select: { id: true, label: true } },
+} as const;
+
+export type CreatedEventWithRelations = Prisma.EventGetPayload<{
+  select: typeof eventWithRelationsSelect;
+}>;

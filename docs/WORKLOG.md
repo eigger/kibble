@@ -249,3 +249,27 @@
 - `scaleValue` 범위 검증 (FECAL_7 1~7, APPETITE/ENERGY 1~3)
 - 웹: `dedupeKey` 전송, 기록 중 전 칩 disabled, undo 토스트 3초 (P1-21)
 - `POST /api/events` rate limit 120/min
+
+### 2026-09-01 — P1-09·18·20 타임라인·격리 테스트·API 문서
+
+**한 일**
+
+- `buildApp()` 추출 — `index.ts`는 부트스트랩만, inject 테스트 가능
+- P1-09: `householdIsolation.test.ts` — 타 가구 pet/event/preset 404, ApiToken 미허용 라우트 403
+- P1-18: `docs/api.md` — curl 예제 (세션·ApiToken·이벤트 CRUD)
+- P1-20: `GET /api/home` 확장 (`todaySummary`, `recentEvents`, `pets`, `?petId=`), 홈 UI 타임라인·오늘 요약·하단 칩+입력 바(비활성, P1-22까지)
+
+**다음**: P1-08 가구 초대 UI, P1-22 파싱·채팅 입력, P1-11 펫 CRUD 확장
+
+### 2026-09-01 — P1-09/18/20 리뷰 반영
+
+**고친 것**
+
+- **오늘 요약 일 경계** — UTC → KST(+9) 고정. WORKPLAN §7.11 확정
+- **요약 낙관적 갱신** — `POST /api/events` 응답에 `eventType`/`preset` 포함, `eventTypeKey`로 bump/decrement
+- **ApiToken CRUD** — `requireHouseholdOwner` (MEMBER/VIEWER 발급 불가). `docs/api.md` 정정
+- **loadHome 레이스** — `loadSeq`로 stale 응답 무시
+- P1-09 범위 — attachment는 P1-10/P1-16 전 501이라 Phase 1a mock만; 실 DB는 P1-09b로 WORKPLAN 기록
+- 기타: `Promise.all` home 쿼리, K-1 주석, quantity 표시 순서, tabpanel a11y, 입력 바 padding CSS 변수
+
+**다음**: P1-22 파싱·채팅 입력
