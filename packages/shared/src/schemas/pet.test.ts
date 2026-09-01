@@ -12,9 +12,14 @@ describe("updatePetSchema", () => {
     expect(r.success).toBe(true);
   });
 
-  it("validates registration number length", () => {
-    expect(updatePetSchema.safeParse({ registrationNo: "123" }).success).toBe(false);
-    expect(updatePetSchema.safeParse({ registrationNo: "1".repeat(15) }).success).toBe(true);
+  it("accepts free-form registration numbers", () => {
+    expect(updatePetSchema.safeParse({ registrationNo: "ABC-12345" }).success).toBe(true);
     expect(updatePetSchema.safeParse({ registrationNo: null }).success).toBe(true);
+  });
+
+  it("rejects invalid dates", () => {
+    expect(updatePetSchema.safeParse({ birthDate: "not-a-date" }).success).toBe(false);
+    expect(updatePetSchema.safeParse({ birthDate: "2020-01-15" }).success).toBe(true);
+    expect(updatePetSchema.safeParse({ birthDate: null }).success).toBe(true);
   });
 });

@@ -13,7 +13,7 @@ const PRESET_OTHER = "preset_other_hh";
 const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn() },
   user: { findUnique: vi.fn() },
-  pet: { findFirst: vi.fn(), findMany: vi.fn() },
+  pet: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
   preset: { findFirst: vi.fn(), findMany: vi.fn() },
   event: {
     findMany: vi.fn(),
@@ -130,6 +130,79 @@ describe("household isolation (K-3)", () => {
     expect(mockPrisma.preset.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: PRESET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("GET /api/pets/:id returns 404 for another household's pet", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/pets/${PET_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.pet.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("PATCH /api/pets/:id returns 404 for another household's pet", async () => {
+    mockPrisma.pet.updateMany.mockResolvedValue({ count: 0 });
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/pets/${PET_OTHER}`,
+      headers: authHeaders(token),
+      payload: { name: "nope" },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.pet.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("DELETE /api/pets/:id returns 404 for another household's pet", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/pets/${PET_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.pet.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("DELETE /api/pets/:id/photo returns 404 for another household's pet", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/pets/${PET_OTHER}/photo`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.pet.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PET_OTHER, householdId: HH_A }),
       }),
     );
   });

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { createPetSchema, updatePetSchema } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
@@ -8,7 +9,12 @@ import {
   ensurePresetsForPetInTx,
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
-import { petPhotoAbsolutePath, removePetPhoto, savePetPhoto } from "../lib/petPhoto.js";
+import {
+  InvalidPetPhotoError,
+  petPhotoAbsolutePath,
+  removePetPhoto,
+  savePetPhoto,
+} from "../lib/petPhoto.js";
 
 const petSummarySelect = {
   id: true,
@@ -64,12 +70,11 @@ function serializePet(row: PetRow) {
   };
 }
 
-function parseOptionalDate(value: string | null | undefined): Date | null | undefined {
+/** 스키마가 검증한 날짜 문자열만 Date로 변환한다. */
+function toStoredDate(value: string | null | undefined): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  return new Date(value);
 }
 
 async function findActivePet(householdId: string, id: string) {
@@ -77,6 +82,19 @@ async function findActivePet(householdId: string, id: string) {
     where: { id, ...householdWhere(householdId), archivedAt: null },
     select: petDetailSelect,
   });
+}
+
+async function updateActivePet(
+  householdId: string,
+  id: string,
+  data: Record<string, unknown>,
+): Promise<PetRow | null> {
+  const updated = await prisma.pet.updateMany({
+    where: { id, ...householdWhere(householdId), archivedAt: null },
+    data,
+  });
+  if (updated.count === 0) return null;
+  return findActivePet(householdId, id);
 }
 
 export async function petRoutes(app: FastifyInstance) {
@@ -113,7 +131,7 @@ export async function petRoutes(app: FastifyInstance) {
     try {
       const pet = await prisma.$transaction(async (tx) => {
         const maxSort = await tx.pet.aggregate({
-          where: { ...householdWhere(householdId), archivedAt: null },
+          where: { ...householdWhere(householdId) },
           _max: { sortOrder: true },
         });
         const created = await tx.pet.create({
@@ -142,9 +160,6 @@ export async function petRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { id } = request.params as { id: string };
-    const existing = await findActivePet(householdId, id);
-    if (!existing) return reply.code(404).send({ error: t("petNotFound", request.locale) });
-
     const parsed = updatePetSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
@@ -162,16 +177,13 @@ export async function petRoutes(app: FastifyInstance) {
       updateData.registrationNo =
         data.registrationNo === "" || data.registrationNo == null ? null : data.registrationNo;
     }
-    const birthDate = parseOptionalDate(data.birthDate);
+    const birthDate = toStoredDate(data.birthDate);
     if (birthDate !== undefined) updateData.birthDate = birthDate;
-    const adoptionDate = parseOptionalDate(data.adoptionDate);
+    const adoptionDate = toStoredDate(data.adoptionDate);
     if (adoptionDate !== undefined) updateData.adoptionDate = adoptionDate;
 
-    const pet = await prisma.pet.update({
-      where: { id },
-      data: updateData,
-      select: petDetailSelect,
-    });
+    const pet = await updateActivePet(householdId, id, updateData);
+    if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
     return serializePet(pet);
   });
 
@@ -190,10 +202,13 @@ export async function petRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: t("cannotArchiveLastPet", request.locale) });
     }
 
-    await prisma.pet.update({
-      where: { id },
+    const archived = await prisma.pet.updateMany({
+      where: { id, ...householdWhere(householdId), archivedAt: null },
       data: { archivedAt: new Date() },
     });
+    if (archived.count === 0) {
+      return reply.code(404).send({ error: t("petNotFound", request.locale) });
+    }
     return reply.code(204).send();
   });
 
@@ -207,17 +222,20 @@ export async function petRoutes(app: FastifyInstance) {
 
     const file = await request.file();
     if (!file) return reply.code(400).send({ error: t("photoRequired", request.locale) });
-    if (!file.mimetype.startsWith("image/")) {
-      return reply.code(400).send({ error: t("photoMustBeImage", request.locale) });
+
+    let photoPath: string;
+    try {
+      const buffer = await file.toBuffer();
+      photoPath = await savePetPhoto(id, buffer, existing.photoPath);
+    } catch (err) {
+      if (err instanceof InvalidPetPhotoError) {
+        return reply.code(400).send({ error: t("photoMustBeImage", request.locale) });
+      }
+      throw err;
     }
 
-    const buffer = await file.toBuffer();
-    const photoPath = await savePetPhoto(id, buffer, existing.photoPath);
-    const pet = await prisma.pet.update({
-      where: { id },
-      data: { photoPath },
-      select: petDetailSelect,
-    });
+    const pet = await updateActivePet(householdId, id, { photoPath });
+    if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
     return serializePet(pet);
   });
 
@@ -229,14 +247,17 @@ export async function petRoutes(app: FastifyInstance) {
     const pet = await findActivePet(householdId, id);
     if (!pet?.photoPath) return reply.code(404).send({ error: t("photoNotFound", request.locale) });
 
+    let abs: string;
     try {
-      const abs = petPhotoAbsolutePath(pet.photoPath);
-      const stream = createReadStream(abs);
-      reply.type("image/webp");
-      return reply.send(stream);
+      abs = petPhotoAbsolutePath(pet.photoPath);
+      await stat(abs);
     } catch {
       return reply.code(404).send({ error: t("photoNotFound", request.locale) });
     }
+
+    reply.type("image/webp");
+    reply.header("Cache-Control", "private, max-age=3600");
+    return reply.send(createReadStream(abs));
   });
 
   app.delete("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -248,11 +269,8 @@ export async function petRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
     await removePetPhoto(existing.photoPath);
-    const pet = await prisma.pet.update({
-      where: { id },
-      data: { photoPath: null },
-      select: petDetailSelect,
-    });
+    const pet = await updateActivePet(householdId, id, { photoPath: null });
+    if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
     return serializePet(pet);
   });
 }

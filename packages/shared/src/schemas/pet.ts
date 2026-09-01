@@ -3,6 +3,19 @@ import { z } from "zod";
 export const speciesSchema = z.enum(["DOG", "CAT", "OTHER"]);
 export const sexSchema = z.enum(["MALE", "FEMALE", "UNKNOWN"]);
 
+/** ISO 8601 instant or YYYY-MM-DD — API 계약용. 무효값은 400. */
+const optionalDateField = z
+  .string()
+  .optional()
+  .nullable()
+  .superRefine((val, ctx) => {
+    if (val === undefined || val === null || val === "") return;
+    const d = new Date(val);
+    if (Number.isNaN(d.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalidDate" });
+    }
+  });
+
 export const createPetSchema = z.object({
   name: z.string().trim().min(1).max(100),
   species: speciesSchema,
@@ -15,9 +28,10 @@ export const updatePetSchema = z
     breed: z.string().trim().max(100).optional().nullable(),
     sex: sexSchema.optional().nullable(),
     neutered: z.boolean().optional(),
-    birthDate: z.string().optional().nullable(),
-    adoptionDate: z.string().optional().nullable(),
-    registrationNo: z.string().trim().optional().nullable(),
+    birthDate: optionalDateField,
+    adoptionDate: optionalDateField,
+    /** 자유 텍스트 — Phase 1은 국가별 형식 검증하지 않는다 (공개·다국어). */
+    registrationNo: z.string().trim().max(50).optional().nullable(),
     microchipNo: z.string().trim().max(50).optional().nullable(),
     color: z.string().trim().max(100).optional().nullable(),
     sortOrder: z.number().int().min(0).max(9999).optional(),
@@ -25,15 +39,6 @@ export const updatePetSchema = z
   .superRefine((data, ctx) => {
     if (Object.keys(data).length === 0) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "emptyUpdate" });
-    }
-    if (data.registrationNo != null && data.registrationNo !== "") {
-      if (!/^\d{15}$/.test(data.registrationNo)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["registrationNo"],
-          message: "registrationNoFormat",
-        });
-      }
     }
   });
 

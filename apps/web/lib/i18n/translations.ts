@@ -81,7 +81,7 @@ const dict = {
   petBirthDateLabel: { ko: "생일", en: "Birth date" },
   petAdoptionDateLabel: { ko: "입양일", en: "Adoption date" },
   petRegistrationNoLabel: { ko: "동물등록번호", en: "Registration no." },
-  petRegistrationNoPlaceholder: { ko: "15자리 숫자", en: "15 digits" },
+  petRegistrationNoPlaceholder: { ko: "등록번호 (선택)", en: "Registration no. (optional)" },
   petMicrochipLabel: { ko: "마이크로칩", en: "Microchip" },
   petColorLabel: { ko: "색/무늬", en: "Color / markings" },
   petSortOrderLabel: { ko: "표시 순서", en: "Sort order" },

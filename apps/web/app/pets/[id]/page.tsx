@@ -235,11 +235,10 @@ export default function PetEditPage({ params }: { params: Promise<{ id: string }
         </label>
         <input
           id="pet-reg"
-          inputMode="numeric"
-          pattern="\d{15}"
           value={pet.registrationNo ?? ""}
           onChange={(e) => setPet({ ...pet, registrationNo: e.target.value })}
           placeholder={t("petRegistrationNoPlaceholder")}
+          maxLength={50}
         />
 
         <label className="field-label" htmlFor="pet-chip">

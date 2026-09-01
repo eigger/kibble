@@ -7,6 +7,13 @@ import { deleteUploadedFile, UPLOAD_DIR } from "./uploads.js";
 const PET_PHOTO_SUBDIR = "pets";
 const MAX_EDGE = 800;
 
+export class InvalidPetPhotoError extends Error {
+  constructor() {
+    super("INVALID_PET_PHOTO");
+    this.name = "InvalidPetPhotoError";
+  }
+}
+
 export async function savePetPhoto(
   petId: string,
   buffer: Buffer,
@@ -19,11 +26,15 @@ export async function savePetPhoto(
   const relativePath = `${PET_PHOTO_SUBDIR}/${filename}`;
   const outPath = path.join(UPLOAD_DIR, relativePath);
 
-  await sharp(buffer)
-    .rotate()
-    .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 85 })
-    .toFile(outPath);
+  try {
+    await sharp(buffer)
+      .rotate()
+      .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toFile(outPath);
+  } catch {
+    throw new InvalidPetPhotoError();
+  }
 
   if (previousPath) await deleteUploadedFile(previousPath);
 
@@ -31,8 +42,13 @@ export async function savePetPhoto(
 }
 
 export function petPhotoAbsolutePath(relativePath: string): string {
-  const safe = relativePath.replace(/^(\.\.(\/|\\|$))+/, "");
-  return path.join(UPLOAD_DIR, safe);
+  const normalized = path.normalize(relativePath);
+  const abs = path.resolve(UPLOAD_DIR, normalized);
+  const uploadRoot = path.resolve(UPLOAD_DIR);
+  if (abs !== uploadRoot && !abs.startsWith(`${uploadRoot}${path.sep}`)) {
+    throw new Error("PATH_ESCAPE");
+  }
+  return abs;
 }
 
 export async function removePetPhoto(relativePath: string | null): Promise<void> {
