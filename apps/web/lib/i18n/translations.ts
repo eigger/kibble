@@ -120,6 +120,8 @@ const dict = {
   eventDetailUnit: { ko: "단위", en: "Unit" },
   eventDetailNote: { ko: "메모", en: "Note" },
   eventDetailSaved: { ko: "기록을 수정했습니다.", en: "Event updated." },
+  eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
+  eventDetailQuantityInvalid: { ko: "수량은 숫자로 입력해 주세요.", en: "Enter amounts as numbers." },
   "quickTime.now": { ko: "방금", en: "Just now" },
   "quickTime.oneHourAgo": { ko: "1시간 전", en: "1 hour ago" },
   "quickTime.yesterdayEvening": { ko: "어제 저녁", en: "Yesterday evening" },

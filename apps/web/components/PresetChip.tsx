@@ -12,24 +12,22 @@ interface PresetChipProps {
 }
 
 export function PresetChip({ preset, label, disabled, onTap, onLongPress }: PresetChipProps) {
-  const press = useLongPress(
-    () => {
-      if (!disabled) onTap(preset);
-    },
-    () => {
-      if (!disabled) onLongPress(preset);
-    },
-  );
+  const longPress = useLongPress(() => {
+    if (!disabled) onLongPress(preset);
+  });
 
   return (
     <button
       type="button"
-      className="chip"
+      className="chip long-press-target"
       disabled={disabled}
-      onPointerDown={press.onPointerDown}
-      onPointerUp={press.onPointerUp}
-      onPointerLeave={press.onPointerLeave}
-      onPointerCancel={press.onPointerLeave}
+      onClick={longPress.wrapClick(() => {
+        if (!disabled) onTap(preset);
+      })}
+      onPointerDown={disabled ? undefined : longPress.onPointerDown}
+      onPointerUp={disabled ? undefined : longPress.onPointerUp}
+      onPointerLeave={disabled ? undefined : longPress.onPointerLeave}
+      onPointerCancel={disabled ? undefined : longPress.onPointerCancel}
     >
       {label}
     </button>
@@ -44,24 +42,22 @@ interface MorePresetItemProps {
 }
 
 export function MorePresetItem({ label, disabled, onTap, onLongPress }: MorePresetItemProps) {
-  const press = useLongPress(
-    () => {
-      if (!disabled) onTap();
-    },
-    () => {
-      if (!disabled) onLongPress();
-    },
-  );
+  const longPress = useLongPress(() => {
+    if (!disabled) onLongPress();
+  });
 
   return (
     <button
       type="button"
-      className="sheet-item"
+      className="sheet-item long-press-target"
       disabled={disabled}
-      onPointerDown={press.onPointerDown}
-      onPointerUp={press.onPointerUp}
-      onPointerLeave={press.onPointerLeave}
-      onPointerCancel={press.onPointerLeave}
+      onClick={longPress.wrapClick(() => {
+        if (!disabled) onTap();
+      })}
+      onPointerDown={disabled ? undefined : longPress.onPointerDown}
+      onPointerUp={disabled ? undefined : longPress.onPointerUp}
+      onPointerLeave={disabled ? undefined : longPress.onPointerLeave}
+      onPointerCancel={disabled ? undefined : longPress.onPointerCancel}
     >
       {label}
     </button>

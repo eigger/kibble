@@ -1,11 +1,15 @@
 import { useCallback, useRef } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 
 const DEFAULT_DELAY_MS = 450;
 
-/** 짧은 탭과 길게 누르기를 구분한다. 길게 누르면 onLongPress만 실행한다. */
-export function useLongPress(onTap: () => void, onLongPress: () => void, delayMs = DEFAULT_DELAY_MS) {
+/**
+ * 롱프레스 감지용 포인터 핸들러 + 클릭 억제.
+ * 탭/Enter/Space는 버튼 onClick으로 처리한다 — 포인터만으로 탭을 처리하지 않는다.
+ */
+export function useLongPress(onLongPress: () => void, delayMs = DEFAULT_DELAY_MS) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressedRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -14,24 +18,39 @@ export function useLongPress(onTap: () => void, onLongPress: () => void, delayMs
     }
   }, []);
 
-  const onPointerDown = useCallback(() => {
-    longPressedRef.current = false;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      longPressedRef.current = true;
-      onLongPress();
-    }, delayMs);
-  }, [clearTimer, delayMs, onLongPress]);
+  const onPointerDown = useCallback(
+    (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      suppressNextClickRef.current = false;
+      clearTimer();
+      timerRef.current = setTimeout(() => {
+        suppressNextClickRef.current = true;
+        onLongPress();
+      }, delayMs);
+    },
+    [clearTimer, delayMs, onLongPress],
+  );
 
   const onPointerUp = useCallback(() => {
     clearTimer();
-    if (!longPressedRef.current) onTap();
-  }, [clearTimer, onTap]);
+  }, [clearTimer]);
 
   const onPointerLeave = useCallback(() => {
     clearTimer();
-    longPressedRef.current = false;
   }, [clearTimer]);
 
-  return { onPointerDown, onPointerUp, onPointerLeave };
+  const wrapClick = useCallback(
+    (onClick: () => void) =>
+      (e: MouseEvent) => {
+        if (suppressNextClickRef.current) {
+          suppressNextClickRef.current = false;
+          e.preventDefault();
+          return;
+        }
+        onClick();
+      },
+    [],
+  );
+
+  return { onPointerDown, onPointerUp, onPointerLeave, onPointerCancel: onPointerLeave, wrapClick };
 }

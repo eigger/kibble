@@ -46,6 +46,7 @@ function formatEventTime(iso: string, locale: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: "Asia/Seoul",
   });
 }
 
@@ -232,9 +233,18 @@ export default function HomePage() {
 
   function applyCreatedEvent(event: CreatedEvent) {
     const timelineEntry = createdEventToTimeline(event);
-    const latestOccurredAt = recentEventsRef.current[0]?.occurredAt ?? null;
+    const existing = recentEventsRef.current;
+    const isNew = !existing.some((e) => e.id === event.id);
+
+    setRecentEvents((prev) => {
+      const without = prev.filter((e) => e.id !== event.id);
+      return [timelineEntry, ...without];
+    });
+
+    if (!isNew) return;
+
+    const latestOccurredAt = existing[0]?.occurredAt ?? null;
     setJournalStats((stats) => bumpJournalStats(stats, event.occurredAt, latestOccurredAt));
-    setRecentEvents((prev) => [timelineEntry, ...prev]);
     setTodaySummary((prev) =>
       bumpSummary(prev, event.eventType.key, event.eventType.label),
     );
@@ -416,14 +426,7 @@ export default function HomePage() {
     setDetailSaving(true);
     try {
       if (draft.mode === "edit" && draft.eventId) {
-        const updated = await apiJson<{
-          id: string;
-          occurredAt: string;
-          quantity: number | null;
-          quantityOffered: number | null;
-          unit: string | null;
-          note: string | null;
-        }>(`/api/events/${draft.eventId}`, {
+        await apiJson(`/api/events/${draft.eventId}`, {
           method: "PATCH",
           body: JSON.stringify({
             occurredAt: draft.occurredAt,
@@ -434,24 +437,7 @@ export default function HomePage() {
             needsReview: false,
           }),
         });
-        const occurredAt =
-          typeof updated.occurredAt === "string"
-            ? updated.occurredAt
-            : new Date(updated.occurredAt).toISOString();
-        setRecentEvents((prev) =>
-          prev.map((e) =>
-            e.id === draft.eventId
-              ? {
-                  ...e,
-                  occurredAt,
-                  quantity: updated.quantity,
-                  quantityOffered: updated.quantityOffered,
-                  unit: updated.unit,
-                  note: updated.note,
-                }
-              : e,
-          ),
-        );
+        if (activePet) await loadHome(activePet.id);
         removeParseSuggestionByKey(draft.dedupeKey);
         show(t("eventDetailSaved"), "success");
       } else {
@@ -477,6 +463,7 @@ export default function HomePage() {
           body: JSON.stringify(body),
         });
         applyCreatedEvent(event);
+        removeParseSuggestionByKey(draft.dedupeKey);
         show(t("recordSaved", { label: draft.label }), "success");
       }
       setDetailOpen(false);
@@ -768,6 +755,7 @@ export default function HomePage() {
           setDetailDraft(null);
         }}
         onSave={(draft) => void handleDetailSave(draft)}
+        onValidationError={(message) => show(message, "error")}
         t={t}
       />
     </main>

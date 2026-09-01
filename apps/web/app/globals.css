@@ -911,6 +911,12 @@ button:disabled {
   padding: 6px 10px;
 }
 
+.long-press-target {
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+
 .event-detail-sheet h2.event-detail-heading {
   margin: 0 0 12px;
   font-size: 18px;

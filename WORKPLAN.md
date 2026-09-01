@@ -765,7 +765,7 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 
 | 단계 | 처방 |
 |---|---|
-| **Phase 1** | `todaySummaryForPet`의 `occurredAt >= since`에서 **`since` = KST(UTC+9) 당일 00:00**을 UTC instant로 변환. 타임존 설정 UI 없음 |
+| **Phase 1** | `todaySummaryForPet`의 `occurredAt >= since`에서 **`since` = KST(UTC+9) 당일 00:00**을 UTC instant로 변환. 타임존 설정 UI 없음. **웹 상세 시트 `datetime-local`·타임라인 시각 표시도 KST 벽시계**(`datetimeLocal.ts`, `timeZone: Asia/Seoul`) — 서버·파서·빠른 버튼과 일치 |
 | **Phase 2+** | `Setting` 또는 가구별 IANA 타임존. P2-06(퀵 칩 시간대 가중)과 함께 검토 |
 
 근거: (a) Phase 1 주 사용자·게이트 실사용이 KST, (b) 클라이언트 오프셋 전송은 오프라인·API·curl 경로와 불일치, (c) UTC는 문서화 없이 넣으면 매 세션 재논의.

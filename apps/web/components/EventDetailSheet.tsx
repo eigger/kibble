@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { QuickTimeKey } from "@kibble/shared";
 import { resolveQuickTime } from "@kibble/shared";
-import { fromDatetimeLocalValue, parseOptionalNumber, toDatetimeLocalValue } from "../lib/datetimeLocal";
+import {
+  fromDatetimeLocalValue,
+  parseOptionalNumber,
+  toDatetimeLocalValue,
+} from "../lib/datetimeLocal";
 
 export interface EventDetailDraft {
   mode: "create" | "edit";
@@ -29,17 +33,27 @@ interface EventDetailSheetProps {
   saving: boolean;
   onClose: () => void;
   onSave: (draft: EventDetailDraft) => void;
+  onValidationError: (message: string) => void;
   t: (key: string) => string;
 }
 
 const QUICK_TIME_KEYS: QuickTimeKey[] = ["now", "oneHourAgo", "yesterdayEvening"];
 
-export function EventDetailSheet({ open, draft, saving, onClose, onSave, t }: EventDetailSheetProps) {
+export function EventDetailSheet({
+  open,
+  draft,
+  saving,
+  onClose,
+  onSave,
+  onValidationError,
+  t,
+}: EventDetailSheetProps) {
   const [occurredLocal, setOccurredLocal] = useState("");
   const [quantityOffered, setQuantityOffered] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!draft) return;
@@ -49,6 +63,19 @@ export function EventDetailSheet({ open, draft, saving, onClose, onSave, t }: Ev
     setUnit(draft.unit ?? "");
     setNote(draft.note ?? "");
   }, [draft]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !saving) onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, saving, onClose]);
+
+  useEffect(() => {
+    if (open) dialogRef.current?.focus();
+  }, [open, draft]);
 
   if (!open || !draft) return null;
 
@@ -60,11 +87,25 @@ export function EventDetailSheet({ open, draft, saving, onClose, onSave, t }: Ev
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft) return;
+
+    const occurredAt = fromDatetimeLocalValue(occurredLocal);
+    if (!occurredAt) {
+      onValidationError(t("eventDetailTimeInvalid"));
+      return;
+    }
+
+    const offered = parseOptionalNumber(quantityOffered);
+    const consumed = parseOptionalNumber(quantity);
+    if (!offered.ok || !consumed.ok) {
+      onValidationError(t("eventDetailQuantityInvalid"));
+      return;
+    }
+
     onSave({
       ...draft,
-      occurredAt: fromDatetimeLocalValue(occurredLocal),
-      quantityOffered: parseOptionalNumber(quantityOffered),
-      quantity: parseOptionalNumber(quantity),
+      occurredAt,
+      quantityOffered: offered.value,
+      quantity: consumed.value,
       unit: unit.trim() || null,
       note: note.trim() || null,
       needsReview: false,
@@ -72,11 +113,14 @@ export function EventDetailSheet({ open, draft, saving, onClose, onSave, t }: Ev
   }
 
   return (
-    <div className="sheet-backdrop" role="presentation" onClick={onClose}>
+    <div className="sheet-backdrop" role="presentation" onClick={() => !saving && onClose()}>
       <div
+        ref={dialogRef}
         className="sheet-card event-detail-sheet"
         role="dialog"
+        aria-modal="true"
         aria-label={t("eventDetailTitle")}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sheet-handle" />
@@ -102,6 +146,7 @@ export function EventDetailSheet({ open, draft, saving, onClose, onSave, t }: Ev
               type="datetime-local"
               className="event-detail-datetime"
               value={occurredLocal}
+              required
               disabled={saving}
               onChange={(e) => setOccurredLocal(e.target.value)}
             />
