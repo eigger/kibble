@@ -1,8 +1,9 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
-import { requireAttachmentFileAccess } from "../lib/attachmentAccess.js";
+import { resolveMediaViewerHouseholdId } from "../lib/attachmentAccess.js";
 import {
   ALLOWED_ATTACHMENT_MIME,
   InvalidAttachmentError,
@@ -11,10 +12,7 @@ import {
   removeEventAttachmentFile,
   saveEventAttachment,
 } from "../lib/eventAttachment.js";
-import {
-  householdWhere,
-  requireHouseholdWrite,
-} from "../lib/householdScope.js";
+import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 
 export const attachmentSelect = {
   id: true,
@@ -36,24 +34,19 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("fileNotFound", request.locale) });
     }
 
+    const viewerHouseholdId = await resolveMediaViewerHouseholdId(app, request, reply);
+    if (viewerHouseholdId === undefined) return;
+
     const attachment = await prisma.attachment.findFirst({
-      where: { path: relPath },
-      select: {
-        mime: true,
-        event: { select: { householdId: true } },
+      where: {
+        path: relPath,
+        ...(viewerHouseholdId != null ? { event: { householdId: viewerHouseholdId } } : {}),
       },
+      select: { mime: true },
     });
     if (!attachment) {
       return reply.code(404).send({ error: t("fileNotFound", request.locale) });
     }
-
-    const allowed = await requireAttachmentFileAccess(
-      app,
-      request,
-      reply,
-      attachment.event.householdId,
-    );
-    if (!allowed) return;
 
     let absPath: string;
     try {
@@ -61,7 +54,9 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
     } catch {
       return reply.code(404).send({ error: t("fileNotFound", request.locale) });
     }
-    if (!existsSync(absPath)) {
+    try {
+      await stat(absPath);
+    } catch {
       return reply.code(404).send({ error: t("fileMissingOnDisk", request.locale) });
     }
 
@@ -75,57 +70,65 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
 export async function attachmentRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);
 
-  app.post("/", async (request, reply) => {
-    const householdId = requireHouseholdWrite(request, reply);
-    if (!householdId) return;
-
-    const { eventId } = request.query as { eventId?: string };
-    if (!eventId?.trim()) {
-      return reply.code(400).send({ error: t("eventIdRequired", request.locale) });
-    }
-
-    const event = await prisma.event.findFirst({
-      where: { id: eventId.trim(), ...householdWhere(householdId), deletedAt: null },
-      select: { id: true, _count: { select: { attachments: true } } },
-    });
-    if (!event) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-    if (event._count.attachments >= MAX_ATTACHMENTS_PER_EVENT) {
-      return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
-    }
-
-    const file = await request.file();
-    if (!file) return reply.code(400).send({ error: t("fileRequired", request.locale) });
-    if (!ALLOWED_ATTACHMENT_MIME.has(file.mimetype)) {
-      return reply.code(400).send({
-        error: t("unsupportedFileType", request.locale, { mimetype: file.mimetype }),
-      });
-    }
-
-    const buffer = await file.toBuffer();
-    let saved;
-    try {
-      saved = await saveEventAttachment(event.id, buffer, file.mimetype);
-    } catch (err) {
-      if (err instanceof InvalidAttachmentError) {
-        return reply.code(400).send({ error: t("invalidImageFile", request.locale) });
-      }
-      throw err;
-    }
-
-    const attachment = await prisma.attachment.create({
-      data: {
-        eventId: event.id,
-        path: saved.path,
-        mime: saved.mime,
-        size: saved.size,
-        width: saved.width ?? undefined,
-        height: saved.height ?? undefined,
+  app.post(
+    "/",
+    {
+      config: {
+        rateLimit: { max: 30, timeWindow: "1 minute" },
       },
-      select: attachmentSelect,
-    });
+    },
+    async (request, reply) => {
+      const householdId = requireHouseholdWrite(request, reply);
+      if (!householdId) return;
 
-    return reply.code(201).send(attachment);
-  });
+      const { eventId } = request.query as { eventId?: string };
+      if (!eventId?.trim()) {
+        return reply.code(400).send({ error: t("eventIdRequired", request.locale) });
+      }
+
+      const event = await prisma.event.findFirst({
+        where: { id: eventId.trim(), ...householdWhere(householdId), deletedAt: null },
+        select: { id: true, _count: { select: { attachments: true } } },
+      });
+      if (!event) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+      if (event._count.attachments >= MAX_ATTACHMENTS_PER_EVENT) {
+        return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
+      }
+
+      const file = await request.file();
+      if (!file) return reply.code(400).send({ error: t("fileRequired", request.locale) });
+      if (!ALLOWED_ATTACHMENT_MIME.has(file.mimetype)) {
+        return reply.code(400).send({
+          error: t("unsupportedFileType", request.locale, { mimetype: file.mimetype }),
+        });
+      }
+
+      const buffer = await file.toBuffer();
+      let saved;
+      try {
+        saved = await saveEventAttachment(event.id, buffer, file.mimetype);
+      } catch (err) {
+        if (err instanceof InvalidAttachmentError) {
+          return reply.code(400).send({ error: t("invalidImageFile", request.locale) });
+        }
+        throw err;
+      }
+
+      const attachment = await prisma.attachment.create({
+        data: {
+          eventId: event.id,
+          path: saved.path,
+          mime: saved.mime,
+          size: saved.size,
+          width: saved.width ?? undefined,
+          height: saved.height ?? undefined,
+        },
+        select: attachmentSelect,
+      });
+
+      return reply.code(201).send(attachment);
+    },
+  );
 
   app.delete("/:id", async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
@@ -133,14 +136,13 @@ export async function attachmentRoutes(app: FastifyInstance) {
 
     const { id } = request.params as { id: string };
     const attachment = await prisma.attachment.findFirst({
-      where: { id },
-      select: {
-        id: true,
-        path: true,
-        event: { select: { householdId: true } },
+      where: {
+        id,
+        event: { householdId },
       },
+      select: { id: true, path: true },
     });
-    if (!attachment || attachment.event.householdId !== householdId) {
+    if (!attachment) {
       return reply.code(404).send({ error: t("attachmentNotFound", request.locale) });
     }
 

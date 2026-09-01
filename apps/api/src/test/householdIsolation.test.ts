@@ -307,11 +307,7 @@ describe("household isolation (K-3)", () => {
   });
 
   it("DELETE /api/attachments/:id returns 404 for another household's attachment", async () => {
-    mockPrisma.attachment.findFirst.mockResolvedValue({
-      id: "att_other",
-      path: "events/x.jpg",
-      event: { householdId: "household_other" },
-    });
+    mockPrisma.attachment.findFirst.mockResolvedValue(null);
 
     const token = signJwt(app);
     const res = await app.inject({
@@ -321,6 +317,35 @@ describe("household isolation (K-3)", () => {
     });
 
     expect(res.statusCode).toBe(404);
+    expect(mockPrisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "att_other",
+          event: { householdId: HH_A },
+        }),
+      }),
+    );
     expect(mockPrisma.attachment.delete).not.toHaveBeenCalled();
+  });
+
+  it("GET /api/attachments/file/* returns 404 for another household's path (K-3)", async () => {
+    mockPrisma.attachment.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/attachments/file/events/other-hh.jpg",
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          path: "events/other-hh.jpg",
+          event: { householdId: HH_A },
+        }),
+      }),
+    );
   });
 });

@@ -1,5 +1,11 @@
-import { apiFetch, apiJson } from "./api";
+import { apiFetch, apiJson, API_URL } from "./api";
 import type { EventAttachment } from "./types";
+
+export type UploadAttachmentsResult = {
+  uploaded: EventAttachment[];
+  /** 업로드에 실패했거나 아직 시도하지 않은 파일 */
+  remaining: File[];
+};
 
 export async function uploadEventAttachment(
   eventId: string,
@@ -13,15 +19,20 @@ export async function uploadEventAttachment(
   );
 }
 
+/** 순차 업로드. 중간 실패 시 이미 올린 항목은 유지하고 나머지를 remaining에 돌려준다. */
 export async function uploadEventAttachments(
   eventId: string,
   files: File[],
-): Promise<EventAttachment[]> {
+): Promise<UploadAttachmentsResult> {
   const uploaded: EventAttachment[] = [];
-  for (const file of files) {
-    uploaded.push(await uploadEventAttachment(eventId, file));
+  for (let i = 0; i < files.length; i++) {
+    try {
+      uploaded.push(await uploadEventAttachment(eventId, files[i]));
+    } catch {
+      return { uploaded, remaining: files.slice(i) };
+    }
   }
-  return uploaded;
+  return { uploaded, remaining: [] };
 }
 
 export async function deleteEventAttachment(attachmentId: string): Promise<void> {
@@ -30,6 +41,16 @@ export async function deleteEventAttachment(attachmentId: string): Promise<void>
 
 export function attachmentFileUrl(path: string): string {
   return `/api/attachments/file/${path}`;
+}
+
+/** same-origin이면 미디어 쿠키로 <img>/<video src> 직접 사용 가능 */
+export function canUseDirectAttachmentUrl(): boolean {
+  if (typeof window === "undefined") return false;
+  return API_URL === window.location.origin;
+}
+
+export function directAttachmentUrl(path: string): string {
+  return `${API_URL}${attachmentFileUrl(path)}`;
 }
 
 export async function fetchAttachmentBlob(path: string): Promise<Blob> {

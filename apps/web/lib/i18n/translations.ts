@@ -152,6 +152,10 @@ const dict = {
     ko: "첨부 업로드에 실패했습니다.",
     en: "Could not upload attachment.",
   },
+  attachmentUploadPartial: {
+    ko: "일부 첨부만 올라갔습니다. 남은 파일을 다시 시도해 주세요.",
+    en: "Some attachments failed. Retry the remaining files.",
+  },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: { ko: "수량은 숫자로 입력해 주세요.", en: "Enter amounts as numbers." },
   "quickTime.now": { ko: "방금", en: "Just now" },

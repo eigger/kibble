@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchAttachmentBlob } from "../lib/eventAttachments";
+import {
+  canUseDirectAttachmentUrl,
+  directAttachmentUrl,
+  fetchAttachmentBlob,
+} from "../lib/eventAttachments";
 
 type Props = {
   path: string;
@@ -13,8 +17,14 @@ type Props = {
 export function EventAttachmentThumb({ path, mime, alt, className }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const isVideo = mime.startsWith("video/");
+  const useDirect = canUseDirectAttachmentUrl();
 
   useEffect(() => {
+    if (useDirect) {
+      setSrc(directAttachmentUrl(path));
+      return;
+    }
+
     let objectUrl: string | null = null;
     let cancelled = false;
     void (async () => {
@@ -31,10 +41,15 @@ export function EventAttachmentThumb({ path, mime, alt, className }: Props) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [path]);
+  }, [path, useDirect]);
 
   if (!src) {
-    return <span className={`attachment-thumb attachment-thumb-placeholder${className ? ` ${className}` : ""}`} aria-hidden />;
+    return (
+      <span
+        className={`attachment-thumb attachment-thumb-placeholder${className ? ` ${className}` : ""}`}
+        aria-hidden
+      />
+    );
   }
 
   if (isVideo) {

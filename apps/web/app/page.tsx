@@ -136,7 +136,10 @@ export default function HomePage() {
   const [detailSaving, setDetailSaving] = useState(false);
   const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
   const [chipAction, setChipAction] = useState<{ preset: Preset; label: string } | null>(null);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  /** 홈 입력 바 전용 — 칩 탭·텍스트 저장 시에만 소비 */
+  const [homePendingFiles, setHomePendingFiles] = useState<File[]>([]);
+  /** 상세 시트 전용 — 시트를 열 때마다 초기화 */
+  const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const loadSeq = useRef(0);
   const recentEventsRef = useRef<TimelineEvent[]>([]);
@@ -242,24 +245,11 @@ export default function HomePage() {
 
   const [recording, setRecording] = useState(false);
   const inFlightDedupeKey = useRef<string | null>(null);
-  const pendingFilesRef = useRef<File[]>([]);
+  const homePendingFilesRef = useRef<File[]>([]);
 
   useEffect(() => {
-    pendingFilesRef.current = pendingFiles;
-  }, [pendingFiles]);
-
-  async function attachPendingFilesToEvent(
-    eventId: string,
-    files: File[],
-  ): Promise<EventAttachment[] | null> {
-    if (files.length === 0) return [];
-    try {
-      return await uploadEventAttachments(eventId, files);
-    } catch {
-      show(t("attachmentUploadError"), "error");
-      return null;
-    }
-  }
+    homePendingFilesRef.current = homePendingFiles;
+  }, [homePendingFiles]);
 
   function mergeEventAttachments(eventId: string, uploaded: EventAttachment[]) {
     if (uploaded.length === 0) return;
@@ -273,13 +263,41 @@ export default function HomePage() {
     setDetailAttachments((prev) => [...prev, ...uploaded]);
   }
 
-  async function consumePendingFiles(eventId: string): Promise<void> {
-    const files = pendingFilesRef.current;
-    if (files.length === 0) return;
-    const uploaded = await attachPendingFilesToEvent(eventId, files);
-    if (uploaded === null) return;
-    setPendingFiles([]);
-    mergeEventAttachments(eventId, uploaded);
+  /** @returns true if all files uploaded (or none pending) */
+  async function uploadFilesToEvent(
+    eventId: string,
+    files: File[],
+    onRemaining: (remaining: File[]) => void,
+  ): Promise<boolean> {
+    if (files.length === 0) return true;
+    const { uploaded, remaining } = await uploadEventAttachments(eventId, files);
+    if (uploaded.length > 0) mergeEventAttachments(eventId, uploaded);
+    if (remaining.length > 0) {
+      onRemaining(remaining);
+      show(t("attachmentUploadPartial"), "error");
+      return false;
+    }
+    return true;
+  }
+
+  async function consumeHomePendingFiles(eventId: string): Promise<boolean> {
+    const files = homePendingFilesRef.current;
+    if (files.length === 0) return true;
+    const ok = await uploadFilesToEvent(eventId, files, setHomePendingFiles);
+    if (ok) setHomePendingFiles([]);
+    return ok;
+  }
+
+  function beginDetailCreate() {
+    setHomePendingFiles([]);
+    setDetailPendingFiles([]);
+    setDetailAttachments([]);
+  }
+
+  function beginDetailEdit(event: TimelineEvent) {
+    setHomePendingFiles([]);
+    setDetailPendingFiles([]);
+    setDetailAttachments(event.attachments ?? []);
   }
 
   function applyCreatedEvent(event: CreatedEvent) {
@@ -373,8 +391,10 @@ export default function HomePage() {
       const { failed, created } = await persistParseBatch(parsed);
       const savedCount = created.length;
       if (savedCount > 0 && created[0]) {
-        await consumePendingFiles(created[0].id);
-        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+        const attachmentsOk = await consumeHomePendingFiles(created[0].id);
+        if (attachmentsOk) {
+          show(t("recordSavedCount", { count: String(savedCount) }), "success");
+        }
       }
       const failedIndexes = new Set(failed.map((s) => s.lineIndex));
       const needsReview = parsed.suggestions.filter((s) => s.needsReview && !failedIndexes.has(s.lineIndex));
@@ -403,8 +423,10 @@ export default function HomePage() {
     try {
       const { failed, created } = await persistParseBatch(batch);
       if (created.length > 0) {
-        await consumePendingFiles(created[0].id);
-        show(t("recordSavedCount", { count: String(created.length) }), "success");
+        const attachmentsOk = await consumeHomePendingFiles(created[0].id);
+        if (attachmentsOk) {
+          show(t("recordSavedCount", { count: String(created.length) }), "success");
+        }
       }
       setParseBatch(failed.length > 0 ? { ...batch, suggestions: failed } : null);
       setParseBatchRetryable(failed.length > 0);
@@ -455,7 +477,7 @@ export default function HomePage() {
 
   function openDetailFromPreset(preset: Preset) {
     if (!activePet) return;
-    setDetailAttachments([]);
+    beginDetailCreate();
     setDetailDraft({
       mode: "create",
       petId: activePet.id,
@@ -474,7 +496,7 @@ export default function HomePage() {
 
   function openDetailFromSuggestion(suggestion: ParseSuggestion, entryId: string) {
     if (!activePet) return;
-    setDetailAttachments([]);
+    beginDetailCreate();
     const key = suggestionKey(entryId, suggestion);
     const eventId = reviewEventIds.get(key);
     setDetailDraft({
@@ -499,7 +521,7 @@ export default function HomePage() {
 
   function openDetailFromEvent(event: TimelineEvent) {
     if (!activePet) return;
-    setDetailAttachments(event.attachments ?? []);
+    beginDetailEdit(event);
     setDetailDraft({
       mode: "edit",
       eventId: event.id,
@@ -526,7 +548,7 @@ export default function HomePage() {
 
   async function handleDetailSave(draft: EventDetailDraft) {
     setDetailSaving(true);
-    const filesToUpload = [...pendingFiles];
+    const filesToUpload = [...detailPendingFiles];
     try {
       if (draft.mode === "edit" && draft.eventId) {
         await apiJson(`/api/events/${draft.eventId}`, {
@@ -540,13 +562,17 @@ export default function HomePage() {
             needsReview: false,
           }),
         });
+        let attachmentsOk = true;
         if (filesToUpload.length > 0) {
-          const uploaded = await attachPendingFilesToEvent(draft.eventId, filesToUpload);
-          if (uploaded) {
-            setPendingFiles([]);
-            mergeEventAttachments(draft.eventId, uploaded);
-          }
+          attachmentsOk = await uploadFilesToEvent(
+            draft.eventId,
+            filesToUpload,
+            setDetailPendingFiles,
+          );
+          if (attachmentsOk) setDetailPendingFiles([]);
         }
+        if (!attachmentsOk) return;
+
         if (activePet) await loadHome(activePet.id);
         removeParseSuggestionByKey(draft.dedupeKey);
         show(t("eventDetailSaved"), "success");
@@ -572,20 +598,28 @@ export default function HomePage() {
           method: "POST",
           body: JSON.stringify(body),
         });
-        if (filesToUpload.length > 0) {
-          const uploaded = await attachPendingFilesToEvent(event.id, filesToUpload);
-          if (uploaded) {
-            setPendingFiles([]);
-            event.attachments = [...(event.attachments ?? []), ...uploaded];
-          }
-        }
         applyCreatedEvent(event);
+        if (filesToUpload.length > 0) {
+          const attachmentsOk = await uploadFilesToEvent(
+            event.id,
+            filesToUpload,
+            setDetailPendingFiles,
+          );
+          if (!attachmentsOk) {
+            setDetailDraft((prev) =>
+              prev ? { ...prev, mode: "edit", eventId: event.id } : prev,
+            );
+            return;
+          }
+          setDetailPendingFiles([]);
+        }
         removeParseSuggestionByKey(draft.dedupeKey);
         show(t("recordSaved", { label: draft.label }), "success");
       }
       setDetailOpen(false);
       setDetailDraft(null);
       setDetailAttachments([]);
+      setDetailPendingFiles([]);
     } catch {
       show(t("recordError"), "error");
     } finally {
@@ -631,7 +665,9 @@ export default function HomePage() {
 
         applyCreatedEvent(event);
 
-        show(t("recordSaved", { label }), "success", {
+        const attachmentsOk = await consumeHomePendingFiles(event.id);
+
+        show(t("recordSaved", { label }), attachmentsOk ? "success" : "info", {
           label: t("undo"),
           onClick: () => {
             void (async () => {
@@ -848,9 +884,9 @@ export default function HomePage() {
             </section>
           )}
           <PendingAttachments
-            files={pendingFiles}
+            files={homePendingFiles}
             disabled={recording || !activePet}
-            onChange={setPendingFiles}
+            onChange={setHomePendingFiles}
             t={t}
           />
           <form className="home-text-form" onSubmit={(e) => void handleTextSubmit(e)}>
@@ -915,8 +951,8 @@ export default function HomePage() {
         draft={detailDraft}
         saving={detailSaving}
         attachments={detailAttachments}
-        pendingFiles={pendingFiles}
-        onPendingFilesChange={setPendingFiles}
+        pendingFiles={detailPendingFiles}
+        onPendingFilesChange={setDetailPendingFiles}
         onDeleteAttachment={
           detailDraft?.mode === "edit" && detailDraft.eventId
             ? (id) => void handleDeleteAttachment(id)
@@ -927,6 +963,7 @@ export default function HomePage() {
           setDetailOpen(false);
           setDetailDraft(null);
           setDetailAttachments([]);
+          setDetailPendingFiles([]);
         }}
         onSave={(draft) => void handleDetailSave(draft)}
         onValidationError={(message) => show(message, "error")}

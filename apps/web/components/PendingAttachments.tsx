@@ -53,9 +53,8 @@ export function PendingAttachments({ files, existingCount = 0, disabled, onChang
         <input
           ref={inputRef}
           type="file"
-          accept="image/*,video/mp4,video/quicktime"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime"
           multiple
-          capture="environment"
           className="sr-only"
           disabled={disabled || atLimit}
           onChange={(e) => {
