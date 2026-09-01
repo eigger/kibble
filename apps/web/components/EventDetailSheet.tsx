@@ -267,6 +267,9 @@ export function EventDetailSheet({
     return () => {
       cancelled = true;
     };
+    // draft를 통째로 의존하면 글자 하나 칠 때마다 추천 API를 다시 부른다 — 쓰는 필드만 넣는다.
+    // applyStoredProductName이 읽는 fields는 draft.eventTypeKey의 useMemo라 함께 갱신된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, syncKey, fields.productName, draft?.mode, draft?.petId, draft?.eventTypeKey, draft?.productName]);
 
   useEffect(() => {
@@ -293,6 +296,8 @@ export function EventDetailSheet({
     return () => {
       cancelled = true;
     };
+    // 위와 같은 이유 — draft 전체가 아니라 이 effect가 읽는 필드만 의존한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, syncKey, fields.clinicName, draft?.mode, draft?.petId, draft?.clinicName]);
 
   const visibleAttachments = attachments.filter((a) => !removedAttachmentIds.includes(a.id));
