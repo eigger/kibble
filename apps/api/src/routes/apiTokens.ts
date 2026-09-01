@@ -9,7 +9,7 @@ import { isRecordNotFoundError } from "../lib/prismaErrors.js";
 const EVENT_CREATE_SCOPE = "event:create";
 
 export async function apiTokenRoutes(app: FastifyInstance) {
-  app.get("/", { preHandler: [app.authenticate, app.requireSession] }, async (request, reply) => {
+  app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 
@@ -33,7 +33,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     return tokens;
   });
 
-  app.post("/", { preHandler: [app.authenticate, app.requireSession] }, async (request, reply) => {
+  app.post("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 
@@ -99,7 +99,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     return reply.code(201).send({ ...row, token: plaintext });
   });
 
-  app.delete("/:id", { preHandler: [app.authenticate, app.requireSession] }, async (request, reply) => {
+  app.delete("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 

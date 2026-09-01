@@ -82,6 +82,10 @@ const MESSAGES = {
   },
   petIdRequired: { ko: "petId가 필요합니다", en: "petId is required" },
   invalidCursor: { ko: "잘못된 커서입니다", en: "Invalid cursor" },
+  scaleValueInvalid: {
+    ko: "척도 값이 올바르지 않습니다",
+    en: "Scale value is out of range for this event type",
+  },
   noBackupFileUploaded: { ko: "백업 파일이 없습니다", en: "No backup file uploaded" },
   invalidBackupFile: {
     ko: "올바르지 않은 백업 파일입니다 (db.json 없음)",

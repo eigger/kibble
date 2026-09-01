@@ -6,7 +6,10 @@ declare module "fastify" {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    requireSession: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
+  interface FastifyContextConfig {
+    /** true일 때만 ApiToken(kbl_*) Bearer가 이 라우트에 접근 가능 (K-5). 기본 false. */
+    allowApiToken?: boolean;
   }
   interface FastifyRequest {
     locale: "ko" | "en";

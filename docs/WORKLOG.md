@@ -236,3 +236,16 @@
 - shared zod 스키마 (`event`, `apiToken`)
 
 **다음**: P1-09 격리 테스트, P1-18 api.md, P1-20 타임라인 UI
+
+### 2026-09-01 — PR #8 리뷰 반영 (인증·멱등·UX)
+
+**고친 것**
+
+- ApiToken **opt-out 기본**: `config.allowApiToken: true` 없는 라우트는 403 (K-5). `POST /api/events`만 허용
+- 토큰 스코프 `petId`/`presetId`/`eventTypeId` — 본문이 다른 값을 보내면 403
+- `dedupeKey` — `deletedAt` 무관 조회, 소프트삭제 행은 복구 후 반환 (P2002/500 방지)
+- `lastUsedAt` — 이벤트 생성 성공 후에만 갱신 (K-7)
+- GET `/api/events` 커서 `before`+`beforeId` 타이브레이크
+- `scaleValue` 범위 검증 (FECAL_7 1~7, APPETITE/ENERGY 1~3)
+- 웹: `dedupeKey` 전송, 기록 중 전 칩 disabled, undo 토스트 3초 (P1-21)
+- `POST /api/events` rate limit 120/min

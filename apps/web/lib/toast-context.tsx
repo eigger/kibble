@@ -26,8 +26,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback((message: string, kind: Toast["kind"] = "info", action?: ToastAction) => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, kind, action }]);
-    // 실행취소 등 액션이 달린 토스트는 누를 시간을 주기 위해 더 오래 띄워둔다.
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), action ? 6000 : 2500);
+    // 실행취소 토스트 — P1-21: 3초
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), action ? 3000 : 2500);
   }, []);
 
   return (

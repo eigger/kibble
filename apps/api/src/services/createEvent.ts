@@ -1,4 +1,4 @@
-import type { EventSource, Prisma, PrismaClient } from "@prisma/client";
+import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
 import { householdWhere } from "../lib/householdScope.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
@@ -64,18 +64,59 @@ const eventSelect = {
 
 export type CreatedEvent = Prisma.EventGetPayload<{ select: typeof eventSelect }>;
 
+export function validateScaleValue(
+  scaleType: ScaleType | null,
+  scaleValue: number | null | undefined,
+): void {
+  if (scaleValue == null) return;
+  if (!Number.isInteger(scaleValue)) {
+    throw new CreateEventValidationError("SCALE_VALUE_INVALID");
+  }
+  const range =
+    scaleType === "FECAL_7"
+      ? { min: 1, max: 7 }
+      : scaleType === "APPETITE_3" || scaleType === "ENERGY_3"
+        ? { min: 1, max: 3 }
+        : null;
+  if (!range) {
+    throw new CreateEventValidationError("SCALE_VALUE_NOT_ALLOWED");
+  }
+  if (scaleValue < range.min || scaleValue > range.max) {
+    throw new CreateEventValidationError("SCALE_VALUE_OUT_OF_RANGE");
+  }
+}
+
+async function findByDedupeKey(
+  db: Db,
+  householdId: string,
+  dedupeKey: string,
+): Promise<CreatedEvent | null> {
+  return db.event.findFirst({
+    where: {
+      ...householdWhere(householdId),
+      dedupeKey,
+    },
+    select: eventSelect,
+  });
+}
+
+async function restoreOrReturnDedupe(
+  db: Db,
+  existing: CreatedEvent,
+): Promise<CreatedEvent> {
+  if (!existing.deletedAt) return existing;
+  return db.event.update({
+    where: { id: existing.id },
+    data: { deletedAt: null },
+    select: eventSelect,
+  });
+}
+
 /** K-4: 이벤트 생성은 이 함수만 통과한다. */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (params.dedupeKey) {
-    const existing = await db.event.findFirst({
-      where: {
-        ...householdWhere(params.householdId),
-        dedupeKey: params.dedupeKey,
-        deletedAt: null,
-      },
-      select: eventSelect,
-    });
-    if (existing) return existing;
+    const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
+    if (existing) return restoreOrReturnDedupe(db, existing);
   }
 
   let eventTypeId = params.eventTypeId;
@@ -129,9 +170,11 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
       OR: [{ householdId: null }, { householdId: params.householdId }],
       archivedAt: null,
     },
-    select: { id: true },
+    select: { id: true, scaleType: true },
   });
   if (!eventType) throw new CreateEventNotFoundError("eventType");
+
+  validateScaleValue(eventType.scaleType, params.scaleValue);
 
   const occurredAt = params.occurredAt ?? new Date();
 
@@ -159,15 +202,8 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     });
   } catch (err) {
     if (params.dedupeKey && isUniqueConstraintError(err)) {
-      const raced = await db.event.findFirst({
-        where: {
-          ...householdWhere(params.householdId),
-          dedupeKey: params.dedupeKey,
-          deletedAt: null,
-        },
-        select: eventSelect,
-      });
-      if (raced) return raced;
+      const raced = await findByDedupeKey(db, params.householdId, params.dedupeKey);
+      if (raced) return restoreOrReturnDedupe(db, raced);
     }
     throw err;
   }

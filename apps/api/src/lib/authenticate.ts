@@ -22,6 +22,10 @@ function bearerToken(request: FastifyRequest): string | null {
   return token || null;
 }
 
+function routeAllowsApiToken(request: FastifyRequest): boolean {
+  return request.routeOptions.config?.allowApiToken === true;
+}
+
 async function authenticateApiToken(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -65,11 +69,14 @@ async function authenticateApiToken(
     eventTypeId: row.eventTypeId,
   };
 
-  void prisma.apiToken
-    .update({ where: { id: row.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => {});
-
   return true;
+}
+
+/** 인가 통과 후에만 호출 — K-7: GET preHandler에서 DB 쓰기 금지 */
+export async function touchApiTokenLastUsed(tokenId: string): Promise<void> {
+  await prisma.apiToken
+    .update({ where: { id: tokenId }, data: { lastUsedAt: new Date() } })
+    .catch(() => {});
 }
 
 async function authenticateJwt(
@@ -109,7 +116,10 @@ async function authenticateJwt(
   return true;
 }
 
-/** JWT 또는 ApiToken(kbl_*) — householdId를 데코레이트한다 (K-2). */
+/**
+ * JWT 또는 ApiToken(kbl_*).
+ * ApiToken은 `config: { allowApiToken: true }`가 선언된 라우트만 통과 (K-5 opt-out 기본).
+ */
 export async function runAuthenticate(
   app: FastifyInstance,
   request: FastifyRequest,
@@ -117,6 +127,10 @@ export async function runAuthenticate(
 ): Promise<void> {
   const token = bearerToken(request);
   if (token && isApiTokenPlaintext(token)) {
+    if (!routeAllowsApiToken(request)) {
+      reply.code(403).send({ error: t("apiTokenNotAllowed", request.locale) });
+      return;
+    }
     const ok = await authenticateApiToken(request, reply, token);
     if (!ok) return;
     return;
@@ -126,12 +140,18 @@ export async function runAuthenticate(
   if (!ok) return;
 }
 
-export function requireSessionAuth(request: FastifyRequest, reply: FastifyReply): boolean {
-  if (request.authMethod !== "jwt") {
-    reply.code(403).send({ error: t("apiTokenNotAllowed", request.locale) });
-    return false;
+/** 토큰에 고정된 스코프 필드 — 본문이 다른 값을 보내면 403 */
+export function resolveTokenScopedField(
+  bodyValue: string | undefined,
+  tokenValue: string | null | undefined,
+): { value: string | undefined; mismatch: boolean } {
+  if (tokenValue) {
+    if (bodyValue !== undefined && bodyValue !== tokenValue) {
+      return { value: undefined, mismatch: true };
+    }
+    return { value: tokenValue, mismatch: false };
   }
-  return true;
+  return { value: bodyValue, mismatch: false };
 }
 
 export function requireEventCreateAccess(request: FastifyRequest, reply: FastifyReply): boolean {

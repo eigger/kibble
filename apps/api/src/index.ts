@@ -18,7 +18,7 @@ import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 import { presetRoutes } from "./routes/presets.js";
 import { homeRoutes } from "./routes/home.js";
-import { eventRoutes, registerSessionGuard } from "./routes/events.js";
+import { eventRoutes } from "./routes/events.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { runAuthenticate } from "./lib/authenticate.js";
 
@@ -69,9 +69,11 @@ app.decorate("authenticate", async (request, reply) => {
   await runAuthenticate(app, request, reply);
 });
 
-registerSessionGuard(app);
-
 app.decorate("requireAdmin", async (request, reply) => {
+  if (request.authMethod !== "jwt") {
+    reply.code(403).send({ error: "admin only" });
+    return;
+  }
   const user = await prisma.user.findUnique({
     where: { id: request.user.sub },
     select: { role: true },
