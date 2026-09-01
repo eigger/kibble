@@ -609,7 +609,7 @@ UI:
 
 | ID | 작업 | 완료 조건 |
 |---|---|---|
-| P1-11 | 반려동물 CRUD + 사진 + 사후 편집 필드 전체 | 등록은 2필드, 편집은 12필드 |
+| P1-11 | 반려동물 CRUD + 사진 + 사후 편집 필드 전체 | **완료** — GET/PATCH/DELETE(archive)·사진·`/pets` UI 12필드 편집 |
 | P1-12 | **`createEvent()` 단일 서비스 함수** | **완료** — `services/createEvent.ts` |
 | P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. `docs/api.md`는 P1-18 |
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | 퀵 칩 길게 누르기 → 숨기기 |

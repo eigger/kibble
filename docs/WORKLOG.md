@@ -57,6 +57,7 @@
 | R24 | 시드 프리셋 `label`에 한글 리터럴 저장 | **기각** | en 로케일 사용자가 첫 실행부터 한글 칩을 본다 (K-9 위반). 시드는 i18n 키, 사용자 수정분만 리터럴 | — |
 | R25 | 시스템 `EventType` 시드를 Prisma `upsert`로 | **기각** | 복합 unique에 NULL이 끼면 `where`를 만들 수 없어 실행 불가. 게다가 NULL은 UNIQUE에서 구별되는 값이라 중복이 막히지도 않는다 → 부분 유니크 인덱스 + `findFirst`/`create` | — |
 | R26 | 텍스트 입력 → 제안 칩 **탭해야 저장** | **기각** | K-12·K-13: 입력이 사라지면 안 된다. **즉시 저장** 후 검토 칩(P1-22, PR #10 리뷰) | — |
+| R27 | `registrationNo` 15자리 한국 동물등록번호 형식 검증 | **기각** | 공개·ko/en 배포 — 비한국 사용자도 자국 번호를 쓴다. Phase 1은 자유 텍스트(max 50) | Phase 2+ 로케일별 형식 힌트가 필요해질 때 |
 
 ---
 
@@ -326,3 +327,27 @@
 - `journalInsight.test.ts` 8케이스
 
 **다음**: P1-27b PR push, P1-11 펫 CRUD
+
+### 2026-09-01 — P1-11 반려동물 CRUD·사진·편집 UI
+
+**한 일**
+
+- API: GET/PATCH/DELETE(archive), 사진 POST/GET/DELETE (`sharp` webp)
+- `/pets` 목록·추가, `/pets/[id]` 12필드 편집, 설정 → 반려동물 관리 링크
+- `updatePetSchema` + 단위 테스트
+
+### 2026-09-01 — P1-11 PR #12 리뷰 반영
+
+**한 일**
+
+- K-1: PATCH/DELETE/사진 POST·DELETE를 `updateMany` + `householdWhere`로 통일 (`events.ts` 패턴)
+- 사진 GET: `stat()` 선행 확인 → 파일 없을 때 404 (스트림 ENOENT catch 제거)
+- `sharp` 실패 → 400 (`InvalidPetPhotoError`), mimetype 검사 제거
+- `birthDate`/`adoptionDate`: 스키마에서 무효 날짜 400, 조용한 null 저장 제거
+- `registrationNo`: 15자리 한국 형식 검증 **기각** — 공개·다국어 앱이므로 자유 텍스트(max 50)
+- `sortOrder` `_max`: 보관 펫 포함 전체 가구 기준
+- 사진 GET: `Cache-Control: private, max-age=3600`
+- `petPhotoAbsolutePath`: `path.resolve` + UPLOAD_DIR 접두 검증
+- `householdIsolation.test.ts` 펫 라우트 4케이스 추가
+
+**다음**: P1-24 상세 시트, P1-14 프리셋 CRUD

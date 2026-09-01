@@ -1,5 +1,6 @@
 export type UserRole = "ADMIN" | "GENERAL";
 export type Species = "DOG" | "CAT" | "OTHER";
+export type Sex = "MALE" | "FEMALE" | "UNKNOWN";
 
 export interface User {
   id: string;
@@ -16,6 +17,18 @@ export interface Pet {
   name: string;
   species: Species;
   sortOrder: number;
+  photoPath?: string | null;
+}
+
+export interface PetDetail extends Pet {
+  breed: string | null;
+  sex: Sex | null;
+  neutered: boolean;
+  birthDate: string | null;
+  adoptionDate: string | null;
+  registrationNo: string | null;
+  microchipNo: string | null;
+  color: string | null;
 }
 
 export interface Preset {
