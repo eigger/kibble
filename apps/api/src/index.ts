@@ -1,16 +1,12 @@
 import { buildApp } from "./app.js";
 import { startTrashPurgeJob } from "./jobs/trashPurge.js";
 import { startMedicationReminderJob } from "./jobs/medicationReminders.js";
-import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
+import { assertMediaAuthConfig } from "./lib/mediaAuth.js";
 import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
 import { sweepStaleUploadSessions } from "./lib/uploadSessions.js";
 
-if (isMediaAuthDisabled()) {
-  console.warn(
-    "WARNING: MEDIA_AUTH_DISABLED=true — attachment file routes are unauthenticated. Do not use this in production.",
-  );
-}
+assertMediaAuthConfig();
 
 const app = await buildApp();
 

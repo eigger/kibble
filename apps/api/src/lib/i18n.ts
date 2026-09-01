@@ -50,6 +50,13 @@ const MESSAGES = {
     ko: "본인 비밀번호는 설정 화면에서 변경하세요",
     en: "Change your own password from Settings",
   },
+  // WORKPLAN §7.12는 ADMIN이 인스턴스 내 임의 사용자를 관리하도록 확정했지만, ADMIN이
+  // 여럿일 때 다른 가구의 ADMIN을 상대로 쓰면 그 가구를 통째로 탈취하는 권한 상승이 된다.
+  // 같은 가구의 ADMIN끼리는 이미 상호 접근이 있으므로 허용한다.
+  cannotManageOtherAdmin: {
+    ko: "다른 가구의 관리자 계정은 관리할 수 없습니다",
+    en: "You cannot manage an administrator account from another household",
+  },
   currentPasswordRequired: { ko: "현재 비밀번호를 입력하세요", en: "Current password is required" },
   userNotFound: { ko: "사용자를 찾을 수 없습니다", en: "User not found" },
   noHousehold: {

@@ -60,10 +60,39 @@
 | R27 | `registrationNo` 15자리 한국 동물등록번호 형식 검증 | **기각** | 공개·ko/en 배포 — 비한국 사용자도 자국 번호를 쓴다. Phase 1은 자유 텍스트(max 50) | Phase 2+ 로케일별 형식 힌트가 필요해질 때 |
 | R28 | 가구별 별칭을 `EventType` 행 통째 복제 | **기각** | `seedSystemEventTypes`가 시스템 행만 갱신 → 복제본은 시드 개선을 영원히 못 받음. `EventTypeAlias` 테이블로 별칭만 저장 | — |
 | R29 | 소프트삭제 + 전체 유니크 제약만 두기 | **기각** | 보관 후 재생성 P2002·500 반복(dedupeKey·Preset). **부분 유니크**(`archivedAt IS NULL`) 또는 **보관 행 복원** 필수 | — |
+| R30 | `GET /api/auth/users`·삭제·비밀번호 재설정에 `householdId` 필터 추가 | **기각** | §7.12가 "인스턴스 전체 사용자 반환, ADMIN이 임의 사용자 관리"를 이미 확정했다. 필터를 넣으면 SEPARATE 계정 관리가 불가능해진다. 실제 구멍은 **가구 밖 ADMIN에 대한 권한 상승**뿐이라 그 경우만 403으로 막았다 | 다중 가구를 1급으로 올릴 때 §7.12부터 다시 연다 |
+| R31 | 백업 아카이브에 `Pet`·`Event`·`Preset`을 넣어 "전체 백업"으로 확장 | **보류** | 일지 전체를 JSON으로 왕복시키면 스키마가 바뀔 때마다 마이그레이션 대상이 하나 더 생긴다. `pg_dump` + 볼륨 스냅샷이 이미 그 일을 정확히 한다 — 대신 **문서와 UI가 백업 범위를 오해시키지 않게** 고쳤다 | Phase 3 백업 자동화 |
+| R32 | npm audit에 `--omit=optional`을 붙여 prisma를 감사 대상에서 제외 | **기각** | prisma는 `devOptional`이고 `docker-compose.prod.yml`이 기동 때 `prisma migrate deploy`를 돌린다 — **실제로 프로덕션 이미지에 들어간다.** 감사에서 숨기는 대신 `overrides`로 패치 버전을 고정한다 | — |
+
 
 ---
 
 ## 2. 세션 로그
+
+### 2026-09-02 — 전체 리뷰 후속: 관리자 권한·백업·미디어 인증
+
+전체 코드 리뷰에서 나온 지적을 순서대로 처리했다. 대부분 **stash 섀시에서 그대로 넘어온 관리자·백업 경로**에 몰려 있었고, 도메인 라우트(K-1·K-4·K-9)는 문제가 없었다.
+
+**한 일**
+
+- **가구 밖 ADMIN 권한 상승 차단** — ADMIN이 여럿일 때 다른 가구의 ADMIN을 삭제·비밀번호 재설정하면 그 가구를 통째로 탈취할 수 있었다. §7.12(인스턴스 전역 관리)는 유지하고 **대상이 ADMIN이면서 요청자 가구 밖일 때만** 403. 같은 가구 ADMIN끼리는 이미 상호 접근이 있으므로 그대로 (`adminUserRoutes.test.ts`)
+- **백업 범위 오해 제거** — `deploy.md`가 `migrate reset` 전에 `/backup`으로 보내라고 안내했지만 아카이브에 일지가 없다. 그대로 따르면 **일지 전체 유실.** `pg_dump` + uploads 볼륨 스냅샷 명령으로 교체하고, `/backup` 화면·`api.md`에도 범위 경고를 넣었다
+- **복원이 가구를 끊던 문제** — `tx.user.deleteMany()`가 `HouseholdMember`를 캐스케이드로 지워, 복원 직후 전원이 `householdId=null`로 떨어지고 기존 Household·Pet·Event가 고아가 됐다. `households`·`householdMembers`를 아카이브에 담아 같은 트랜잭션에서 되돌린다. **Household 자체는 절대 삭제하지 않는다** — Pet·Event가 캐스케이드로 날아간다
+- **VAPID 키를 백업에서 제외** (§8 결정 이행) — 아카이브에 푸시 개인키가 평문으로 실리고 있었다. 내보내기에서 빼고, 복원이 서버의 기존 키를 지우지도 않게 했다
+- **미디어 쿠키의 tokenVersion 우회 차단** — `purpose:"media"` 토큰에 `tv` 검사가 없어 `/logout-all`·비밀번호 변경 후에도 다른 기기에서 최대 24h 사진을 볼 수 있었다. 발급 시 `tv`를 심고 검증한다 (`mediaAuth.test.ts`)
+- **`MEDIA_AUTH_DISABLED`** — 경고만 찍고 기동하던 것을 `JWT_SECRET`과 같은 강도로: 프로덕션이면 기동 실패
+- **CI audit 복구** — mysql2 GHSA-3f6p-5ww8-9rcr로 lint job이 깨질 상태였다. `overrides`로 패치 버전 고정 (R32)
+- **계획에 없던 의존성 제거** — WORKPLAN §5.0/§72가 "지금 가져오지 않는다"고 못박은 `pdfkit`·`qrcode`·`bwip-js`와 `NotoSansKR-Regular.ttf`(2.8MB), 미사용 `dotenv`
+
+**주의**
+
+- 배포 직후 기존 미디어 쿠키(tv 없음)는 전부 무효다. `/api/auth/me`가 마운트 때 새 쿠키를 심으므로 첫 로드 한 번만 사진이 늦게 뜰 수 있다
+- 복원 시 VAPID 키는 서버 값이 유지된다 — 새 서버로 옮기면 관리자 설정에서 재발급이 필요하다
+
+**다음**
+
+- 리뷰에서 남긴 미처리 항목: 서비스워커 캐시가 로그아웃 때 안 지워짐(공용 기기), CORS `origin: true`, Caddy 보안 헤더 부재, 청크 업로드 세션 인메모리, `PATCH /profile`이 비밀번호 확인 없이 이메일 변경
+- Phase 1 게이트 — 2주 실사용
 
 ### 2026-09-01 — 문서 `docs/` 통합
 
