@@ -841,7 +841,6 @@ export default function HomePage() {
 
         if (outcome.status === "queued") {
           setHomePendingFiles([]);
-          window.dispatchEvent(new Event("kibble-offline-queued"));
           show(t("offlineQueuedToast"), "info");
           return;
         }

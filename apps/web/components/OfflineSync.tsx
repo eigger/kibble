@@ -61,10 +61,13 @@ export function OfflineSync() {
   }, [refreshCount, runFlush]);
 
   useEffect(() => {
-    const onQueued = () => void refreshCount();
+    const onQueued = () => {
+      void refreshCount();
+      if (navigator.onLine) void runFlush();
+    };
     window.addEventListener("kibble-offline-queued", onQueued);
     return () => window.removeEventListener("kibble-offline-queued", onQueued);
-  }, [refreshCount]);
+  }, [refreshCount, runFlush]);
 
   if (!online) return null;
   if (pendingCount === 0) return null;

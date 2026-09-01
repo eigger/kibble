@@ -89,7 +89,6 @@ export default function QuickRecordPage() {
         });
 
         if (outcome.status === "queued") {
-          window.dispatchEvent(new Event("kibble-offline-queued"));
           show(t("offlineQueuedToast"), "info");
           return;
         }

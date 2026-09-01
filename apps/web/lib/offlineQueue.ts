@@ -17,12 +17,19 @@ export interface QueuedEvent {
   /** i18n 키 — 토스트용 */
   labelKey: string;
   body: CreateEventInput;
+  /** 이벤트 POST 성공 후 첨부만 남은 경우 */
+  eventId?: string;
   attachments: QueuedAttachment[];
 }
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** 큐 적재 시각을 occurredAt으로 고정 — flush 시각이 아닌 탭 시각이 서버에 간다 */
+export function withQueuedOccurredAt(body: CreateEventInput): CreateEventInput {
+  return body.occurredAt ? body : { ...body, occurredAt: new Date().toISOString() };
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -94,11 +101,15 @@ export async function enqueueOfflineEvent(input: {
     id: newId(),
     queuedAt: Date.now(),
     labelKey: input.labelKey,
-    body: input.body,
+    body: withQueuedOccurredAt(input.body),
     attachments: filesToAttachments(input.attachments ?? []),
   };
   await runTransaction("readwrite", (store) => store.put(entry));
   return entry.id;
+}
+
+export async function updateOfflineEvent(entry: QueuedEvent): Promise<void> {
+  await runTransaction("readwrite", (store) => store.put(entry));
 }
 
 export async function listOfflineEvents(): Promise<QueuedEvent[]> {
