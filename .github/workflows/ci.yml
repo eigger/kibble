@@ -91,6 +91,9 @@ jobs:
       - name: Run Prisma Migrate
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts
 
+      - name: Build shared package
+        run: npm run build:shared
+
       - name: Run Tests
         run: npm run test
 
@@ -140,6 +143,9 @@ jobs:
 
       - name: Run Prisma Migrate
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts
+
+      - name: Build shared package
+        run: npm run build:shared
 
       - name: Run backup/restore integration tests
         run: npm run test:integration -w apps/api
