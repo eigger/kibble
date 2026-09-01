@@ -26,6 +26,7 @@ import {
   deleteEventAttachment,
   uploadEventAttachments,
 } from "../lib/eventAttachments";
+import { fetchTimelinePage, TIMELINE_PAGE_SIZE } from "../lib/timeline";
 import type { EventAttachment } from "../lib/types";
 
 interface HomePayload {
@@ -134,6 +135,9 @@ export default function HomePage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [detailDeleting, setDetailDeleting] = useState(false);
+  const [hasMoreEvents, setHasMoreEvents] = useState(false);
+  const [loadingMoreEvents, setLoadingMoreEvents] = useState(false);
   const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
   const [chipAction, setChipAction] = useState<{ preset: Preset; label: string } | null>(null);
   /** 홈 입력 바 전용 — 칩 탭·텍스트 저장 시에만 소비 */
@@ -143,6 +147,7 @@ export default function HomePage() {
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const loadSeq = useRef(0);
   const recentEventsRef = useRef<TimelineEvent[]>([]);
+  const timelineSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     recentEventsRef.current = recentEvents;
@@ -162,6 +167,7 @@ export default function HomePage() {
     setPresets(data.presets);
     setTodaySummary(data.todaySummary);
     setRecentEvents(data.recentEvents);
+    setHasMoreEvents(data.recentEvents.length >= TIMELINE_PAGE_SIZE);
     setJournalStats(data.journalStats);
   }, []);
 
@@ -298,6 +304,86 @@ export default function HomePage() {
     setHomePendingFiles([]);
     setDetailPendingFiles([]);
     setDetailAttachments(event.attachments ?? []);
+  }
+
+  const loadMoreEvents = useCallback(async () => {
+    if (!activePet || loadingMoreEvents || !hasMoreEvents) return;
+    const last = recentEventsRef.current[recentEventsRef.current.length - 1];
+    if (!last) return;
+
+    setLoadingMoreEvents(true);
+    try {
+      const page = await fetchTimelinePage(activePet.id, {
+        occurredAt: last.occurredAt,
+        id: last.id,
+      });
+      setRecentEvents((prev) => {
+        const seen = new Set(prev.map((e) => e.id));
+        const appended = page.filter((e) => !seen.has(e.id));
+        return appended.length > 0 ? [...prev, ...appended] : prev;
+      });
+      setHasMoreEvents(page.length >= TIMELINE_PAGE_SIZE);
+    } catch {
+      show(t("timelineLoadMoreError"), "error");
+    } finally {
+      setLoadingMoreEvents(false);
+    }
+  }, [activePet, hasMoreEvents, loadingMoreEvents, show, t]);
+
+  useEffect(() => {
+    const node = timelineSentinelRef.current;
+    if (!node || !hasMoreEvents) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreEvents();
+      },
+      { rootMargin: "120px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMoreEvents, loadMoreEvents, recentEvents.length]);
+
+  async function handleDeleteEvent() {
+    if (!detailDraft?.eventId || detailDeleting || !activePet) return;
+    const eventId = detailDraft.eventId;
+    const event = recentEvents.find((e) => e.id === eventId);
+    if (!event) return;
+
+    setDetailDeleting(true);
+    try {
+      await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
+      setRecentEvents((prev) => prev.filter((e) => e.id !== eventId));
+      setTodaySummary((prev) => decrementSummary(prev, event.eventType.key));
+      setJournalStats((prev) => ({
+        totalEventCount: Math.max(0, prev.totalEventCount - 1),
+        distinctDayCount: prev.distinctDayCount,
+      }));
+      setDetailOpen(false);
+      setDetailDraft(null);
+      setDetailAttachments([]);
+      setDetailPendingFiles([]);
+      show(t("recordUndone"), "success", {
+        label: t("undo"),
+        onClick: () => {
+          void (async () => {
+            try {
+              await apiJson(`/api/events/${eventId}/restore`, { method: "POST" });
+              const seq = await loadHome(activePet.id);
+              if (seq === loadSeq.current) {
+                show(t("eventRestored"), "info");
+              }
+            } catch {
+              show(t("recordError"), "error");
+            }
+          })();
+        },
+      });
+    } catch {
+      show(t("recordError"), "error");
+    } finally {
+      setDetailDeleting(false);
+    }
   }
 
   function applyCreatedEvent(event: CreatedEvent) {
@@ -801,6 +887,10 @@ export default function HomePage() {
                     );
                   })}
                 </ul>
+                <div ref={timelineSentinelRef} className="timeline-sentinel" aria-hidden />
+                {loadingMoreEvents && (
+                  <p className="meta timeline-loading-more">{t("timelineLoadingMore")}</p>
+                )}
                 <p className="meta home-timeline-hint">{t("homeTimelineEditHint")}</p>
               </>
             )}
@@ -950,9 +1040,15 @@ export default function HomePage() {
         open={detailOpen}
         draft={detailDraft}
         saving={detailSaving}
+        deleting={detailDeleting}
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
+        onDeleteEvent={
+          detailDraft?.mode === "edit" && detailDraft.eventId
+            ? () => void handleDeleteEvent()
+            : undefined
+        }
         onDeleteAttachment={
           detailDraft?.mode === "edit" && detailDraft.eventId
             ? (id) => void handleDeleteAttachment(id)

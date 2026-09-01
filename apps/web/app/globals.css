@@ -1164,9 +1164,32 @@ button:disabled {
 
 .event-detail-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  justify-content: flex-end;
   margin-top: 8px;
+}
+
+.event-detail-actions-primary {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.event-detail-delete {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+}
+
+.timeline-sentinel {
+  height: 1px;
+}
+
+.timeline-loading-more {
+  text-align: center;
+  margin: 8px 0 0;
 }
 
 .timeline-item-clickable {

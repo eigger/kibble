@@ -38,6 +38,8 @@ interface EventDetailSheetProps {
   pendingFiles?: File[];
   onPendingFilesChange?: (files: File[]) => void;
   onDeleteAttachment?: (attachmentId: string) => void;
+  onDeleteEvent?: () => void;
+  deleting?: boolean;
   onClose: () => void;
   onSave: (draft: EventDetailDraft) => void;
   onValidationError: (message: string) => void;
@@ -54,6 +56,8 @@ export function EventDetailSheet({
   pendingFiles = [],
   onPendingFilesChange,
   onDeleteAttachment,
+  onDeleteEvent,
+  deleting = false,
   onClose,
   onSave,
   onValidationError,
@@ -65,6 +69,7 @@ export function EventDetailSheet({
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
+  const busy = saving || deleting;
 
   useEffect(() => {
     if (!draft) return;
@@ -78,11 +83,11 @@ export function EventDetailSheet({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
+      if (e.key === "Escape" && !busy) onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, saving, onClose]);
+  }, [open, busy, onClose]);
 
   useEffect(() => {
     if (open) dialogRef.current?.focus();
@@ -124,7 +129,7 @@ export function EventDetailSheet({
   }
 
   return (
-    <div className="sheet-backdrop" role="presentation" onClick={() => !saving && onClose()}>
+    <div className="sheet-backdrop" role="presentation" onClick={() => !busy && onClose()}>
       <div
         ref={dialogRef}
         className="sheet-card event-detail-sheet"
@@ -146,7 +151,7 @@ export function EventDetailSheet({
                   key={key}
                   type="button"
                   className="chip chip-compact"
-                  disabled={saving}
+                  disabled={busy}
                   onClick={() => applyQuickTime(key)}
                 >
                   {t(`quickTime.${key}`)}
@@ -158,7 +163,7 @@ export function EventDetailSheet({
               className="event-detail-datetime"
               value={occurredLocal}
               required
-              disabled={saving}
+              disabled={busy}
               onChange={(e) => setOccurredLocal(e.target.value)}
             />
           </fieldset>
@@ -175,7 +180,7 @@ export function EventDetailSheet({
                 className="event-detail-qty-input"
                 placeholder="100"
                 value={quantityOffered}
-                disabled={saving}
+                disabled={busy}
                 onChange={(e) => setQuantityOffered(e.target.value)}
               />
             </div>
@@ -190,7 +195,7 @@ export function EventDetailSheet({
                 className="event-detail-qty-input"
                 placeholder="30"
                 value={quantity}
-                disabled={saving}
+                disabled={busy}
                 onChange={(e) => setQuantity(e.target.value)}
               />
             </div>
@@ -206,7 +211,7 @@ export function EventDetailSheet({
             placeholder="g"
             maxLength={32}
             value={unit}
-            disabled={saving}
+            disabled={busy}
             onChange={(e) => setUnit(e.target.value)}
           />
 
@@ -219,7 +224,7 @@ export function EventDetailSheet({
             rows={2}
             maxLength={4000}
             value={note}
-            disabled={saving}
+            disabled={busy}
             onChange={(e) => setNote(e.target.value)}
           />
 
@@ -240,7 +245,7 @@ export function EventDetailSheet({
                         <button
                           type="button"
                           className="pending-attachments-remove"
-                          disabled={saving}
+                          disabled={busy}
                           aria-label={t("removeAttachment")}
                           onClick={() => onDeleteAttachment(att.id)}
                         >
@@ -255,7 +260,7 @@ export function EventDetailSheet({
                 <PendingAttachments
                   files={pendingFiles}
                   existingCount={attachments.length}
-                  disabled={saving}
+                  disabled={busy}
                   onChange={onPendingFilesChange}
                   t={t}
                 />
@@ -264,12 +269,24 @@ export function EventDetailSheet({
           )}
 
           <div className="event-detail-actions">
-            <button type="button" className="secondary" disabled={saving} onClick={onClose}>
-              {t("cancel")}
-            </button>
-            <button type="submit" disabled={saving}>
-              {saving ? t("saving") : t("save")}
-            </button>
+            {draft.mode === "edit" && onDeleteEvent && (
+              <button
+                type="button"
+                className="danger event-detail-delete"
+                disabled={busy}
+                onClick={onDeleteEvent}
+              >
+                {deleting ? t("deleting") : t("eventDetailDelete")}
+              </button>
+            )}
+            <div className="event-detail-actions-primary">
+              <button type="button" className="secondary" disabled={busy} onClick={onClose}>
+                {t("cancel")}
+              </button>
+              <button type="submit" disabled={busy}>
+                {saving ? t("saving") : t("save")}
+              </button>
+            </div>
           </div>
         </form>
       </div>
