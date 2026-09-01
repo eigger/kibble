@@ -326,3 +326,13 @@
 - `journalInsight.test.ts` 8케이스
 
 **다음**: P1-27b PR push, P1-11 펫 CRUD
+
+### 2026-09-01 — P1-11 반려동물 CRUD·사진·편집 UI
+
+**한 일**
+
+- API: GET/PATCH/DELETE(archive), 사진 POST/GET/DELETE (`sharp` webp)
+- `/pets` 목록·추가, `/pets/[id]` 12필드 편집, 설정 → 반려동물 관리 링크
+- `updatePetSchema` + 단위 테스트
+
+**다음**: P1-24 상세 시트, P1-14 프리셋 CRUD

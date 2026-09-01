@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, apiJson, API_URL } from "../../lib/api";
@@ -156,6 +157,12 @@ export default function SettingsPage() {
             {changingPassword ? t("processingLabel") : t("changePasswordButton")}
           </button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>{t("petsManageLink")}</h2>
+        <p className="meta">{t("petsIntro")}</p>
+        <Link href="/pets">{t("petsTitle")}</Link>
       </div>
 
       <div className="card">

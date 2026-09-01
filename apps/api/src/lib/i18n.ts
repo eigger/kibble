@@ -70,6 +70,13 @@ const MESSAGES = {
   },
   apiTokenNotFound: { ko: "API 토큰을 찾을 수 없습니다", en: "API token not found" },
   petNotFound: { ko: "반려동물을 찾을 수 없습니다", en: "Pet not found" },
+  cannotArchiveLastPet: {
+    ko: "마지막 반려동물은 보관 처리할 수 없습니다",
+    en: "Cannot archive the only pet",
+  },
+  photoRequired: { ko: "사진 파일이 필요합니다", en: "Photo file is required" },
+  photoMustBeImage: { ko: "이미지 파일만 업로드할 수 있습니다", en: "Only image files are allowed" },
+  photoNotFound: { ko: "사진이 없습니다", en: "Photo not found" },
   presetNotFound: { ko: "프리셋을 찾을 수 없습니다", en: "Preset not found" },
   eventTypeNotFound: { ko: "이벤트 유형을 찾을 수 없습니다", en: "Event type not found" },
   eventNotFound: { ko: "기록을 찾을 수 없습니다", en: "Event not found" },
