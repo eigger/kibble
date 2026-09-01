@@ -98,37 +98,44 @@ async function flushOne(entry: QueuedEvent): Promise<"synced" | "rejected" | "re
 let flushing = false;
 const FLUSH_LOCK = "kibble-offline-flush";
 
-async function flushOfflineQueueInner(): Promise<FlushOfflineResult> {
+function remainingFor(userId: string): Promise<number> {
+  return listOfflineEvents(userId)
+    .then((q) => q.length)
+    .catch(() => 0);
+}
+
+async function flushOfflineQueueInner(userId: string): Promise<FlushOfflineResult> {
   if (flushing || isOfflineNow()) {
-    const remaining = await listOfflineEvents().then((q) => q.length).catch(() => 0);
-    return { synced: 0, rejected: 0, remaining };
+    return { synced: 0, rejected: 0, remaining: await remainingFor(userId) };
   }
   flushing = true;
   let synced = 0;
   let rejected = 0;
   try {
-    const queue = await listOfflineEvents();
+    const queue = await listOfflineEvents(userId);
     for (const entry of queue) {
       const outcome = await flushOne(entry);
       if (outcome === "synced") synced++;
       else if (outcome === "rejected") rejected++;
       // retry: 이 항목은 남기고 다음 항목 계속 처리
     }
-    const remaining = await listOfflineEvents().then((q) => q.length).catch(() => 0);
-    return { synced, rejected, remaining };
+    return { synced, rejected, remaining: await remainingFor(userId) };
   } finally {
     flushing = false;
   }
 }
 
-/** 온라인 복귀·큐 적재 시 순서대로 전송. 탭 간 Lock API로 중복 flush 방지 */
-export async function flushOfflineQueue(): Promise<FlushOfflineResult> {
+/**
+ * 온라인 복귀·큐 적재 시 순서대로 전송. 탭 간 Lock API로 중복 flush 방지.
+ * `userId`의 큐만 보낸다 — 공용 기기에서 이전 사용자의 기록이 지금 로그인한 사람의
+ * 가구로 들어가면 안 된다.
+ */
+export async function flushOfflineQueue(userId: string): Promise<FlushOfflineResult> {
   if (isOfflineNow()) {
-    const remaining = await listOfflineEvents().then((q) => q.length).catch(() => 0);
-    return { synced: 0, rejected: 0, remaining };
+    return { synced: 0, rejected: 0, remaining: await remainingFor(userId) };
   }
   if (typeof navigator !== "undefined" && navigator.locks?.request) {
-    return navigator.locks.request(FLUSH_LOCK, flushOfflineQueueInner);
+    return navigator.locks.request(FLUSH_LOCK, () => flushOfflineQueueInner(userId));
   }
-  return flushOfflineQueueInner();
+  return flushOfflineQueueInner(userId);
 }

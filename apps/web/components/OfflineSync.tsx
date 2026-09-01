@@ -1,13 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
 import { getOfflineQueueCount } from "../lib/offlineQueue";
 import { flushOfflineQueue } from "../lib/offlineSync";
 
-/** 온라인 복귀 시 IndexedDB 큐를 비우고, 대기 건수를 배너에 반영한다. */
+/**
+ * 온라인 복귀 시 IndexedDB 큐를 비우고, 대기 건수를 배너에 반영한다.
+ * 로그인한 사용자의 큐만 다룬다 — 로그아웃 상태에서는 아무것도 보내지 않는다.
+ */
 export function OfflineSync() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { t } = useLocale();
   const { show } = useToast();
   const flushingRef = useRef(false);
@@ -15,18 +21,23 @@ export function OfflineSync() {
   const [online, setOnline] = useState(true);
 
   const refreshCount = useCallback(async () => {
+    if (!userId) {
+      setPendingCount(0);
+      return;
+    }
     try {
-      setPendingCount(await getOfflineQueueCount());
+      setPendingCount(await getOfflineQueueCount(userId));
     } catch {
       setPendingCount(0);
     }
-  }, []);
+  }, [userId]);
 
   const runFlush = useCallback(async () => {
+    if (!userId) return;
     if (flushingRef.current) return;
     flushingRef.current = true;
     try {
-      const { synced, rejected } = await flushOfflineQueue();
+      const { synced, rejected } = await flushOfflineQueue(userId);
       await refreshCount();
       if (synced > 0 || rejected > 0) {
         let message = t("offlineQueueFlushedToast", { synced: String(synced) });
@@ -41,7 +52,7 @@ export function OfflineSync() {
     } finally {
       flushingRef.current = false;
     }
-  }, [refreshCount, show, t]);
+  }, [refreshCount, show, t, userId]);
 
   useEffect(() => {
     setOnline(navigator.onLine);

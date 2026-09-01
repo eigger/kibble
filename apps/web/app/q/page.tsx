@@ -283,6 +283,9 @@ export default function QuickRecordPage() {
     draft: EventDetailDraft,
     meta: { removedAttachmentIds: string[] },
   ) {
+    // 오프라인 큐 항목에는 소유자가 필요하다 — 세션이 없으면 저장 자체를 하지 않는다.
+    if (!user) return;
+
     setDetailSaving(true);
     setDetailSaveError(null);
     const filesToUpload = [...detailPendingFiles];
@@ -291,6 +294,7 @@ export default function QuickRecordPage() {
       if (!draft.eventId && draft.mode === "create") {
         const preset = presets.find((p) => p.id === draft.presetId);
         const outcome = await createEventWithOfflineFallback({
+          userId: user.id,
           labelKey: preset?.label ?? draft.label,
           body: {
             petId: draft.petId,

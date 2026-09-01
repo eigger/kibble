@@ -1,7 +1,9 @@
 import type { CreateEventInput } from "@kibble/shared";
 
 const DB_NAME = "kibble-offline";
-const DB_VERSION = 1;
+// v2: 큐 항목에 소유자(userId)를 붙였다. 배포된 인스턴스가 없으므로 v1 항목을 이전하지 않고
+// 스토어를 새로 만든다 — 소유자를 알 수 없는 항목이 남는 경로 자체를 없앤다.
+const DB_VERSION = 2;
 const STORE = "events";
 
 export interface QueuedAttachment {
@@ -14,6 +16,12 @@ export interface QueuedAttachment {
 export interface QueuedEvent {
   id: string;
   queuedAt: number;
+  /**
+   * 큐에 넣은 사용자. 주방 태블릿처럼 기기를 공유하면(§7.12) 로그아웃해도 미전송 기록이
+   * IndexedDB에 남는데, 401은 영구 거부가 아니라 큐에 유지되므로 그대로 두면 다음 사용자가
+   * 로그인했을 때 **이전 사용자의 기록이 그 사람 가구로 들어간다.** 본인 것만 flush한다.
+   */
+  userId: string;
   /** i18n 키 — 토스트용 */
   labelKey: string;
   body: CreateEventInput;
@@ -42,9 +50,10 @@ function openDb(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error ?? new Error("IDB_OPEN_FAILED"));
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: "id" });
-      }
+      // 소유자 없는 v1 항목을 이전할 근거가 없다(누가 넣었는지 알 수 없다). 배포 전이므로
+      // 스토어를 새로 만든다 — 실기록이 걸릴 일이 없고, 애매한 항목이 남지도 않는다.
+      if (db.objectStoreNames.contains(STORE)) db.deleteObjectStore(STORE);
+      db.createObjectStore(STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
   });
@@ -93,6 +102,7 @@ function filesToAttachments(files: File[]): QueuedAttachment[] {
 }
 
 export async function enqueueOfflineEvent(input: {
+  userId: string;
   labelKey: string;
   body: CreateEventInput;
   attachments?: File[];
@@ -100,6 +110,7 @@ export async function enqueueOfflineEvent(input: {
   const entry: QueuedEvent = {
     id: newId(),
     queuedAt: Date.now(),
+    userId: input.userId,
     labelKey: input.labelKey,
     body: withQueuedOccurredAt(input.body),
     attachments: filesToAttachments(input.attachments ?? []),
@@ -112,12 +123,17 @@ export async function updateOfflineEvent(entry: QueuedEvent): Promise<void> {
   await runTransaction("readwrite", (store) => store.put(entry));
 }
 
-export async function listOfflineEvents(): Promise<QueuedEvent[]> {
+export function isOwnedBy(entry: QueuedEvent, userId: string): boolean {
+  return entry.userId === userId;
+}
+
+/** 본인 큐만 돌려준다 — 다른 사용자의 미전송 기록을 대신 전송하면 안 된다. */
+export async function listOfflineEvents(userId: string): Promise<QueuedEvent[]> {
   return runTransaction("readonly", (store) => {
     const request = store.getAll();
     return new Promise<QueuedEvent[]>((resolve, reject) => {
       request.onsuccess = () => {
-        const rows = (request.result as QueuedEvent[]).slice();
+        const rows = (request.result as QueuedEvent[]).filter((row) => isOwnedBy(row, userId));
         rows.sort((a, b) => a.queuedAt - b.queuedAt);
         resolve(rows);
       };
@@ -126,8 +142,8 @@ export async function listOfflineEvents(): Promise<QueuedEvent[]> {
   });
 }
 
-export async function getOfflineQueueCount(): Promise<number> {
-  const rows = await listOfflineEvents();
+export async function getOfflineQueueCount(userId: string): Promise<number> {
+  const rows = await listOfflineEvents(userId);
   return rows.length;
 }
 
