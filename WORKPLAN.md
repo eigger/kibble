@@ -615,7 +615,7 @@ UI:
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | **완료** — API POST/PATCH/DELETE·`EventTypeAlias`·부분 유니크·`/presets` UI(이름·순서·숨김·별칭)·칩 길게 누르기 메뉴. 생성·삭제 UI는 미포함 |
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
 | P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 | **완료** — POST/DELETE `/api/attachments`, 이벤트당 9장, sharp JPEG |
-| P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | 크론 동작 확인 |
+| P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | **완료** — 30일 경과 `Event` 하드삭제 + 첨부 디스크 정리, 매일 04:00 크론 |
 | P1-18 | `docs/api.md` — 엔드포인트 + curl 예제 | **완료** |
 
 ### 5.4 웹
