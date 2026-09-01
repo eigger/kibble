@@ -109,6 +109,7 @@ export interface ParseSuggestion {
   eventTypeId: string;
   presetId: string | null;
   label: string;
+  scaleType?: string | null;
   quantity: number | null;
   quantityOffered: number | null;
   unit: string | null;

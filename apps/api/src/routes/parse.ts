@@ -43,7 +43,7 @@ export async function parseRoutes(app: FastifyInstance) {
         label: true,
         sortOrder: true,
         eventType: {
-          select: { id: true, key: true, label: true, aliases: true, defaultUnit: true },
+          select: { id: true, key: true, label: true, aliases: true, defaultUnit: true, scaleType: true },
         },
       },
       orderBy: { sortOrder: "asc" },
@@ -68,6 +68,9 @@ export async function parseRoutes(app: FastifyInstance) {
     const labelByTypeId = new Map(
       presets.map((p) => [p.eventType.id, p.label] as const),
     );
+    const scaleTypeByTypeId = new Map(
+      presets.map((p) => [p.eventType.id, p.eventType.scaleType] as const),
+    );
 
     return {
       entryId: randomUUID(),
@@ -79,6 +82,7 @@ export async function parseRoutes(app: FastifyInstance) {
         eventTypeId: s.eventTypeId,
         presetId: s.presetId,
         label: labelByTypeId.get(s.eventTypeId) ?? `eventType.${s.eventTypeKey}`,
+        scaleType: scaleTypeByTypeId.get(s.eventTypeId) ?? null,
         quantity: s.quantity,
         quantityOffered: s.quantityOffered,
         unit: s.unit,

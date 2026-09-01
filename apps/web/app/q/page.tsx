@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiJson } from "../../lib/api";
@@ -28,6 +28,7 @@ export default function QuickRecordPage() {
   const [recording, setRecording] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const inFlightDedupeKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -71,7 +72,8 @@ export default function QuickRecordPage() {
     if (!pet || recording) return;
     setRecording(true);
     const label = t(preset.label);
-    const dedupeKey = newDedupeKey(pet.id, preset.id);
+    const dedupeKey = inFlightDedupeKey.current ?? newDedupeKey(pet.id, preset.id);
+    inFlightDedupeKey.current = dedupeKey;
 
     void (async () => {
       try {
@@ -101,6 +103,7 @@ export default function QuickRecordPage() {
       } catch {
         show(t("recordError"), "error");
       } finally {
+        inFlightDedupeKey.current = null;
         setRecording(false);
       }
     })();
@@ -130,8 +133,8 @@ export default function QuickRecordPage() {
                 preset={preset}
                 label={t(preset.label)}
                 disabled={recording}
+                tapOnly
                 onTap={onPresetTap}
-                onLongPress={() => {}}
               />
             ))}
           </div>
@@ -168,11 +171,11 @@ export default function QuickRecordPage() {
                   key={preset.id}
                   label={t(preset.label)}
                   disabled={recording}
+                  tapOnly
                   onTap={() => {
                     setMoreOpen(false);
                     onPresetTap(preset);
                   }}
-                  onLongPress={() => {}}
                 />
               ))}
             </div>

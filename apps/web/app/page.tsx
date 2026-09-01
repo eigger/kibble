@@ -671,6 +671,8 @@ export default function HomePage() {
       quantityOffered: suggestion.quantityOffered,
       unit: suggestion.unit,
       note: suggestion.note,
+      scaleType: suggestion.scaleType ?? null,
+      scaleValue: null,
       rawText: suggestion.rawLine,
       entryId,
       dedupeKey: key,
