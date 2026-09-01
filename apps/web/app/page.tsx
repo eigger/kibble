@@ -16,7 +16,14 @@ import type {
   ParseEntryResponse,
 } from "../lib/types";
 import type { JournalStats } from "@kibble/shared";
-import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
+import {
+  appendTimelinePage,
+  bumpJournalStats,
+  insertTimelineEvent,
+  journalInsightMessage,
+  kstDayKey,
+  timelineHasMore,
+} from "@kibble/shared";
 import { EventDetailSheet, type EventDetailDraft } from "../components/EventDetailSheet";
 import { ChipActionSheet } from "../components/ChipActionSheet";
 import { PresetChip, MorePresetItem } from "../components/PresetChip";
@@ -26,6 +33,7 @@ import {
   deleteEventAttachment,
   uploadEventAttachments,
 } from "../lib/eventAttachments";
+import { fetchTimelinePage } from "../lib/timeline";
 import type { EventAttachment } from "../lib/types";
 
 interface HomePayload {
@@ -41,6 +49,29 @@ const TIMELINE_EXAMPLES = [
   { label: "eventType.meal", time: "08:00", detail: "40g" },
   { label: "eventType.water", time: "14:00", detail: null },
 ] as const;
+
+function eventIsTodayKst(occurredAt: string): boolean {
+  return kstDayKey(new Date(occurredAt)) === kstDayKey(new Date());
+}
+
+function decrementJournalStatsOnDelete(
+  prev: JournalStats,
+  occurredAt: string,
+  remainingEvents: TimelineEvent[],
+): JournalStats {
+  const totalEventCount = Math.max(0, prev.totalEventCount - 1);
+  if (prev.distinctDayCount >= 4) {
+    return { totalEventCount, distinctDayCount: prev.distinctDayCount };
+  }
+  const deletedDay = kstDayKey(new Date(occurredAt));
+  const stillHasDay = remainingEvents.some(
+    (e) => kstDayKey(new Date(e.occurredAt)) === deletedDay,
+  );
+  if (stillHasDay) {
+    return { totalEventCount, distinctDayCount: prev.distinctDayCount };
+  }
+  return { totalEventCount, distinctDayCount: Math.max(0, prev.distinctDayCount - 1) };
+}
 
 function newDedupeKey(petId: string, presetId: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -134,6 +165,9 @@ export default function HomePage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
+  const [detailDeleting, setDetailDeleting] = useState(false);
+  const [hasMoreEvents, setHasMoreEvents] = useState(false);
+  const [loadingMoreEvents, setLoadingMoreEvents] = useState(false);
   const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
   const [chipAction, setChipAction] = useState<{ preset: Preset; label: string } | null>(null);
   /** 홈 입력 바 전용 — 칩 탭·텍스트 저장 시에만 소비 */
@@ -142,7 +176,13 @@ export default function HomePage() {
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const loadSeq = useRef(0);
+  const loadMoreSeq = useRef(0);
+  const timelinePetIdRef = useRef<string | null>(null);
+  const loadingMoreRef = useRef(false);
+  const loadMorePausedRef = useRef(false);
+  const loadMoreEventsRef = useRef<() => void>(() => {});
   const recentEventsRef = useRef<TimelineEvent[]>([]);
+  const timelineSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     recentEventsRef.current = recentEvents;
@@ -157,11 +197,17 @@ export default function HomePage() {
   }, [loading, needsPet, router]);
 
   const applyHomePayload = useCallback((data: HomePayload) => {
+    loadMoreSeq.current += 1;
+    loadingMoreRef.current = false;
+    loadMorePausedRef.current = false;
+    setLoadingMoreEvents(false);
+    timelinePetIdRef.current = data.activePet?.id ?? null;
     setPets(data.pets);
     setActivePet(data.activePet);
     setPresets(data.presets);
     setTodaySummary(data.todaySummary);
     setRecentEvents(data.recentEvents);
+    setHasMoreEvents(timelineHasMore(data.recentEvents.length));
     setJournalStats(data.journalStats);
   }, []);
 
@@ -298,6 +344,111 @@ export default function HomePage() {
     setHomePendingFiles([]);
     setDetailPendingFiles([]);
     setDetailAttachments(event.attachments ?? []);
+  }
+
+  const loadMoreEvents = useCallback(async () => {
+    if (!activePet || loadingMoreRef.current || !hasMoreEvents || loadMorePausedRef.current) return;
+    const petId = activePet.id;
+    const seq = ++loadMoreSeq.current;
+    const last = recentEventsRef.current[recentEventsRef.current.length - 1];
+    if (!last) return;
+
+    loadingMoreRef.current = true;
+    setLoadingMoreEvents(true);
+    try {
+      const page = await fetchTimelinePage(petId, {
+        occurredAt: last.occurredAt,
+        id: last.id,
+      });
+      if (seq !== loadMoreSeq.current || petId !== timelinePetIdRef.current) return;
+
+      setRecentEvents((prev) => appendTimelinePage(prev, page).events);
+      setHasMoreEvents(timelineHasMore(page.length));
+    } catch {
+      if (seq !== loadMoreSeq.current) return;
+      loadMorePausedRef.current = true;
+      show(t("timelineLoadMoreError"), "error");
+    } finally {
+      if (seq === loadMoreSeq.current) {
+        loadingMoreRef.current = false;
+        setLoadingMoreEvents(false);
+      }
+    }
+  }, [activePet, hasMoreEvents, show, t]);
+
+  useEffect(() => {
+    loadMoreEventsRef.current = () => {
+      void loadMoreEvents();
+    };
+  }, [loadMoreEvents]);
+
+  useEffect(() => {
+    const node = timelineSentinelRef.current;
+    if (!node || !hasMoreEvents) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        if (!entry.isIntersecting) {
+          loadMorePausedRef.current = false;
+          return;
+        }
+        loadMoreEventsRef.current();
+      },
+      { rootMargin: "120px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMoreEvents, recentEvents.length]);
+
+  async function handleDeleteEvent() {
+    if (!detailDraft?.eventId || detailDeleting || !activePet) return;
+    const eventId = detailDraft.eventId;
+    const event = recentEvents.find((e) => e.id === eventId);
+    if (!event) return;
+
+    setDetailDeleting(true);
+    try {
+      await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
+      const remaining = recentEvents.filter((e) => e.id !== eventId);
+      setRecentEvents(remaining);
+      if (eventIsTodayKst(event.occurredAt)) {
+        setTodaySummary((prev) => decrementSummary(prev, event.eventType.key));
+      }
+      setJournalStats((prev) => decrementJournalStatsOnDelete(prev, event.occurredAt, remaining));
+      setDetailOpen(false);
+      setDetailDraft(null);
+      setDetailAttachments([]);
+      setDetailPendingFiles([]);
+      show(t("recordUndone"), "success", {
+        label: t("undo"),
+        onClick: () => {
+          void (async () => {
+            try {
+              await apiJson(`/api/events/${eventId}/restore`, { method: "POST" });
+              const headBeforeRestore = recentEventsRef.current[0]?.occurredAt ?? null;
+              setRecentEvents((prev) => insertTimelineEvent(prev, event));
+              if (eventIsTodayKst(event.occurredAt)) {
+                setTodaySummary((prev) =>
+                  bumpSummary(prev, event.eventType.key, event.eventType.label),
+                );
+              }
+              setJournalStats((prev) =>
+                bumpJournalStats(prev, event.occurredAt, headBeforeRestore),
+              );
+              show(t("eventRestored"), "info");
+            } catch {
+              show(t("recordError"), "error");
+            }
+          })();
+        },
+      });
+    } catch {
+      show(t("recordError"), "error");
+    } finally {
+      setDetailDeleting(false);
+    }
   }
 
   function applyCreatedEvent(event: CreatedEvent) {
@@ -801,6 +952,10 @@ export default function HomePage() {
                     );
                   })}
                 </ul>
+                <div ref={timelineSentinelRef} className="timeline-sentinel" aria-hidden />
+                {loadingMoreEvents && (
+                  <p className="meta timeline-loading-more">{t("timelineLoadingMore")}</p>
+                )}
                 <p className="meta home-timeline-hint">{t("homeTimelineEditHint")}</p>
               </>
             )}
@@ -950,9 +1105,15 @@ export default function HomePage() {
         open={detailOpen}
         draft={detailDraft}
         saving={detailSaving}
+        deleting={detailDeleting}
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
+        onDeleteEvent={
+          detailDraft?.mode === "edit" && detailDraft.eventId
+            ? () => void handleDeleteEvent()
+            : undefined
+        }
         onDeleteAttachment={
           detailDraft?.mode === "edit" && detailDraft.eventId
             ? (id) => void handleDeleteAttachment(id)
