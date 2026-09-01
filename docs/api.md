@@ -278,6 +278,11 @@ curl -sS -X POST "$BASE/api/attachments/uploads/<uploadId>/complete" -H "$AUTH"
 
 웹 UI는 영상 또는 **15MB 초과** 파일을 자동으로 청크 경로로 올린다. 미디어 조회: `GET /api/attachments/file/<path>` (미디어 쿠키·Bearer).
 
+업로드 세션은 **API 프로세스 메모리**에 있다(셀프호스트 단일 인스턴스 전제). 따라서:
+
+- API를 재시작하면 진행 중이던 업로드는 무효가 되고 `404`가 난다 — 클라이언트는 새 세션으로 다시 시작한다
+- 청크는 **순차 전송**이다. 같은 세션에 동시에 두 청크를 보내면 뒤에 온 요청이 `409`(`expectedIndex` 포함)로 거절된다
+
 ---
 
 ## 관련 문서

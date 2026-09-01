@@ -49,8 +49,25 @@ export function getUploadSession(id: string): UploadSession | undefined {
   return sessions.get(id);
 }
 
+// 청크 쓰기는 "인덱스 확인 → appendFile → 카운터 증가"라 await 사이에 다른 요청이 끼면
+// 같은 인덱스가 두 번 append되어 파일이 깨진다. 웹 클라이언트는 순차 전송이지만 서버가
+// 그걸 믿을 이유는 없다 — 세션당 한 번에 하나만 쓰게 잠근다.
+const writing = new Set<string>();
+
+/** 잠금을 얻으면 true. 이미 쓰는 중이면 false — 호출부는 409로 돌려보낸다. */
+export function acquireChunkWriteLock(id: string): boolean {
+  if (writing.has(id)) return false;
+  writing.add(id);
+  return true;
+}
+
+export function releaseChunkWriteLock(id: string): void {
+  writing.delete(id);
+}
+
 export function deleteUploadSession(id: string): void {
   sessions.delete(id);
+  writing.delete(id);
 }
 
 export async function sweepStaleUploadSessions(): Promise<void> {

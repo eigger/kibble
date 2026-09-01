@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, setToken, clearToken } from "./api";
+import { clearAppCaches } from "./appCache";
 import type { User } from "./types";
 
 interface AuthContextValue {
@@ -92,6 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function clearLocalSession() {
     clearToken();
     localStorage.removeItem(CACHED_USER_KEY);
+    // 서비스워커 캐시에 로그인 상태로 받은 페이지가 남는다 — 공용 기기에서 다음 사용자가
+    // 이전 사용자의 화면을 보지 않도록 함께 비운다.
+    await clearAppCaches();
     setUser(null);
     router.push("/login");
   }
