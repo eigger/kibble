@@ -602,8 +602,8 @@ UI:
 | P1-06a | **`ApiToken` 발급/폐기 + `authenticate`가 Bearer 토큰도 수용** (§3.6) | **완료** — `POST/GET/DELETE /api/tokens`, `kbl_*` Bearer, `event:create` 스코프 |
 | P1-07 | **온보딩**: 부트스트랩 시 가구 자동 생성 → 반려동물 등록(이름+종) → 기본 프리셋 자동 생성 | **완료** — API + 홈 UI(P1-27a starter 칩). PWA 안내는 P1-27b |
 | P1-08 | 가구 **계정 추가** / 역할 (OWNER / MEMBER / VIEWER) + 임시 비밀번호 1회 응답 | **완료(Phase 1)** — `/users` UI + `householdMode` JOIN/SEPARATE(§7.12). VIEWER 쓰기 403 |
-| P1-09 | **가구 격리 테스트 스위트** (K-3) | **완료(Phase 1a)** — inject+Prisma mock으로 `householdWhere` 회귀·404·ApiToken 403. **attachment**는 P1-10/P1-16 전 501이라 제외. **실 DB 통합 테스트**는 CI PostgreSQL 도입 시 P1-09b |
-| P1-10 | 미디어 접근 인증 (`purpose` 분리 쿠키) | `<img src>`가 인증 없이 뚫리지 않음. 개발 우회는 env opt-in + 경고 로그 |
+| P1-09 | **가구 격리 테스트 스위트** (K-3) | **완료(Phase 1a)** — inject+Prisma mock. **attachment** POST/DELETE 격리 포함. **실 DB 통합 테스트**는 CI PostgreSQL 도입 시 P1-09b |
+| P1-10 | 미디어 접근 인증 (`purpose` 분리 쿠키) | **완료** — 첨부 파일 서빙 시 미디어 쿠키·Bearer + **가구 소유권 검사**(404) |
 
 ### 5.3 도메인
 
@@ -614,7 +614,7 @@ UI:
 | P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. `docs/api.md`는 P1-18 |
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | **완료** — API POST/PATCH/DELETE·`EventTypeAlias`·부분 유니크·`/presets` UI(이름·순서·숨김·별칭)·칩 길게 누르기 메뉴. 생성·삭제 UI는 미포함 |
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
-| P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 | 한 이벤트에 사진 9장 |
+| P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 | **완료** — POST/DELETE `/api/attachments`, 이벤트당 9장, sharp JPEG |
 | P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | 크론 동작 확인 |
 | P1-18 | `docs/api.md` — 엔드포인트 + curl 예제 | **완료** |
 
@@ -626,7 +626,7 @@ UI:
 | P1-20 | **홈 = 타임라인 + 하단 입력 바** (§3.7). 상단 오늘 요약 한 줄 | **완료** — 텍스트 입력 P1-22에서 활성화. 반려동물 탭 2마리+ |
 | P1-21 | **퀵 칩 1탭 기록** + 실행취소 토스트 3초 | **완료** — 홈 칩 → POST /api/events, 실행취소 DELETE |
 | P1-22 | **자유 텍스트 입력 + 파싱 제안 칩** | **완료(Phase 1)** — `POST /api/parse/entry`, 입력 즉시 저장(K-12·K-13)·`rawText`는 줄 단위·`entryId` 공유·`dedupeKey` 멱등. 검토 칩·저장 실패 재시도. 편집 시트는 P1-24 |
-| P1-23 | **다중 사진·영상 첨부** (카메라 / 갤러리) | 한 번에 여러 장. 실기록이 그렇다 (P4) |
+| P1-23 | **다중 사진·영상 첨부** (카메라 / 갤러리) | **완료** — 홈·상세 시트 첨부 UI, 텍스트 저장 시 첫 이벤트에 연결 |
 | P1-24 | 상세 시트 + **시각 빠른 버튼**("방금 / 1시간 전 / 어제 저녁") + **제공량·섭취량 2필드** | **완료** — 칩 길게 누르기·검토 칩·타임라인 탭 → `EventDetailSheet`, `@kibble/shared/quickTime` |
 | P1-25 | **`/q` 빠른 기록 초경량 화면** | 앱 셸을 로딩하지 않고 칩만 |
 | P1-26 | 오프라인 큐 (IndexedDB, **첨부 Blob 포함**) | 비행기 모드 5건 + 사진 → 복귀 시 자동 전송. 4xx는 재전송 않고 알림 |

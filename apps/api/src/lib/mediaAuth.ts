@@ -44,25 +44,32 @@ export function isMediaAuthDisabled(): boolean {
   return process.env.MEDIA_AUTH_DISABLED === "true";
 }
 
+export type MediaAccessResult =
+  | { ok: true; userId: string }
+  | { ok: true; authDisabled: true }
+  | { ok: false };
+
 /**
  * 첨부 파일 라우트 인증.
  * kibble_media 쿠키(purpose:media) 또는 유효한 API Bearer JWT.
- * backup 티켓·무효화된 tv·purpose:media Bearer는 API 전체 인증과 동일 규칙으로 거부한다.
+ * 성공 시 userId를 반환해 호출부가 가구 멤버십을 한 번만 조회하게 한다.
  */
 export async function requireMediaAccess(
   app: FastifyInstance,
   request: FastifyRequest,
   reply: FastifyReply,
-): Promise<boolean> {
+): Promise<MediaAccessResult> {
   if (isMediaAuthDisabled()) {
-    return true;
+    return { ok: true, authDisabled: true };
   }
 
   const cookieToken = request.cookies?.[MEDIA_COOKIE_NAME];
   if (typeof cookieToken === "string" && cookieToken.length > 0) {
     try {
       const decoded = app.jwt.verify<{ sub: string; purpose?: string }>(cookieToken);
-      if (decoded.purpose === "media" && decoded.sub) return true;
+      if (decoded.purpose === "media" && decoded.sub) {
+        return { ok: true, userId: decoded.sub };
+      }
     } catch {
       // fall through
     }
@@ -74,26 +81,26 @@ export async function requireMediaAccess(
       await request.jwtVerify();
       if (request.user.purpose === "backup") {
         reply.code(401).send({ error: "unauthorized" });
-        return false;
+        return { ok: false };
       }
       if (request.user.purpose === "media") {
-        return true;
+        return { ok: true, userId: request.user.sub };
       }
       if (typeof request.user.tv !== "number") {
         reply.code(401).send({ error: "unauthorized" });
-        return false;
+        return { ok: false };
       }
       const dbTv = await getCachedTokenVersion(request.user.sub);
       if (dbTv === null || dbTv !== request.user.tv) {
         reply.code(401).send({ error: "unauthorized" });
-        return false;
+        return { ok: false };
       }
-      return true;
+      return { ok: true, userId: request.user.sub };
     } catch {
       // fall through
     }
   }
 
   reply.code(401).send({ error: "unauthorized" });
-  return false;
+  return { ok: false };
 }

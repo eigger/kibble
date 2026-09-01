@@ -16,6 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
   pet: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
   preset: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
   eventTypeAlias: { findMany: vi.fn(), upsert: vi.fn() },
+  attachment: { findFirst: vi.fn(), create: vi.fn(), delete: vi.fn() },
   event: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -275,5 +276,76 @@ describe("household isolation (K-3)", () => {
 
     expect(res.statusCode).toBe(403);
     expect(mockPrisma.apiToken.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/attachments returns 404 for another household's event", async () => {
+    mockPrisma.event.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const boundary = "----kibbletest";
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/attachments?eventId=${EVENT_OTHER}`,
+      headers: {
+        ...authHeaders(token),
+        "content-type": `multipart/form-data; boundary=${boundary}`,
+      },
+      payload:
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="a.jpg"\r\n` +
+        `Content-Type: image/jpeg\r\n\r\n` +
+        `fake\r\n` +
+        `--${boundary}--\r\n`,
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.event.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: EVENT_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("DELETE /api/attachments/:id returns 404 for another household's attachment", async () => {
+    mockPrisma.attachment.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/attachments/att_other",
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "att_other",
+          event: { householdId: HH_A },
+        }),
+      }),
+    );
+    expect(mockPrisma.attachment.delete).not.toHaveBeenCalled();
+  });
+
+  it("GET /api/attachments/file/* returns 404 for another household's path (K-3)", async () => {
+    mockPrisma.attachment.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/attachments/file/events/other-hh.jpg",
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.attachment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          path: "events/other-hh.jpg",
+          event: { householdId: HH_A },
+        }),
+      }),
+    );
   });
 });

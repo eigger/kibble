@@ -215,6 +215,10 @@ export const eventWithRelationsSelect = {
   ...eventSelect,
   eventType: { select: { key: true, label: true, icon: true } },
   preset: { select: { id: true, label: true } },
+  attachments: {
+    select: { id: true, path: true, mime: true, size: true, width: true, height: true },
+    orderBy: { createdAt: "asc" as const },
+  },
 } as const;
 
 export type CreatedEventWithRelations = Prisma.EventGetPayload<{

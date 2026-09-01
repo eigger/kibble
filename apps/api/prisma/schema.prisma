@@ -278,6 +278,9 @@ model Attachment {
   createdAt DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([path])
+  @@index([eventId])
 }
 
 // ---------- 투약 과정 ----------

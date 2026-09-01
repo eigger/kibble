@@ -56,6 +56,15 @@ export interface EventTypeAliasesRow {
   hasCustomAliases: boolean;
 }
 
+export interface EventAttachment {
+  id: string;
+  path: string;
+  mime: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+}
+
 export interface CreatedEvent {
   id: string;
   petId: string;
@@ -67,6 +76,7 @@ export interface CreatedEvent {
   note: string | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null };
+  attachments?: EventAttachment[];
 }
 
 export interface TodaySummaryRow {
@@ -87,6 +97,7 @@ export interface TimelineEvent {
   note: string | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null };
+  attachments?: EventAttachment[];
 }
 
 export interface ParseSuggestion {

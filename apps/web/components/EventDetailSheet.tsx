@@ -8,6 +8,9 @@ import {
   parseOptionalNumber,
   toDatetimeLocalValue,
 } from "../lib/datetimeLocal";
+import type { EventAttachment } from "../lib/types";
+import { EventAttachmentThumb } from "./EventAttachmentThumb";
+import { PendingAttachments } from "./PendingAttachments";
 
 export interface EventDetailDraft {
   mode: "create" | "edit";
@@ -31,10 +34,14 @@ interface EventDetailSheetProps {
   open: boolean;
   draft: EventDetailDraft | null;
   saving: boolean;
+  attachments?: EventAttachment[];
+  pendingFiles?: File[];
+  onPendingFilesChange?: (files: File[]) => void;
+  onDeleteAttachment?: (attachmentId: string) => void;
   onClose: () => void;
   onSave: (draft: EventDetailDraft) => void;
   onValidationError: (message: string) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string>) => string;
 }
 
 const QUICK_TIME_KEYS: QuickTimeKey[] = ["now", "oneHourAgo", "yesterdayEvening"];
@@ -43,6 +50,10 @@ export function EventDetailSheet({
   open,
   draft,
   saving,
+  attachments = [],
+  pendingFiles = [],
+  onPendingFilesChange,
+  onDeleteAttachment,
   onClose,
   onSave,
   onValidationError,
@@ -211,6 +222,46 @@ export function EventDetailSheet({
             disabled={saving}
             onChange={(e) => setNote(e.target.value)}
           />
+
+          {(attachments.length > 0 || onPendingFilesChange) && (
+            <fieldset className="event-detail-fieldset">
+              <legend className="field-label">{t("eventDetailAttachments")}</legend>
+              {attachments.length > 0 && (
+                <ul className="event-detail-attachments-list">
+                  {attachments.map((att) => (
+                    <li key={att.id} className="event-detail-attachments-item">
+                      <EventAttachmentThumb
+                        path={att.path}
+                        mime={att.mime}
+                        alt=""
+                        className="attachment-thumb"
+                      />
+                      {onDeleteAttachment && (
+                        <button
+                          type="button"
+                          className="pending-attachments-remove"
+                          disabled={saving}
+                          aria-label={t("removeAttachment")}
+                          onClick={() => onDeleteAttachment(att.id)}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {onPendingFilesChange && (
+                <PendingAttachments
+                  files={pendingFiles}
+                  existingCount={attachments.length}
+                  disabled={saving}
+                  onChange={onPendingFilesChange}
+                  t={t}
+                />
+              )}
+            </fieldset>
+          )}
 
           <div className="event-detail-actions">
             <button type="button" className="secondary" disabled={saving} onClick={onClose}>

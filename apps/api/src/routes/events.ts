@@ -178,6 +178,10 @@ export async function eventRoutes(app: FastifyInstance) {
         ...eventSelect,
         eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true } },
         preset: { select: { id: true, label: true } },
+        attachments: {
+          select: { id: true, path: true, mime: true, size: true, width: true, height: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
