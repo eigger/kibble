@@ -45,6 +45,8 @@ export interface TodaySummaryRow {
   count: number;
 }
 
+export type { JournalStats } from "@kibble/shared";
+
 export interface TimelineEvent {
   id: string;
   occurredAt: string;

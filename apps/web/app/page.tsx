@@ -15,6 +15,8 @@ import type {
   ParseSuggestion,
   ParseEntryResponse,
 } from "../lib/types";
+import type { JournalStats } from "@kibble/shared";
+import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
 
 interface HomePayload {
   pets: Pet[];
@@ -22,7 +24,13 @@ interface HomePayload {
   presets: Preset[];
   todaySummary: TodaySummaryRow[];
   recentEvents: TimelineEvent[];
+  journalStats: JournalStats;
 }
+
+const TIMELINE_EXAMPLES = [
+  { label: "eventType.meal", time: "08:00", detail: "40g" },
+  { label: "eventType.water", time: "14:00", detail: null },
+] as const;
 
 function newDedupeKey(petId: string, presetId: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -101,6 +109,10 @@ export default function HomePage() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [todaySummary, setTodaySummary] = useState<TodaySummaryRow[]>([]);
   const [recentEvents, setRecentEvents] = useState<TimelineEvent[]>([]);
+  const [journalStats, setJournalStats] = useState<JournalStats>({
+    totalEventCount: 0,
+    distinctDayCount: 0,
+  });
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -108,6 +120,11 @@ export default function HomePage() {
   const [parseBatch, setParseBatch] = useState<ParseEntryResponse | null>(null);
   const [parseBatchRetryable, setParseBatchRetryable] = useState(false);
   const loadSeq = useRef(0);
+  const recentEventsRef = useRef<TimelineEvent[]>([]);
+
+  useEffect(() => {
+    recentEventsRef.current = recentEvents;
+  }, [recentEvents]);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -123,6 +140,7 @@ export default function HomePage() {
     setPresets(data.presets);
     setTodaySummary(data.todaySummary);
     setRecentEvents(data.recentEvents);
+    setJournalStats(data.journalStats);
   }, []);
 
   const loadHome = useCallback(
@@ -196,13 +214,21 @@ export default function HomePage() {
     return `${t("homeToday")} · ${parts.join(" · ")}`;
   }, [todaySummary, t]);
 
+  const journalInsight = useMemo(
+    () => journalInsightMessage(journalStats, t),
+    [journalStats, t],
+  );
+
   const tabPanelId = activePet ? `home-pet-panel-${activePet.id}` : undefined;
 
   const [recording, setRecording] = useState(false);
   const inFlightDedupeKey = useRef<string | null>(null);
 
   function applyCreatedEvent(event: CreatedEvent) {
-    setRecentEvents((prev) => [createdEventToTimeline(event), ...prev]);
+    const timelineEntry = createdEventToTimeline(event);
+    const latestOccurredAt = recentEventsRef.current[0]?.occurredAt ?? null;
+    setJournalStats((stats) => bumpJournalStats(stats, event.occurredAt, latestOccurredAt));
+    setRecentEvents((prev) => [timelineEntry, ...prev]);
     setTodaySummary((prev) =>
       bumpSummary(prev, event.eventType.key, event.eventType.label),
     );
@@ -336,11 +362,7 @@ export default function HomePage() {
           }),
         });
 
-        const timelineEntry = createdEventToTimeline(event);
-        const typeKey = event.eventType.key;
-
-        setRecentEvents((prev) => [timelineEntry, ...prev]);
-        setTodaySummary((prev) => bumpSummary(prev, typeKey, event.eventType.label));
+        applyCreatedEvent(event);
 
         show(t("recordSaved", { label }), "success", {
           label: t("undo"),
@@ -349,7 +371,11 @@ export default function HomePage() {
               try {
                 await apiJson(`/api/events/${event.id}`, { method: "DELETE" });
                 setRecentEvents((prev) => prev.filter((e) => e.id !== event.id));
-                setTodaySummary((prev) => decrementSummary(prev, typeKey));
+                setTodaySummary((prev) => decrementSummary(prev, event.eventType.key));
+                setJournalStats((prev) => ({
+                  totalEventCount: Math.max(0, prev.totalEventCount - 1),
+                  distinctDayCount: prev.distinctDayCount,
+                }));
                 show(t("recordUndone"), "info");
               } catch {
                 show(t("recordError"), "error");
@@ -405,6 +431,7 @@ export default function HomePage() {
       ) : (
         <>
           {summaryLine && <p className="home-summary-line">{summaryLine}</p>}
+          {journalInsight && <p className="home-journal-insight">{journalInsight}</p>}
 
           <section
             className="timeline-section"
@@ -413,7 +440,25 @@ export default function HomePage() {
             aria-labelledby={activePet ? `home-pet-tab-${activePet.id}` : undefined}
           >
             {recentEvents.length === 0 ? (
-              <p className="meta timeline-empty">{t("homeTimelineEmpty")}</p>
+              <div className="timeline-empty-state">
+                <p className="meta timeline-empty">{t("homeTimelineEmpty")}</p>
+                <ul className="timeline-list timeline-list-example" aria-hidden="true">
+                  {TIMELINE_EXAMPLES.map((example) => (
+                    <li key={example.label} className="timeline-item timeline-item-example">
+                      <time className="timeline-time">{example.time}</time>
+                      <div className="timeline-body">
+                        <span className="timeline-label">
+                          {t(example.label)}
+                          <span className="timeline-example-badge">{t("homeExampleLabel")}</span>
+                        </span>
+                        {example.detail && (
+                          <span className="timeline-detail">{example.detail}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
               <ul className="timeline-list">
                 {recentEvents.map((event) => {

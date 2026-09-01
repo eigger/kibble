@@ -305,3 +305,24 @@
 - `parse.ts`: `hiddenAt: null` 프리셋만, `quantityOffered`·`lineIndex` 응답
 
 **다음**: PR #10 push·재리뷰, P1-24 상세 시트(칩 탭 → 수정)
+
+### 2026-09-01 — PR #10 머지 + P1-27b 빈 화면·저널 안내
+
+**한 일**
+
+- PR #10 스쿼시 머지 (`0d478ba`)
+- P1-27b: `journalStats` API, 흐릿한 예시 타임라인, 1건/3일 안내 문구
+
+**다음**: P1-11 펫 CRUD, P1-24 상세 시트
+
+### 2026-09-01 — P1-27b 리뷰 반영 (journalStats)
+
+**한 일**
+
+- distinct day: `$queryRaw` + `LIMIT 4` (전체 이벤트 스캔 제거)
+- `kstClock`·`journalInsight` → `@kibble/shared` (웹 `kstDay.ts` 삭제)
+- 낙관적 갱신: 최신 KST 날짜가 바뀔 때만 +1; StrictMode 안전(ref + 분리 setState)
+- 3일 마일스톤: `distinctDayCount === 3`일 때만
+- `journalInsight.test.ts` 8케이스
+
+**다음**: P1-27b PR push, P1-11 펫 CRUD
