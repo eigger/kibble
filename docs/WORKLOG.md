@@ -56,6 +56,7 @@
 | R23 | 커뮤니티 은어를 `EventType.aliases` 시드에 포함 ("감자"=소변 등) | **기각** | 특정 집단의 말이라 개를 키우는 가구에서 오탐을 낸다. 공개 기본값은 누구에게나 통하는 일반어만(§7.2). Phase 2 설정 화면에서 **"추가할 만한 별칭" 후보로 제시**하고 사용자가 고르게 한다 | — |
 | R24 | 시드 프리셋 `label`에 한글 리터럴 저장 | **기각** | en 로케일 사용자가 첫 실행부터 한글 칩을 본다 (K-9 위반). 시드는 i18n 키, 사용자 수정분만 리터럴 | — |
 | R25 | 시스템 `EventType` 시드를 Prisma `upsert`로 | **기각** | 복합 unique에 NULL이 끼면 `where`를 만들 수 없어 실행 불가. 게다가 NULL은 UNIQUE에서 구별되는 값이라 중복이 막히지도 않는다 → 부분 유니크 인덱스 + `findFirst`/`create` | — |
+| R26 | 텍스트 입력 → 제안 칩 **탭해야 저장** | **기각** | K-12·K-13: 입력이 사라지면 안 된다. **즉시 저장** 후 검토 칩(P1-22, PR #10 리뷰) | — |
 
 ---
 
@@ -288,3 +289,19 @@
 - P1-08: `/users`에 JOIN/SEPARATE + MEMBER/VIEWER 선택, API `createUserSchema` 확장
 
 **다음**: P1-11 펫 CRUD, P1-24 상세 시트, P1-27b 빈 화면 안내
+
+### 2026-09-01 — PR #10 리뷰 반영 (파서·저장 UX·SEPARATE 관리)
+
+**확정**
+
+- P1-22 UX: **입력 즉시 저장** 후 검토 칩 — 탭-해야-저장은 K-12·K-13과 어긋나 **기각** (WORKPLAN P1-22·§7.12 갱신)
+- P1-15 완료 조건: `docs/parsing-benchmark-public.md` 케이스 **단위 테스트 100%** (`parseEntry.benchmark.test.ts`)
+- §7.12: ADMIN **인스턴스 전체 사용자** GET·DELETE·reset-password (SEPARATE 포함). `inSharedHousehold` 배지
+
+**한 일**
+
+- 파서: KST `kstDateTime`·한글 단위 정규식·범위 환산·제공/섭취·상대 시각·needsReview 4조건
+- 홈: `rawText=rawLine`, `dedupeKey=${entryId}:${lineIndex}`, 저장 실패 재시도, `lineIndex` key
+- `parse.ts`: `hiddenAt: null` 프리셋만, `quantityOffered`·`lineIndex` 응답
+
+**다음**: PR #10 push·재리뷰, P1-24 상세 시트(칩 탭 → 수정)

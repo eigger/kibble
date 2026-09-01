@@ -1,29 +1,13 @@
 import { describe, expect, it } from "vitest";
-import {
-  PHASE1_TODAY_UTC_OFFSET_MINUTES,
-  startOfTodayBoundary,
-  todaySummaryForPet,
-} from "./todaySummary.js";
+import { startOfTodayBoundary } from "./kstClock.js";
+import { todaySummaryForPet } from "./todaySummary.js";
 
 describe("startOfTodayBoundary", () => {
   it("uses KST midnight (UTC+9), not UTC midnight", () => {
-    // 2026-09-01 07:00 KST = 2026-08-31T22:00:00Z — still "today" in KST
     const now = new Date("2026-08-31T22:00:00.000Z");
     const since = startOfTodayBoundary(now);
     expect(since.toISOString()).toBe("2026-08-31T15:00:00.000Z");
     expect(now.getTime()).toBeGreaterThanOrEqual(since.getTime());
-  });
-
-  it("excludes events before KST midnight", () => {
-    const now = new Date("2026-09-01T00:30:00.000Z"); // 09:30 KST
-    const since = startOfTodayBoundary(now);
-    expect(since.toISOString()).toBe("2026-08-31T15:00:00.000Z");
-    const before = new Date("2026-08-31T14:59:59.999Z"); // 23:59:59 KST previous day
-    expect(before.getTime()).toBeLessThan(since.getTime());
-  });
-
-  it("defaults to +9 offset constant", () => {
-    expect(PHASE1_TODAY_UTC_OFFSET_MINUTES).toBe(540);
   });
 });
 

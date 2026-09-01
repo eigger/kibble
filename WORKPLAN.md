@@ -613,7 +613,7 @@ UI:
 | P1-12 | **`createEvent()` 단일 서비스 함수** | **완료** — `services/createEvent.ts` |
 | P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. `docs/api.md`는 P1-18 |
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | 퀵 칩 길게 누르기 → 숨기기 |
-| P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + 단위 테스트. 실패 → NOTE |
+| P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
 | P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 | 한 이벤트에 사진 9장 |
 | P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | 크론 동작 확인 |
 | P1-18 | `docs/api.md` — 엔드포인트 + curl 예제 | **완료** |
@@ -625,7 +625,7 @@ UI:
 | P1-19 | PWA 셸: manifest(**"빠른 기록" shortcut 1개**), 아이콘, SW, 오프라인 페이지 | 홈 아이콘 롱프레스 → 빠른 기록 |
 | P1-20 | **홈 = 타임라인 + 하단 입력 바** (§3.7). 상단 오늘 요약 한 줄 | **완료** — 텍스트 입력 P1-22에서 활성화. 반려동물 탭 2마리+ |
 | P1-21 | **퀵 칩 1탭 기록** + 실행취소 토스트 3초 | **완료** — 홈 칩 → POST /api/events, 실행취소 DELETE |
-| P1-22 | **자유 텍스트 입력 + 파싱 제안 칩** | **완료(Phase 1)** — `POST /api/parse/entry`, 홈 입력·제안 칩·탭 저장·전부 저장. 편집 시트는 P1-24 |
+| P1-22 | **자유 텍스트 입력 + 파싱 제안 칩** | **완료(Phase 1)** — `POST /api/parse/entry`, 입력 즉시 저장(K-12·K-13)·`rawText`는 줄 단위·`entryId` 공유·`dedupeKey` 멱등. 검토 칩·저장 실패 재시도. 편집 시트는 P1-24 |
 | P1-23 | **다중 사진·영상 첨부** (카메라 / 갤러리) | 한 번에 여러 장. 실기록이 그렇다 (P4) |
 | P1-24 | 상세 시트 + **시각 빠른 버튼**("방금 / 1시간 전 / 어제 저녁") + **제공량·섭취량 2필드** | 소급 입력이 3탭 안에 (F3). "100g 주고 30g 먹음"이 입력된다 |
 | P1-25 | **`/q` 빠른 기록 초경량 화면** | 앱 셸을 로딩하지 않고 칩만 |
@@ -781,7 +781,7 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 
 **Phase 1에 넣지 않는 것**: 한 Household 안에서 펫별로 "이 계정만" 보이게 하는 ACL — 복잡도 대비 게이트 전 불필요. 필요하면 `SEPARATE` Household 또는 Phase 2 `Setting`.
 
-관리 UI(`/users`): 계정 생성 시 **`householdMode: JOIN | SEPARATE`** 선택. SEPARATE 사용자는 관리자 Household 멤버 목록에 **나타나지 않는다**(다른 테넌트).
+관리 UI(`/users`): 계정 생성 시 **`householdMode: JOIN | SEPARATE`** 선택. **GET /users는 인스턴스 전체 사용자**를 반환하고 `inSharedHousehold`로 공유·별도를 구분한다. **DELETE·reset-password는 ADMIN이 인스턴스 내 임의 사용자**(본인 제외)에 대해 가능 — SEPARATE 계정도 관리 가능.
 
 ### 7.8 자동 입력 — Phase 1, 연동이 아니라 API
 

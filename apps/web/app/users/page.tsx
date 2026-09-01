@@ -124,7 +124,10 @@ export default function UsersPage() {
         <div key={u.id} className="tree-row">
           <div>
             {u.name} ({u.email}){" "}
-            <span className="badge badge-muted">{u.role === "ADMIN" ? t("roleAdmin") : t("roleGeneral")}</span>
+            <span className="badge badge-muted">{u.role === "ADMIN" ? t("roleAdmin") : t("roleGeneral")}</span>{" "}
+            <span className="badge badge-muted">
+              {u.inSharedHousehold ? t("accountScopeShared") : t("accountScopeSeparate")}
+            </span>
           </div>
           {u.id !== user.id && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

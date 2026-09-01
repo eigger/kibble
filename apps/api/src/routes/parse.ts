@@ -35,14 +35,17 @@ export async function parseRoutes(app: FastifyInstance) {
         ...householdWhere(householdId),
         petId,
         archivedAt: null,
+        hiddenAt: null,
       },
       select: {
         id: true,
         label: true,
+        sortOrder: true,
         eventType: {
           select: { id: true, key: true, label: true, aliases: true, defaultUnit: true },
         },
       },
+      orderBy: { sortOrder: "asc" },
     });
 
     const targets = presets.map((p) => ({
@@ -52,6 +55,7 @@ export async function parseRoutes(app: FastifyInstance) {
       aliases: p.eventType.aliases,
       presetId: p.id,
       defaultUnit: p.eventType.defaultUnit,
+      sortOrder: p.sortOrder,
     }));
 
     const suggestions = parseEntryText(text, targets, noteType.id);
@@ -64,12 +68,14 @@ export async function parseRoutes(app: FastifyInstance) {
       entryId: randomUUID(),
       rawText: text,
       suggestions: suggestions.map((s) => ({
+        lineIndex: s.lineIndex,
         rawLine: s.rawLine,
         eventTypeKey: s.eventTypeKey,
         eventTypeId: s.eventTypeId,
         presetId: s.presetId,
         label: labelByTypeId.get(s.eventTypeId) ?? `eventType.${s.eventTypeKey}`,
         quantity: s.quantity,
+        quantityOffered: s.quantityOffered,
         unit: s.unit,
         occurredAt: s.occurredAt?.toISOString() ?? null,
         needsReview: s.needsReview,

@@ -1,22 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { householdWhere } from "./householdScope.js";
+import { startOfTodayBoundary, PHASE1_TODAY_UTC_OFFSET_MINUTES } from "./kstClock.js";
 
-/**
- * Phase 1 오늘 요약 일 경계 — WORKPLAN §7.11.
- * KST(UTC+9) 당일 00:00을 UTC instant로 반환한다.
- */
-export const PHASE1_TODAY_UTC_OFFSET_MINUTES = 9 * 60;
-
-export function startOfTodayBoundary(
-  now = new Date(),
-  offsetMinutes = PHASE1_TODAY_UTC_OFFSET_MINUTES,
-): Date {
-  const shifted = new Date(now.getTime() + offsetMinutes * 60_000);
-  const y = shifted.getUTCFullYear();
-  const m = shifted.getUTCMonth();
-  const d = shifted.getUTCDate();
-  return new Date(Date.UTC(y, m, d) - offsetMinutes * 60_000);
-}
+export { PHASE1_TODAY_UTC_OFFSET_MINUTES, startOfTodayBoundary };
 
 export type TodaySummaryRow = {
   eventTypeKey: string;

@@ -106,6 +106,7 @@ export default function HomePage() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [parseBatch, setParseBatch] = useState<ParseEntryResponse | null>(null);
+  const [parseBatchRetryable, setParseBatchRetryable] = useState(false);
   const loadSeq = useRef(0);
 
   useEffect(() => {
@@ -207,18 +208,24 @@ export default function HomePage() {
     );
   }
 
-  async function persistSuggestion(suggestion: ParseSuggestion, entryId: string, rawText: string) {
+  async function persistSuggestion(
+    suggestion: ParseSuggestion,
+    entryId: string,
+    dedupeKey: string,
+  ) {
     if (!activePet) return;
     const body: Record<string, unknown> = {
       petId: activePet.id,
       source: "WEB",
-      rawText,
+      rawText: suggestion.rawLine,
       entryId,
+      dedupeKey,
       needsReview: suggestion.needsReview,
     };
     if (suggestion.presetId) body.presetId = suggestion.presetId;
     else body.eventTypeId = suggestion.eventTypeId;
     if (suggestion.quantity != null) body.quantity = suggestion.quantity;
+    if (suggestion.quantityOffered != null) body.quantityOffered = suggestion.quantityOffered;
     if (suggestion.unit) body.unit = suggestion.unit;
     if (suggestion.note) body.note = suggestion.note;
     if (suggestion.occurredAt) body.occurredAt = suggestion.occurredAt;
@@ -228,6 +235,22 @@ export default function HomePage() {
       body: JSON.stringify(body),
     });
     applyCreatedEvent(event);
+  }
+
+  function suggestionKey(entryId: string, suggestion: ParseSuggestion): string {
+    return `${entryId}:${suggestion.lineIndex}`;
+  }
+
+  async function persistParseBatch(batch: ParseEntryResponse): Promise<ParseSuggestion[]> {
+    const failed: ParseSuggestion[] = [];
+    for (const suggestion of batch.suggestions) {
+      try {
+        await persistSuggestion(suggestion, batch.entryId, suggestionKey(batch.entryId, suggestion));
+      } catch {
+        failed.push(suggestion);
+      }
+    }
+    return failed;
   }
 
   async function handleTextSubmit(e: FormEvent) {
@@ -240,8 +263,25 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify({ petId: activePet.id, text }),
       });
-      setParseBatch(parsed);
       setTextInput("");
+      const failed = await persistParseBatch(parsed);
+      const savedCount = parsed.suggestions.length - failed.length;
+      if (savedCount > 0) {
+        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+      }
+      const failedIndexes = new Set(failed.map((s) => s.lineIndex));
+      const needsReview = parsed.suggestions.filter((s) => s.needsReview && !failedIndexes.has(s.lineIndex));
+      if (failed.length > 0) {
+        setParseBatch({ ...parsed, suggestions: failed });
+        setParseBatchRetryable(true);
+        show(t("parsePartialError"), "error");
+      } else if (needsReview.length > 0) {
+        setParseBatch({ ...parsed, suggestions: needsReview });
+        setParseBatchRetryable(false);
+      } else {
+        setParseBatch(null);
+        setParseBatchRetryable(false);
+      }
     } catch {
       show(t("parseError"), "error");
     } finally {
@@ -249,17 +289,19 @@ export default function HomePage() {
     }
   }
 
-  async function saveParseSuggestion(suggestion: ParseSuggestion) {
+  async function retryFailedSuggestions() {
     if (!parseBatch || recording) return;
     setRecording(true);
+    const batch = parseBatch;
     try {
-      await persistSuggestion(suggestion, parseBatch.entryId, parseBatch.rawText);
-      setParseBatch((prev) => {
-        if (!prev) return null;
-        const next = prev.suggestions.filter((s) => s.rawLine !== suggestion.rawLine);
-        return next.length > 0 ? { ...prev, suggestions: next } : null;
-      });
-      show(t("recordSaved", { label: t(suggestion.label) }), "success");
+      const failed = await persistParseBatch(batch);
+      const savedCount = batch.suggestions.length - failed.length;
+      if (savedCount > 0) {
+        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+      }
+      setParseBatch(failed.length > 0 ? { ...batch, suggestions: failed } : null);
+      setParseBatchRetryable(failed.length > 0);
+      if (failed.length > 0) show(t("parsePartialError"), "error");
     } catch {
       show(t("recordError"), "error");
     } finally {
@@ -267,21 +309,12 @@ export default function HomePage() {
     }
   }
 
-  async function saveAllParseSuggestions() {
-    if (!parseBatch || recording) return;
-    setRecording(true);
-    const batch = parseBatch;
-    try {
-      for (const suggestion of batch.suggestions) {
-        await persistSuggestion(suggestion, batch.entryId, batch.rawText);
-      }
-      setParseBatch(null);
-      show(t("recordSaved", { label: String(batch.suggestions.length) }), "success");
-    } catch {
-      show(t("recordError"), "error");
-    } finally {
-      setRecording(false);
-    }
+  function dismissParseSuggestion(suggestion: ParseSuggestion) {
+    setParseBatch((prev) => {
+      if (!prev) return null;
+      const next = prev.suggestions.filter((s) => s.lineIndex !== suggestion.lineIndex);
+      return next.length > 0 ? { ...prev, suggestions: next } : null;
+    });
   }
 
   function onPresetTap(preset: Preset) {
@@ -436,18 +469,28 @@ export default function HomePage() {
           </section>
           {parseBatch && parseBatch.suggestions.length > 0 && (
             <section className="parse-suggestions" aria-label={t("parseSuggestionsTitle")}>
-              <p className="meta parse-suggestions-title">{t("parseSuggestionsTitle")}</p>
+              <p className="meta parse-suggestions-title">
+                {t(parseBatchRetryable ? "parseSuggestionsFailedTitle" : "parseSuggestionsTitle")}
+              </p>
               <div className="chip-row">
                 {parseBatch.suggestions.map((suggestion) => (
                   <button
-                    key={suggestion.rawLine}
+                    key={suggestionKey(parseBatch.entryId, suggestion)}
                     type="button"
-                    className="chip chip-suggestion"
+                    className={`chip chip-suggestion${suggestion.needsReview ? " chip-needs-review" : ""}`}
                     disabled={recording}
-                    onClick={() => void saveParseSuggestion(suggestion)}
+                    onClick={() => dismissParseSuggestion(suggestion)}
                   >
                     {t(suggestion.label)}
-                    {suggestion.quantity != null && (
+                    {suggestion.quantityOffered != null && suggestion.quantity != null && (
+                      <span className="chip-qty">
+                        {" "}
+                        {suggestion.quantityOffered}
+                        {suggestion.unit ?? ""} / {suggestion.quantity}
+                        {suggestion.unit ?? ""}
+                      </span>
+                    )}
+                    {suggestion.quantityOffered == null && suggestion.quantity != null && (
                       <span className="chip-qty">
                         {" "}
                         {suggestion.quantity}
@@ -457,14 +500,14 @@ export default function HomePage() {
                   </button>
                 ))}
               </div>
-              {parseBatch.suggestions.length > 1 && (
+              {parseBatchRetryable && (
                 <button
                   type="button"
                   className="btn-link"
                   disabled={recording}
-                  onClick={() => void saveAllParseSuggestions()}
+                  onClick={() => void retryFailedSuggestions()}
                 >
-                  {t("parseSaveAll")}
+                  {t("parseRetryFailed")}
                 </button>
               )}
             </section>

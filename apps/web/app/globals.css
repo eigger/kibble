@@ -239,6 +239,10 @@ a {
   opacity: 0.85;
 }
 
+.chip-needs-review {
+  border-style: dashed;
+}
+
 .form-label {
   display: flex;
   flex-direction: column;
