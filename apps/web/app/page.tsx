@@ -17,6 +17,8 @@ import type {
 } from "../lib/types";
 import type { JournalStats } from "@kibble/shared";
 import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
+import { EventDetailSheet, type EventDetailDraft } from "../components/EventDetailSheet";
+import { PresetChip, MorePresetItem } from "../components/PresetChip";
 
 interface HomePayload {
   pets: Pet[];
@@ -119,6 +121,10 @@ export default function HomePage() {
   const [textInput, setTextInput] = useState("");
   const [parseBatch, setParseBatch] = useState<ParseEntryResponse | null>(null);
   const [parseBatchRetryable, setParseBatchRetryable] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
   const loadSeq = useRef(0);
   const recentEventsRef = useRef<TimelineEvent[]>([]);
 
@@ -238,8 +244,8 @@ export default function HomePage() {
     suggestion: ParseSuggestion,
     entryId: string,
     dedupeKey: string,
-  ) {
-    if (!activePet) return;
+  ): Promise<CreatedEvent> {
+    if (!activePet) throw new Error("NO_PET");
     const body: Record<string, unknown> = {
       petId: activePet.id,
       source: "WEB",
@@ -261,6 +267,10 @@ export default function HomePage() {
       body: JSON.stringify(body),
     });
     applyCreatedEvent(event);
+    if (suggestion.needsReview) {
+      setReviewEventIds((prev) => new Map(prev).set(dedupeKey, event.id));
+    }
+    return event;
   }
 
   function suggestionKey(entryId: string, suggestion: ParseSuggestion): string {
@@ -335,12 +345,147 @@ export default function HomePage() {
     }
   }
 
-  function dismissParseSuggestion(suggestion: ParseSuggestion) {
+  function openDetailFromPreset(preset: Preset) {
+    if (!activePet) return;
+    setDetailDraft({
+      mode: "create",
+      petId: activePet.id,
+      presetId: preset.id,
+      label: t(preset.label),
+      occurredAt: new Date().toISOString(),
+      quantity: null,
+      quantityOffered: null,
+      unit: null,
+      note: null,
+      dedupeKey: newDedupeKey(activePet.id, preset.id),
+    });
+    setDetailOpen(true);
+  }
+
+  function openDetailFromSuggestion(suggestion: ParseSuggestion, entryId: string) {
+    if (!activePet) return;
+    const key = suggestionKey(entryId, suggestion);
+    const eventId = reviewEventIds.get(key);
+    setDetailDraft({
+      mode: eventId ? "edit" : "create",
+      eventId,
+      petId: activePet.id,
+      presetId: suggestion.presetId,
+      eventTypeId: suggestion.eventTypeId,
+      label: t(suggestion.label),
+      occurredAt: suggestion.occurredAt ?? new Date().toISOString(),
+      quantity: suggestion.quantity,
+      quantityOffered: suggestion.quantityOffered,
+      unit: suggestion.unit,
+      note: suggestion.note,
+      rawText: suggestion.rawLine,
+      entryId,
+      dedupeKey: key,
+      needsReview: suggestion.needsReview,
+    });
+    setDetailOpen(true);
+  }
+
+  function openDetailFromEvent(event: TimelineEvent) {
+    if (!activePet) return;
+    setDetailDraft({
+      mode: "edit",
+      eventId: event.id,
+      petId: activePet.id,
+      presetId: event.preset?.id ?? null,
+      label: eventDisplayLabel(event, t),
+      occurredAt: event.occurredAt,
+      quantity: event.quantity,
+      quantityOffered: event.quantityOffered,
+      unit: event.unit,
+      note: event.note,
+    });
+    setDetailOpen(true);
+  }
+
+  function removeParseSuggestionByKey(dedupeKey: string | undefined) {
+    if (!dedupeKey) return;
     setParseBatch((prev) => {
       if (!prev) return null;
-      const next = prev.suggestions.filter((s) => s.lineIndex !== suggestion.lineIndex);
+      const next = prev.suggestions.filter((s) => suggestionKey(prev.entryId, s) !== dedupeKey);
       return next.length > 0 ? { ...prev, suggestions: next } : null;
     });
+  }
+
+  async function handleDetailSave(draft: EventDetailDraft) {
+    setDetailSaving(true);
+    try {
+      if (draft.mode === "edit" && draft.eventId) {
+        const updated = await apiJson<{
+          id: string;
+          occurredAt: string;
+          quantity: number | null;
+          quantityOffered: number | null;
+          unit: string | null;
+          note: string | null;
+        }>(`/api/events/${draft.eventId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            occurredAt: draft.occurredAt,
+            quantity: draft.quantity,
+            quantityOffered: draft.quantityOffered,
+            unit: draft.unit,
+            note: draft.note,
+            needsReview: false,
+          }),
+        });
+        const occurredAt =
+          typeof updated.occurredAt === "string"
+            ? updated.occurredAt
+            : new Date(updated.occurredAt).toISOString();
+        setRecentEvents((prev) =>
+          prev.map((e) =>
+            e.id === draft.eventId
+              ? {
+                  ...e,
+                  occurredAt,
+                  quantity: updated.quantity,
+                  quantityOffered: updated.quantityOffered,
+                  unit: updated.unit,
+                  note: updated.note,
+                }
+              : e,
+          ),
+        );
+        removeParseSuggestionByKey(draft.dedupeKey);
+        show(t("eventDetailSaved"), "success");
+      } else {
+        const body: Record<string, unknown> = {
+          petId: draft.petId,
+          source: "WEB",
+          occurredAt: draft.occurredAt,
+          quantity: draft.quantity,
+          quantityOffered: draft.quantityOffered,
+          unit: draft.unit,
+          note: draft.note,
+          needsReview: false,
+          dedupeKey:
+            draft.dedupeKey ?? newDedupeKey(draft.petId, draft.presetId ?? "detail"),
+        };
+        if (draft.presetId) body.presetId = draft.presetId;
+        else if (draft.eventTypeId) body.eventTypeId = draft.eventTypeId;
+        if (draft.rawText) body.rawText = draft.rawText;
+        if (draft.entryId) body.entryId = draft.entryId;
+
+        const event = await apiJson<CreatedEvent>("/api/events", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        applyCreatedEvent(event);
+        show(t("recordSaved", { label: draft.label }), "success");
+      }
+      setDetailOpen(false);
+      setDetailDraft(null);
+    } catch {
+      show(t("recordError"), "error");
+    } finally {
+      setDetailSaving(false);
+    }
   }
 
   function onPresetTap(preset: Preset) {
@@ -460,22 +605,31 @@ export default function HomePage() {
                 </ul>
               </div>
             ) : (
-              <ul className="timeline-list">
-                {recentEvents.map((event) => {
-                  const detail = eventDetailLine(event);
-                  return (
-                    <li key={event.id} className="timeline-item">
-                      <time className="timeline-time" dateTime={event.occurredAt}>
-                        {formatEventTime(event.occurredAt, locale)}
-                      </time>
-                      <div className="timeline-body">
-                        <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
-                        {detail && <span className="timeline-detail">{detail}</span>}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <ul className="timeline-list">
+                  {recentEvents.map((event) => {
+                    const detail = eventDetailLine(event);
+                    return (
+                      <li key={event.id}>
+                        <button
+                          type="button"
+                          className="timeline-item timeline-item-clickable"
+                          onClick={() => openDetailFromEvent(event)}
+                        >
+                          <time className="timeline-time" dateTime={event.occurredAt}>
+                            {formatEventTime(event.occurredAt, locale)}
+                          </time>
+                          <div className="timeline-body">
+                            <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
+                            {detail && <span className="timeline-detail">{detail}</span>}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="meta home-timeline-hint">{t("homeTimelineEditHint")}</p>
+              </>
             )}
           </section>
         </>
@@ -487,15 +641,14 @@ export default function HomePage() {
             {starterPresets.length > 0 ? (
               <div className="chip-row">
                 {starterPresets.map((preset) => (
-                  <button
+                  <PresetChip
                     key={preset.id}
-                    type="button"
-                    className="chip"
+                    preset={preset}
+                    label={t(preset.label)}
                     disabled={recording || !activePet}
-                    onClick={() => onPresetTap(preset)}
-                  >
-                    {t(preset.label)}
-                  </button>
+                    onTap={onPresetTap}
+                    onLongPress={openDetailFromPreset}
+                  />
                 ))}
               </div>
             ) : (
@@ -524,7 +677,7 @@ export default function HomePage() {
                     type="button"
                     className={`chip chip-suggestion${suggestion.needsReview ? " chip-needs-review" : ""}`}
                     disabled={recording}
-                    onClick={() => dismissParseSuggestion(suggestion)}
+                    onClick={() => openDetailFromSuggestion(suggestion, parseBatch.entryId)}
                   >
                     {t(suggestion.label)}
                     {suggestion.quantityOffered != null && suggestion.quantity != null && (
@@ -586,23 +739,37 @@ export default function HomePage() {
             <h2>{t("homeMorePresetsTitle")}</h2>
             <div className="sheet-grid">
               {morePresets.map((preset) => (
-                <button
+                <MorePresetItem
                   key={preset.id}
-                  type="button"
-                  className="sheet-item"
+                  label={t(preset.label)}
                   disabled={recording}
-                  onClick={() => {
+                  onTap={() => {
                     setMoreOpen(false);
                     onPresetTap(preset);
                   }}
-                >
-                  {t(preset.label)}
-                </button>
+                  onLongPress={() => {
+                    setMoreOpen(false);
+                    openDetailFromPreset(preset);
+                  }}
+                />
               ))}
             </div>
           </div>
         </div>
       )}
+
+      <EventDetailSheet
+        open={detailOpen}
+        draft={detailDraft}
+        saving={detailSaving}
+        onClose={() => {
+          if (detailSaving) return;
+          setDetailOpen(false);
+          setDetailDraft(null);
+        }}
+        onSave={(draft) => void handleDetailSave(draft)}
+        t={t}
+      />
     </main>
   );
 }
