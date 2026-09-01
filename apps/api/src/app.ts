@@ -23,6 +23,7 @@ import { parseRoutes } from "./routes/parse.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { pushRoutes } from "./routes/push.js";
 import { runAuthenticate } from "./lib/authenticate.js";
+import { allowedCorsOrigins, isCorsOriginAllowed } from "./lib/corsOrigin.js";
 
 export type BuildAppOptions = {
   /** false면 테스트 inject 시 로그를 끈다 */
@@ -57,8 +58,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   });
 
   // 로컬 dev(웹 3000/3001 → API 8080/8081)에서 PATCH·DELETE가 CORS preflight에 막히지 않게 한다.
+  // 프로덕션은 APP_PUBLIC_URL 오리진만 — same-origin 배포(Caddy)는 영향이 없다.
+  const corsOrigins = allowedCorsOrigins();
+  if (corsOrigins?.length === 0) {
+    app.log.warn(
+      "APP_PUBLIC_URL is not set — all cross-origin browser requests will be blocked. Set APP_PUBLIC_URL (or CORS_EXTRA_ORIGINS) if the web app is served from a different host than the API.",
+    );
+  }
   await app.register(cors, {
-    origin: true,
+    origin(origin, cb) {
+      cb(null, isCorsOriginAllowed(origin, corsOrigins));
+    },
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
   });
   await app.register(cookie);

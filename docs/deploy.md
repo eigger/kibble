@@ -203,7 +203,8 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 |---|---|---|
 | `POSTGRES_PASSWORD` | ✓ | DB 비밀번호 |
 | `JWT_SECRET` | ✓ | 세션 서명 (`openssl rand -hex 32`). 프로덕션에서 `changeme`·`dev-secret-change-me` 거부 |
-| `APP_PUBLIC_URL` | 권장 | 미디어 쿠키·절대 URL용. **브라우저 접속 URL과 동일** |
+| `APP_PUBLIC_URL` | 권장 | 미디어 쿠키·절대 URL용, **프로덕션 CORS 허용 오리진**. **브라우저 접속 URL과 동일** |
+| `CORS_EXTRA_ORIGINS` | 선택 | 접속 도메인이 여럿이거나 웹·API 호스트가 다를 때 쉼표로 나열 |
 | `COOKIE_SECURE` | HTTPS 시 | `true` — HTTP만 쓰면 `false` 또는 생략 |
 | `GH_REPOSITORY_OWNER` | prod | GHCR 이미지 소유자 (기본 `eigger`) |
 | `KIBBLE_REF` | Proxmox | `master` 또는 릴리스 태그. 설치·`update` 스크립트용 |
@@ -275,6 +276,7 @@ docker compose -f docker-compose.prod.yml exec api \
 | 502 / 연결 안 됨 | `docker compose -f docker-compose.prod.yml ps` · `docker compose -f docker-compose.prod.yml logs api web caddy` |
 | 로그인 후 바로 로그아웃 | `JWT_SECRET` 변경 후 기존 토큰 무효 — 재로그인 |
 | 사진 안 보임 | `APP_PUBLIC_URL`과 실제 접속 URL 일치, HTTPS면 `COOKIE_SECURE` |
+| 브라우저 콘솔에 CORS 오류 | 프로덕션은 `APP_PUBLIC_URL` 오리진만 허용한다. 접속 도메인이 여럿이면 `CORS_EXTRA_ORIGINS`에 추가 |
 | 마이그레이션 실패 | API 로그에서 Prisma 오류 — DB 비밀번호·`DATABASE_URL` 확인. 스쿼시 후 기존 DB면 §7 `migrate reset` |
 | Proxmox 설치 실패 (release) | `export KIBBLE_REF=master` 후 재시도 (§2). 릴리스 없을 때는 자동 fallback되지만 명시 권장 |
 | 업데이트 후 디스크 부족 | `update` 성공 시 `docker image prune -f` 실행됨. 수동: `docker image prune -f` |

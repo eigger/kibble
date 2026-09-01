@@ -16,9 +16,11 @@ import {
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 import { FILE_SIZE_LIMIT_BYTES, TEMP_DIR } from "../lib/uploads.js";
 import {
+  acquireChunkWriteLock,
   createUploadSession,
   deleteUploadSession,
   getUploadSession,
+  releaseChunkWriteLock,
 } from "../lib/uploadSessions.js";
 import { attachmentSelect } from "../lib/attachmentSelect.js";
 
@@ -98,28 +100,44 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     const session = sessionForHousehold(uploadId, householdId);
     if (!session) return reply.code(404).send({ error: t("uploadSessionNotFound", request.locale) });
 
-    const chunkIndex = Number(index);
-    if (chunkIndex !== session.nextChunkIndex) {
+    // 인덱스 검사부터 카운터 증가까지가 한 덩어리여야 한다 — 잠금 밖에서 검사하면
+    // 같은 인덱스의 동시 요청 둘이 모두 통과해 파일에 두 번 append된다.
+    if (!acquireChunkWriteLock(session.id)) {
       return reply.code(409).send({
         error: t("uploadChunkOutOfOrder", request.locale, { expectedIndex: session.nextChunkIndex }),
         expectedIndex: session.nextChunkIndex,
       });
     }
+    try {
+      const chunkIndex = Number(index);
+      if (chunkIndex !== session.nextChunkIndex) {
+        return reply.code(409).send({
+          error: t("uploadChunkOutOfOrder", request.locale, {
+            expectedIndex: session.nextChunkIndex,
+          }),
+          expectedIndex: session.nextChunkIndex,
+        });
+      }
 
-    const chunk = request.body as Buffer;
-    if (chunk.length > UPLOAD_CHUNK_SIZE_BYTES * 2) {
-      return reply.code(413).send({ error: t("fileTooLarge", request.locale, { limit: "chunk size" }) });
+      const chunk = request.body as Buffer;
+      if (chunk.length > UPLOAD_CHUNK_SIZE_BYTES * 2) {
+        return reply
+          .code(413)
+          .send({ error: t("fileTooLarge", request.locale, { limit: "chunk size" }) });
+      }
+      if (session.receivedBytes + chunk.length > session.totalSize) {
+        return reply.code(400).send({ error: t("uploadChunkOverflow", request.locale) });
+      }
+
+      await mkdir(TEMP_DIR, { recursive: true });
+      await appendFile(session.tempPath, chunk);
+      session.receivedBytes += chunk.length;
+      session.nextChunkIndex += 1;
+
+      return { receivedBytes: session.receivedBytes, nextChunkIndex: session.nextChunkIndex };
+    } finally {
+      releaseChunkWriteLock(session.id);
     }
-    if (session.receivedBytes + chunk.length > session.totalSize) {
-      return reply.code(400).send({ error: t("uploadChunkOverflow", request.locale) });
-    }
-
-    await mkdir(TEMP_DIR, { recursive: true });
-    await appendFile(session.tempPath, chunk);
-    session.receivedBytes += chunk.length;
-    session.nextChunkIndex += 1;
-
-    return { receivedBytes: session.receivedBytes, nextChunkIndex: session.nextChunkIndex };
   });
 
   app.get("/uploads/:uploadId", async (request, reply) => {

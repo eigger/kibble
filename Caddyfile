@@ -1,4 +1,15 @@
 :80 {
+	# 기본 설치는 평문 http(LAN)라 HSTS는 넣지 않는다 — HTTPS 프록시를 앞에 둘 때 거기서 켠다.
+	# CSP는 Next의 인라인 부트스트랩 스크립트 때문에 nonce 배선이 필요해 별도 작업으로 둔다.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		# 카메라는 현재 어디서도 쓰지 않는다 — 바코드 스캐너가 돌아오면 camera=(self)로 연다.
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy api:8080
 	}

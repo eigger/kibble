@@ -302,18 +302,24 @@ export async function authRoutes(app: FastifyInstance) {
 
     const updateData: Record<string, unknown> = {};
     if (name) updateData.name = name;
-    if (email) updateData.email = email;
 
-    if (newPassword) {
+    // 이메일은 로그인 식별자다 — 비밀번호 변경과 같은 강도로 현재 비밀번호를 요구한다.
+    // (이름은 표시용이라 제외.) 탈취된 세션이 계정을 조용히 넘겨받는 걸 막는다.
+    const existing = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) return reply.code(404).send({ error: t("userNotFound", request.locale) });
+
+    const emailChanged = Boolean(email) && email !== existing.email;
+    if (emailChanged) updateData.email = email;
+
+    if (emailChanged || newPassword) {
       if (!currentPassword) {
         return reply.code(400).send({ error: t("currentPasswordRequired", request.locale) });
       }
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) return reply.code(404).send({ error: t("userNotFound", request.locale) });
-
-      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+      const valid = await bcrypt.compare(currentPassword, existing.passwordHash);
       if (!valid) return reply.code(400).send({ error: t("incorrectCurrentPassword", request.locale) });
+    }
 
+    if (newPassword) {
       updateData.passwordHash = await bcrypt.hash(newPassword, 10);
     }
 
