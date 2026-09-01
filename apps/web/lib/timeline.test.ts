@@ -14,4 +14,9 @@ describe("timelineEventsPath", () => {
     expect(path).toContain("before=2026-01-01T00%3A00%3A00.000Z");
     expect(path).toContain("beforeId=evt9");
   });
+
+  it("includes period filter when set", () => {
+    const path = timelineEventsPath("pet1", undefined, TIMELINE_PAGE_SIZE, "2026-09");
+    expect(path).toContain("period=2026-09");
+  });
 });

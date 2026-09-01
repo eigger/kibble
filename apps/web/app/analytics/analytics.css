@@ -1,0 +1,106 @@
+.analytics-page {
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
+}
+
+.analytics-page .care-header {
+  margin-bottom: 4px;
+}
+
+.analytics-period-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.analytics-period-btn {
+  flex: 1 1 calc(20% - 6px);
+  min-width: 3.25rem;
+  font-size: 0.75rem;
+  padding: 6px 4px;
+  min-height: 32px;
+  text-align: center;
+  white-space: nowrap;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.analytics-period-btn-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.analytics-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analytics-summary-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.analytics-summary-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.analytics-chart-card {
+  margin-top: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.analytics-chart-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.analytics-chart-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.analytics-chart-wrap--tall {
+  height: 248px;
+}
+
+.analytics-chart-wrap--compact {
+  height: 212px;
+}
+
+.analytics-chart-wrap .recharts-wrapper {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.analytics-chart-wrap .recharts-surface {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.analytics-chart-empty {
+  margin: 0;
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.analytics-chart-empty-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}

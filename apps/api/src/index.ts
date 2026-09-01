@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { startTrashPurgeJob } from "./jobs/trashPurge.js";
+import { startMedicationReminderJob } from "./jobs/medicationReminders.js";
 import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
 import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
@@ -13,6 +14,7 @@ if (isMediaAuthDisabled()) {
 const app = await buildApp();
 
 startTrashPurgeJob();
+startMedicationReminderJob();
 
 const port = Number(process.env.PORT ?? 8080);
 

@@ -5,6 +5,11 @@ import { t } from "../lib/i18n.js";
 import { todaySummaryForPet } from "../lib/todaySummary.js";
 import { journalStatsForPet } from "../lib/journalStats.js";
 import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
+import {
+  ensurePresetsForPet,
+  SystemEventTypesNotSeededError,
+} from "../lib/seed/ensurePresetsForPet.js";
+import { medicationCoursesWithProgress } from "../lib/medicationCourseProgress.js";
 
 const recentEventSelect = {
   id: true,
@@ -13,9 +18,12 @@ const recentEventSelect = {
   quantityOffered: true,
   unit: true,
   scaleValue: true,
+  productName: true,
   note: true,
   preset: { select: { id: true, label: true } },
-  eventType: { select: { key: true, label: true, icon: true, scaleType: true } },
+  contact: { select: { id: true, name: true, address: true } },
+  course: { select: { id: true, name: true } },
+  eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },
@@ -53,6 +61,7 @@ export async function homeRoutes(app: FastifyInstance) {
         presets: [],
         todaySummary: [],
         recentEvents: [],
+        activeMedicationCourses: [],
         journalStats: { totalEventCount: 0, distinctDayCount: 0 },
       };
     }
@@ -62,7 +71,14 @@ export async function homeRoutes(app: FastifyInstance) {
       petId: activePet.id,
     };
 
-    const [presets, todaySummary, recentEvents, journalStats] = await Promise.all([
+    try {
+      await ensurePresetsForPet(prisma, householdId, activePet.id, activePet.species);
+    } catch (err) {
+      if (!(err instanceof SystemEventTypesNotSeededError)) throw err;
+    }
+
+    const [presets, todaySummary, recentEvents, journalStats, medicationCourses] =
+      await Promise.all([
       prisma.preset.findMany({
         where: {
           ...householdWhere(householdId),
@@ -77,7 +93,7 @@ export async function homeRoutes(app: FastifyInstance) {
           label: true,
           isStarter: true,
           sortOrder: true,
-          eventType: { select: { scaleType: true } },
+          eventType: { select: { key: true, scaleType: true, category: true } },
         },
       }),
       todaySummaryForPet(prisma, householdId, activePet.id),
@@ -88,8 +104,26 @@ export async function homeRoutes(app: FastifyInstance) {
         select: recentEventSelect,
       }),
       journalStatsForPet(prisma, householdId, activePet.id),
+      medicationCoursesWithProgress(prisma, householdId, activePet.id),
     ]);
 
-    return { pets, activePet, presets, todaySummary, recentEvents, journalStats };
+    const activeMedicationCourses = medicationCourses.map((course) => ({
+      id: course.id,
+      name: course.name,
+      dosesPerDay: course.dosesPerDay,
+      doseTimes: course.doseTimes,
+      doseSlotsToday: course.doseSlotsToday,
+      dosesGivenToday: course.dosesGivenToday,
+    }));
+
+    return {
+      pets,
+      activePet,
+      presets,
+      todaySummary,
+      recentEvents,
+      activeMedicationCourses,
+      journalStats,
+    };
   });
 }

@@ -55,6 +55,17 @@ export class ApiError extends Error {
   }
 }
 
+/** instanceof는 번들 중복 시 깨질 수 있어 name·status로도 판별한다. */
+export function isApiError(err: unknown): err is ApiError {
+  return (
+    err instanceof ApiError ||
+    (typeof err === "object" &&
+      err !== null &&
+      (err as ApiError).name === "ApiError" &&
+      typeof (err as ApiError).status === "number")
+  );
+}
+
 export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await apiFetch(path, init);
   if (!res.ok) {
@@ -66,5 +77,9 @@ export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<
     throw new ApiError(message, res.status);
   }
   if (res.status === 204) return undefined as T;
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new ApiError(requestFailedMessage(res.status), res.status);
+  }
 }

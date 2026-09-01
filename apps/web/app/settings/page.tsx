@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, apiJson, API_URL } from "../../lib/api";
@@ -10,6 +9,7 @@ import { useLocale } from "../../lib/i18n/locale-context";
 import { ThemeToggle } from "../../components/ThemeToggle";
 import { LanguageToggle } from "../../components/LanguageToggle";
 import { OneTimeSecrets, type OneTimeSecret } from "../../components/OneTimeSecrets";
+import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -104,7 +104,7 @@ export default function SettingsPage() {
   if (loading || !user) return null;
 
   return (
-    <main className="container">
+    <main className="container settings-page">
       <h1>{t("settingsLabel")}</h1>
 
       <div className="card">
@@ -160,18 +160,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>{t("presetsManageLink")}</h2>
-        <p className="meta">{t("presetsIntro")}</p>
-        <Link href="/presets">{t("presetsManageLink")}</Link>
-      </div>
-
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>{t("petsManageLink")}</h2>
-        <p className="meta">{t("petsIntro")}</p>
-        <Link href="/pets">{t("petsTitle")}</Link>
-      </div>
-
-      <div className="card">
         <h2 style={{ marginTop: 0 }}>{t("screenTitle")}</h2>
         <p className="meta" style={{ marginTop: 0 }}>
           {t("themeLabel")}
@@ -182,6 +170,8 @@ export default function SettingsPage() {
         </p>
         <LanguageToggle />
       </div>
+
+      <PushNotificationSettings isAdmin={isAdmin} />
 
       {isAdmin && (
         <div className="card">

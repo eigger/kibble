@@ -55,10 +55,7 @@ export default function PetsPage() {
   if (loading || !user) return null;
 
   return (
-    <main className="container">
-      <p>
-        <Link href="/settings">{t("settingsLabel")}</Link>
-      </p>
+    <main className="container sub-page">
       <h1>{t("petsTitle")}</h1>
       <p className="meta">{t("petsIntro")}</p>
 

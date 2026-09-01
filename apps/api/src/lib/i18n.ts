@@ -75,6 +75,26 @@ const MESSAGES = {
   },
   apiTokenNotFound: { ko: "API 토큰을 찾을 수 없습니다", en: "API token not found" },
   petNotFound: { ko: "반려동물을 찾을 수 없습니다", en: "Pet not found" },
+  medicationCourseNotFound: {
+    ko: "투약 과정을 찾을 수 없습니다",
+    en: "Medication course not found",
+  },
+  medicationDoseLimitReached: {
+    ko: "오늘 복약 횟수를 모두 기록했습니다",
+    en: "Today's doses are already logged",
+  },
+  medicationDoseNotFound: {
+    ko: "오늘 기록한 복약이 없습니다",
+    en: "No dose logged today",
+  },
+  medicationDoseSlotTaken: {
+    ko: "이 시간대 복약은 이미 기록했습니다",
+    en: "This dose slot is already logged",
+  },
+  medicationDoseSlotInvalid: {
+    ko: "복약 시간대가 올바르지 않습니다",
+    en: "Invalid dose slot",
+  },
   cannotArchiveLastPet: {
     ko: "마지막 반려동물은 보관 처리할 수 없습니다",
     en: "Cannot archive the only pet",
@@ -98,7 +118,9 @@ const MESSAGES = {
     en: "Specify a preset or event type",
   },
   petIdRequired: { ko: "petId가 필요합니다", en: "petId is required" },
+  eventTypeKeyRequired: { ko: "eventTypeKey가 필요합니다", en: "eventTypeKey is required" },
   invalidCursor: { ko: "잘못된 커서입니다", en: "Invalid cursor" },
+  invalidPeriod: { ko: "잘못된 기간입니다", en: "Invalid period" },
   scaleValueInvalid: {
     ko: "척도 값이 올바르지 않습니다",
     en: "Scale value is out of range for this event type",
@@ -152,7 +174,8 @@ const MESSAGES = {
 
   pushNotConfigured: { ko: "서버에 푸시 알림이 설정되지 않았습니다", en: "Push notifications aren't configured on the server" },
   noPushSubscriptions: { ko: "구독 정보가 없습니다", en: "No push subscription found" },
-  testPushBody: {
+  pushTestTitle: { ko: "kibble 알림 테스트", en: "kibble test notification" },
+  pushTestBody: {
     ko: "테스트 알림입니다. 정상적으로 도착했다면 푸시 설정이 잘 되어 있는 것입니다.",
     en: "This is a test notification. If it arrived, your push setup is working.",
   },

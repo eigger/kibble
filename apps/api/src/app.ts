@@ -15,9 +15,11 @@ import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 import { presetRoutes, eventTypeRoutes } from "./routes/presets.js";
 import { homeRoutes } from "./routes/home.js";
+import { careRoutes } from "./routes/care.js";
 import { eventRoutes } from "./routes/events.js";
-import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { parseRoutes } from "./routes/parse.js";
+import { apiTokenRoutes } from "./routes/apiTokens.js";
+import { pushRoutes } from "./routes/push.js";
 import { runAuthenticate } from "./lib/authenticate.js";
 
 export type BuildAppOptions = {
@@ -50,7 +52,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
           },
   });
 
-  await app.register(cors, { origin: true });
+  // 로컬 dev(웹 3000/3001 → API 8080/8081)에서 PATCH·DELETE가 CORS preflight에 막히지 않게 한다.
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
+  });
   await app.register(cookie);
   await app.register(jwt, { secret: jwtSecret });
   await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
@@ -97,8 +103,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(presetRoutes, { prefix: "/api/presets" });
   await app.register(eventTypeRoutes, { prefix: "/api/event-types" });
   await app.register(homeRoutes, { prefix: "/api/home" });
+  await app.register(careRoutes, { prefix: "/api/care" });
   await app.register(eventRoutes, { prefix: "/api/events" });
   await app.register(parseRoutes, { prefix: "/api/parse" });
+  await app.register(pushRoutes, { prefix: "/api/push" });
   await app.register(apiTokenRoutes, { prefix: "/api/tokens" });
   await app.register(attachmentRoutes, { prefix: "/api/attachments" });
   await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });

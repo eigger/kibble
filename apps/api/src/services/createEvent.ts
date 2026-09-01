@@ -1,5 +1,10 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
+import {
+  normalizeDoseTimes,
+  resolveDoseTimeOccurredAt,
+} from "@kibble/shared";
 import { householdWhere } from "../lib/householdScope.js";
+import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
 export class CreateEventNotFoundError extends Error {
@@ -29,6 +34,8 @@ export type CreateEventParams = {
   quantityOffered?: number | null;
   unit?: string | null;
   scaleValue?: number | null;
+  productName?: string | null;
+  contactId?: string | null;
   note?: string | null;
   rawText?: string | null;
   entryId?: string | null;
@@ -36,6 +43,8 @@ export type CreateEventParams = {
   source: EventSource;
   createdById?: string | null;
   dedupeKey?: string | null;
+  medicationCourseId?: string | null;
+  doseSlotIndex?: number | null;
 };
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -51,6 +60,8 @@ const eventSelect = {
   quantityOffered: true,
   unit: true,
   scaleValue: true,
+  productName: true,
+  contactId: true,
   note: true,
   rawText: true,
   entryId: true,
@@ -75,7 +86,7 @@ export function validateScaleValue(
   const range =
     scaleType === "FECAL_7"
       ? { min: 1, max: 7 }
-      : scaleType === "APPETITE_3" || scaleType === "ENERGY_3"
+      : scaleType === "APPETITE_3" || scaleType === "ENERGY_3" || scaleType === "URINE_AMOUNT_3"
         ? { min: 1, max: 3 }
         : null;
   if (!range) {
@@ -176,7 +187,54 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
 
   validateScaleValue(eventType.scaleType, params.scaleValue);
 
-  const occurredAt = params.occurredAt ?? new Date();
+  let medicationCourseId: string | null = params.medicationCourseId ?? null;
+  let doseSlotIndex: number | null = params.doseSlotIndex ?? null;
+  let occurredAt = params.occurredAt ?? new Date();
+
+  if (medicationCourseId) {
+    const course = await db.medicationCourse.findFirst({
+      where: {
+        id: medicationCourseId,
+        ...householdWhere(params.householdId),
+        petId: params.petId,
+        archivedAt: null,
+      },
+      select: { id: true, dosesPerDay: true, doseTimes: true },
+    });
+    if (!course) throw new CreateEventNotFoundError("eventType");
+
+    if (course.doseTimes.length > 0) {
+      const doseTimes = normalizeDoseTimes(course.doseTimes, course.dosesPerDay);
+      if (doseSlotIndex == null) {
+        throw new CreateEventValidationError("DOSE_SLOT_REQUIRED");
+      }
+      if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
+        throw new CreateEventValidationError("DOSE_SLOT_INVALID");
+      }
+
+      const since = startOfTodayBoundary(occurredAt);
+      const existing = await db.event.findFirst({
+        where: {
+          ...householdWhere(params.householdId),
+          petId: params.petId,
+          medicationCourseId: course.id,
+          doseSlotIndex,
+          deletedAt: null,
+          occurredAt: { gte: since },
+        },
+        select: { id: true },
+      });
+      if (existing) throw new CreateEventValidationError("DOSE_SLOT_TAKEN");
+
+      if (!params.occurredAt) {
+        occurredAt = resolveDoseTimeOccurredAt(doseTimes[doseSlotIndex], occurredAt);
+      }
+    } else {
+      doseSlotIndex = null;
+    }
+  } else if (doseSlotIndex != null) {
+    throw new CreateEventValidationError("DOSE_SLOT_WITHOUT_COURSE");
+  }
 
   try {
     return await db.event.create({
@@ -190,6 +248,8 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         quantityOffered: quantityOffered ?? undefined,
         unit: unit ?? undefined,
         scaleValue: params.scaleValue ?? undefined,
+        productName: params.productName?.trim() || undefined,
+        contactId: params.contactId ?? undefined,
         note: params.note ?? undefined,
         rawText: params.rawText ?? undefined,
         entryId: params.entryId ?? undefined,
@@ -197,6 +257,8 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         source: params.source,
         createdById: params.createdById ?? undefined,
         dedupeKey: params.dedupeKey ?? undefined,
+        medicationCourseId: medicationCourseId ?? undefined,
+        doseSlotIndex: doseSlotIndex ?? undefined,
       },
       select: eventSelect,
     });
@@ -213,8 +275,10 @@ export { eventSelect };
 
 export const eventWithRelationsSelect = {
   ...eventSelect,
-  eventType: { select: { key: true, label: true, icon: true, scaleType: true } },
+  eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
   preset: { select: { id: true, label: true } },
+  contact: { select: { id: true, name: true, address: true } },
+  course: { select: { id: true, name: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },

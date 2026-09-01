@@ -34,6 +34,10 @@ describe("validateScaleValue", () => {
     expect(() => validateScaleValue("FECAL_7", 8)).toThrow(CreateEventValidationError);
   });
 
+  it("accepts URINE_AMOUNT_3 range 1-3", () => {
+    expect(() => validateScaleValue("URINE_AMOUNT_3", 2)).not.toThrow();
+  });
+
   it("rejects scale value when type has no scale", () => {
     expect(() => validateScaleValue(null, 3)).toThrow(CreateEventValidationError);
   });

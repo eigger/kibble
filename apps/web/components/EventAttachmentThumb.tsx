@@ -12,9 +12,10 @@ type Props = {
   mime: string;
   alt: string;
   className?: string;
+  controls?: boolean;
 };
 
-export function EventAttachmentThumb({ path, mime, alt, className }: Props) {
+export function EventAttachmentThumb({ path, mime, alt, className, controls = false }: Props) {
   const [src, setSrc] = useState<string | null>(null);
   const isVideo = mime.startsWith("video/");
   const useDirect = canUseDirectAttachmentUrl();
@@ -57,7 +58,8 @@ export function EventAttachmentThumb({ path, mime, alt, className }: Props) {
       <video
         src={src}
         className={className}
-        muted
+        muted={!controls}
+        controls={controls}
         playsInline
         preload="metadata"
         aria-label={alt}

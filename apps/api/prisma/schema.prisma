@@ -24,6 +24,7 @@ model User {
 
   memberships HouseholdMember[]
   events      Event[]           @relation("EventCreator")
+  pushSubscriptions PushSubscription[]
 }
 
 model Household {
@@ -130,6 +131,7 @@ enum ScaleType {
   FECAL_7
   APPETITE_3
   ENERGY_3
+  URINE_AMOUNT_3
 }
 
 enum EventCategory {
@@ -226,10 +228,12 @@ model Event {
   quantityOffered    Decimal?    @db.Decimal(10, 2)
   unit               String?
   scaleValue         Int?
+  productName        String?
   note               String?
   costKrw            Int?
   contactId          String?
   medicationCourseId String?
+  doseSlotIndex      Int?
   payload            Json?
   rawText            String?
   entryId            String?
@@ -290,8 +294,9 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String
-  dosesPerDay Int       @default(1)
-  totalDoses  Int?
+  dosesPerDay  Int      @default(1)
+  doseTimes    String[] @default([])
+  totalDoses   Int?
   startDate   DateTime
   endDate     DateTime?
   contactId   String?
@@ -303,8 +308,37 @@ model MedicationCourse {
   pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
   events    Event[]
+  pushSent  MedicationPushSent[]
 
   @@index([householdId, petId, archivedAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  locale    String   @default("ko")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MedicationPushSent {
+  id            String   @id @default(cuid())
+  courseId      String
+  doseSlotIndex Int
+  kind          String
+  dayKey        String
+  sentAt        DateTime @default(now())
+
+  course MedicationCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, doseSlotIndex, kind, dayKey])
+  @@index([dayKey])
 }
 
 // ---------- 리마인더 ----------

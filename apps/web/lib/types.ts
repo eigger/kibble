@@ -37,7 +37,7 @@ export interface Preset {
   label: string;
   isStarter: boolean;
   sortOrder: number;
-  eventType?: { scaleType: string | null };
+  eventType?: { key: string; scaleType: string | null; category?: string };
 }
 
 export interface PresetDetail extends Omit<Preset, "eventType"> {
@@ -75,9 +75,12 @@ export interface CreatedEvent {
   quantityOffered: number | null;
   unit: string | null;
   scaleValue?: number | null;
+  productName: string | null;
   note: string | null;
+  contact?: { id: string; name: string; address: string | null } | null;
+  course?: { id: string; name: string } | null;
   preset: { id: string; label: string } | null;
-  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null };
+  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];
 }
 
@@ -85,6 +88,55 @@ export interface TodaySummaryRow {
   eventTypeKey: string;
   label: string;
   count: number;
+}
+
+export interface MedicationCourseProgress {
+  id: string;
+  name: string;
+  dosesPerDay: number;
+  doseTimes: string[];
+  totalDoses: number | null;
+  startDate: string;
+  endDate: string | null;
+  note: string | null;
+  dosesGivenTotal: number;
+  dosesGivenToday: number;
+  dosesRemaining: number | null;
+  todayComplete: boolean;
+  daysOnCourse: number;
+  canUndoToday: boolean;
+  dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
+  doseSlotsToday: DoseSlotToday[];
+}
+
+export interface DoseSlotToday {
+  index: number;
+  time: string;
+  eventId: string | null;
+  occurredAt: string | null;
+}
+
+export interface MedicationCourseRow {
+  id: string;
+  petId: string;
+  name: string;
+  dosesPerDay: number;
+  doseTimes: string[];
+  totalDoses: number | null;
+  startDate: string;
+  endDate: string | null;
+  note: string | null;
+  archivedAt: string | null;
+}
+
+export interface CareReminder {
+  id: string;
+  label: string;
+  nextDueAt: string;
+  ruleType: string;
+  eventTypeKey: string;
+  eventTypeLabel: string;
+  overdue: boolean;
 }
 
 export type { JournalStats } from "@kibble/shared";
@@ -96,9 +148,12 @@ export interface TimelineEvent {
   quantityOffered: number | null;
   unit: string | null;
   scaleValue: number | null;
+  productName: string | null;
   note: string | null;
+  contact?: { id: string; name: string; address: string | null } | null;
+  course?: { id: string; name: string } | null;
   preset: { id: string; label: string } | null;
-  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null };
+  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];
 }
 

@@ -3,6 +3,11 @@ import { createEventSchema, updateEventSchema, TIMELINE_PAGE_SIZE } from "@kibbl
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
+import { periodRangeFromQuery } from "../lib/kstPeriodRange.js";
+import { assertPetInHousehold, listEventHistoryPeriods } from "../lib/historyPeriods.js";
+import { productSuggestionsForPet } from "../lib/frequentProducts.js";
+import { clinicSuggestionsForPet } from "../lib/frequentClinics.js";
+import { upsertVetContact } from "../lib/upsertVetContact.js";
 import {
   requireEventCreateAccess,
   resolveTokenScopedField,
@@ -32,6 +37,16 @@ function mapSource(raw: string | undefined, authMethod: "jwt" | "apiToken"): Eve
   if (authMethod === "apiToken") return "API";
   if (raw === "QUICK") return "QUICK";
   return "WEB";
+}
+
+async function resolveClinicContactId(
+  householdId: string,
+  clinicName: string | null | undefined,
+  clinicAddress: string | null | undefined,
+): Promise<string | null> {
+  const name = clinicName?.trim();
+  if (!name) return null;
+  return upsertVetContact(prisma, householdId, name, clinicAddress);
 }
 
 export async function eventRoutes(app: FastifyInstance) {
@@ -75,6 +90,11 @@ export async function eventRoutes(app: FastifyInstance) {
       }
 
       try {
+        let contactId: string | null | undefined = undefined;
+        if (body.clinicName !== undefined) {
+          contactId = await resolveClinicContactId(householdId, body.clinicName, body.clinicAddress);
+        }
+
         const event = await createEvent(prisma, {
           householdId,
           petId,
@@ -85,6 +105,8 @@ export async function eventRoutes(app: FastifyInstance) {
           quantityOffered: body.quantityOffered,
           unit: body.unit,
           scaleValue: body.scaleValue,
+          productName: body.productName,
+          contactId,
           note: body.note,
           rawText: body.rawText,
           entryId: body.entryId,
@@ -92,6 +114,8 @@ export async function eventRoutes(app: FastifyInstance) {
           source: mapSource(body.source, request.authMethod),
           createdById: sessionUserId(request),
           dedupeKey: body.dedupeKey ?? null,
+          medicationCourseId: body.medicationCourseId ?? null,
+          doseSlotIndex: body.doseSlotIndex ?? null,
         });
 
         if (request.authMethod === "apiToken" && request.apiTokenContext) {
@@ -129,6 +153,64 @@ export async function eventRoutes(app: FastifyInstance) {
     },
   );
 
+  app.get("/history-periods", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const query = request.query as { petId?: string };
+    const petId = query.petId?.trim();
+    if (!petId) return reply.code(400).send({ error: t("petIdRequired", request.locale) });
+
+    if (!(await assertPetInHousehold(prisma, householdId, petId))) {
+      return reply.code(404).send({ error: t("petNotFound", request.locale) });
+    }
+
+    return listEventHistoryPeriods(prisma, householdId, petId);
+  });
+
+  app.get("/product-suggestions", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const query = request.query as { petId?: string; eventTypeKey?: string };
+    const petId = query.petId?.trim();
+    const eventTypeKey = query.eventTypeKey?.trim();
+    if (!petId) return reply.code(400).send({ error: t("petIdRequired", request.locale) });
+    if (!eventTypeKey) {
+      return reply.code(400).send({ error: t("eventTypeKeyRequired", request.locale) });
+    }
+
+    if (!(await assertPetInHousehold(prisma, householdId, petId))) {
+      return reply.code(404).send({ error: t("petNotFound", request.locale) });
+    }
+
+    return productSuggestionsForPet(prisma, {
+      householdId,
+      petId,
+      eventTypeKey,
+      userId: sessionUserId(request),
+    });
+  });
+
+  app.get("/clinic-suggestions", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const query = request.query as { petId?: string };
+    const petId = query.petId?.trim();
+    if (!petId) return reply.code(400).send({ error: t("petIdRequired", request.locale) });
+
+    if (!(await assertPetInHousehold(prisma, householdId, petId))) {
+      return reply.code(404).send({ error: t("petNotFound", request.locale) });
+    }
+
+    return clinicSuggestionsForPet(prisma, {
+      householdId,
+      petId,
+      userId: sessionUserId(request),
+    });
+  });
+
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdId(request, reply);
     if (!householdId) return;
@@ -138,6 +220,9 @@ export async function eventRoutes(app: FastifyInstance) {
       limit?: string;
       before?: string;
       beforeId?: string;
+      period?: string;
+      date?: string;
+      eventTypeKey?: string;
     };
     const petId = query.petId?.trim();
     if (!petId) return reply.code(400).send({ error: t("petIdRequired", request.locale) });
@@ -148,6 +233,11 @@ export async function eventRoutes(app: FastifyInstance) {
     });
     if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
+    const periodRange = periodRangeFromQuery(query);
+    if ((query.period?.trim() || query.date?.trim()) && !periodRange) {
+      return reply.code(400).send({ error: t("invalidPeriod", request.locale) });
+    }
+
     const limitRaw = query.limit ? Number(query.limit) : TIMELINE_PAGE_SIZE;
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 100) : TIMELINE_PAGE_SIZE;
     const beforeAt = query.before ? new Date(query.before) : null;
@@ -155,6 +245,7 @@ export async function eventRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: t("invalidCursor", request.locale) });
     }
     const beforeId = query.beforeId?.trim();
+    const eventTypeKey = query.eventTypeKey?.trim();
 
     const cursorFilter =
       beforeAt && beforeId
@@ -165,19 +256,27 @@ export async function eventRoutes(app: FastifyInstance) {
           ? { occurredAt: { lt: beforeAt } }
           : {};
 
+    const periodFilter = periodRange
+      ? { occurredAt: { gte: periodRange.gte, lt: periodRange.lt } }
+      : {};
+
     const events = await prisma.event.findMany({
       where: {
         petId,
         ...householdWhere(householdId),
         deletedAt: null,
+        ...periodFilter,
         ...cursorFilter,
+        ...(eventTypeKey ? { eventType: { key: eventTypeKey } } : {}),
       },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: limit,
       select: {
         ...eventSelect,
-        eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true } },
+        eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true } },
         preset: { select: { id: true, label: true } },
+        contact: { select: { id: true, name: true, address: true } },
+        course: { select: { id: true, name: true } },
         attachments: {
           select: { id: true, path: true, mime: true, size: true, width: true, height: true },
           orderBy: { createdAt: "asc" },
@@ -203,6 +302,27 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.quantityOffered !== undefined) updateData.quantityOffered = data.quantityOffered;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.scaleValue !== undefined) updateData.scaleValue = data.scaleValue;
+    if (data.productName !== undefined) updateData.productName = data.productName?.trim() || null;
+    if (data.clinicName !== undefined) {
+      updateData.contactId = await resolveClinicContactId(
+        householdId,
+        data.clinicName,
+        data.clinicAddress,
+      );
+    } else if (data.clinicAddress !== undefined) {
+      const row = await prisma.event.findFirst({
+        where: { id, ...householdWhere(householdId), deletedAt: null },
+        select: { contact: { select: { id: true, name: true } } },
+      });
+      if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+      if (row.contact?.name) {
+        updateData.contactId = await resolveClinicContactId(
+          householdId,
+          row.contact.name,
+          data.clinicAddress,
+        );
+      }
+    }
     if (data.note !== undefined) updateData.note = data.note;
     if (data.needsReview !== undefined) updateData.needsReview = data.needsReview;
 
@@ -228,7 +348,7 @@ export async function eventRoutes(app: FastifyInstance) {
     }
     const event = await prisma.event.findFirst({
       where: { id, ...householdWhere(householdId) },
-      select: eventSelect,
+      select: eventWithRelationsSelect,
     });
     return event;
   });

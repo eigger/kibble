@@ -11,6 +11,8 @@ interface PresetChipProps {
   onLongPress?: (preset: Preset) => void;
   /** true면 탭만 — 롱프레스 감지·클릭 억제 없음 (/q 등) */
   tapOnly?: boolean;
+  /** 기록 화면 등 좁은 칩 */
+  compact?: boolean;
 }
 
 export function PresetChip({
@@ -20,16 +22,18 @@ export function PresetChip({
   onTap,
   onLongPress,
   tapOnly = false,
+  compact = false,
 }: PresetChipProps) {
   const longPress = useLongPress(() => {
     if (!disabled && onLongPress) onLongPress(preset);
   });
+  const chipClass = compact ? "chip chip-quick" : "chip";
 
   if (tapOnly) {
     return (
       <button
         type="button"
-        className="chip"
+        className={chipClass}
         disabled={disabled}
         onClick={() => {
           if (!disabled) onTap(preset);
@@ -43,7 +47,7 @@ export function PresetChip({
   return (
     <button
       type="button"
-      className="chip long-press-target"
+      className={`${chipClass} long-press-target`}
       disabled={disabled}
       onClick={longPress.wrapClick(() => {
         if (!disabled) onTap(preset);
