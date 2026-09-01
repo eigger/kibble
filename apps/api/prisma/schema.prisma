@@ -256,6 +256,7 @@ model Event {
   @@index([petId, eventTypeId, occurredAt(sort: Desc)])
   @@index([medicationCourseId])
   @@index([entryId])
+  @@index([deletedAt])
 }
 
 enum EventSource {
