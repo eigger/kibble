@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { createApiTokenSchema } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
-import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
+import { householdWhere, requireHouseholdOwner } from "../lib/householdScope.js";
 import { generateApiTokenPlaintext, hashApiToken } from "../lib/apiToken.js";
 import { isRecordNotFoundError } from "../lib/prismaErrors.js";
 
@@ -10,7 +10,7 @@ const EVENT_CREATE_SCOPE = "event:create";
 
 export async function apiTokenRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
-    const householdId = requireHouseholdWrite(request, reply);
+    const householdId = requireHouseholdOwner(request, reply);
     if (!householdId) return;
 
     const tokens = await prisma.apiToken.findMany({
@@ -34,7 +34,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   });
 
   app.post("/", { preHandler: [app.authenticate] }, async (request, reply) => {
-    const householdId = requireHouseholdWrite(request, reply);
+    const householdId = requireHouseholdOwner(request, reply);
     if (!householdId) return;
 
     const parsed = createApiTokenSchema.safeParse(request.body);
@@ -100,7 +100,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
   });
 
   app.delete("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
-    const householdId = requireHouseholdWrite(request, reply);
+    const householdId = requireHouseholdOwner(request, reply);
     if (!householdId) return;
 
     const { id } = request.params as { id: string };

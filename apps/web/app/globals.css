@@ -119,6 +119,145 @@ a {
   padding: 16px;
 }
 
+.home-page {
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+}
+
+.home-input-bar {
+  --home-input-bar-height: 11rem;
+}
+
+.timeline-section {
+  min-height: 120px;
+  padding-bottom: var(--home-input-bar-height);
+}
+
+.timeline-empty {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.timeline-time {
+  flex-shrink: 0;
+  width: 44px;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeline-label {
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.timeline-detail {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.home-input-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-height);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  z-index: 40;
+  min-height: var(--home-input-bar-height);
+}
+
+.home-input-bar-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 10px 16px 12px;
+}
+
+.home-quick-section {
+  margin-bottom: 8px;
+}
+
+.home-no-chips {
+  margin: 0 0 4px;
+}
+
+.home-text-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--color-input-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.home-text-input:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.home-input-hint {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+}
+
+.home-header h1 {
+  font-size: 1.4rem;
+  margin: 0 0 8px;
+}
+
+.pet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pet-tab {
+  width: auto;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.pet-tab-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.home-summary-line {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
 h1 {
   font-size: 1.4rem;
   margin: 0 0 12px;

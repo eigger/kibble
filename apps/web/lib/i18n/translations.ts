@@ -74,6 +74,16 @@ const dict = {
     ko: "칩을 누르면 지금 시각으로 기록됩니다.",
     en: "Tap a chip to log an event at the current time.",
   },
+  homeToday: { ko: "오늘", en: "Today" },
+  homeTimelineEmpty: {
+    ko: "아직 기록이 없습니다. 아래 칩을 눌러 시작하세요.",
+    en: "No entries yet. Tap a chip below to start.",
+  },
+  homeInputPlaceholder: {
+    ko: "텍스트로 기록 (준비 중)",
+    en: "Type to log (coming soon)",
+  },
+  homePetTabsLabel: { ko: "반려동물 선택", en: "Select pet" },
   recordSaved: { ko: "「{label}」 기록됨", en: "Logged 「{label}」" },
   recordError: { ko: "기록에 실패했습니다", en: "Could not save the event" },
   undo: { ko: "실행 취소", en: "Undo" },
