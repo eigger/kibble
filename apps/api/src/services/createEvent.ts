@@ -187,7 +187,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
 
   validateScaleValue(eventType.scaleType, params.scaleValue);
 
-  let medicationCourseId: string | null = params.medicationCourseId ?? null;
+  const medicationCourseId: string | null = params.medicationCourseId ?? null;
   let doseSlotIndex: number | null = params.doseSlotIndex ?? null;
   let occurredAt = params.occurredAt ?? new Date();
 

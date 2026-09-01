@@ -115,7 +115,8 @@ function ChartEmpty({
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const { user, loading, needsPet } = useAuth();
+  const { user, loading } = useAuth();
+  const needsPet = user?.needsPet;
   const { t, locale } = useLocale();
   const localeTag = locale === "ko" ? "ko-KR" : "en-US";
 
