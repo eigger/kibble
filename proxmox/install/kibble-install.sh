@@ -41,11 +41,11 @@ resolve_ref() {
   fi
   local tag
   tag="$(curl -fsSL "https://api.github.com/repos/${KIBBLE_REPO}/releases/latest" | jq -r .tag_name)"
-  if [[ -z "$tag" || "$tag" == "null" ]]; then
-    echo "[kibble-install] Failed to resolve latest release tag (set KIBBLE_REF to override)" >&2
-    exit 1
+  if [[ -n "$tag" && "$tag" != "null" ]]; then
+    echo "$tag"
+    return
   fi
-  echo "$tag"
+  echo "master"
 }
 
 KIBBLE_REF_RESOLVED="$(resolve_ref)"

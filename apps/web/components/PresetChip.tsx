@@ -3,6 +3,14 @@
 import type { Preset } from "../lib/types";
 import { useLongPress } from "../lib/useLongPress";
 
+function quickChipClass(label: string, compact: boolean): string {
+  if (!compact) return "chip";
+  const chars = [...label].length;
+  if (chars <= 3) return "chip chip-quick";
+  if (chars <= 5) return "chip chip-quick chip-quick-5";
+  return "chip chip-quick chip-quick-wide";
+}
+
 interface PresetChipProps {
   preset: Preset;
   label: string;
@@ -27,7 +35,7 @@ export function PresetChip({
   const longPress = useLongPress(() => {
     if (!disabled && onLongPress) onLongPress(preset);
   });
-  const chipClass = compact ? "chip chip-quick" : "chip";
+  const chipClass = quickChipClass(label, compact);
 
   if (tapOnly) {
     return (

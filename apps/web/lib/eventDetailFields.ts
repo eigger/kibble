@@ -1,6 +1,12 @@
-/** 이벤트 유형별 상세 시트·타임라인에 노출할 필드 (통합 폼 금지). */
+import { formatProductNameDisplay, productNameFieldLabelKey } from "./eventDetailTags";
 export type EventDetailFieldFlags = {
   productName: boolean;
+  /** 사료 원재료·구토 종류·관찰 항목 등 태그 칩 */
+  detailTags: boolean;
+  /** 태그 외 직접 입력란 (관찰은 메모로 대체) */
+  productCustomInput: boolean;
+  productNameLabelKey: string;
+  noteLabelKey: string;
   clinicName: boolean;
   clinicAddress: boolean;
   quantityOffered: boolean;
@@ -24,6 +30,10 @@ export type EventDetailQuantityLabelKey =
 
 const NOTE_ONLY: EventDetailFieldFlags = {
   productName: false,
+  detailTags: false,
+  productCustomInput: true,
+  productNameLabelKey: "eventDetailProductName",
+  noteLabelKey: "eventDetailNote",
   clinicName: false,
   clinicAddress: false,
   quantityOffered: false,
@@ -61,6 +71,20 @@ export function eventDetailFields(
   eventTypeKey: string | null | undefined,
   scaleType: string | null | undefined,
 ): EventDetailFieldFlags {
+  const key = eventTypeKey ?? "";
+
+  if (key === "observation" || key === "energy") {
+    return {
+      ...NOTE_ONLY,
+      scale3: scaleType === "ENERGY_3",
+      productName: true,
+      detailTags: true,
+      productCustomInput: false,
+      productNameLabelKey: productNameFieldLabelKey(key),
+      noteLabelKey: "eventDetailNote",
+    };
+  }
+
   if (scaleType === "FECAL_7") {
     return { ...NOTE_ONLY, fecalScale: true };
   }
@@ -69,17 +93,20 @@ export function eventDetailFields(
     return { ...NOTE_ONLY, scale3: true };
   }
 
-  const key = eventTypeKey ?? "";
-
-  if (key === "meal" || key === "treat") {
+  if (key === "meal" || key === "treat" || key === "supplement") {
     return {
       productName: true,
+      detailTags: true,
+      productCustomInput: true,
+      productNameLabelKey: productNameFieldLabelKey(key),
+      noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
       quantityOffered: key === "meal",
       quantity: true,
       showUnitInput: true,
       fecalScale: false,
+      scale3: false,
       note: true,
       quantityLabelKey: "eventDetailQuantityConsumed",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
@@ -87,15 +114,30 @@ export function eventDetailFields(
     };
   }
 
+  if (key === "vomit") {
+    return {
+      ...NOTE_ONLY,
+      productName: true,
+      detailTags: true,
+      productCustomInput: true,
+      productNameLabelKey: productNameFieldLabelKey(key),
+    };
+  }
+
   if (key === "water") {
     return {
       productName: false,
+      detailTags: false,
+      productCustomInput: true,
+      productNameLabelKey: "eventDetailProductName",
+      noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
       fecalScale: false,
+      scale3: false,
       note: true,
       quantityLabelKey: "eventDetailVolume",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
@@ -106,12 +148,17 @@ export function eventDetailFields(
   if (key === "weight") {
     return {
       productName: false,
+      detailTags: false,
+      productCustomInput: true,
+      productNameLabelKey: "eventDetailProductName",
+      noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
       fecalScale: false,
+      scale3: false,
       note: true,
       quantityLabelKey: "eventDetailWeight",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
@@ -122,12 +169,17 @@ export function eventDetailFields(
   if (key === "walk" || key === "play") {
     return {
       productName: false,
+      detailTags: false,
+      productCustomInput: true,
+      productNameLabelKey: "eventDetailProductName",
+      noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
       fecalScale: false,
+      scale3: false,
       note: true,
       quantityLabelKey: "eventDetailDuration",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
@@ -146,13 +198,6 @@ export function eventDetailFields(
 
   if (key === "medication") {
     return NOTE_ONLY;
-  }
-
-  if (key === "supplement") {
-    return {
-      ...NOTE_ONLY,
-      productName: true,
-    };
   }
 
   return NOTE_ONLY;
@@ -213,7 +258,12 @@ export function formatEventDetailLine(
   const parts: string[] = [];
 
   if (flags.productName && event.productName?.trim()) {
-    parts.push(event.productName.trim());
+    parts.push(
+      t
+        ? formatProductNameDisplay(event.eventType.key, event.productName.trim(), t) ??
+          event.productName.trim()
+        : event.productName.trim(),
+    );
   }
 
   if (flags.clinicName && event.clinicName?.trim()) {

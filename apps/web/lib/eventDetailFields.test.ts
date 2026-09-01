@@ -20,7 +20,8 @@ describe("eventDetailFields", () => {
     expect(f.quantity).toBe(true);
     expect(f.showUnitInput).toBe(true);
     expect(f.defaultUnit).toBe("g");
-    expect(f.fecalScale).toBe(false);
+    expect(f.note).toBe(true);
+    expect(f.noteLabelKey).toBe("eventDetailNote");
   });
 
   it("weight uses kg and weight label", () => {
@@ -46,17 +47,57 @@ describe("eventDetailFields", () => {
     expect(f.fecalScale).toBe(false);
   });
 
-  it("energy shows vitality scale", () => {
-    const f = eventDetailFields("energy", "ENERGY_3");
+  it("observation combines signs, vitality scale, and note", () => {
+    const f = eventDetailFields("observation", "ENERGY_3");
     expect(f.scale3).toBe(true);
-    expect(f.note).toBe(true);
+    expect(f.detailTags).toBe(true);
+    expect(f.productCustomInput).toBe(false);
+    expect(f.noteLabelKey).toBe("eventDetailNote");
   });
 
-  it("supplement shows product name and note", () => {
-    const f = eventDetailFields("supplement", null);
+  it("legacy energy key still maps to observation fields", () => {
+    const f = eventDetailFields("energy", "ENERGY_3");
+    expect(f.detailTags).toBe(true);
+    expect(f.scale3).toBe(true);
+  });
+
+  it("treat and legacy supplement show product name", () => {
+    const treat = eventDetailFields("treat", null);
+    expect(treat.productName).toBe(true);
+    expect(treat.quantityOffered).toBe(false);
+    const legacy = eventDetailFields("supplement", null);
+    expect(legacy.productName).toBe(true);
+    expect(legacy.quantityOffered).toBe(false);
+  });
+
+  it("vomit shows tag-capable subtype field", () => {
+    const f = eventDetailFields("vomit", null);
     expect(f.productName).toBe(true);
-    expect(f.note).toBe(true);
+    expect(f.detailTags).toBe(true);
+    expect(f.productNameLabelKey).toBe("eventDetailVomitKind");
     expect(f.quantity).toBe(false);
+  });
+
+  it("resolves tag slug in detail line", () => {
+    const line = formatEventDetailLine(
+      {
+        productName: "chicken,tuna",
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        note: null,
+        eventType: { key: "meal", scaleType: null },
+      },
+      (key) =>
+        (
+          {
+            "eventTag.meal.chicken": "닭고기",
+            "eventTag.meal.tuna": "참치",
+          } as Record<string, string>
+        )[key] ?? key,
+    );
+    expect(line).toBe("닭고기 · 참치");
   });
 
   it("grooming is note-only", () => {
@@ -170,20 +211,26 @@ describe("formatEventDetailLine", () => {
     expect(line).toBe("많음");
   });
 
-  it("shows energy label in detail line", () => {
+  it("shows vitality label in observation detail line", () => {
     const t = (key: string) =>
-      ({ "eventDetailEnergy.3": "활발" } as Record<string, string>)[key] ?? key;
+      (
+        {
+          "eventDetailEnergy.2": "보통",
+          "eventTag.observation.eye_discharge": "눈꼽",
+        } as Record<string, string>
+      )[key] ?? key;
     const line = formatEventDetailLine(
       {
+        productName: "eye_discharge",
         quantity: null,
         quantityOffered: null,
         unit: null,
-        scaleValue: 3,
-        note: null,
-        eventType: { key: "energy", scaleType: "ENERGY_3" },
+        scaleValue: 2,
+        note: "왼쪽만",
+        eventType: { key: "observation", scaleType: "ENERGY_3" },
       },
       t,
     );
-    expect(line).toBe("활발");
+    expect(line).toBe("눈꼽 · 보통 · 왼쪽만");
   });
 });

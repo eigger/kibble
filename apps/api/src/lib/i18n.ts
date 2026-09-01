@@ -203,6 +203,26 @@ const MESSAGES = {
     ko: "조회 기간은 최대 3개월입니다",
     en: "Date range cannot exceed 3 months",
   },
+  fileTooLarge: {
+    ko: "파일이 너무 큽니다 (최대 {limit})",
+    en: "File is too large (max {limit})",
+  },
+  uploadSessionNotFound: {
+    ko: "업로드 세션을 찾을 수 없습니다",
+    en: "Upload session not found",
+  },
+  uploadChunkOutOfOrder: {
+    ko: "청크 순서가 맞지 않습니다 (예상: {expectedIndex})",
+    en: "Chunk out of order (expected {expectedIndex})",
+  },
+  uploadChunkOverflow: {
+    ko: "선언한 파일 크기를 초과했습니다",
+    en: "Chunk exceeds declared file size",
+  },
+  uploadIncomplete: {
+    ko: "업로드가 완료되지 않았습니다",
+    en: "Upload is incomplete",
+  },
 } as const;
 
 export type ApiMessageKey = keyof typeof MESSAGES;

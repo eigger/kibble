@@ -1,4 +1,5 @@
 import { apiFetch, apiJson, API_URL } from "./api";
+import { shouldUseChunkedUpload, uploadEventAttachmentInChunks } from "./chunkedUpload";
 import type { EventAttachment } from "./types";
 
 export type UploadAttachmentsResult = {
@@ -7,7 +8,9 @@ export type UploadAttachmentsResult = {
   remaining: File[];
 };
 
-export async function uploadEventAttachment(
+export { shouldUseChunkedUpload };
+
+async function uploadEventAttachmentMultipart(
   eventId: string,
   file: File,
 ): Promise<EventAttachment> {
@@ -17,6 +20,16 @@ export async function uploadEventAttachment(
     `/api/attachments?eventId=${encodeURIComponent(eventId)}`,
     { method: "POST", body: formData },
   );
+}
+
+export async function uploadEventAttachment(
+  eventId: string,
+  file: File,
+): Promise<EventAttachment> {
+  if (shouldUseChunkedUpload(file)) {
+    return uploadEventAttachmentInChunks(eventId, file);
+  }
+  return uploadEventAttachmentMultipart(eventId, file);
 }
 
 /** 순차 업로드. 중간 실패 시 이미 올린 항목은 유지하고 나머지를 remaining에 돌려준다. */

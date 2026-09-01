@@ -8,21 +8,21 @@
 
 | 문서 | 내용 |
 |---|---|
-| [`WORKPLAN.md`](WORKPLAN.md) | **작업 계획서 확정판.** 방향·WBS·규약(K-1~K-16)이 전부 여기 있다 |
-| [`WORKPLAN.md §7`](WORKPLAN.md) | 확정된 결정과 근거. **다시 논의하지 말 것** |
-| [`WORKPLAN.md §9`](WORKPLAN.md) | 작업 규약 K-1~K-16. 코드를 쓰기 전에 확인 |
+| [`docs/WORKPLAN.md`](docs/WORKPLAN.md) | **작업 계획서 확정판.** 방향·WBS·규약(K-1~K-16)이 전부 여기 있다 |
+| [`docs/WORKPLAN.md` §7](docs/WORKPLAN.md) | 확정된 결정과 근거. **다시 논의하지 말 것** |
+| [`docs/WORKPLAN.md` §9](docs/WORKPLAN.md) | 작업 규약 K-1~K-16. 코드를 쓰기 전에 확인 |
 | [`docs/scenarios.md`](docs/scenarios.md) | 입력 경로 비교 근거 |
 | [`docs/WORKLOG.md`](docs/WORKLOG.md) | **작업 이력 + 기각된 안 목록.** §1을 먼저 읽어라 — 이미 검토하고 버린 안을 다시 제안하지 않기 위해서다 |
-| [`PROJECT.md`](PROJECT.md) | 스펙. §4 데이터 모델은 확정판 |
+| [`docs/PROJECT.md`](docs/PROJECT.md) | 스펙. §4 데이터 모델은 확정판 |
 
-**현재 상태: Phase 0 (스펙 확정) — 애플리케이션 코드 작성 전.**
-`WORKPLAN.md §4`의 Phase 0 체크리스트가 끝나기 전에는 앱 코드를 쓰지 않는다.
+**현재 상태: Phase 1 구현 완료 — 실사용 게이트 진행 중 (v0.1.0).**  
+규약·WBS는 [`docs/WORKPLAN.md`](docs/WORKPLAN.md)를 따른다.
 
 ---
 
 ## 참조 저장소 — 로컬에 없으면 GitHub에서 본다
 
-kibble은 아래 저장소들의 **검증된 섀시를 이식**해서 만든다 (`WORKPLAN.md §5.0`). 작업 기기에 로컬 클론이 없을 수 있다 — **그럴 때는 GitHub에서 직접 읽는다. 추측하거나 건너뛰지 않는다.**
+kibble은 아래 저장소들의 **검증된 섀시를 이식**해서 만든다 (`docs/WORKPLAN.md` §5.0). 작업 기기에 로컬 클론이 없을 수 있다 — **그럴 때는 GitHub에서 직접 읽는다. 추측하거나 건너뛰지 않는다.**
 
 | 저장소 | 용도 | GitHub |
 |---|---|---|
@@ -44,7 +44,7 @@ gh api repos/eigger/stash/contents/apps/api/src/routes/auth.ts --jq .content | b
 gh repo clone eigger/stash -- --depth 1
 ```
 
-> **주의**: 참조 저장소의 코드를 **읽고 옮긴다** (K-6). 통째로 복사하지 않는다. stash에는 kibble에서 틀린 패턴이 있다 — 무인증 공개 라우트, URL 토큰, `Barcode.value` 전역 유니크(다중 테넌트에서 오류). `WORKPLAN.md §1.2` C등급 표를 먼저 확인할 것.
+> **주의**: 참조 저장소의 코드를 **읽고 옮긴다** (K-6). 통째로 복사하지 않는다. stash에는 kibble에서 틀린 패턴이 있다 — 무인증 공개 라우트, URL 토큰, `Barcode.value` 전역 유니크(다중 테넌트에서 오류). `docs/WORKPLAN.md` §1.2 C등급 표를 먼저 확인할 것.
 
 ---
 
@@ -54,8 +54,8 @@ gh repo clone eigger/stash -- --depth 1
 
 1. **작업 시작 전 항상 `git pull`.** 다른 기기에서 밀어둔 커밋이 있을 수 있다
 2. **작업 단위를 작게 끊어 push.** 기기를 옮길 때 미커밋 변경이 남으면 안 된다
-3. **`WORKPLAN.md`가 단일 진실 원천이다.** 결정이 바뀌면 코드보다 먼저 이 문서를 고치고 커밋한다 — 다른 기기의 세션은 이 문서만 읽고 이어받는다
-4. 진행 상황은 `WORKPLAN.md`의 WBS 티켓(P0-xx / P1-xx)으로 추적한다. 완료 항목은 표에 표시한다
+3. **`docs/WORKPLAN.md`가 단일 진실 원천이다.** 결정이 바뀌면 코드보다 먼저 이 문서를 고치고 커밋한다 — 다른 기기의 세션은 이 문서만 읽고 이어받는다
+4. 진행 상황은 `docs/WORKPLAN.md`의 WBS 티켓(P0-xx / P1-xx)으로 추적한다. 완료 항목은 표에 표시한다
 5. 커밋 접두사: `feat:` / `fix:` / `chore:` / `docs:`
 
 ## 작업 기록 — 세션을 마칠 때 반드시 남긴다
@@ -75,13 +75,13 @@ gh repo clone eigger/stash -- --depth 1
 - 시도했다 버린 코드의 세부 — 결론만 §1에
 - 개인 정보·실기록 인용 — **공개 저장소다**
 
-**순서**: 결정이 바뀌면 `WORKPLAN.md`를 **먼저** 고치고(단일 진실 원천), 그 다음 `WORKLOG.md`에 이력을 남긴다. 스키마 결정이면 `PROJECT.md §4`도 함께 고친다.
+**순서**: 결정이 바뀌면 `docs/WORKPLAN.md`를 **먼저** 고치고(단일 진실 원천), 그 다음 `docs/WORKLOG.md`에 이력을 남긴다. 스키마 결정이면 `docs/PROJECT.md` §4도 함께 고친다.
 
 > `docs/WORKLOG.md`는 개발 기간 한정 문서다. **정식 릴리스 전에 삭제하거나 `CHANGELOG.md`로 정리**한다.
 
 ---
 
-## 절대 규칙 (전문은 `WORKPLAN.md §9`)
+## 절대 규칙 (전문은 `docs/WORKPLAN.md` §9)
 
 - **K-1** 모든 리소스 쿼리의 `where`에 `householdId`가 있다. 예외 없음
 - **K-4** 이벤트 생성은 `createEvent()` 하나만 통과한다
@@ -95,7 +95,7 @@ gh repo clone eigger/stash -- --depth 1
 
 ## 공개 저장소다
 
-처음부터 공개 전제로 만든다 (`WORKPLAN.md §7.2`). 따라서:
+처음부터 공개 전제로 만든다 (`docs/WORKPLAN.md` §7.2). 따라서:
 
 - **개인 정보·개인 사용 패턴을 커밋하지 않는다.** 시드·픽스처·문서 예시는 일반값으로
 - 외부 API 키는 `Setting`(DB)에 저장한다. `.env`나 코드에 넣지 않는다

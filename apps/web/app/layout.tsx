@@ -12,7 +12,7 @@ import { OfflineSync } from "../components/OfflineSync";
 
 // 첫 페인트 전에 저장된 테마를 적용해서, React가 붙기 전까지 잠깐 시스템 테마로
 // 보였다가 사용자가 고른 테마로 바뀌는 깜빡임을 막는다.
-const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("kibble_theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("kibble_theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}var a=localStorage.getItem("kibble_accent_color");if(a==="amber"||a==="terracotta"||a==="blue"||a==="sage"){document.documentElement.setAttribute("data-accent",a);}else{document.documentElement.setAttribute("data-accent","amber");}}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "kibble",
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#1d5fa8" },
+    { media: "(prefers-color-scheme: light)", color: "#c47a2c" },
     { media: "(prefers-color-scheme: dark)", color: "#121212" },
   ],
 };

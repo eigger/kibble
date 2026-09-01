@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "ScaleType" ADD VALUE 'URINE_AMOUNT_3';

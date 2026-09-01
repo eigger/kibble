@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>kibble color samples — amber vs terracotta</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f4f5;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 1.2rem; margin: 0 0 6px; }
+    .lead { margin: 0 0 24px; color: #555; font-size: 0.9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      align-items: start;
+    }
+    .theme-card {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+    }
+    .theme-head {
+      padding: 20px;
+      color: #fff;
+    }
+    .theme-head.amber { background: #c47a2c; }
+    .theme-head.terra { background: #c45c3e; }
+    .theme-head h2 { margin: 0 0 4px; font-size: 1.1rem; }
+    .theme-head p { margin: 0; font-size: 0.82rem; opacity: 0.92; }
+    .theme-body { padding: 20px; }
+    .icon-row {
+      display: flex;
+      gap: 20px;
+      align-items: flex-end;
+      margin-bottom: 20px;
+    }
+    .icon-row img { display: block; border-radius: 22px; }
+    .icon-row .lg { width: 128px; height: 128px; }
+    .icon-row .sm { width: 48px; height: 48px; border-radius: 10px; }
+    .icon-row span { font-size: 0.75rem; color: #666; display: block; margin-top: 4px; text-align: center; }
+    .swatches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .swatch {
+      width: 72px;
+      text-align: center;
+      font-size: 0.68rem;
+      color: #666;
+    }
+    .swatch div {
+      height: 36px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .ui-demo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: default;
+    }
+    .chip {
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .chip.sel { color: #fff; }
+    .chip.outline { background: transparent; border: 1px solid; }
+    .link { font-size: 0.9rem; font-weight: 500; text-decoration: none; }
+    .mock-nav {
+      display: flex;
+      gap: 0;
+      border-top: 1px solid #e8e8e8;
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .mock-nav button {
+      flex: 1;
+      border: none;
+      background: none;
+      font-size: 0.72rem;
+      color: #888;
+      padding: 6px 0;
+    }
+    .mock-nav button.on { font-weight: 700; }
+    .dark-block {
+      margin-top: 16px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #121212;
+    }
+    .dark-block h3 {
+      margin: 0 0 12px;
+      font-size: 0.8rem;
+      color: #aaa;
+      font-weight: 600;
+    }
+    .compare {
+      margin-top: 28px;
+      padding: 16px;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: #444;
+      line-height: 1.5;
+    }
+    .compare strong { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <h1>발바닥 아이콘 × 색상 샘플</h1>
+  <p class="lead">stash 블루(#1d5fa8) 대신 앰버·테라코타 — 라이트/다크 primary 포함</p>
+
+  <div class="grid">
+    <div class="theme-card">
+      <div class="theme-head amber">
+        <h2>앰버 Amber</h2>
+        <p>사료·간식, 따뜻함. 라이트 #c47a2c · 다크 #e0a458</p>
+      </div>
+      <div class="theme-body">
+        <div class="icon-row">
+          <div><img class="lg" src="paw-amber.svg" alt="" /><span>128px</span></div>
+          <div><img class="sm" src="paw-amber.svg" alt="" /><span>48px</span></div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div style="background:#c47a2c"></div>primary</div>
+          <div class="swatch"><div style="background:#e0a458"></div>dark</div>
+          <div class="swatch"><div style="background:#a86520"></div>chart</div>
+          <div class="swatch"><div style="background:#fff;border:1px solid #ddd;color:#333"><span style="line-height:36px">Aa</span></div>on primary</div>
+        </div>
+        <div class="ui-demo">
+          <button class="btn" style="background:#c47a2c;color:#fff">저장</button>
+          <span class="chip sel" style="background:#c47a2c">밥</span>
+          <span class="chip outline" style="border-color:#c47a2c;color:#c47a2c">관찰</span>
+          <a class="link" style="color:#c47a2c" href="#">기록 보기</a>
+        </div>
+        <div class="mock-nav">
+          <button>홈</button>
+          <button class="on" style="color:#c47a2c">기록</button>
+          <button>분석</button>
+          <button>설정</button>
+        </div>
+        <div class="dark-block">
+          <h3>다크 모드 primary</h3>
+          <div class="ui-demo">
+            <button class="btn" style="background:#e0a458;color:#1a1208">저장</button>
+            <span class="chip sel" style="background:#e0a458;color:#1a1208">밥</span>
+            <a class="link" style="color:#e0a458" href="#">기록 보기</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="theme-card">
+      <div class="theme-head terra">
+        <h2>테라코타 Terracotta</h2>
+        <p>부드럽고 친근. 라이트 #c45c3e · 다크 #e07858</p>
+      </div>
+      <div class="theme-body">
+        <div class="icon-row">
+          <div><img class="lg" src="paw-terracotta.svg" alt="" /><span>128px</span></div>
+          <div><img class="sm" src="paw-terracotta.svg" alt="" /><span>48px</span></div>
+        </div>
+        <div class="swatches">
+          <div class="swatch"><div style="background:#c45c3e"></div>primary</div>
+          <div class="swatch"><div style="background:#e07858"></div>dark</div>
+          <div class="swatch"><div style="background:#a84d32"></div>chart</div>
+          <div class="swatch"><div style="background:#fff;border:1px solid #ddd"><span style="line-height:36px">Aa</span></div>on primary</div>
+        </div>
+        <div class="ui-demo">
+          <button class="btn" style="background:#c45c3e;color:#fff">저장</button>
+          <span class="chip sel" style="background:#c45c3e">밥</span>
+          <span class="chip outline" style="border-color:#c45c3e;color:#c45c3e">관찰</span>
+          <a class="link" style="color:#c45c3e" href="#">기록 보기</a>
+        </div>
+        <div class="mock-nav">
+          <button>홈</button>
+          <button class="on" style="color:#c45c3e">기록</button>
+          <button>분석</button>
+          <button>설정</button>
+        </div>
+        <div class="dark-block">
+          <h3>다크 모드 primary</h3>
+          <div class="ui-demo">
+            <button class="btn" style="background:#e07858;color:#1a100c">저장</button>
+            <span class="chip sel" style="background:#e07858;color:#1a100c">밥</span>
+            <a class="link" style="color:#e07858" href="#">기록 보기</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="compare">
+    <strong>비교</strong><br />
+    <strong>앰버</strong> — kibble(사료) 연상이 강하고 노란 톤이라 “먹이·일상” 느낌.<br />
+    <strong>테라코타</strong> — 반려동물 앱에서 자주 쓰는 코랄·살구 톤, 조금 더 감성적.<br />
+    둘 다 stash 블루와 확실히 구분됩니다.
+  </div>
+</body>
+</html>

@@ -4,8 +4,10 @@ import jwt from "@fastify/jwt";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import { authRoutes } from "./routes/auth.js";
 import { attachmentRoutes, mediaAttachmentRoutes } from "./routes/attachments.js";
+import { attachmentChunkRoutes } from "./routes/attachmentChunks.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { backupRoutes } from "./routes/backup.js";
 import { localeFromRequest } from "./lib/i18n.js";
@@ -30,6 +32,8 @@ export type BuildAppOptions = {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const jwtSecret = resolveJwtSecret();
   const app = Fastify({
+    bodyLimit: UPLOAD_CHUNK_SIZE_BYTES * 2,
+    requestTimeout: 0,
     logger:
       options.logger === false
         ? false
@@ -61,6 +65,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(jwt, { secret: jwtSecret });
   await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
   await app.register(rateLimit, { global: false });
+
+  app.addContentTypeParser(
+    "application/octet-stream",
+    { parseAs: "buffer" },
+    (_request, payload, done) => {
+      done(null, payload);
+    },
+  );
 
   app.decorateRequest("locale", "ko");
   app.decorateRequest("householdId", null);
@@ -108,6 +120,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(parseRoutes, { prefix: "/api/parse" });
   await app.register(pushRoutes, { prefix: "/api/push" });
   await app.register(apiTokenRoutes, { prefix: "/api/tokens" });
+  await app.register(attachmentChunkRoutes, { prefix: "/api/attachments" });
   await app.register(attachmentRoutes, { prefix: "/api/attachments" });
   await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });

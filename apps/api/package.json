@@ -1,6 +1,6 @@
 {
   "name": "@kibble/api",
-  "version": "0.7.4",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "tsx --env-file=../../.env prisma/seed.ts",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "eslint src"
   },
   "dependencies": {

@@ -11,9 +11,31 @@
 
 Self-hosted pet diary focused on **low-friction input** — quick chips for routine care, free-text and photos when you need detail, and a token-authenticated API for automations.
 
-> **Status:** Phase 1 **implementation complete** — personal-use gate in progress ([`WORKPLAN.md`](./WORKPLAN.md) §5.6). Deploy with [`docs/deploy.md`](./docs/deploy.md). Release tags after the gate passes.
+> **Status:** Phase 1 **implementation complete** — personal-use gate in progress ([`docs/WORKPLAN.md`](docs/WORKPLAN.md) §5.6). Deploy with [`docs/deploy.md`](./docs/deploy.md). Release tags after the gate passes.
 
-Docs: [`PROJECT.md`](./PROJECT.md) · [`WORKPLAN.md`](./WORKPLAN.md) · [`docs/deploy.md`](./docs/deploy.md)
+Docs: [`docs/`](./docs/) · [`docs/PROJECT.md`](docs/PROJECT.md) · [`docs/WORKPLAN.md`](docs/WORKPLAN.md) · [`docs/deploy.md`](docs/deploy.md)
+
+---
+
+## One-click install (Proxmox)
+
+On a **Proxmox VE** host:
+
+```bash
+export KIBBLE_REF=master   # until the first release tag; then omit
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/ct/kibble.sh)"
+```
+
+Creates a Debian 13 LXC (2 GB RAM, 1 vCPU, 16 GB disk), installs Docker, writes secrets to `/opt/kibble/.env`, and starts the stack. Open `http://<LXC_IP>` and create the first admin account.
+
+**Inside an existing Debian/Ubuntu host or LXC:**
+
+```bash
+export KIBBLE_REF=master
+curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/install/kibble-install.sh | bash
+```
+
+Updates later (inside the container): `update` or `KIBBLE_REF=master update`. Details: [`docs/deploy.md`](./docs/deploy.md) §2.
 
 ---
 
@@ -25,13 +47,16 @@ cp .env.example .env
 
 npm install
 npm run prisma:generate
-DATABASE_URL="postgresql://kibble:YOUR_PASSWORD@localhost:5433/kibble" npm run prisma:migrate -w apps/api
+DATABASE_URL="postgresql://kibble:YOUR_PASSWORD@localhost:5433/kibble" \
+  npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts
+npm run seed -w apps/api
 
 npm run dev:api   # :8080
 npm run dev:web   # :3000
 ```
 
-Open `http://localhost:3000`, create the first admin account, and sign in.
+Open `http://localhost:3000`, create the first admin account, and sign in.  
+Navigation: Home · Record (`/q`) · History · More (settings, backup, …).
 
 ### Docker Compose
 
@@ -44,14 +69,8 @@ docker compose up --build
 
 Caddy serves the stack on `http://localhost:80`.
 
-### Proxmox LXC
-
-Use [`proxmox/ct/kibble.sh`](proxmox/ct/kibble.sh) or install manually with [`proxmox/install/kibble-install.sh`](proxmox/install/kibble-install.sh).
-
-> Before the first release tag: `export KIBBLE_REF=master` then run the installer. See [`docs/deploy.md`](./docs/deploy.md).
-
 ---
 
 ## Chassis credit
 
-Deployment, auth, PWA shell, backup/restore, and i18n patterns are adapted from **[stash](https://github.com/eigger/stash)** (MIT). kibble replaces the inventory domain with pet journaling ([`WORKPLAN.md` §5.0](WORKPLAN.md)).
+Deployment, auth, PWA shell, backup/restore, and i18n patterns are adapted from **[stash](https://github.com/eigger/stash)** (MIT). kibble replaces the inventory domain with pet journaling ([`docs/WORKPLAN.md` §5.0](docs/WORKPLAN.md)).

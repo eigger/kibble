@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
@@ -92,6 +92,39 @@ export async function saveEventAttachment(
     size: fileBuffer.length,
     width,
     height,
+  };
+}
+
+/** 청크 업로드 완료 후 임시 파일을 최종 첨부로 저장한다. 영상은 rename, 이미지는 sharp 파이프라인. */
+export async function finalizeEventAttachmentFromTemp(
+  eventId: string,
+  tempPath: string,
+  mime: string,
+): Promise<SavedEventAttachment> {
+  if (!ALLOWED_ATTACHMENT_MIME.has(mime)) {
+    throw new InvalidAttachmentError();
+  }
+
+  if (ALLOWED_IMAGE_MIME.has(mime)) {
+    const buffer = await readFile(tempPath);
+    await unlink(tempPath).catch(() => {});
+    return saveEventAttachment(eventId, buffer, mime);
+  }
+
+  const dir = path.join(UPLOAD_DIR, EVENT_SUBDIR);
+  await mkdir(dir, { recursive: true });
+  const ext = videoExtension(mime);
+  const filename = `${eventId}-${randomUUID()}${ext}`;
+  const relativePath = `${EVENT_SUBDIR}/${filename}`;
+  const destPath = attachmentAbsolutePath(relativePath);
+  await rename(tempPath, destPath);
+  const fileStat = await stat(destPath);
+  return {
+    path: relativePath,
+    mime,
+    size: fileStat.size,
+    width: null,
+    height: null,
   };
 }
 

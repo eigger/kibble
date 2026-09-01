@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { householdWhere } from "./householdScope.js";
 
-export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat"]);
+export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat", "supplement"]);
 
 export function eventTypeSupportsProductName(key: string): boolean {
   return PRODUCT_NAME_EVENT_KEYS.has(key);

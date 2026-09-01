@@ -13,15 +13,9 @@ import {
   saveEventAttachment,
 } from "../lib/eventAttachment.js";
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
+import { attachmentSelect } from "../lib/attachmentSelect.js";
 
-export const attachmentSelect = {
-  id: true,
-  path: true,
-  mime: true,
-  size: true,
-  width: true,
-  height: true,
-} as const;
+export { attachmentSelect };
 
 function safeContentType(mime: string): string {
   return ALLOWED_ATTACHMENT_MIME.has(mime) ? mime : "application/octet-stream";

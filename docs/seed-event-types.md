@@ -2,7 +2,7 @@
 
 - 작성일: 2026-08-31
 - 상태: **에이전트 초안 — 리뷰 필요**
-- 근거: [`WORKPLAN.md`](../WORKPLAN.md) §3.2·§3.3·§3.8, [`PROJECT.md`](../PROJECT.md) §4, [`docs/scenarios.md`](scenarios.md)
+- 근거: [`docs/WORKPLAN.md`](WORKPLAN.md) §3.2·§3.3·§3.8, [`docs/PROJECT.md`](PROJECT.md) §4, [`docs/scenarios.md`](scenarios.md)
 - 원칙: **개인 사용 패턴이 아니라 공개 배포용 일반 기본값** (§7.2). P0-01 실측으로 프리셋 수량·기본 수량은 조정 가능.
 
 ---
@@ -55,10 +55,13 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `meal` | `eventType.meal` | `utensils` | `amber` | FEEDING | `g` | — | 10 | 사료·습식·건식 |
 | `water` | `eventType.water` | `droplet` | `sky` | FEEDING | `ml` | — | 20 | 급수·정수기 |
 | `treat` | `eventType.treat` | `cookie` | `orange` | FEEDING | — | — | 30 | 간식 |
+| `supplement` | `eventType.supplement` | `pill` | `emerald` | FEEDING | — | — | 35 | 영양제 |
 | `poop` | `eventType.poop` | `circle-dot` | `amber-900` | EXCRETION | — | **FECAL_7** | 40 | 대변. Phase 1 척도 UI 대상 |
-| `pee` | `eventType.pee` | `droplets` | `yellow` | EXCRETION | — | — | 50 | 소변 |
+| `pee` | `eventType.pee` | `droplets` | `yellow` | EXCRETION | — | **URINE_AMOUNT_3** | 50 | 소변량 3단계 |
 | `vomit` | `eventType.vomit` | `frown` | `rose` | HEALTH | — | — | 60 | 구토·역류 |
-| `medication` | `eventType.medication` | `pill` | `violet` | HEALTH | — | — | 70 | 투약·영양제 |
+| `dental` | `eventType.dental` | `sparkles` | `cyan` | HEALTH | — | — | 65 | 양치 |
+| `observation` | `eventType.observation` | `eye` | `teal` | HEALTH | — | **ENERGY_3** | 72 | 관찰(활력·특이사항). 구 `energy` 키는 시드가 통합 |
+| `medication` | `eventType.medication` | `pill` | `violet` | MEDICAL | — | — | 115 | 투약 |
 | `weight` | `eventType.weight` | `scale` | `slate` | HEALTH | `kg` | — | 80 | 체중 |
 | `symptom` | `eventType.symptom` | `stethoscope` | `red` | HEALTH | — | — | 90 | 기침·통증 등. `scaleType`은 Phase 2 |
 | `play` | `eventType.play` | `gamepad-2` | `green` | ACTIVITY | `min` | — | 100 | 놀이 |
@@ -74,7 +77,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `walk` | `eventType.walk` | DOG | `footprints` | `lime` | ACTIVITY | `min` | 95 |
 | `litter_change` | `eventType.litter_change` | CAT | `box` | `stone` | CARE | — | 115 |
 
-> `symptom`에 `APPETITE_3` / `ENERGY_3`는 Phase 2 UI까지 **`scaleType` null 유지**. 스키마·i18n 키만 Phase 1에 준비 (`eventType.appetite`, `eventType.energy`는 Phase 2 시드 추가).
+> `symptom`의 `scaleType`은 Phase 2 UI까지 **null 유지**. `observation`이 일상 관찰·활력(ENERGY_3)을 담당한다.
 
 ### 2.3 시스템 기본 aliases (가구 생성 시 복사)
 
@@ -87,9 +90,12 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `meal` | `밥`, `사료`, `급여`, `먹이` |
 | `water` | `물`, `급수`, `정수` |
 | `treat` | `간식`, `츄르`, `스낵` |
+| `supplement` | `영양제`, `유산균`, `오메가`, `영양` |
 | `poop` | `대변`, `똥`, `변`, `응가` |
 | `pee` | `소변`, `쉬`, `오줌` |
 | `vomit` | `구토`, `토`, `역류` |
+| `dental` | `양치`, `치아`, `덴탈` |
+| `observation` | `관찰`, `활력`, `기력`, `컨디션`, `특이사항` |
 | `medication` | `약`, `투약`, `복약` |
 | `weight` | `체중`, `몸무게` |
 | `walk` | `산책`, `산책함` |
@@ -106,9 +112,12 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 | `eventType.meal` | 사료 | Meal |
 | `eventType.water` | 물 | Water |
 | `eventType.treat` | 간식 | Treat |
+| `eventType.supplement` | 영양 | Supp |
 | `eventType.poop` | 대변 | Stool |
 | `eventType.pee` | 소변 | Urine |
 | `eventType.vomit` | 구토 | Vomit |
+| `eventType.dental` | 양치 | Dental |
+| `eventType.observation` | 관찰 | Observation |
 | `eventType.medication` | 투약 | Medication |
 | `eventType.weight` | 체중 | Weight |
 | `eventType.symptom` | 증상 | Symptom |
@@ -168,35 +177,24 @@ for t in templates:
 | `quantity` / `unit` | `null` (1탭 기록은 타입만; 상세 시트에서 입력) |
 | `petId` | 등록한 반려동물 ID (종 특화 칩 분리) |
 
-### 4.2 고양이 (`CAT`) — 7개
+### 4.2 고양이 (`CAT`) — 12개
 
 | sort | isStarter | eventType.key | label (ko) | 비고 |
 |---|---|---|---|---|
 | 0 | **true** | `meal` | 사료 | |
 | 1 | **true** | `water` | 물 | |
-| 2 | **true** | `poop` | 대변 | `FECAL_7` 척도 UI 연결 |
-| 3 | false | `pee` | 소변 | |
+| 2 | **true** | `poop` | 대변 | `FECAL_7` |
+| 3 | false | `pee` | 소변 | `URINE_AMOUNT_3` |
 | 4 | false | `treat` | 간식 | |
-| 5 | false | `vomit` | 구토 | |
-| 6 | false | `weight` | 체중 | |
+| 5 | false | `supplement` | 영양 | |
+| 6 | false | `medication` | 투약 | |
+| 7 | false | `vomit` | 구토 | |
+| 8 | false | `dental` | 양치 | |
+| 9 | false | `observation` | 관찰 | `ENERGY_3` + 관찰 태그 |
+| 10 | false | `weight` | 체중 | |
+| 11 | false | `vet_visit` | 병원 | |
 
-[`scenarios.md`](scenarios.md) O5와 동일. **8개 이하** 충족.
-
-### 4.3 개 (`DOG`) — 7개
-
-| sort | isStarter | eventType.key | label (ko) |
-|---|---|---|---|
-| 0 | **true** | `meal` | 사료 |
-| 1 | **true** | `water` | 물 |
-| 2 | **true** | `poop` | 대변 |
-| 3 | false | `pee` | 소변 |
-| 4 | false | `treat` | 간식 |
-| 5 | false | `walk` | 산책 |
-| 6 | false | `weight` | 체중 |
-
-### 4.4 기타 (`OTHER`) — 6개
-
-개·고양이 특화 타입 제외. 시작 3개 동일.
+### 4.3 개 (`DOG`) — 12개
 
 | sort | isStarter | eventType.key | label (ko) |
 |---|---|---|---|
@@ -205,17 +203,40 @@ for t in templates:
 | 2 | **true** | `poop` | 대변 |
 | 3 | false | `pee` | 소변 |
 | 4 | false | `treat` | 간식 |
-| 5 | false | `weight` | 체중 |
+| 5 | false | `supplement` | 영양 |
+| 6 | false | `medication` | 투약 |
+| 7 | false | `walk` | 산책 |
+| 8 | false | `dental` | 양치 |
+| 9 | false | `observation` | 관찰 |
+| 10 | false | `weight` | 체중 |
+| 11 | false | `vet_visit` | 병원 |
+
+### 4.4 기타 (`OTHER`) — 11개
+
+| sort | isStarter | eventType.key | label (ko) |
+|---|---|---|---|
+| 0 | **true** | `meal` | 사료 |
+| 1 | **true** | `water` | 물 |
+| 2 | **true** | `poop` | 대변 |
+| 3 | false | `pee` | 소변 |
+| 4 | false | `treat` | 간식 |
+| 5 | false | `supplement` | 영양 |
+| 6 | false | `medication` | 투약 |
+| 7 | false | `dental` | 양치 |
+| 8 | false | `observation` | 관찰 |
+| 9 | false | `weight` | 체중 |
+| 10 | false | `vet_visit` | 병원 |
 
 ---
 
 ## 5. 시드 스크립트 동작 (P1-04 참고)
 
 ```
-1. 시스템 EventType: key로 findFirst(householdId = null) → 없으면 create
+1. 시스템 EventType: key로 findFirst(householdId = null) → 없으면 create, 있으면 메타 갱신
    ※ upsert 금지. 복합 unique에 NULL이 끼어 있어 Prisma가 where를 못 만든다 (§1.1)
-2. (부트스트랩·첫 가구 생성은 별도 — P1-07)
-3. POST /api/pets { name, species } 시:
+2. `migrateEnergyToObservation`: 구 `energy` → `observation` 통합 (§7.1 deploy.md)
+3. (부트스트랩·첫 가구 생성은 별도 — P1-07)
+4. POST /api/pets { name, species } 시:
    a. species 템플릿 선택 (§4.2~4.4)
    b. §4.0 삽입 규칙으로 Preset bulk insert — 이미 있는 eventTypeId는 건너뛴다
    c. EventType aliases는 시스템 행 참조 (가구 복사본은 Phase 2 커스텀 시)
@@ -229,7 +250,7 @@ for t in templates:
 
 | 항목 | 현재 초안 | 실측 후 |
 |---|---|---|
-| 프리셋 개수 | CAT/DOG 7, OTHER 6 | 8개 초과 시 `isStarter` 외 항목을 "더보기"만 또는 숨김 |
+| 프리셋 개수 | CAT/DOG 12, OTHER 11 | 퀵 칩은 `isStarter` 3개 + 더보기 |
 | 기본 `quantity` | null | "항상 같은 양"인 항목만 숫자 채움 (예: 사료 50g) |
 | `aliases` | 표 §2.3 | 실제 가정 은어는 **저장소에 넣지 않음** — 사용자 설정 |
 | 투약 프리셋 | 없음 (타입만) | 약 종류별 프리셋은 Phase 2 바코드 또는 수동 추가 |
@@ -242,8 +263,8 @@ for t in templates:
 - [ ] 공개 저장소에 개인 패턴·실제 반려동물 이름 없음
 - [ ] **§3.1** 시드 프리셋 `label`에 i18n 키를 넣는 방식이 맞는지 (한글 리터럴 대신)
 - [ ] **§2.3** 커뮤니티 은어를 시드에서 빼고 설정 후보로 미룬 판단이 맞는지
-- [ ] `poop` + `FECAL_7`만 Phase 1 척도 UI (§3.8)
-- [ ] 프리셋 ≤ 8 (종별)
+- [ ] `poop`/`pee`/`observation` 척도 UI (FECAL_7, URINE_AMOUNT_3, ENERGY_3)
+- [ ] 프리셋 템플릿이 §4.2~4.4와 코드(`presetTemplates.ts`) 일치
 - [ ] P0-01 실측 빈도와 충돌 없음 (사람 확인)
 
 **리뷰 후** P1-04 시드 구현 시 이 문서를 단일 진실 원천으로 사용한다.

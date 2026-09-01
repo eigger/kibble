@@ -212,8 +212,73 @@ curl -sS -X POST "$BASE/api/parse/entry" \
 
 ---
 
+## 백업 / 복원 (관리자)
+
+계정·설정(`User`, `Setting`)과 업로드 파일을 `.tar.gz`로 보내고 복원합니다. UI는 **더보기 → 백업/복원** (`/backup`).
+
+```bash
+# 1) 보내기 티켓 (60초 유효, 1회용)
+curl -sS -X POST "$BASE/api/backup/export-ticket" -H "$AUTH"
+# → {"ticket":"…","expiresIn":60}
+
+# 2) 아카이브 다운로드
+curl -sS -o kibble_backup.tar.gz "$BASE/api/backup/export?ticket=<ticket>"
+
+# 3) 복원 (관리자만 — 기존 계정·설정을 덮어씀)
+curl -sS -X POST "$BASE/api/backup/restore" \
+  -H "$AUTH" \
+  -F "file=@kibble_backup.tar.gz"
+```
+
+복원 시 백업에 `passwordHash`가 없으면 임시 비밀번호가 응답에 포함됩니다.
+
+---
+
+## 첨부 (사진·영상)
+
+이벤트당 최대 **9개**. MIME: `image/jpeg`, `png`, `webp`, `heic`, `heif`, `video/mp4`, `video/quicktime`.
+
+### 단건 업로드 (15MB 이하 사진 등)
+
+```bash
+curl -sS -X POST "$BASE/api/attachments?eventId=<event-id>" \
+  -H "$AUTH" \
+  -F "file=@photo.jpg"
+```
+
+서버에서 이미지는 **1600px·JPEG q82**로 변환한다. 요청 본문 상한 **20MB**.
+
+### 청크 업로드 (영상·대용량 — drop 이식)
+
+총 파일 상한: `FILE_SIZE_LIMIT_MB` 환경 변수(기본 **500MB**). 청크 크기 **8MB** (`@kibble/shared` `UPLOAD_CHUNK_SIZE_BYTES`).
+
+```bash
+# 1) 세션 시작
+curl -sS -X POST "$BASE/api/attachments/uploads" \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"eventId":"<event-id>","filename":"clip.mov","mimeType":"video/quicktime","totalSize":12345678}'
+
+# → {"uploadId":"…"}
+
+# 2) 청크 (index 0부터 순서대로)
+curl -sS -X PUT "$BASE/api/attachments/uploads/<uploadId>/chunks/0" \
+  -H "$AUTH" -H "Content-Type: application/octet-stream" \
+  --data-binary @chunk0.bin
+
+# 3) 진행 확인 (선택)
+curl -sS "$BASE/api/attachments/uploads/<uploadId>" -H "$AUTH"
+
+# 4) 완료
+curl -sS -X POST "$BASE/api/attachments/uploads/<uploadId>/complete" -H "$AUTH"
+```
+
+웹 UI는 영상 또는 **15MB 초과** 파일을 자동으로 청크 경로로 올린다. 미디어 조회: `GET /api/attachments/file/<path>` (미디어 쿠키·Bearer).
+
+---
+
 ## 관련 문서
 
-- [`PROJECT.md`](../PROJECT.md) — 데이터 모델
-- [`WORKPLAN.md`](../WORKPLAN.md) — Phase 1 WBS
+- [`docs/PROJECT.md`](PROJECT.md) — 데이터 모델
+- [`docs/WORKPLAN.md`](WORKPLAN.md) — Phase 1 WBS
+- [`docs/deploy.md`](deploy.md) — 배포·마이그레이션·Proxmox
 - [`docs/seed-event-types.md`](seed-event-types.md) — 시스템 이벤트 타입

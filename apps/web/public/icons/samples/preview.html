@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>kibble icon samples</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f6f7f9;
+      color: #1a1a1a;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p { margin: 0 0 24px; color: #555; font-size: 0.9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e5ea;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .card h2 { font-size: 0.95rem; margin: 0 0 8px; }
+    .card p { font-size: 0.8rem; margin: 0; line-height: 1.4; }
+    .icon {
+      width: 128px;
+      height: 128px;
+      margin-bottom: 12px;
+      border-radius: 26px;
+    }
+    .row { margin-top: 32px; }
+    .small {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-end;
+    }
+    .small-item { text-align: center; }
+    .small-item img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: block;
+      margin: 0 auto 6px;
+    }
+    .small-item span { font-size: 0.7rem; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>kibble 아이콘 샘플</h1>
+  <p>배경 #1d5fa8 유지 · SVG 원본은 이 폴더에 있음</p>
+
+  <div class="grid">
+    <div class="card">
+      <img class="icon" src="00-current-barcode.svg" alt="" />
+      <h2>현재 (바코드)</h2>
+      <p>stash 유산. 재고 앱 느낌.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="01-cat-face.svg" alt="" />
+      <h2>A · 고양이 얼굴</h2>
+      <p>가장 직관적. 앱 아이콘으로 무난.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="02-cat-profile.svg" alt="" />
+      <h2>B · 옆모습</h2>
+      <p>개성 있음. 작은 크기에서 실루엣이 약할 수 있음.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="03-paw.svg" alt="" />
+      <h2>C · 발바닥</h2>
+      <p>반려동물 앱에서 흔함. 종 구분 없음.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="04-bowl.svg" alt="" />
+      <h2>D · 사료 그릇</h2>
+      <p>kibble 이름과 직결. 고양이 특화는 약함.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="05-diary.svg" alt="" />
+      <h2>E · 일지 + 발바닥</h2>
+      <p>pet diary 컨셉. 정보 밀도가 조금 높음.</p>
+    </div>
+    <div class="card">
+      <img class="icon" src="06-morphology.svg" alt="" />
+      <h2>F · 모식도</h2>
+      <p>관찰 일지 느낌. 아이콘으로는 다소 딱딱.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <h1>홈 화면 크기 (48px)</h1>
+    <div class="small">
+      <div class="small-item"><img src="00-current-barcode.svg" alt="" /><span>현재</span></div>
+      <div class="small-item"><img src="01-cat-face.svg" alt="" /><span>A</span></div>
+      <div class="small-item"><img src="02-cat-profile.svg" alt="" /><span>B</span></div>
+      <div class="small-item"><img src="03-paw.svg" alt="" /><span>C</span></div>
+      <div class="small-item"><img src="04-bowl.svg" alt="" /><span>D</span></div>
+      <div class="small-item"><img src="05-diary.svg" alt="" /><span>E</span></div>
+      <div class="small-item"><img src="06-morphology.svg" alt="" /><span>F</span></div>
+    </div>
+  </div>
+</body>
+</html>

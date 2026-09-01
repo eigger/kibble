@@ -5,7 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
+import { initBugReportCapture } from "../lib/bugReport";
 import type { TranslationKey } from "../lib/i18n/translations";
+import { BugReportModal } from "./BugReportModal";
 
 function iconProps(): SVGProps<SVGSVGElement> {
   return {
@@ -68,20 +70,6 @@ function MoreIcon() {
   );
 }
 
-function TodayMenuIcon() {
-  return (
-    <svg {...iconProps()}>
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2" />
-      <path d="M12 20v2" />
-      <path d="M4.93 4.93l1.41 1.41" />
-      <path d="M17.66 17.66l1.41 1.41" />
-      <path d="M2 12h2" />
-      <path d="M20 12h2" />
-    </svg>
-  );
-}
-
 function PetMenuIcon() {
   return (
     <svg {...iconProps()}>
@@ -137,6 +125,26 @@ function UsersMenuIcon() {
   );
 }
 
+function BackupMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path d="M12 3v12" />
+      <path d="m8 11 4 4 4-4" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
+function IssueMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </svg>
+  );
+}
+
 const NAV_TABS_LEFT: {
   href: string;
   labelKey: TranslationKey;
@@ -159,7 +167,7 @@ const NAV_TABS_RIGHT: {
 }[] = [{ href: "/history", labelKey: "navHistory", Icon: HistoryIcon }];
 
 /** 더보기 시트에서만 열리는 화면 — 탭 강조용 */
-const MORE_ROUTES = ["/settings", "/pets", "/presets", "/users", "/today", "/analytics"];
+const MORE_ROUTES = ["/settings", "/backup", "/pets", "/presets", "/users", "/analytics"];
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -167,7 +175,12 @@ export function BottomNav() {
   const { user, isAdmin } = useAuth();
   const { t } = useLocale();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [bugReportOpen, setBugReportOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    initBugReportCapture();
+  }, []);
 
   const moreActive =
     moreOpen || MORE_ROUTES.some((r) => pathname === r || pathname?.startsWith(`${r}/`));
@@ -262,12 +275,6 @@ export function BottomNav() {
 
             <p className="sheet-group-label">{t("menuGroupJournal")}</p>
             <div className="sheet-grid">
-              <button type="button" className="sheet-item" onClick={() => go("/today")}>
-                <span className="sheet-item-icon">
-                  <TodayMenuIcon />
-                </span>
-                {t("navToday")}
-              </button>
               <button type="button" className="sheet-item" onClick={() => go("/analytics")}>
                 <span className="sheet-item-icon">
                   <AnalyticsMenuIcon />
@@ -301,13 +308,34 @@ export function BottomNav() {
                 {t("settingsLabel")}
               </button>
               {isAdmin && (
-                <button type="button" className="sheet-item" onClick={() => go("/users")}>
-                  <span className="sheet-item-icon">
-                    <UsersMenuIcon />
-                  </span>
-                  {t("usersTitle")}
-                </button>
+                <>
+                  <button type="button" className="sheet-item" onClick={() => go("/backup")}>
+                    <span className="sheet-item-icon">
+                      <BackupMenuIcon />
+                    </span>
+                    {t("backupRestoreTitle")}
+                  </button>
+                  <button type="button" className="sheet-item" onClick={() => go("/users")}>
+                    <span className="sheet-item-icon">
+                      <UsersMenuIcon />
+                    </span>
+                    {t("usersTitle")}
+                  </button>
+                </>
               )}
+              <button
+                type="button"
+                className="sheet-item"
+                onClick={() => {
+                  setMoreOpen(false);
+                  setBugReportOpen(true);
+                }}
+              >
+                <span className="sheet-item-icon">
+                  <IssueMenuIcon />
+                </span>
+                {t("navReportIssue")}
+              </button>
             </div>
 
             {process.env.APP_VERSION && (
@@ -316,6 +344,7 @@ export function BottomNav() {
           </div>
         </div>
       )}
+      {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
     </>
   );
 }

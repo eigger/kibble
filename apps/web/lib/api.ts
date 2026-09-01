@@ -1,3 +1,5 @@
+import { recordFailedRequest } from "./bugReport";
+
 function resolveApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   // 배포(Caddy)에서는 same-origin(/api) 호출이 맞고, 로컬 개발에서는 8080 API를 기본값으로 쓴다.
@@ -33,7 +35,12 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   // 서버 에러 메시지도 앱에서 고른 언어(브라우저/OS 설정이 아니라)로 받기 위해 매 요청에 싣는다.
   const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
   if (locale) headers.set("X-Locale", locale);
-  return fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+  // 버그 제보 시 자동 첨부되는 최근 실패 요청 — 경로/상태코드만, 본문은 담지 않는다.
+  if (!res.ok) {
+    recordFailedRequest(init.method ?? "GET", path, res.status);
+  }
+  return res;
 }
 
 // apiJson()은 컴포넌트 밖(어떤 페이지에서든 재사용되는 순수 lib 함수)이라 useLocale()의

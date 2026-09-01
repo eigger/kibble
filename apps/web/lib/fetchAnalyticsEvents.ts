@@ -2,7 +2,7 @@ import { fetchTimelinePage, type TimelineCursor } from "./timeline";
 import type { MetricEvent } from "./petMetrics";
 import type { TimelineEvent } from "./types";
 
-const ANALYTICS_EVENT_KEYS = ["weight", "meal", "water", "treat", "poop", "pee", "energy"] as const;
+const ANALYTICS_EVENT_KEYS = ["weight", "meal", "water", "treat", "poop", "pee", "observation"] as const;
 
 const MAX_PAGES = 20;
 

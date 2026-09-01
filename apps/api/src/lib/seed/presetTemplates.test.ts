@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { presetTemplatesForSpecies, selectPresetsToInsert } from "./presetTemplates.js";
 
 describe("presetTemplatesForSpecies", () => {
-  it("returns 11 templates for CAT and DOG", () => {
-    expect(presetTemplatesForSpecies("CAT")).toHaveLength(11);
-    expect(presetTemplatesForSpecies("DOG")).toHaveLength(11);
+  it("returns 12 templates for CAT and DOG", () => {
+    expect(presetTemplatesForSpecies("CAT")).toHaveLength(12);
+    expect(presetTemplatesForSpecies("DOG")).toHaveLength(12);
   });
 
-  it("returns 10 templates for OTHER", () => {
-    expect(presetTemplatesForSpecies("OTHER")).toHaveLength(10);
+  it("returns 11 templates for OTHER", () => {
+    expect(presetTemplatesForSpecies("OTHER")).toHaveLength(11);
   });
 
   it("includes vet_visit in all species", () => {
@@ -35,22 +35,31 @@ describe("selectPresetsToInsert", () => {
 
   it("inserts all templates for first household pet with starters", () => {
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, new Set(), true);
-    expect(rows).toHaveLength(11);
+    expect(rows).toHaveLength(12);
     expect(rows.filter((r) => r.applyStarter)).toHaveLength(3);
   });
 
   it("skips event types already on this pet (idempotent re-run)", () => {
-    const existing = new Set(["id-meal", "id-water", "id-poop", "id-pee", "id-treat", "id-vomit", "id-medication"]);
+    const existing = new Set([
+      "id-meal",
+      "id-water",
+      "id-poop",
+      "id-pee",
+      "id-treat",
+      "id-supplement",
+      "id-vomit",
+      "id-medication",
+    ]);
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, existing, true);
     expect(rows).toHaveLength(4);
-    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["energy", "supplement", "vet_visit", "weight"]);
+    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["dental", "observation", "vet_visit", "weight"]);
   });
 
   it("creates full species set for second pet without starters", () => {
     const dogTemplates = presetTemplatesForSpecies("DOG");
     const dogIds = new Map(dogTemplates.map((t) => [t.eventTypeKey, `id-${t.eventTypeKey}`]));
     const rows = selectPresetsToInsert(dogTemplates, dogIds, new Set(), false);
-    expect(rows).toHaveLength(11);
+    expect(rows).toHaveLength(12);
     expect(rows.some((r) => r.eventTypeKey === "walk")).toBe(true);
     expect(rows.every((r) => !r.applyStarter)).toBe(true);
   });

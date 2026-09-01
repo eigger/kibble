@@ -17,7 +17,7 @@ export -f curl
 APP="kibble"
 var_tags="${var_tags:-pets;diary;kibble}"
 var_cpu="${var_cpu:-1}"
-var_ram="${var_ram:-1024}"
+var_ram="${var_ram:-2048}"
 var_disk="${var_disk:-16}"
 var_os="${var_os:-debian}"
 var_version="${var_version:-13}"
@@ -39,10 +39,17 @@ function update_script() {
   fi
 
   msg_info "Updating ${APP} Container Images"
-  cd /opt/kibble
-  docker compose -f docker-compose.prod.yml pull
-  docker compose -f docker-compose.prod.yml up -d --remove-orphans
-  docker image prune -f
+  if command -v update >/dev/null 2>&1; then
+    update || exit $?
+  else
+    cd /opt/kibble
+    KIBBLE_RAW_BASE="${KIBBLE_RAW_BASE:-https://raw.githubusercontent.com/eigger/kibble/master}"
+    curl -fsSL "${KIBBLE_RAW_BASE}/docker-compose.prod.yml" -o /opt/kibble/docker-compose.prod.yml
+    curl -fsSL "${KIBBLE_RAW_BASE}/Caddyfile" -o /opt/kibble/Caddyfile
+    docker compose -f docker-compose.prod.yml pull
+    docker compose -f docker-compose.prod.yml up -d --remove-orphans
+    docker image prune -f
+  fi
   msg_ok "Updated successfully!"
   exit
 }

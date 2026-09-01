@@ -21,7 +21,7 @@
 - 시도했다가 버린 코드의 세부 — 결론만 §1에 남긴다
 - 개인 정보, 실기록 인용 (공개 저장소다)
 
-**결정이 바뀌면 `WORKPLAN.md`를 먼저 고치고, 그 다음 여기에 기록한다.** 계획서가 단일 진실 원천이고 이 문서는 이력이다.
+**결정이 바뀌면 `docs/WORKPLAN.md`를 먼저 고치고, 그 다음 여기에 기록한다.** 계획서가 단일 진실 원천이고 이 문서는 이력이다.
 
 ---
 
@@ -64,6 +64,47 @@
 ---
 
 ## 2. 세션 로그
+
+### 2026-09-01 — 문서 `docs/` 통합
+
+**한 일**
+
+- `PROJECT.md` · `WORKPLAN.md` → `docs/`로 이동, 교차 링크·`CLAUDE.md`·README 갱신
+- `docs/README.md` 문서 목차 추가
+
+**다음**
+
+- Phase 1 게이트 — 2주 실사용
+
+### 2026-09-01 — 청크 업로드·관찰 타입·문서
+
+**한 일**
+
+- **청크 업로드** (drop 이식): API `POST/PUT/GET/DELETE /api/attachments/uploads/*`, 웹 `chunkedUpload.ts`·이어 올리기
+- **관찰** (`observation`): `energy` 시드 마이그레이션, 상세 시트(태그·활력·메모), 태그 칩 UI 통일
+- 문서: `docs/api.md` 첨부·청크, `docs/deploy.md` §7.1 데이터 마이그레이션·`FILE_SIZE_LIMIT_MB`, `seed-event-types.md` 현행화
+
+**다음**
+
+- Phase 1 게이트 — 2주 실사용
+- 배포: `docker compose up --build` 후 기존 DB면 `seed`로 `energy`→`observation` 확인
+
+### 2026-09-01 — 문서 현행화 (v0.1.0 · 배포·마이그레이션)
+
+**한 일**
+
+- 앱 버전 **0.1.0** 통일, Phase 1 구현 완료 상태로 README·WORKPLAN·CLAUDE·PROJECT 헤더 정리
+- `docs/deploy.md` — LXC 2GB, `KIBBLE_REF=master` fallback, `update`·prune·롤백, 마이그레이션 스쿼시(§7), `/q`·`/backup` 네비
+- README ko/en — `prisma migrate deploy` + seed, UI 네비 설명
+- `docs/api.md` — 백업/복원 API
+- `docs/seed-event-types.md` — `treat` = 간식·영양, `supplement` 통합
+- Proxmox CI (`check-proxmox.sh`, `check-migrations.sh`, backup 통합 테스트) — garage 패턴
+
+**다음**
+
+- Phase 1 게이트 — 2주 실사용
+- 게이트 통과 후 릴리스 태그·GHCR publish
+- PROJECT §4 스키마 확정판 반영(P0-07) — WORKPLAN과 동기화
 
 ### 2026-09-01 — P1-28~33 i18n·배포 문서
 
@@ -192,7 +233,7 @@
 - [`docs/seed-event-types.md`](seed-event-types.md): 시스템 EventType 14+2종, 종별 프리셋 템플릿(CAT/DOG/OTHER), `isStarter` 3개, `FECAL_7`, i18n 키표, aliases 제안
 - [`docs/package-names.md`](package-names.md): GitHub·npm·GHCR 충돌 조사 → `@kibble/*` 사용 가능, 루트 `private: true`
 - [`docs/parsing-benchmark-public.md`](parsing-benchmark-public.md): 공개 합성 파싱 케이스 ~25개 (P0-09 로컬 100문장과 병행)
-- `WORKPLAN.md` P0-02/P0-06/P0-09 상태 갱신
+- `docs/WORKPLAN.md` P0-02/P0-06/P0-09 상태 갱신
 
 **리뷰 필요 (사람)**
 

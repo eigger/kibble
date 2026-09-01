@@ -4,6 +4,7 @@ import { startMedicationReminderJob } from "./jobs/medicationReminders.js";
 import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
 import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
+import { sweepStaleUploadSessions } from "./lib/uploadSessions.js";
 
 if (isMediaAuthDisabled()) {
   console.warn(
@@ -15,6 +16,10 @@ const app = await buildApp();
 
 startTrashPurgeJob();
 startMedicationReminderJob();
+
+setInterval(() => {
+  sweepStaleUploadSessions().catch((err) => app.log.error(err, "청크 업로드 세션 정리 실패"));
+}, 60 * 60 * 1000).unref();
 
 const port = Number(process.env.PORT ?? 8080);
 

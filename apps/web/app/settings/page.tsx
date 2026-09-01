@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, apiJson, API_URL } from "../../lib/api";
+import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useToast } from "../../lib/toast-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { ThemeToggle } from "../../components/ThemeToggle";
+import { AccentColorToggle } from "../../components/AccentColorToggle";
 import { LanguageToggle } from "../../components/LanguageToggle";
-import { OneTimeSecrets, type OneTimeSecret } from "../../components/OneTimeSecrets";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
 
 export default function SettingsPage() {
@@ -16,13 +16,10 @@ export default function SettingsPage() {
   const { user, loading, isAdmin, logout, logoutAll } = useAuth();
   const { show } = useToast();
   const { t } = useLocale();
-  const [restoring, setRestoring] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-  const [recoverySecrets, setRecoverySecrets] = useState<OneTimeSecret[] | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -45,59 +42,10 @@ export default function SettingsPage() {
       setConfirmNewPassword("");
       show(t("passwordChangedReLoginToast"), "success");
       await logout();
-    } catch (err: any) {
-      show(t("passwordChangeFailToast", { msg: err.message }), "error");
+    } catch (err: unknown) {
+      show(t("passwordChangeFailToast", { msg: err instanceof Error ? err.message : String(err) }), "error");
     } finally {
       setChangingPassword(false);
-    }
-  }
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      const { ticket } = await apiJson<{ ticket: string }>("/api/backup/export-ticket", { method: "POST" });
-      const a = document.createElement("a");
-      a.href = `${API_URL}/api/backup/export?ticket=${encodeURIComponent(ticket)}`;
-      a.target = "_blank";
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (err: any) {
-      show(err.message, "error");
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  async function handleRestore(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!confirm(t("confirmRestore"))) return;
-    setRestoring(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await apiFetch("/api/backup/restore", { method: "POST", body: formData });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(typeof body?.error === "string" ? body.error : t("restoreFailFallback"));
-
-      const recoveries = (body?.recoveryPasswords ?? body?.adminRecoveryPasswords) as
-        | { email: string; role?: string; temporaryPassword: string }[]
-        | undefined;
-      if (recoveries?.length) {
-        setRecoverySecrets(
-          recoveries.map((r) => ({
-            label: `${r.email}${r.role ? ` (${r.role})` : ""}`,
-            value: r.temporaryPassword,
-          })),
-        );
-      }
-      show(t("restoreSuccessToast"), "success");
-    } catch (err: any) {
-      show(err.message, "error");
-    } finally {
-      setRestoring(false);
     }
   }
 
@@ -166,39 +114,16 @@ export default function SettingsPage() {
         </p>
         <ThemeToggle />
         <p className="meta" style={{ marginTop: 12 }}>
+          {t("accentColorLabel")}
+        </p>
+        <AccentColorToggle />
+        <p className="meta" style={{ marginTop: 12 }}>
           {t("languageLabel")}
         </p>
         <LanguageToggle />
       </div>
 
       <PushNotificationSettings isAdmin={isAdmin} />
-
-      {isAdmin && (
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>{t("backupRestoreTitle")}</h2>
-          <p className="meta">{t("backupRestoreHint")}</p>
-          <p className="meta">{t("backupSecurityHint")}</p>
-          <div className="form">
-            <button onClick={handleExport} disabled={exporting}>
-              {exporting ? t("exportingLabel") : t("exportButton")}
-            </button>
-            <label>
-              {t("restoreLabel")}
-              <input type="file" accept=".tar.gz" onChange={handleRestore} disabled={restoring} />
-            </label>
-          </div>
-        </div>
-      )}
-
-      {recoverySecrets && (
-        <OneTimeSecrets
-          title={t("restoreRecoveryTitle")}
-          hint={t("restoreRecoveryHint")}
-          secrets={recoverySecrets}
-          downloadFilename={`kibble-restore-passwords_${new Date().toISOString().slice(0, 10)}.txt`}
-          onClose={() => setRecoverySecrets(null)}
-        />
-      )}
     </main>
   );
 }

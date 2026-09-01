@@ -52,11 +52,11 @@ resolve_ref() {
   fi
   local tag
   tag="$(curl -fsSL "https://api.github.com/repos/${KIBBLE_REPO}/releases/latest" | jq -r .tag_name)"
-  if [[ -z "$tag" || "$tag" == "null" ]]; then
-    echo "Failed to resolve latest release tag from GitHub API (no silent fallback)." >&2
-    exit 1
+  if [[ -n "$tag" && "$tag" != "null" ]]; then
+    echo "$tag"
+    return
   fi
-  echo "$tag"
+  echo "master"
 }
 
 raw_url() {

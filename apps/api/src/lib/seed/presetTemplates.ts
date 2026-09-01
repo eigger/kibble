@@ -14,12 +14,13 @@ const CAT_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "poop", label: "eventType.poop", sortOrder: 2, isStarter: true },
   { eventTypeKey: "pee", label: "eventType.pee", sortOrder: 3, isStarter: false },
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
-  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 5, isStarter: false },
-  { eventTypeKey: "vomit", label: "eventType.vomit", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "energy", label: "eventType.energy", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 9, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
+  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
+  { eventTypeKey: "vomit", label: "eventType.vomit", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.3 */
@@ -29,12 +30,13 @@ const DOG_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "poop", label: "eventType.poop", sortOrder: 2, isStarter: true },
   { eventTypeKey: "pee", label: "eventType.pee", sortOrder: 3, isStarter: false },
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
-  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 5, isStarter: false },
-  { eventTypeKey: "walk", label: "eventType.walk", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "energy", label: "eventType.energy", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 9, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
+  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
+  { eventTypeKey: "walk", label: "eventType.walk", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.4 */
@@ -44,11 +46,12 @@ const OTHER_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "poop", label: "eventType.poop", sortOrder: 2, isStarter: true },
   { eventTypeKey: "pee", label: "eventType.pee", sortOrder: 3, isStarter: false },
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
-  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 5, isStarter: false },
-  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "energy", label: "eventType.energy", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
+  { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 10, isStarter: false },
 ];
 
 export function presetTemplatesForSpecies(species: Species): PresetTemplateRow[] {

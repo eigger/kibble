@@ -10,9 +10,18 @@ import {
 } from "../lib/datetimeLocal";
 import { apiJson } from "../lib/api";
 import { eventDetailFields, formatScaleValuePart, quantityPlaceholder, resolveEventUnit, scale3FieldLabelKey, scale3ValueLabelKey } from "../lib/eventDetailFields";
+import { loadEventDetailPrefs, saveEventDetailPrefs } from "../lib/eventDetailPrefs";
+import {
+  encodeProductNameValue,
+  formatProductNameDisplay,
+  parseProductNameValue,
+  toggleProductNameTag,
+} from "../lib/eventDetailTags";
 import type { EventAttachment } from "../lib/types";
 import { AttachmentLightbox } from "./AttachmentLightbox";
+import { EventDetailChip } from "./EventDetailChip";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
+import { EventDetailTagPicker } from "./EventDetailTagPicker";
 import { PendingAttachments } from "./PendingAttachments";
 
 export interface EventDetailSaveMeta {
@@ -101,6 +110,8 @@ function resetFormFromDraft(
   setters: {
     setOccurredLocal: (v: string) => void;
     setProductName: (v: string) => void;
+    setSelectedTagIds: (v: string[]) => void;
+    setCustomProductName: (v: string) => void;
     setClinicName: (v: string) => void;
     setClinicAddress: (v: string) => void;
     setQuantityOffered: (v: string) => void;
@@ -110,9 +121,19 @@ function resetFormFromDraft(
     setScaleValue: (v: number | null) => void;
     setRemovedAttachmentIds: (v: string[]) => void;
   },
+  detailTags: boolean,
 ) {
   setters.setOccurredLocal(toDatetimeLocalValue(draft.occurredAt));
-  setters.setProductName(draft.productName ?? "");
+  if (detailTags) {
+    const parsed = parseProductNameValue(draft.eventTypeKey, draft.productName);
+    setters.setSelectedTagIds(parsed.tagIds);
+    setters.setCustomProductName(parsed.custom);
+    setters.setProductName("");
+  } else {
+    setters.setProductName(draft.productName ?? "");
+    setters.setSelectedTagIds([]);
+    setters.setCustomProductName("");
+  }
   setters.setClinicName(draft.clinicName ?? "");
   setters.setClinicAddress(draft.clinicAddress ?? "");
   setters.setQuantityOffered(draft.quantityOffered != null ? String(draft.quantityOffered) : "");
@@ -141,6 +162,8 @@ export function EventDetailSheet({
 }: EventDetailSheetProps) {
   const [occurredLocal, setOccurredLocal] = useState("");
   const [productName, setProductName] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [customProductName, setCustomProductName] = useState("");
   const [frequentProducts, setFrequentProducts] = useState<ProductSuggestions["frequent"]>([]);
   const [clinicName, setClinicName] = useState("");
   const [clinicAddress, setClinicAddress] = useState("");
@@ -162,24 +185,57 @@ export function EventDetailSheet({
     [draft?.eventTypeKey, draft?.scaleType],
   );
 
+  function resolvedProductName(): string {
+    if (fields.detailTags) {
+      return encodeProductNameValue(draft?.eventTypeKey, selectedTagIds, customProductName);
+    }
+    return productName.trim();
+  }
+
+  function applyStoredProductName(value: string) {
+    if (fields.detailTags) {
+      const parsed = parseProductNameValue(draft?.eventTypeKey, value);
+      setSelectedTagIds(parsed.tagIds);
+      setCustomProductName(parsed.custom);
+      return;
+    }
+    setProductName(value);
+  }
+
   useEffect(() => {
     if (!open || !draft) return;
-    resetFormFromDraft(draft, {
-      setOccurredLocal,
-      setProductName,
-      setClinicName,
-      setClinicAddress,
-      setQuantityOffered,
-      setQuantity,
-      setUnit,
-      setNote,
-      setScaleValue,
-      setRemovedAttachmentIds,
-    });
+    resetFormFromDraft(
+      draft,
+      {
+        setOccurredLocal,
+        setProductName,
+        setSelectedTagIds,
+        setCustomProductName,
+        setClinicName,
+        setClinicAddress,
+        setQuantityOffered,
+        setQuantity,
+        setUnit,
+        setNote,
+        setScaleValue,
+        setRemovedAttachmentIds,
+      },
+      fields.detailTags,
+    );
     setFrequentProducts([]);
     setFrequentClinics([]);
     setIsEditing(draft.mode === "create" || draft.mode === "edit");
     setLightboxAtt(null);
+
+    if (draft.mode === "create" && draft.petId && draft.eventTypeKey) {
+      const prefs = loadEventDetailPrefs(draft.petId, draft.eventTypeKey);
+      if (prefs) {
+        if (!draft.productName?.trim() && prefs.productName) applyStoredProductName(prefs.productName);
+        if (prefs.quantityOffered) setQuantityOffered(prefs.quantityOffered);
+        if (prefs.quantity) setQuantity(prefs.quantity);
+        if (prefs.unit) setUnit(prefs.unit);
+      }
+    }
   }, [open, syncKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -197,8 +253,11 @@ export function EventDetailSheet({
       .then((data) => {
         if (cancelled) return;
         setFrequentProducts(data.frequent);
-        if (draft.mode === "create" && !draft.productName?.trim() && data.lastProduct) {
-          setProductName(data.lastProduct);
+        if (draft.mode === "create" && !draft.productName?.trim()) {
+          const prefs = loadEventDetailPrefs(draft.petId, eventTypeKey);
+          if (!prefs?.productName && data.lastProduct) {
+            applyStoredProductName(data.lastProduct);
+          }
         }
       })
       .catch(() => {
@@ -254,6 +313,33 @@ export function EventDetailSheet({
 
   if (!open || !draft) return null;
 
+  const isObservation = draft.eventTypeKey === "observation" || draft.eventTypeKey === "energy";
+
+  function renderScale3Field() {
+    if (!fields.scale3) return null;
+    return (
+      <div className="event-detail-field">
+        <span className="field-label">{t(scale3FieldLabelKey(draft!.scaleType))}</span>
+        <div
+          className="event-detail-chip-row"
+          role="group"
+          aria-label={t(scale3FieldLabelKey(draft!.scaleType))}
+        >
+          {SCALE3_VALUES.map((value) => (
+            <EventDetailChip
+              key={value}
+              selected={scaleValue === value}
+              disabled={busy}
+              onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
+            >
+              {t(scale3ValueLabelKey(draft!.scaleType, value))}
+            </EventDetailChip>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   function applyQuickTime(key: QuickTimeKey) {
     const iso = resolveQuickTime(key).toISOString();
     setOccurredLocal(toDatetimeLocalValue(iso));
@@ -264,18 +350,24 @@ export function EventDetailSheet({
       onClose();
       return;
     }
-    resetFormFromDraft(draft!, {
-      setOccurredLocal,
-      setProductName,
-      setClinicName,
-      setClinicAddress,
-      setQuantityOffered,
-      setQuantity,
-      setUnit,
-      setNote,
-      setScaleValue,
-      setRemovedAttachmentIds,
-    });
+    resetFormFromDraft(
+      draft!,
+      {
+        setOccurredLocal,
+        setProductName,
+        setSelectedTagIds,
+        setCustomProductName,
+        setClinicName,
+        setClinicAddress,
+        setQuantityOffered,
+        setQuantity,
+        setUnit,
+        setNote,
+        setScaleValue,
+        setRemovedAttachmentIds,
+      },
+      fields.detailTags,
+    );
     setIsEditing(false);
   }
 
@@ -308,6 +400,8 @@ export function EventDetailSheet({
       consumed = parsed.value;
     }
 
+    const savedProductName = fields.productName ? resolvedProductName() || null : null;
+
     onSave(
       {
         ...draft,
@@ -315,7 +409,7 @@ export function EventDetailSheet({
         quantityOffered: fields.quantityOffered ? offered : null,
         quantity: fields.quantity ? consumed : null,
         unit: resolveEventUnit(fields, unit),
-        productName: fields.productName ? productName.trim() || null : null,
+        productName: savedProductName,
         clinicName: fields.clinicName ? clinicName.trim() || null : null,
         clinicAddress: fields.clinicAddress ? clinicAddress.trim() || null : null,
         note: fields.note ? note.trim() || null : null,
@@ -324,6 +418,15 @@ export function EventDetailSheet({
       },
       { removedAttachmentIds },
     );
+
+    if (draft.petId && draft.eventTypeKey) {
+      saveEventDetailPrefs(draft.petId, draft.eventTypeKey, {
+        productName: savedProductName,
+        quantity: fields.quantity ? quantity : undefined,
+        quantityOffered: fields.quantityOffered ? quantityOffered : undefined,
+        unit: fields.showUnitInput ? unit : undefined,
+      });
+    }
   }
 
   function renderViewValue(label: string, value: string | null | undefined) {
@@ -370,7 +473,11 @@ export function EventDetailSheet({
                       : null,
                   )}
                 {fields.showUnitInput && renderViewValue(t("eventDetailUnit"), draft.unit)}
-                {fields.productName && renderViewValue(t("eventDetailProductName"), draft.productName)}
+                {fields.productName &&
+                  renderViewValue(
+                    t(fields.productNameLabelKey),
+                    formatProductNameDisplay(draft.eventTypeKey, draft.productName, t),
+                  )}
                 {fields.clinicName && renderViewValue(t("eventDetailClinicName"), draft.clinicName)}
                 {fields.clinicAddress && renderViewValue(t("eventDetailClinicAddress"), draft.clinicAddress)}
                 {fields.fecalScale &&
@@ -387,7 +494,7 @@ export function EventDetailSheet({
                       ? formatScaleValuePart(draft.scaleType, draft.scaleValue, t)
                       : null,
                   )}
-                {fields.note && renderViewValue(t("eventDetailNote"), draft.note)}
+                {fields.note && renderViewValue(t(fields.noteLabelKey), draft.note)}
               </dl>
 
               {attachments.length > 0 && (
@@ -441,17 +548,15 @@ export function EventDetailSheet({
             <form className="event-detail-form" onSubmit={handleSubmit}>
               <fieldset className="event-detail-fieldset">
                 <legend className="field-label">{t("eventDetailTimeLabel")}</legend>
-                <div className="chip-row event-detail-quick-times">
+                <div className="event-detail-chip-row event-detail-quick-times">
                   {QUICK_TIME_KEYS.map((key) => (
-                    <button
+                    <EventDetailChip
                       key={key}
-                      type="button"
-                      className="chip chip-compact"
                       disabled={busy}
                       onClick={() => applyQuickTime(key)}
                     >
                       {t(`quickTime.${key}`)}
-                    </button>
+                    </EventDetailChip>
                   ))}
                 </div>
                 <input
@@ -465,34 +570,58 @@ export function EventDetailSheet({
               </fieldset>
 
               {fields.productName && (
-                <div className="event-detail-product">
-                  <label className="field-label" htmlFor="event-product">
-                    {t("eventDetailProductName")}
-                  </label>
-                  <input
-                    id="event-product"
-                    type="text"
-                    className="event-detail-product-input"
-                    placeholder={t("eventDetailProductNamePlaceholder")}
-                    maxLength={120}
-                    value={productName}
-                    disabled={busy}
-                    onChange={(e) => setProductName(e.target.value)}
-                  />
+                <div className="event-detail-field">
+                  {fields.productCustomInput ? (
+                    <label className="field-label" htmlFor="event-product">
+                      {t(fields.productNameLabelKey)}
+                    </label>
+                  ) : (
+                    <span className="field-label">{t(fields.productNameLabelKey)}</span>
+                  )}
+                  {fields.detailTags && (
+                    <EventDetailTagPicker
+                      eventTypeKey={draft.eventTypeKey}
+                      selectedIds={selectedTagIds}
+                      disabled={busy}
+                      t={t}
+                      onToggle={(tagId) =>
+                        setSelectedTagIds((prev) =>
+                          toggleProductNameTag(draft.eventTypeKey, prev, tagId),
+                        )
+                      }
+                    />
+                  )}
+                  {fields.productCustomInput && (
+                    <input
+                      id="event-product"
+                      type="text"
+                      className="event-detail-product-input"
+                      placeholder={t("eventDetailProductNameCustomPlaceholder")}
+                      maxLength={120}
+                      value={fields.detailTags ? customProductName : productName}
+                      disabled={busy}
+                      onChange={(e) =>
+                        fields.detailTags
+                          ? setCustomProductName(e.target.value)
+                          : setProductName(e.target.value)
+                      }
+                    />
+                  )}
                   {frequentProducts.length > 0 && (
-                    <div className="event-detail-product-chips">
-                      <span className="event-detail-product-chips-label">{t("eventDetailFrequentProducts")}</span>
-                      {frequentProducts.map((item) => (
-                        <button
-                          key={item.productName}
-                          type="button"
-                          className="chip chip-compact"
-                          disabled={busy}
-                          onClick={() => setProductName(item.productName)}
-                        >
-                          {item.productName}
-                        </button>
-                      ))}
+                    <div className="event-detail-field">
+                      <span className="event-detail-chip-hint">{t("eventDetailFrequentProducts")}</span>
+                      <div className="event-detail-chip-row">
+                        {frequentProducts.map((item) => (
+                          <EventDetailChip
+                            key={item.productName}
+                            disabled={busy}
+                            onClick={() => applyStoredProductName(item.productName)}
+                          >
+                            {formatProductNameDisplay(draft.eventTypeKey, item.productName, t) ??
+                              item.productName}
+                          </EventDetailChip>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -535,22 +664,22 @@ export function EventDetailSheet({
                     </>
                   )}
                   {frequentClinics.length > 0 && (
-                    <div className="event-detail-product-chips">
-                      <span className="event-detail-product-chips-label">{t("eventDetailFrequentClinics")}</span>
-                      {frequentClinics.map((item) => (
-                        <button
-                          key={`${item.name}|${item.address ?? ""}`}
-                          type="button"
-                          className="chip chip-compact"
-                          disabled={busy}
-                          onClick={() => {
-                            setClinicName(item.name);
-                            setClinicAddress(item.address ?? "");
-                          }}
-                        >
-                          {item.address ? `${item.name} · ${item.address}` : item.name}
-                        </button>
-                      ))}
+                    <div className="event-detail-field">
+                      <span className="event-detail-chip-hint">{t("eventDetailFrequentClinics")}</span>
+                      <div className="event-detail-chip-row">
+                        {frequentClinics.map((item) => (
+                          <EventDetailChip
+                            key={`${item.name}|${item.address ?? ""}`}
+                            disabled={busy}
+                            onClick={() => {
+                              setClinicName(item.name);
+                              setClinicAddress(item.address ?? "");
+                            }}
+                          >
+                            {item.address ? `${item.name} · ${item.address}` : item.name}
+                          </EventDetailChip>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -613,10 +742,37 @@ export function EventDetailSheet({
                 </>
               )}
 
+              {isObservation && renderScale3Field()}
+
+              {fields.fecalScale && (
+                <div className="event-detail-field">
+                  <span className="field-label">{t("eventDetailFecalScore")}</span>
+                  <p className="meta event-detail-scale-hint">{t("eventDetailFecalScoreHint")}</p>
+                  <div
+                    className="event-detail-chip-row"
+                    role="group"
+                    aria-label={t("eventDetailFecalScore")}
+                  >
+                    {FECAL_SCORES.map((score) => (
+                      <EventDetailChip
+                        key={score}
+                        selected={scaleValue === score}
+                        disabled={busy}
+                        onClick={() => setScaleValue((prev) => (prev === score ? null : score))}
+                      >
+                        {score}
+                      </EventDetailChip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isObservation && fields.scale3 && renderScale3Field()}
+
               {fields.note && (
                 <>
                   <label className="field-label" htmlFor="event-note">
-                    {t("eventDetailNote")}
+                    {t(fields.noteLabelKey)}
                   </label>
                   <textarea
                     id="event-note"
@@ -628,55 +784,6 @@ export function EventDetailSheet({
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </>
-              )}
-
-              {fields.fecalScale && (
-                <fieldset className="event-detail-fieldset">
-                  <legend className="field-label">{t("eventDetailFecalScore")}</legend>
-                  <p className="meta event-detail-scale-hint">{t("eventDetailFecalScoreHint")}</p>
-                  <div
-                    className="chip-row event-detail-scale-row"
-                    role="group"
-                    aria-label={t("eventDetailFecalScore")}
-                  >
-                    {FECAL_SCORES.map((score) => (
-                      <button
-                        key={score}
-                        type="button"
-                        className={`chip chip-compact${scaleValue === score ? " chip-selected" : ""}`}
-                        disabled={busy}
-                        aria-pressed={scaleValue === score}
-                        onClick={() => setScaleValue((prev) => (prev === score ? null : score))}
-                      >
-                        {score}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              )}
-
-              {fields.scale3 && (
-                <fieldset className="event-detail-fieldset">
-                  <legend className="field-label">{t(scale3FieldLabelKey(draft.scaleType))}</legend>
-                  <div
-                    className="chip-row event-detail-scale-row"
-                    role="group"
-                    aria-label={t(scale3FieldLabelKey(draft.scaleType))}
-                  >
-                    {SCALE3_VALUES.map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`chip chip-compact${scaleValue === value ? " chip-selected" : ""}`}
-                        disabled={busy}
-                        aria-pressed={scaleValue === value}
-                        onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
-                      >
-                        {t(scale3ValueLabelKey(draft.scaleType, value))}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
               )}
 
               {(visibleAttachments.length > 0 || onPendingFilesChange) && (

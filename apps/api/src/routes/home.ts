@@ -4,7 +4,6 @@ import { householdWhere, requireHouseholdId } from "../lib/householdScope.js";
 import { t } from "../lib/i18n.js";
 import { todaySummaryForPet } from "../lib/todaySummary.js";
 import { journalStatsForPet } from "../lib/journalStats.js";
-import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
 import {
   ensurePresetsForPet,
   SystemEventTypesNotSeededError,
@@ -100,7 +99,7 @@ export async function homeRoutes(app: FastifyInstance) {
       prisma.event.findMany({
         where: { ...petScope, deletedAt: null },
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-        take: TIMELINE_PAGE_SIZE,
+        take: 6,
         select: recentEventSelect,
       }),
       journalStatsForPet(prisma, householdId, activePet.id),

@@ -1,5 +1,6 @@
 import type { EventCategory, Prisma, PrismaClient, ScaleType, Species } from "@prisma/client";
 import { isUniqueConstraintError } from "../prismaErrors.js";
+import { migrateEnergyToObservation } from "./migrateEnergyToObservation.js";
 
 export type SystemEventTypeSeed = {
   key: string;
@@ -46,6 +47,15 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 30,
   },
   {
+    key: "supplement",
+    label: "eventType.supplement",
+    icon: "pill",
+    color: "emerald",
+    category: "FEEDING",
+    aliases: ["영양제", "유산균", "오메가", "영양"],
+    sortOrder: 35,
+  },
+  {
     key: "poop",
     label: "eventType.poop",
     icon: "circle-dot",
@@ -75,22 +85,22 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 60,
   },
   {
-    key: "supplement",
-    label: "eventType.supplement",
-    icon: "flask-conical",
-    color: "teal",
+    key: "dental",
+    label: "eventType.dental",
+    icon: "sparkles",
+    color: "cyan",
     category: "HEALTH",
-    aliases: ["영양제", "유산균", "오메가"],
+    aliases: ["양치", "치아", "덴탈"],
     sortOrder: 65,
   },
   {
-    key: "energy",
-    label: "eventType.energy",
-    icon: "zap",
-    color: "orange",
+    key: "observation",
+    label: "eventType.observation",
+    icon: "eye",
+    color: "teal",
     category: "HEALTH",
     scaleType: "ENERGY_3",
-    aliases: ["활력", "기력", "컨디션"],
+    aliases: ["관찰", "활력", "기력", "컨디션", "특이사항"],
     sortOrder: 72,
   },
   {
@@ -217,6 +227,7 @@ function seedUpdate(row: SystemEventTypeSeed): Prisma.EventTypeUpdateInput {
     aliases: row.aliases,
     scaleType: row.scaleType ?? null,
     sortOrder: row.sortOrder,
+    archivedAt: null,
   };
 }
 
@@ -226,6 +237,8 @@ export async function seedSystemEventTypes(
 ): Promise<{ created: number; updated: number }> {
   let created = 0;
   let updated = 0;
+
+  await migrateEnergyToObservation(prisma);
 
   for (const row of SYSTEM_EVENT_TYPES) {
     const existing = await prisma.eventType.findFirst({
@@ -248,6 +261,17 @@ export async function seedSystemEventTypes(
       if (isUniqueConstraintError(err)) continue;
       throw err;
     }
+  }
+
+  const supplement = await prisma.eventType.findFirst({
+    where: { householdId: null, key: "supplement" },
+    select: { id: true },
+  });
+  if (supplement) {
+    await prisma.preset.updateMany({
+      where: { eventTypeId: supplement.id, archivedAt: { not: null } },
+      data: { archivedAt: null },
+    });
   }
 
   return { created, updated };

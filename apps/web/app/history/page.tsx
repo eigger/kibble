@@ -22,6 +22,7 @@ import { EventCategoryTag } from "../../components/EventCategoryTag";
 import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
 import { EventAttachmentThumb } from "../../components/EventAttachmentThumb";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   deleteEventAttachment,
   uploadEventAttachments,
@@ -54,6 +55,7 @@ export default function HistoryPage() {
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deleteConfirmEventId, setDeleteConfirmEventId] = useState<string | null>(null);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
@@ -64,7 +66,6 @@ export default function HistoryPage() {
   const petIdRef = useRef<string | null>(null);
   const periodRef = useRef("");
   const loadingMoreRef = useRef(false);
-  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -142,9 +143,8 @@ export default function HistoryPage() {
 
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
-    setPeriodFilter("");
     setActivePet(pet);
-    await loadEvents(pet.id, "", true);
+    await loadEvents(pet.id, periodFilter, true);
   }
 
   const loadMore = useCallback(async () => {
@@ -176,19 +176,6 @@ export default function HistoryPage() {
       }
     }
   }, [hasMore, show, t]);
-
-  useEffect(() => {
-    const node = sentinelRef.current;
-    if (!node || !hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) void loadMore();
-      },
-      { rootMargin: "120px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasMore, events.length, loadMore]);
 
   const groupedEvents = useMemo(() => {
     const groups: { dayKey: string; label: string; items: TimelineEvent[] }[] = [];
@@ -257,16 +244,25 @@ export default function HistoryPage() {
     }
   }
 
-  async function handleDeleteEvent() {
+  function requestDelete(eventId: string) {
+    if (deletingEventId) return;
+    setDeleteConfirmEventId(eventId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteConfirmEventId) return;
+    const eventId = deleteConfirmEventId;
+    setDeleteConfirmEventId(null);
+    await deleteEvent(eventId);
+  }
+
+  function handleDeleteEvent() {
     if (!detailDraft?.eventId) return;
-    if (!confirm(t("confirmDeleteEvent"))) return;
-    await deleteEvent(detailDraft.eventId);
+    requestDelete(detailDraft.eventId);
   }
 
   function handleRowDelete(event: TimelineEvent) {
-    if (deletingEventId) return;
-    if (!confirm(t("confirmDeleteEvent"))) return;
-    void deleteEvent(event.id);
+    requestDelete(event.id);
   }
 
   async function handleDetailSave(
@@ -444,8 +440,16 @@ export default function HistoryPage() {
                 </ul>
               </div>
             ))}
-            <div ref={sentinelRef} className="timeline-sentinel" aria-hidden />
-            {loadingMore && <p className="meta timeline-loading-more">{t("timelineLoadingMore")}</p>}
+            {hasMore && (
+              <button
+                type="button"
+                className="secondary history-load-more"
+                disabled={loadingMore}
+                onClick={() => void loadMore()}
+              >
+                {loadingMore ? t("timelineLoadingMore") : t("loadMore")}
+              </button>
+            )}
           </>
         )}
       </section>
@@ -458,7 +462,7 @@ export default function HistoryPage() {
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
-        onDeleteEvent={detailDraft?.eventId ? () => void handleDeleteEvent() : undefined}
+        onDeleteEvent={detailDraft?.eventId ? handleDeleteEvent : undefined}
         onClose={() => {
           if (detailSaving) return;
           setDetailOpen(false);
@@ -472,6 +476,17 @@ export default function HistoryPage() {
         onValidationError={(message) => show(message, "error")}
         t={t}
         locale={locale}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmEventId != null}
+        title={t("confirmDeleteEvent")}
+        confirmLabel={deletingEventId ? t("deleting") : t("delete")}
+        cancelLabel={t("cancel")}
+        danger
+        busy={deletingEventId != null}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteConfirmEventId(null)}
       />
     </main>
   );
