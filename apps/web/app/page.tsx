@@ -18,6 +18,7 @@ import type {
 import type { JournalStats } from "@kibble/shared";
 import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
 import { EventDetailSheet, type EventDetailDraft } from "../components/EventDetailSheet";
+import { ChipActionSheet } from "../components/ChipActionSheet";
 import { PresetChip, MorePresetItem } from "../components/PresetChip";
 
 interface HomePayload {
@@ -126,6 +127,7 @@ export default function HomePage() {
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
+  const [chipAction, setChipAction] = useState<{ preset: Preset; label: string } | null>(null);
   const loadSeq = useRef(0);
   const recentEventsRef = useRef<TimelineEvent[]>([]);
 
@@ -355,6 +357,43 @@ export default function HomePage() {
     }
   }
 
+  function openChipAction(preset: Preset) {
+    setChipAction({ preset, label: t(preset.label) });
+  }
+
+  async function hidePresetChip(preset: Preset) {
+    try {
+      await apiJson(`/api/presets/${preset.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ hidden: true }),
+      });
+      setPresets((prev) => prev.filter((p) => p.id !== preset.id));
+      setChipAction(null);
+      show(t("presetHiddenToast"), "success", {
+        label: t("undo"),
+        onClick: () => {
+          void (async () => {
+            try {
+              await apiJson(`/api/presets/${preset.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ hidden: false }),
+              });
+              if (activePet) {
+                const seq = await loadHome(activePet.id);
+                if (seq !== loadSeq.current) return;
+              }
+              show(t("presetUnhiddenToast"), "info");
+            } catch {
+              show(t("recordError"), "error");
+            }
+          })();
+        },
+      });
+    } catch {
+      show(t("recordError"), "error");
+    }
+  }
+
   function openDetailFromPreset(preset: Preset) {
     if (!activePet) return;
     setDetailDraft({
@@ -370,6 +409,7 @@ export default function HomePage() {
       dedupeKey: newDedupeKey(activePet.id, preset.id),
     });
     setDetailOpen(true);
+    setChipAction(null);
   }
 
   function openDetailFromSuggestion(suggestion: ParseSuggestion, entryId: string) {
@@ -634,7 +674,7 @@ export default function HomePage() {
                     label={t(preset.label)}
                     disabled={recording || !activePet}
                     onTap={onPresetTap}
-                    onLongPress={openDetailFromPreset}
+                    onLongPress={openChipAction}
                   />
                 ))}
               </div>
@@ -736,7 +776,7 @@ export default function HomePage() {
                   }}
                   onLongPress={() => {
                     setMoreOpen(false);
-                    openDetailFromPreset(preset);
+                    openChipAction(preset);
                   }}
                 />
               ))}
@@ -744,6 +784,15 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      <ChipActionSheet
+        open={chipAction != null}
+        label={chipAction?.label ?? ""}
+        onClose={() => setChipAction(null)}
+        onDetail={() => chipAction && openDetailFromPreset(chipAction.preset)}
+        onHide={() => chipAction && void hidePresetChip(chipAction.preset)}
+        t={t}
+      />
 
       <EventDetailSheet
         open={detailOpen}

@@ -248,8 +248,22 @@ model Preset {
   events    Event[]
   tokens    ApiToken[]
 
-  @@unique([householdId, petId, eventTypeId])
+  // 활성 행만 유니크 — 부분 인덱스 `Preset_householdId_petId_eventTypeId_active_key`
   @@index([householdId, archivedAt, sortOrder])
+}
+
+// 가구별 파싱 별칭 — 시스템 EventType 행을 복제하지 않는다.
+model EventTypeAlias {
+  id           String   @id @default(cuid())
+  householdId  String
+  eventTypeKey String   // 시스템 EventType.key
+  aliases      String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, eventTypeKey])
 }
 
 // 하나의 프리셋에 여러 코드를 붙인다 (stash의 Item:Barcode와 같은 모양).

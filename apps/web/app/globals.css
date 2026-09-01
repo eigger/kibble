@@ -917,6 +917,94 @@ button:disabled {
   -webkit-touch-callout: none;
 }
 
+.chip-action-sheet h2.chip-action-heading {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.chip-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chip-action-item {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chip-action-danger {
+  color: var(--color-danger, #c62828);
+}
+
+.chip-action-cancel {
+  display: block;
+  margin: 12px auto 0;
+}
+
+.preset-manage-list {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preset-manage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preset-manage-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-sort-input {
+  width: 88px;
+}
+
+.preset-hidden-badge {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.presets-pet-select {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.preset-alias-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preset-alias-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.presets-aliases-section {
+  margin-top: 24px;
+}
+
 .event-detail-sheet h2.event-detail-heading {
   margin: 0 0 12px;
   font-size: 18px;

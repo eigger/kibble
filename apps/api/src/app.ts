@@ -13,7 +13,7 @@ import { resolveJwtSecret } from "./lib/jwtSecret.js";
 import { prisma } from "./lib/prisma.js";
 import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
-import { presetRoutes } from "./routes/presets.js";
+import { presetRoutes, eventTypeRoutes } from "./routes/presets.js";
 import { homeRoutes } from "./routes/home.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
@@ -95,6 +95,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(onboardingRoutes, { prefix: "/api/onboarding" });
   await app.register(householdRoutes, { prefix: "/api/household" });
   await app.register(presetRoutes, { prefix: "/api/presets" });
+  await app.register(eventTypeRoutes, { prefix: "/api/event-types" });
   await app.register(homeRoutes, { prefix: "/api/home" });
   await app.register(eventRoutes, { prefix: "/api/events" });
   await app.register(parseRoutes, { prefix: "/api/parse" });

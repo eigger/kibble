@@ -78,6 +78,10 @@ const MESSAGES = {
   photoMustBeImage: { ko: "이미지 파일만 업로드할 수 있습니다", en: "Only image files are allowed" },
   photoNotFound: { ko: "사진이 없습니다", en: "Photo not found" },
   presetNotFound: { ko: "프리셋을 찾을 수 없습니다", en: "Preset not found" },
+  presetDuplicate: {
+    ko: "이 반려동물에 같은 유형의 프리셋이 이미 있습니다",
+    en: "This pet already has a preset for that event type",
+  },
   eventTypeNotFound: { ko: "이벤트 유형을 찾을 수 없습니다", en: "Event type not found" },
   eventNotFound: { ko: "기록을 찾을 수 없습니다", en: "Event not found" },
   petRequiredForEvent: {
