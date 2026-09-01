@@ -1,5 +1,7 @@
 /** garage analytics/page.tsx 패턴 — 클라이언트 집계용 순수 함수 */
 
+import { kstCalendarParts, kstDayKey, PHASE1_TODAY_UTC_OFFSET_MINUTES } from "@kibble/shared";
+
 export type AnalyticsPeriod = "1w" | "1m" | "6m" | "1y" | "all";
 
 export type ChartGranularity = "day" | "week" | "month";
@@ -41,15 +43,17 @@ export function filterEventsByPeriod<T extends { occurredAt: string }>(
 
 export function getGroupKey(d: Date, granularity: ChartGranularity): string {
   if (granularity === "day") {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return kstDayKey(d);
   }
   if (granularity === "week") {
-    const tmp = new Date(d);
-    tmp.setHours(0, 0, 0, 0);
-    tmp.setDate(tmp.getDate() - ((tmp.getDay() + 6) % 7));
-    return `${tmp.getFullYear()}-${String(tmp.getMonth() + 1).padStart(2, "0")}-${String(tmp.getDate()).padStart(2, "0")}`;
+    const p = kstCalendarParts(d);
+    const kstInstant = new Date(d.getTime() + PHASE1_TODAY_UTC_OFFSET_MINUTES * 60_000);
+    const mondayOffset = (kstInstant.getUTCDay() + 6) % 7;
+    const weekStart = new Date(Date.UTC(p.year, p.month, p.date - mondayOffset));
+    return `${weekStart.getUTCFullYear()}-${String(weekStart.getUTCMonth() + 1).padStart(2, "0")}-${String(weekStart.getUTCDate()).padStart(2, "0")}`;
   }
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const p = kstCalendarParts(d);
+  return `${p.year}-${String(p.month + 1).padStart(2, "0")}`;
 }
 
 export function formatGroupLabel(
