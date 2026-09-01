@@ -612,7 +612,7 @@ UI:
 | P1-11 | 반려동물 CRUD + 사진 + 사후 편집 필드 전체 | **완료** — GET/PATCH/DELETE(archive)·사진·`/pets` UI 12필드 편집 |
 | P1-12 | **`createEvent()` 단일 서비스 함수** | **완료** — `services/createEvent.ts` |
 | P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. `docs/api.md`는 P1-18 |
-| P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | 퀵 칩 길게 누르기 → 숨기기 |
+| P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | **완료** — PATCH/POST/DELETE·`hiddenAt`·가구별 EventType aliases·`/presets` UI·칩 길게 누르기 메뉴 |
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
 | P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 | 한 이벤트에 사진 9장 |
 | P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | 크론 동작 확인 |

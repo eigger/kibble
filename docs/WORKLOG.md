@@ -370,4 +370,13 @@
 - 편집 후 `loadHome`으로 오늘 요약·타임라인 재동기화
 - §7.11에 웹 시각 입력·표시 KST 고정 한 줄 추가
 
-**다음**: P1-14 프리셋 CRUD
+### 2026-09-01 — P1-14 프리셋 CRUD·숨기기·별칭
+
+**한 일**
+
+- API: preset POST/PATCH/DELETE·`includeHidden` GET; `PATCH /api/event-types/:key/aliases` (가구 오버레이)
+- `parse.ts`: 가구별 aliases 병합
+- 홈: 칩 길게 누르기 → 시간·양 / 숨기기 메뉴 (P1-24 상세 시트 유지)
+- `/presets` 관리 UI: 이름·순서·숨김 복구·별칭 편집
+
+**다음**: P1-16 다중 첨부 또는 P1-27 타임라인 무한 스크롤

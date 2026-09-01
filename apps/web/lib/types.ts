@@ -39,6 +39,23 @@ export interface Preset {
   sortOrder: number;
 }
 
+export interface PresetDetail extends Preset {
+  eventTypeId: string;
+  quantity: number | null;
+  unit: string | null;
+  note: string | null;
+  hiddenAt: string | null;
+  eventType: { key: string; label: string };
+}
+
+export interface EventTypeAliasesRow {
+  key: string;
+  label: string;
+  aliases: string[];
+  systemAliases: string[];
+  hasHouseholdOverride: boolean;
+}
+
 export interface CreatedEvent {
   id: string;
   petId: string;

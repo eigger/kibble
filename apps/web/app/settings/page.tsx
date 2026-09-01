@@ -160,6 +160,12 @@ export default function SettingsPage() {
       </div>
 
       <div className="card">
+        <h2 style={{ marginTop: 0 }}>{t("presetsManageLink")}</h2>
+        <p className="meta">{t("presetsIntro")}</p>
+        <Link href="/presets">{t("presetsManageLink")}</Link>
+      </div>
+
+      <div className="card">
         <h2 style={{ marginTop: 0 }}>{t("petsManageLink")}</h2>
         <p className="meta">{t("petsIntro")}</p>
         <Link href="/pets">{t("petsTitle")}</Link>

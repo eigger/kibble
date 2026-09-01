@@ -48,11 +48,17 @@ export async function parseRoutes(app: FastifyInstance) {
       orderBy: { sortOrder: "asc" },
     });
 
+    const householdAliases = await prisma.eventType.findMany({
+      where: { ...householdWhere(householdId), archivedAt: null },
+      select: { key: true, aliases: true },
+    });
+    const aliasesByKey = new Map(householdAliases.map((row) => [row.key, row.aliases]));
+
     const targets = presets.map((p) => ({
       eventTypeId: p.eventType.id,
       eventTypeKey: p.eventType.key,
       label: p.label,
-      aliases: p.eventType.aliases,
+      aliases: aliasesByKey.get(p.eventType.key) ?? p.eventType.aliases,
       presetId: p.id,
       defaultUnit: p.eventType.defaultUnit,
       sortOrder: p.sortOrder,
