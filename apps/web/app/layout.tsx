@@ -16,7 +16,7 @@ const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("kibble_th
 
 export const metadata: Metadata = {
   title: "kibble",
-  description: "셀프호스트 반려동물 일지",
+  description: "Self-hosted pet diary with minimal input friction",
   appleWebApp: {
     capable: true,
     title: "kibble",

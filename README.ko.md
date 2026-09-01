@@ -11,9 +11,9 @@
 
 **입력 마찰을 최소화**하는 셀프호스트 반려동물 일지 — 평소엔 퀵 칩 1탭, 필요할 땐 자유 텍스트·사진, 자동화는 토큰 API로.
 
-> **상태:** Phase 1 진행 중. [stash](https://github.com/eigger/stash)에서 섀시를 이식했고 재고 도메인은 제거했습니다. **아직 일상 사용용이 아닙니다.** 첫 릴리스 태그는 Phase 1 게이트 통과 후 ([`WORKPLAN.md`](./WORKPLAN.md)).
+> **상태:** Phase 1 **구현 완료** — 실사용 게이트 진행 중 ([`WORKPLAN.md`](./WORKPLAN.md) §5.6). 배포는 [`docs/deploy.md`](./docs/deploy.md). 릴리스 태그는 게이트 통과 후.
 
-문서: [`PROJECT.md`](./PROJECT.md) · [`WORKPLAN.md`](./WORKPLAN.md)
+문서: [`PROJECT.md`](./PROJECT.md) · [`WORKPLAN.md`](./WORKPLAN.md) · [`docs/deploy.md`](./docs/deploy.md)
 
 ---
 
@@ -47,6 +47,8 @@ Caddy가 `http://localhost:80`에서 서비스합니다.
 ### Proxmox LXC
 
 [`proxmox/ct/kibble.sh`](proxmox/ct/kibble.sh) 또는 [`proxmox/install/kibble-install.sh`](proxmox/install/kibble-install.sh)로 설치합니다.
+
+> 게이트 전(릴리스 태그 없음): `export KIBBLE_REF=master` 후 실행. 자세한 내용은 [`docs/deploy.md`](./docs/deploy.md).
 
 ---
 

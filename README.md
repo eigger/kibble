@@ -11,9 +11,9 @@
 
 Self-hosted pet diary focused on **low-friction input** — quick chips for routine care, free-text and photos when you need detail, and a token-authenticated API for automations.
 
-> **Status:** Phase 1 in progress. The monorepo shell is imported from [stash](https://github.com/eigger/stash); inventory domain code has been removed. **Not ready for daily use yet.** First release tag ships after the Phase 1 gate ([`WORKPLAN.md`](./WORKPLAN.md)).
+> **Status:** Phase 1 **implementation complete** — personal-use gate in progress ([`WORKPLAN.md`](./WORKPLAN.md) §5.6). Deploy with [`docs/deploy.md`](./docs/deploy.md). Release tags after the gate passes.
 
-Docs: [`PROJECT.md`](./PROJECT.md) · [`WORKPLAN.md`](./WORKPLAN.md)
+Docs: [`PROJECT.md`](./PROJECT.md) · [`WORKPLAN.md`](./WORKPLAN.md) · [`docs/deploy.md`](./docs/deploy.md)
 
 ---
 
@@ -47,6 +47,8 @@ Caddy serves the stack on `http://localhost:80`.
 ### Proxmox LXC
 
 Use [`proxmox/ct/kibble.sh`](proxmox/ct/kibble.sh) or install manually with [`proxmox/install/kibble-install.sh`](proxmox/install/kibble-install.sh).
+
+> Before the first release tag: `export KIBBLE_REF=master` then run the installer. See [`docs/deploy.md`](./docs/deploy.md).
 
 ---
 

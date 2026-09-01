@@ -3,13 +3,13 @@
 import { useLocale } from "../lib/i18n/locale-context";
 import type { Locale } from "../lib/i18n/translations";
 
-const OPTIONS: { value: Locale; label: string }[] = [
-  { value: "ko", label: "한국어" },
-  { value: "en", label: "English" },
+const OPTIONS: { value: Locale; labelKey: "languageKo" | "languageEn" }[] = [
+  { value: "ko", labelKey: "languageKo" },
+  { value: "en", labelKey: "languageEn" },
 ];
 
 export function LanguageToggle() {
-  const { locale, setLocale } = useLocale();
+  const { locale, setLocale, t } = useLocale();
 
   return (
     <div style={{ display: "flex", gap: 8 }}>
@@ -20,7 +20,7 @@ export function LanguageToggle() {
           onClick={() => setLocale(opt.value)}
           style={{ flex: 1 }}
         >
-          {opt.label}
+          {t(opt.labelKey)}
         </button>
       ))}
     </div>

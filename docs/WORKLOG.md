@@ -65,6 +65,20 @@
 
 ## 2. 세션 로그
 
+### 2026-09-01 — P1-28~33 i18n·배포 문서
+
+**한 일**
+
+- P1-28: LanguageToggle i18n, layout metadata 영문, manifest 정적 영문 (PWA 제약)
+- P1-33: `docs/deploy.md` — 게이트 전 §1.1 기본, `KIBBLE_REF=master`, `.env` 셸 치환 금지, prod compose 로그 명령
+- `.env.example` GHCR 변수, README 상태·deploy 링크
+- P1-29~32: 기존 Docker·workflow·Proxmox·LICENSE·README 확인 후 WORKPLAN 완료 표시
+
+**다음**
+
+- Phase 1 게이트 — 2주 실사용
+- 게이트 통과 후 릴리스 태그·GHCR publish
+
 ### 2026-09-01 — P1-26 오프라인 큐
 
 **한 일**
