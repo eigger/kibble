@@ -48,6 +48,8 @@ Caddy가 `http://localhost:80`에서 서비스합니다.
 
 [`proxmox/ct/kibble.sh`](proxmox/ct/kibble.sh) 또는 [`proxmox/install/kibble-install.sh`](proxmox/install/kibble-install.sh)로 설치합니다.
 
+> 게이트 전(릴리스 태그 없음): `export KIBBLE_REF=master` 후 실행. 자세한 내용은 [`docs/deploy.md`](./docs/deploy.md).
+
 ---
 
 ## 섀시 출처

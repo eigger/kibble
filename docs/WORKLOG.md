@@ -70,7 +70,7 @@
 **한 일**
 
 - P1-28: LanguageToggle i18n, layout metadata 영문, manifest 정적 영문 (PWA 제약)
-- P1-33: `docs/deploy.md` — Compose·GHCR·Proxmox·Tailscale·env·트러블슈팅
+- P1-33: `docs/deploy.md` — 게이트 전 §1.1 기본, `KIBBLE_REF=master`, `.env` 셸 치환 금지, prod compose 로그 명령
 - `.env.example` GHCR 변수, README 상태·deploy 링크
 - P1-29~32: 기존 Docker·workflow·Proxmox·LICENSE·README 확인 후 WORKPLAN 완료 표시
 

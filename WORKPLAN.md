@@ -634,7 +634,7 @@ UI:
 | P1-27a | **시작 3개 + "더보기"** (G-1) | **완료** (#7) |
 | P1-27b | **빈 화면 예시 카드 + 첫 기록 안내 + 3일 안내** (§3.8) | **완료** — 흐릿한 예시 타임라인·`journalStats` 기반 안내 문구 |
 | P1-27c | **대변 스코어 1~7 선택 UI** | **완료** — 상세 시트 FECAL_7 칩, 미선택 저장 가능 (G-3) |
-| P1-28 | **i18n ko + en 양쪽 사전** | **완료** — UI 컴포넌트 `t()` 전수, LanguageToggle i18n. PWA manifest·Next metadata는 정적 영문 |
+| P1-28 | **i18n ko + en 양쪽 사전** | **완료** — UI `t()` 전수·LanguageToggle. **한계:** PWA manifest·Next `<metadata>`·`<html lang>`은 정적(영문/고정) — OS 설치 UI·SSR 제약 |
 
 ### 5.5 공개·배포
 
@@ -644,7 +644,7 @@ UI:
 | P1-30 | GHCR 릴리스 워크플로 + Proxmox LXC 스크립트 | **완료** — `docker-release.yml` dispatch, `proxmox/ct/kibble.sh`·`kibble-install.sh` |
 | P1-31 | LXC 배포 + Tailscale 접근 | **완료(문서)** — `docs/deploy.md` §3 Tailscale·PWA. 실기 접속은 게이트 |
 | P1-32 | `README.md`(en) + `README.ko.md` + `LICENSE`(MIT) | **완료** — 배포 링크·Phase 1 구현 완료 상태 반영 |
-| P1-33 | `.env.example` + `docs/deploy.md` | **완료** — Compose·GHCR·Proxmox·환경 변수·트러블슈팅 |
+| P1-33 | `.env.example` + `docs/deploy.md` | **완료** — Compose·GHCR·Proxmox(`KIBBLE_REF=master`)·env·트러블슈팅. `.env`에 셸 치환 금지 명시 |
 
 ### 5.6 Phase 1 게이트
 

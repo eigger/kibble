@@ -48,6 +48,8 @@ Caddy serves the stack on `http://localhost:80`.
 
 Use [`proxmox/ct/kibble.sh`](proxmox/ct/kibble.sh) or install manually with [`proxmox/install/kibble-install.sh`](proxmox/install/kibble-install.sh).
 
+> Before the first release tag: `export KIBBLE_REF=master` then run the installer. See [`docs/deploy.md`](./docs/deploy.md).
+
 ---
 
 ## Chassis credit
