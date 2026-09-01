@@ -292,6 +292,22 @@ const dict = {
     en: "You are offline. We will retry when you are back online.",
   },
   offlineBannerText: { ko: "오프라인 — 일부 기능이 제한됩니다", en: "Offline — some features are limited" },
+  offlineQueuedToast: {
+    ko: "오프라인 — 연결되면 자동으로 전송됩니다",
+    en: "Offline — this will send automatically once you're back online",
+  },
+  offlineQueuePending: {
+    ko: "전송 대기 중인 기록 {count}건",
+    en: "{count} log(s) waiting to sync",
+  },
+  offlineQueueFlushedToast: {
+    ko: "대기 기록 {synced}건 전송됨",
+    en: "Synced {synced} queued log(s)",
+  },
+  offlineQueueRejected: {
+    ko: "{rejected}건은 서버에서 거부되어 제외했습니다",
+    en: "{rejected} were rejected by the server and removed from the queue",
+  },
 
   // one-time secrets
   oneTimeSecretCopiedToast: { ko: "복사했습니다.", en: "Copied." },
