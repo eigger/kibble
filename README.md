@@ -22,7 +22,6 @@ Docs: [`docs/`](./docs/) · [`docs/PROJECT.md`](docs/PROJECT.md) · [`docs/WORKP
 On a **Proxmox VE** host:
 
 ```bash
-export KIBBLE_REF=master   # until the first release tag; then omit
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/ct/kibble.sh)"
 ```
 
@@ -31,9 +30,10 @@ Creates a Debian 13 LXC (2 GB RAM, 1 vCPU, 16 GB disk), installs Docker, writes 
 **Inside an existing Debian/Ubuntu host or LXC:**
 
 ```bash
-export KIBBLE_REF=master
 curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/install/kibble-install.sh | bash
 ```
+
+Both install the **latest release**. To pin a different ref, set `KIBBLE_REF` (e.g. `export KIBBLE_REF=master` for the development branch).
 
 Updates later (inside the container): `update` or `KIBBLE_REF=master update`. Details: [`docs/deploy.md`](./docs/deploy.md) §2.
 

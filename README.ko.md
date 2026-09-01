@@ -22,7 +22,6 @@
 **Proxmox VE** 호스트에서:
 
 ```bash
-export KIBBLE_REF=master   # 첫 릴리스 태그 전까지; 이후 생략 가능
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/ct/kibble.sh)"
 ```
 
@@ -31,9 +30,10 @@ Debian 13 LXC(2 GB RAM, 1 vCPU, 16 GB)를 만들고 Docker·`/opt/kibble` 스택
 **기존 Debian/Ubuntu 호스트·LXC 안에서 수동 설치:**
 
 ```bash
-export KIBBLE_REF=master
 curl -fsSL https://raw.githubusercontent.com/eigger/kibble/master/proxmox/install/kibble-install.sh | bash
 ```
+
+둘 다 **최신 릴리스**를 설치합니다. 다른 ref를 쓰려면 `KIBBLE_REF`를 지정합니다(예: 개발 브랜치는 `export KIBBLE_REF=master`).
 
 업데이트(컨테이너 안): `update` 또는 `KIBBLE_REF=master update`. 자세한 내용: [`docs/deploy.md`](./docs/deploy.md) §2.
 
