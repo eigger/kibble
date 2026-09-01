@@ -134,6 +134,9 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
+    // 부트스트랩 전용 effect다. periodFilter를 의존성에 넣으면 필터를 바꿀 때마다 펫 조회부터
+    // 다시 돈다 — 필터 변경은 아래 effect가 따로 처리한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, needsPet, loadBootstrap, loadEvents, t]);
 
   useEffect(() => {
