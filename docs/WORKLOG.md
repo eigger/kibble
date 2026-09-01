@@ -58,6 +58,8 @@
 | R25 | 시스템 `EventType` 시드를 Prisma `upsert`로 | **기각** | 복합 unique에 NULL이 끼면 `where`를 만들 수 없어 실행 불가. 게다가 NULL은 UNIQUE에서 구별되는 값이라 중복이 막히지도 않는다 → 부분 유니크 인덱스 + `findFirst`/`create` | — |
 | R26 | 텍스트 입력 → 제안 칩 **탭해야 저장** | **기각** | K-12·K-13: 입력이 사라지면 안 된다. **즉시 저장** 후 검토 칩(P1-22, PR #10 리뷰) | — |
 | R27 | `registrationNo` 15자리 한국 동물등록번호 형식 검증 | **기각** | 공개·ko/en 배포 — 비한국 사용자도 자국 번호를 쓴다. Phase 1은 자유 텍스트(max 50) | Phase 2+ 로케일별 형식 힌트가 필요해질 때 |
+| R28 | 가구별 별칭을 `EventType` 행 통째 복제 | **기각** | `seedSystemEventTypes`가 시스템 행만 갱신 → 복제본은 시드 개선을 영원히 못 받음. `EventTypeAlias` 테이블로 별칭만 저장 | — |
+| R29 | 소프트삭제 + 전체 유니크 제약만 두기 | **기각** | 보관 후 재생성 P2002·500 반복(dedupeKey·Preset). **부분 유니크**(`archivedAt IS NULL`) 또는 **보관 행 복원** 필수 | — |
 
 ---
 
@@ -378,5 +380,18 @@
 - `parse.ts`: 가구별 aliases 병합
 - 홈: 칩 길게 누르기 → 시간·양 / 숨기기 메뉴 (P1-24 상세 시트 유지)
 - `/presets` 관리 UI: 이름·순서·숨김 복구·별칭 편집
+
+**다음**: P1-16 다중 첨부 또는 P1-27 타임라인 무한 스크롤
+
+### 2026-09-01 — P1-14 PR 리뷰 반영
+
+**한 일**
+
+- `EventTypeAlias` 테이블 — 별칭만 가구별 저장, 시스템 EventType 복제 제거
+- Preset 부분 유니크(`archivedAt IS NULL`) + POST 시 보관 행 복원(restoreOrReturnDedupe 패턴)
+- 격리 테스트: DELETE preset, PATCH aliases 추가
+- 칩 숨기기 실행취소 토스트
+
+**규칙(R29)**: 소프트삭제 + 유니크 충돌은 **부분 유니크 인덱스** 또는 **보관 행 복원** 중 하나로 통일. EventType 시스템 행과 동일 패턴.
 
 **다음**: P1-16 다중 첨부 또는 P1-27 타임라인 무한 스크롤

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@prisma/client";
 import {
   createPresetSchema,
   updateEventTypeAliasesSchema,
@@ -6,6 +7,7 @@ import {
 } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
+import { aliasesByEventTypeKey } from "../lib/eventTypeAliases.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
 
 function parsePetIdQuery(raw: unknown): { petId?: string; invalid: boolean } {
@@ -121,41 +123,70 @@ export async function presetRoutes(app: FastifyInstance) {
     if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
     const eventType = await prisma.eventType.findFirst({
-      where: {
-        id: eventTypeId,
-        archivedAt: null,
-        OR: [{ householdId: null }, { householdId }],
-      },
+      where: { id: eventTypeId, householdId: null, archivedAt: null },
       select: { id: true },
     });
     if (!eventType) return reply.code(404).send({ error: t("eventTypeNotFound", request.locale) });
 
-    const duplicate = await prisma.preset.findFirst({
+    const active = await prisma.preset.findFirst({
       where: { householdId, petId, eventTypeId, archivedAt: null },
       select: { id: true },
     });
-    if (duplicate) return reply.code(409).send({ error: t("presetDuplicate", request.locale) });
+    if (active) return reply.code(409).send({ error: t("presetDuplicate", request.locale) });
 
     const maxSort = await prisma.preset.aggregate({
       where: { ...householdWhere(householdId), petId, archivedAt: null },
       _max: { sortOrder: true },
     });
+    const nextSort = sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1;
 
-    const created = await prisma.preset.create({
-      data: {
-        householdId,
-        petId,
-        eventTypeId,
-        label,
-        quantity: quantity ?? null,
-        unit: unit ?? null,
-        note: note ?? null,
-        sortOrder: sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
-        isStarter: false,
-      },
-      select: presetSelect,
+    const presetData = {
+      label,
+      quantity: quantity ?? null,
+      unit: unit ?? null,
+      note: note ?? null,
+      sortOrder: nextSort,
+      hiddenAt: null,
+      archivedAt: null,
+    };
+
+    const archived = await prisma.preset.findFirst({
+      where: { householdId, petId, eventTypeId, archivedAt: { not: null } },
+      orderBy: { archivedAt: "desc" },
+      select: { id: true },
     });
-    return reply.code(201).send(serializePreset(created));
+
+    if (archived) {
+      const restored = await prisma.preset.updateMany({
+        where: { id: archived.id, ...householdWhere(householdId), archivedAt: { not: null } },
+        data: presetData,
+      });
+      if (restored.count === 0) {
+        return reply.code(404).send({ error: t("presetNotFound", request.locale) });
+      }
+      const row = await findActivePreset(householdId, archived.id);
+      if (!row) return reply.code(404).send({ error: t("presetNotFound", request.locale) });
+      return reply.code(201).send(serializePreset(row));
+    }
+
+    try {
+      const created = await prisma.preset.create({
+        data: {
+          householdId,
+          petId,
+          eventTypeId,
+          isStarter: false,
+          ...presetData,
+        },
+        select: presetSelect,
+      });
+      return reply.code(201).send(serializePreset(created));
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return reply.code(409).send({ error: t("presetDuplicate", request.locale) });
+      }
+      throw err;
+    }
   });
 
   app.patch("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -186,7 +217,8 @@ export async function presetRoutes(app: FastifyInstance) {
     }
 
     const preset = await findActivePreset(householdId, id);
-    return serializePreset(preset!);
+    if (!preset) return reply.code(404).send({ error: t("presetNotFound", request.locale) });
+    return serializePreset(preset);
   });
 
   app.delete("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -210,32 +242,24 @@ export async function eventTypeRoutes(app: FastifyInstance) {
     const householdId = requireHouseholdId(request, reply);
     if (!householdId) return;
 
-    const [systemTypes, householdTypes] = await Promise.all([
+    const [systemTypes, aliasMap] = await Promise.all([
       prisma.eventType.findMany({
         where: { householdId: null, archivedAt: null },
         orderBy: { sortOrder: "asc" },
-        select: { id: true, key: true, label: true, aliases: true, defaultUnit: true, species: true },
+        select: { key: true, label: true, aliases: true, defaultUnit: true, species: true },
       }),
-      prisma.eventType.findMany({
-        where: { ...householdWhere(householdId), archivedAt: null },
-        select: { id: true, key: true, label: true, aliases: true, defaultUnit: true, species: true },
-      }),
+      aliasesByEventTypeKey(householdId),
     ]);
 
-    const overrideByKey = new Map(householdTypes.map((row) => [row.key, row]));
-    return systemTypes.map((sys) => {
-      const override = overrideByKey.get(sys.key);
-      return {
-        key: sys.key,
-        label: sys.label,
-        defaultUnit: sys.defaultUnit,
-        species: sys.species,
-        systemAliases: sys.aliases,
-        aliases: override?.aliases ?? sys.aliases,
-        hasHouseholdOverride: Boolean(override),
-        householdEventTypeId: override?.id ?? null,
-      };
-    });
+    return systemTypes.map((sys) => ({
+      key: sys.key,
+      label: sys.label,
+      defaultUnit: sys.defaultUnit,
+      species: sys.species,
+      systemAliases: sys.aliases,
+      aliases: aliasMap.has(sys.key) ? aliasMap.get(sys.key)! : sys.aliases,
+      hasCustomAliases: aliasMap.has(sys.key),
+    }));
   });
 
   app.patch("/:key/aliases", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -248,44 +272,16 @@ export async function eventTypeRoutes(app: FastifyInstance) {
 
     const system = await prisma.eventType.findFirst({
       where: { key, householdId: null, archivedAt: null },
+      select: { key: true },
     });
     if (!system) return reply.code(404).send({ error: t("eventTypeNotFound", request.locale) });
 
-    const existing = await prisma.eventType.findFirst({
-      where: { key, ...householdWhere(householdId), archivedAt: null },
+    const row = await prisma.eventTypeAlias.upsert({
+      where: { householdId_eventTypeKey: { householdId, eventTypeKey: key } },
+      create: { householdId, eventTypeKey: key, aliases: parsed.data.aliases },
+      update: { aliases: parsed.data.aliases },
+      select: { eventTypeKey: true, aliases: true },
     });
-
-    if (existing) {
-      const updated = await prisma.eventType.updateMany({
-        where: { id: existing.id, ...householdWhere(householdId) },
-        data: { aliases: parsed.data.aliases },
-      });
-      if (updated.count === 0) {
-        return reply.code(404).send({ error: t("eventTypeNotFound", request.locale) });
-      }
-      const row = await prisma.eventType.findFirst({
-        where: { id: existing.id, ...householdWhere(householdId) },
-        select: { key: true, aliases: true },
-      });
-      return { key: row!.key, aliases: row!.aliases };
-    }
-
-    const created = await prisma.eventType.create({
-      data: {
-        householdId,
-        key: system.key,
-        label: system.label,
-        icon: system.icon,
-        color: system.color,
-        category: system.category,
-        defaultUnit: system.defaultUnit,
-        species: system.species,
-        scaleType: system.scaleType,
-        sortOrder: system.sortOrder,
-        aliases: parsed.data.aliases,
-      },
-      select: { key: true, aliases: true },
-    });
-    return created;
+    return { key: row.eventTypeKey, aliases: row.aliases };
   });
 }

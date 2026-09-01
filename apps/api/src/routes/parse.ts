@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 import { parseEntryText } from "../lib/parseEntry.js";
+import { aliasesByEventTypeKey } from "../lib/eventTypeAliases.js";
 
 export async function parseRoutes(app: FastifyInstance) {
   app.post("/entry", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -48,17 +49,15 @@ export async function parseRoutes(app: FastifyInstance) {
       orderBy: { sortOrder: "asc" },
     });
 
-    const householdAliases = await prisma.eventType.findMany({
-      where: { ...householdWhere(householdId), archivedAt: null },
-      select: { key: true, aliases: true },
-    });
-    const aliasesByKey = new Map(householdAliases.map((row) => [row.key, row.aliases]));
+    const aliasByKey = await aliasesByEventTypeKey(householdId);
 
     const targets = presets.map((p) => ({
       eventTypeId: p.eventType.id,
       eventTypeKey: p.eventType.key,
       label: p.label,
-      aliases: aliasesByKey.get(p.eventType.key) ?? p.eventType.aliases,
+      aliases: aliasByKey.has(p.eventType.key)
+        ? aliasByKey.get(p.eventType.key)!
+        : p.eventType.aliases,
       presetId: p.id,
       defaultUnit: p.eventType.defaultUnit,
       sortOrder: p.sortOrder,

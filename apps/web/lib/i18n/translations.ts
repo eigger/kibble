@@ -113,6 +113,7 @@ const dict = {
   chipActionDetail: { ko: "시간·양 입력", en: "Time & amounts" },
   chipActionHide: { ko: "칩 숨기기", en: "Hide chip" },
   presetHiddenToast: { ko: "칩을 숨겼습니다. 설정에서 다시 켤 수 있습니다.", en: "Chip hidden. Restore it in settings." },
+  presetUnhiddenToast: { ko: "칩을 다시 표시했습니다.", en: "Chip restored." },
   presetsTitle: { ko: "기록 칩 관리", en: "Manage record chips" },
   presetsIntro: {
     ko: "칩 이름·순서를 바꾸고, 숨긴 칩을 다시 켤 수 있습니다. 별칭은 자유 입력 파싱에 쓰입니다.",

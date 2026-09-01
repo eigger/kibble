@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dedupeAliases } from "../aliasUtils.js";
 
 const decimalOptional = z.coerce.number().finite().optional().nullable();
 const labelField = z.string().trim().min(1).max(100);
@@ -26,7 +27,10 @@ export const updatePresetSchema = z
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });
 
 export const updateEventTypeAliasesSchema = z.object({
-  aliases: z.array(z.string().trim().min(1).max(50)).max(30),
+  aliases: z
+    .array(z.string().trim().min(1).max(50))
+    .max(30)
+    .transform(dedupeAliases),
 });
 
 export type CreatePresetInput = z.infer<typeof createPresetSchema>;

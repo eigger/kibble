@@ -9,3 +9,4 @@ export * from "./i18n/index.js";
 export * from "./kstClock.js";
 export * from "./journalInsight.js";
 export * from "./quickTime.js";
+export * from "./aliasUtils.js";

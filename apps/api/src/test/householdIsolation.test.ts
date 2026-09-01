@@ -15,6 +15,7 @@ const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   pet: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
   preset: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+  eventTypeAlias: { findMany: vi.fn(), upsert: vi.fn() },
   event: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -22,7 +23,7 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     groupBy: vi.fn(),
   },
-  eventType: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
+  eventType: { findFirst: vi.fn(), findMany: vi.fn() },
   apiToken: { findFirst: vi.fn(), update: vi.fn() },
 }));
 
@@ -222,6 +223,44 @@ describe("household isolation (K-3)", () => {
     expect(mockPrisma.preset.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: PRESET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("DELETE /api/presets/:id returns 404 for another household's preset", async () => {
+    mockPrisma.preset.updateMany.mockResolvedValue({ count: 0 });
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/presets/${PRESET_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.preset.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PRESET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("PATCH /api/event-types/:key/aliases scopes upsert to household", async () => {
+    mockPrisma.eventType.findFirst.mockResolvedValue({ key: "meal" });
+    mockPrisma.eventTypeAlias.upsert.mockResolvedValue({ eventTypeKey: "meal", aliases: ["밥"] });
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/event-types/meal/aliases",
+      headers: authHeaders(token),
+      payload: { aliases: ["밥"] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.eventTypeAlias.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { householdId_eventTypeKey: { householdId: HH_A, eventTypeKey: "meal" } },
       }),
     );
   });

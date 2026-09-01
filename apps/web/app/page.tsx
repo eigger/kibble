@@ -369,7 +369,26 @@ export default function HomePage() {
       });
       setPresets((prev) => prev.filter((p) => p.id !== preset.id));
       setChipAction(null);
-      show(t("presetHiddenToast"), "success");
+      show(t("presetHiddenToast"), "success", {
+        label: t("undo"),
+        onClick: () => {
+          void (async () => {
+            try {
+              await apiJson(`/api/presets/${preset.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ hidden: false }),
+              });
+              if (activePet) {
+                const seq = await loadHome(activePet.id);
+                if (seq !== loadSeq.current) return;
+              }
+              show(t("presetUnhiddenToast"), "info");
+            } catch {
+              show(t("recordError"), "error");
+            }
+          })();
+        },
+      });
     } catch {
       show(t("recordError"), "error");
     }

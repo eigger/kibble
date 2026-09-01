@@ -53,7 +53,7 @@ export interface EventTypeAliasesRow {
   label: string;
   aliases: string[];
   systemAliases: string[];
-  hasHouseholdOverride: boolean;
+  hasCustomAliases: boolean;
 }
 
 export interface CreatedEvent {
