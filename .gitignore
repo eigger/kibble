@@ -26,3 +26,7 @@ Thumbs.db
 npm-debug.log*
 .vscode/
 .idea/
+
+# agent/MCP 인증 실패 시 잘못 생성되는 npm 캐시 디렉터리 (git status 오염 방지)
+{"error":"unauthorized"}/
+**/{"error":"unauthorized"}/
