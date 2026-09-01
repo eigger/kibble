@@ -20,6 +20,13 @@ import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
 import { EventDetailSheet, type EventDetailDraft } from "../components/EventDetailSheet";
 import { ChipActionSheet } from "../components/ChipActionSheet";
 import { PresetChip, MorePresetItem } from "../components/PresetChip";
+import { PendingAttachments } from "../components/PendingAttachments";
+import { EventAttachmentThumb } from "../components/EventAttachmentThumb";
+import {
+  deleteEventAttachment,
+  uploadEventAttachments,
+} from "../lib/eventAttachments";
+import type { EventAttachment } from "../lib/types";
 
 interface HomePayload {
   pets: Pet[];
@@ -84,6 +91,7 @@ function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
     note: event.note,
     preset: event.preset,
     eventType: event.eventType,
+    attachments: event.attachments,
   };
 }
 
@@ -128,6 +136,8 @@ export default function HomePage() {
   const [detailSaving, setDetailSaving] = useState(false);
   const [reviewEventIds, setReviewEventIds] = useState<Map<string, string>>(new Map());
   const [chipAction, setChipAction] = useState<{ preset: Preset; label: string } | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const loadSeq = useRef(0);
   const recentEventsRef = useRef<TimelineEvent[]>([]);
 
@@ -232,6 +242,45 @@ export default function HomePage() {
 
   const [recording, setRecording] = useState(false);
   const inFlightDedupeKey = useRef<string | null>(null);
+  const pendingFilesRef = useRef<File[]>([]);
+
+  useEffect(() => {
+    pendingFilesRef.current = pendingFiles;
+  }, [pendingFiles]);
+
+  async function attachPendingFilesToEvent(
+    eventId: string,
+    files: File[],
+  ): Promise<EventAttachment[] | null> {
+    if (files.length === 0) return [];
+    try {
+      return await uploadEventAttachments(eventId, files);
+    } catch {
+      show(t("attachmentUploadError"), "error");
+      return null;
+    }
+  }
+
+  function mergeEventAttachments(eventId: string, uploaded: EventAttachment[]) {
+    if (uploaded.length === 0) return;
+    setRecentEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId
+          ? { ...e, attachments: [...(e.attachments ?? []), ...uploaded] }
+          : e,
+      ),
+    );
+    setDetailAttachments((prev) => [...prev, ...uploaded]);
+  }
+
+  async function consumePendingFiles(eventId: string): Promise<void> {
+    const files = pendingFilesRef.current;
+    if (files.length === 0) return;
+    const uploaded = await attachPendingFilesToEvent(eventId, files);
+    if (uploaded === null) return;
+    setPendingFiles([]);
+    mergeEventAttachments(eventId, uploaded);
+  }
 
   function applyCreatedEvent(event: CreatedEvent) {
     const timelineEntry = createdEventToTimeline(event);
@@ -289,16 +338,25 @@ export default function HomePage() {
     return `${entryId}:${suggestion.lineIndex}`;
   }
 
-  async function persistParseBatch(batch: ParseEntryResponse): Promise<ParseSuggestion[]> {
+  async function persistParseBatch(batch: ParseEntryResponse): Promise<{
+    failed: ParseSuggestion[];
+    created: CreatedEvent[];
+  }> {
     const failed: ParseSuggestion[] = [];
+    const created: CreatedEvent[] = [];
     for (const suggestion of batch.suggestions) {
       try {
-        await persistSuggestion(suggestion, batch.entryId, suggestionKey(batch.entryId, suggestion));
+        const event = await persistSuggestion(
+          suggestion,
+          batch.entryId,
+          suggestionKey(batch.entryId, suggestion),
+        );
+        created.push(event);
       } catch {
         failed.push(suggestion);
       }
     }
-    return failed;
+    return { failed, created };
   }
 
   async function handleTextSubmit(e: FormEvent) {
@@ -312,9 +370,10 @@ export default function HomePage() {
         body: JSON.stringify({ petId: activePet.id, text }),
       });
       setTextInput("");
-      const failed = await persistParseBatch(parsed);
-      const savedCount = parsed.suggestions.length - failed.length;
-      if (savedCount > 0) {
+      const { failed, created } = await persistParseBatch(parsed);
+      const savedCount = created.length;
+      if (savedCount > 0 && created[0]) {
+        await consumePendingFiles(created[0].id);
         show(t("recordSavedCount", { count: String(savedCount) }), "success");
       }
       const failedIndexes = new Set(failed.map((s) => s.lineIndex));
@@ -342,10 +401,10 @@ export default function HomePage() {
     setRecording(true);
     const batch = parseBatch;
     try {
-      const failed = await persistParseBatch(batch);
-      const savedCount = batch.suggestions.length - failed.length;
-      if (savedCount > 0) {
-        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+      const { failed, created } = await persistParseBatch(batch);
+      if (created.length > 0) {
+        await consumePendingFiles(created[0].id);
+        show(t("recordSavedCount", { count: String(created.length) }), "success");
       }
       setParseBatch(failed.length > 0 ? { ...batch, suggestions: failed } : null);
       setParseBatchRetryable(failed.length > 0);
@@ -396,6 +455,7 @@ export default function HomePage() {
 
   function openDetailFromPreset(preset: Preset) {
     if (!activePet) return;
+    setDetailAttachments([]);
     setDetailDraft({
       mode: "create",
       petId: activePet.id,
@@ -414,6 +474,7 @@ export default function HomePage() {
 
   function openDetailFromSuggestion(suggestion: ParseSuggestion, entryId: string) {
     if (!activePet) return;
+    setDetailAttachments([]);
     const key = suggestionKey(entryId, suggestion);
     const eventId = reviewEventIds.get(key);
     setDetailDraft({
@@ -438,6 +499,7 @@ export default function HomePage() {
 
   function openDetailFromEvent(event: TimelineEvent) {
     if (!activePet) return;
+    setDetailAttachments(event.attachments ?? []);
     setDetailDraft({
       mode: "edit",
       eventId: event.id,
@@ -464,6 +526,7 @@ export default function HomePage() {
 
   async function handleDetailSave(draft: EventDetailDraft) {
     setDetailSaving(true);
+    const filesToUpload = [...pendingFiles];
     try {
       if (draft.mode === "edit" && draft.eventId) {
         await apiJson(`/api/events/${draft.eventId}`, {
@@ -477,6 +540,13 @@ export default function HomePage() {
             needsReview: false,
           }),
         });
+        if (filesToUpload.length > 0) {
+          const uploaded = await attachPendingFilesToEvent(draft.eventId, filesToUpload);
+          if (uploaded) {
+            setPendingFiles([]);
+            mergeEventAttachments(draft.eventId, uploaded);
+          }
+        }
         if (activePet) await loadHome(activePet.id);
         removeParseSuggestionByKey(draft.dedupeKey);
         show(t("eventDetailSaved"), "success");
@@ -502,16 +572,41 @@ export default function HomePage() {
           method: "POST",
           body: JSON.stringify(body),
         });
+        if (filesToUpload.length > 0) {
+          const uploaded = await attachPendingFilesToEvent(event.id, filesToUpload);
+          if (uploaded) {
+            setPendingFiles([]);
+            event.attachments = [...(event.attachments ?? []), ...uploaded];
+          }
+        }
         applyCreatedEvent(event);
         removeParseSuggestionByKey(draft.dedupeKey);
         show(t("recordSaved", { label: draft.label }), "success");
       }
       setDetailOpen(false);
       setDetailDraft(null);
+      setDetailAttachments([]);
     } catch {
       show(t("recordError"), "error");
     } finally {
       setDetailSaving(false);
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!detailDraft?.eventId) return;
+    try {
+      await deleteEventAttachment(attachmentId);
+      setDetailAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      setRecentEvents((prev) =>
+        prev.map((e) =>
+          e.id === detailDraft.eventId
+            ? { ...e, attachments: (e.attachments ?? []).filter((a) => a.id !== attachmentId) }
+            : e,
+        ),
+      );
+    } catch {
+      show(t("attachmentUploadError"), "error");
     }
   }
 
@@ -649,6 +744,21 @@ export default function HomePage() {
                           <div className="timeline-body">
                             <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
                             {detail && <span className="timeline-detail">{detail}</span>}
+                            {(event.attachments?.length ?? 0) > 0 && (
+                              <div className="timeline-attachments">
+                                <EventAttachmentThumb
+                                  path={event.attachments![0].path}
+                                  mime={event.attachments![0].mime}
+                                  alt=""
+                                  className="attachment-thumb attachment-thumb-inline"
+                                />
+                                {event.attachments!.length > 1 && (
+                                  <span className="timeline-attachment-count">
+                                    +{event.attachments!.length - 1}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </button>
                       </li>
@@ -737,6 +847,12 @@ export default function HomePage() {
               )}
             </section>
           )}
+          <PendingAttachments
+            files={pendingFiles}
+            disabled={recording || !activePet}
+            onChange={setPendingFiles}
+            t={t}
+          />
           <form className="home-text-form" onSubmit={(e) => void handleTextSubmit(e)}>
             <input
               type="text"
@@ -798,10 +914,19 @@ export default function HomePage() {
         open={detailOpen}
         draft={detailDraft}
         saving={detailSaving}
+        attachments={detailAttachments}
+        pendingFiles={pendingFiles}
+        onPendingFilesChange={setPendingFiles}
+        onDeleteAttachment={
+          detailDraft?.mode === "edit" && detailDraft.eventId
+            ? (id) => void handleDeleteAttachment(id)
+            : undefined
+        }
         onClose={() => {
           if (detailSaving) return;
           setDetailOpen(false);
           setDetailDraft(null);
+          setDetailAttachments([]);
         }}
         onSave={(draft) => void handleDetailSave(draft)}
         onValidationError={(message) => show(message, "error")}

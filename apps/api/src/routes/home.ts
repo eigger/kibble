@@ -15,6 +15,10 @@ const recentEventSelect = {
   note: true,
   preset: { select: { id: true, label: true } },
   eventType: { select: { key: true, label: true, icon: true } },
+  attachments: {
+    select: { id: true, path: true, mime: true, size: true, width: true, height: true },
+    orderBy: { createdAt: "asc" as const },
+  },
 } as const;
 
 /** 홈 화면용 — 반려동물·프리셋·오늘 요약·최근 이벤트를 한 번에 반환한다. */

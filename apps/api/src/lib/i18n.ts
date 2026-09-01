@@ -28,6 +28,11 @@ const MESSAGES = {
   fileNotFound: { ko: "파일을 찾을 수 없습니다", en: "File not found" },
   fileMissingOnDisk: { ko: "디스크에서 파일을 찾을 수 없습니다", en: "File missing on disk" },
   attachmentNotFound: { ko: "첨부파일을 찾을 수 없습니다", en: "Attachment not found" },
+  eventIdRequired: { ko: "eventId가 필요합니다", en: "eventId is required" },
+  attachmentLimitReached: {
+    ko: "첨부는 이벤트당 최대 9개까지입니다",
+    en: "Up to 9 attachments per event",
+  },
 
   barcodeNotFound: { ko: "바코드를 찾을 수 없습니다", en: "Barcode not found" },
   barcodeAlreadyRegistered: {
