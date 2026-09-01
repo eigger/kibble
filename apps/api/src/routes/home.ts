@@ -15,7 +15,7 @@ const recentEventSelect = {
   scaleValue: true,
   note: true,
   preset: { select: { id: true, label: true } },
-  eventType: { select: { key: true, label: true, icon: true } },
+  eventType: { select: { key: true, label: true, icon: true, scaleType: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },
@@ -71,7 +71,14 @@ export async function homeRoutes(app: FastifyInstance) {
           hiddenAt: null,
         },
         orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
-        select: { id: true, petId: true, label: true, isStarter: true, sortOrder: true },
+        select: {
+          id: true,
+          petId: true,
+          label: true,
+          isStarter: true,
+          sortOrder: true,
+          eventType: { select: { scaleType: true } },
+        },
       }),
       todaySummaryForPet(prisma, householdId, activePet.id),
       prisma.event.findMany({

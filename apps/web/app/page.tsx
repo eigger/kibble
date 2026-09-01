@@ -107,6 +107,10 @@ function eventDetailLine(event: TimelineEvent): string | null {
     parts.push(event.unit ? `${event.quantity}${unit}` : String(event.quantity));
   }
 
+  if (event.scaleValue != null && event.eventType.scaleType === "FECAL_7") {
+    parts.push(`${event.scaleValue}/7`);
+  }
+
   if (event.note?.trim()) parts.push(event.note.trim());
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -118,10 +122,13 @@ function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
     quantity: event.quantity,
     quantityOffered: event.quantityOffered,
     unit: event.unit,
-    scaleValue: null,
+    scaleValue: event.scaleValue ?? null,
     note: event.note,
     preset: event.preset,
-    eventType: event.eventType,
+    eventType: {
+      ...event.eventType,
+      scaleType: event.eventType.scaleType ?? null,
+    },
     attachments: event.attachments,
   };
 }
@@ -639,6 +646,8 @@ export default function HomePage() {
       quantityOffered: null,
       unit: null,
       note: null,
+      scaleType: preset.eventType?.scaleType ?? null,
+      scaleValue: null,
       dedupeKey: newDedupeKey(activePet.id, preset.id),
     });
     setDetailOpen(true);
@@ -684,6 +693,8 @@ export default function HomePage() {
       quantityOffered: event.quantityOffered,
       unit: event.unit,
       note: event.note,
+      scaleType: event.eventType.scaleType ?? null,
+      scaleValue: event.scaleValue,
     });
     setDetailOpen(true);
   }
@@ -710,6 +721,7 @@ export default function HomePage() {
             quantityOffered: draft.quantityOffered,
             unit: draft.unit,
             note: draft.note,
+            scaleValue: draft.scaleValue ?? null,
             needsReview: false,
           }),
         });
@@ -736,6 +748,7 @@ export default function HomePage() {
           quantityOffered: draft.quantityOffered,
           unit: draft.unit,
           note: draft.note,
+          scaleValue: draft.scaleValue ?? undefined,
           needsReview: false,
           dedupeKey:
             draft.dedupeKey ?? newDedupeKey(draft.petId, draft.presetId ?? "detail"),

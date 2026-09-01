@@ -24,6 +24,8 @@ export interface EventDetailDraft {
   quantityOffered: number | null;
   unit: string | null;
   note: string | null;
+  scaleType?: string | null;
+  scaleValue?: number | null;
   rawText?: string;
   entryId?: string;
   dedupeKey?: string;
@@ -47,6 +49,7 @@ interface EventDetailSheetProps {
 }
 
 const QUICK_TIME_KEYS: QuickTimeKey[] = ["now", "oneHourAgo", "yesterdayEvening"];
+const FECAL_SCORES = [1, 2, 3, 4, 5, 6, 7] as const;
 
 export function EventDetailSheet({
   open,
@@ -68,6 +71,7 @@ export function EventDetailSheet({
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
+  const [scaleValue, setScaleValue] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const busy = saving || deleting;
 
@@ -78,6 +82,7 @@ export function EventDetailSheet({
     setQuantity(draft.quantity != null ? String(draft.quantity) : "");
     setUnit(draft.unit ?? "");
     setNote(draft.note ?? "");
+    setScaleValue(draft.scaleValue ?? null);
   }, [draft]);
 
   useEffect(() => {
@@ -124,6 +129,7 @@ export function EventDetailSheet({
       quantity: consumed.value,
       unit: unit.trim() || null,
       note: note.trim() || null,
+      scaleValue: draft.scaleType === "FECAL_7" ? scaleValue : null,
       needsReview: false,
     });
   }
@@ -227,6 +233,27 @@ export function EventDetailSheet({
             disabled={busy}
             onChange={(e) => setNote(e.target.value)}
           />
+
+          {draft.scaleType === "FECAL_7" && (
+            <fieldset className="event-detail-fieldset">
+              <legend className="field-label">{t("eventDetailFecalScore")}</legend>
+              <p className="meta event-detail-scale-hint">{t("eventDetailFecalScoreHint")}</p>
+              <div className="chip-row event-detail-scale-row" role="group" aria-label={t("eventDetailFecalScore")}>
+                {FECAL_SCORES.map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    className={`chip chip-compact${scaleValue === score ? " chip-selected" : ""}`}
+                    disabled={busy}
+                    aria-pressed={scaleValue === score}
+                    onClick={() => setScaleValue((prev) => (prev === score ? null : score))}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           {(attachments.length > 0 || onPendingFilesChange) && (
             <fieldset className="event-detail-fieldset">

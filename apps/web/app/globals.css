@@ -1211,6 +1211,51 @@ button:disabled {
   margin-top: 8px;
 }
 
+.quick-record-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  justify-content: center;
+  padding: 24px 0 32px;
+}
+
+.quick-record-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.quick-record-header h1 {
+  margin: 0 0 4px;
+}
+
+.quick-record-pet {
+  margin: 0;
+}
+
+.quick-record-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.quick-record-chips .chip-row {
+  justify-content: center;
+}
+
+.quick-record-footer {
+  text-align: center;
+  margin-top: 32px;
+}
+
+.event-detail-scale-hint {
+  margin: 0 0 8px;
+}
+
+.event-detail-scale-row {
+  flex-wrap: wrap;
+}
+
 /* 세로가 짧은 폰에서 4:3 프레임이 화면을 거의 다 먹으면 결과 배너와 수동 입력이 접힌 화면
    밖으로 밀린다 — 뷰포트 높이에 상한을 걸면 비율을 유지한 채 폭이 줄어 함께 보인다. */
 .scanner-frame {

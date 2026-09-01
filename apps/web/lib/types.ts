@@ -37,15 +37,16 @@ export interface Preset {
   label: string;
   isStarter: boolean;
   sortOrder: number;
+  eventType?: { scaleType: string | null };
 }
 
-export interface PresetDetail extends Preset {
+export interface PresetDetail extends Omit<Preset, "eventType"> {
   eventTypeId: string;
   quantity: number | null;
   unit: string | null;
   note: string | null;
   hiddenAt: string | null;
-  eventType: { key: string; label: string };
+  eventType: { key: string; label: string; scaleType?: string | null };
 }
 
 export interface EventTypeAliasesRow {
@@ -73,9 +74,10 @@ export interface CreatedEvent {
   quantity: number | null;
   quantityOffered: number | null;
   unit: string | null;
+  scaleValue?: number | null;
   note: string | null;
   preset: { id: string; label: string } | null;
-  eventType: { key: string; label: string; icon: string | null };
+  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null };
   attachments?: EventAttachment[];
 }
 
@@ -96,7 +98,7 @@ export interface TimelineEvent {
   scaleValue: number | null;
   note: string | null;
   preset: { id: string; label: string } | null;
-  eventType: { key: string; label: string; icon: string | null };
+  eventType: { key: string; label: string; icon: string | null; scaleType?: string | null };
   attachments?: EventAttachment[];
 }
 
