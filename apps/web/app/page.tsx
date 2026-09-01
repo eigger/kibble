@@ -14,9 +14,9 @@ import type {
   TimelineEvent,
   ParseSuggestion,
   ParseEntryResponse,
-  JournalStats,
 } from "../lib/types";
-import { kstDayKey } from "../lib/kstDay";
+import type { JournalStats } from "@kibble/shared";
+import { bumpJournalStats, journalInsightMessage } from "@kibble/shared";
 
 interface HomePayload {
   pets: Pet[];
@@ -31,29 +31,6 @@ const TIMELINE_EXAMPLES = [
   { label: "eventType.meal", time: "08:00", detail: "40g" },
   { label: "eventType.water", time: "14:00", detail: null },
 ] as const;
-
-function journalInsightMessage(
-  stats: JournalStats,
-  t: (key: string, vars?: Record<string, string>) => string,
-): string | null {
-  if (stats.totalEventCount === 0) return null;
-  if (stats.distinctDayCount >= 3) return t("homeJournalInsightTrends");
-  if (stats.totalEventCount === 1) return t("homeJournalInsightFirst");
-  return t("homeJournalInsightProgress", { days: String(stats.distinctDayCount) });
-}
-
-function bumpJournalStats(
-  prev: JournalStats,
-  occurredAt: string,
-  priorOccurrences: string[],
-): JournalStats {
-  const days = new Set(priorOccurrences.map((iso) => kstDayKey(new Date(iso))));
-  days.add(kstDayKey(new Date(occurredAt)));
-  return {
-    totalEventCount: prev.totalEventCount + 1,
-    distinctDayCount: days.size,
-  };
-}
 
 function newDedupeKey(petId: string, presetId: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -143,6 +120,11 @@ export default function HomePage() {
   const [parseBatch, setParseBatch] = useState<ParseEntryResponse | null>(null);
   const [parseBatchRetryable, setParseBatchRetryable] = useState(false);
   const loadSeq = useRef(0);
+  const recentEventsRef = useRef<TimelineEvent[]>([]);
+
+  useEffect(() => {
+    recentEventsRef.current = recentEvents;
+  }, [recentEvents]);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -243,16 +225,10 @@ export default function HomePage() {
   const inFlightDedupeKey = useRef<string | null>(null);
 
   function applyCreatedEvent(event: CreatedEvent) {
-    setRecentEvents((prev) => {
-      setJournalStats((stats) =>
-        bumpJournalStats(
-          stats,
-          event.occurredAt,
-          prev.map((row) => row.occurredAt),
-        ),
-      );
-      return [createdEventToTimeline(event), ...prev];
-    });
+    const timelineEntry = createdEventToTimeline(event);
+    const latestOccurredAt = recentEventsRef.current[0]?.occurredAt ?? null;
+    setJournalStats((stats) => bumpJournalStats(stats, event.occurredAt, latestOccurredAt));
+    setRecentEvents((prev) => [timelineEntry, ...prev]);
     setTodaySummary((prev) =>
       bumpSummary(prev, event.eventType.key, event.eventType.label),
     );
