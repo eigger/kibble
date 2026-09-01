@@ -6,7 +6,7 @@ import { ApiError, apiJson } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
-import type { Pet, Preset } from "../lib/types";
+import type { Pet, Preset, CreatedEvent } from "../lib/types";
 
 interface HomePayload {
   activePet: Pet | null;
@@ -72,8 +72,41 @@ export default function HomePage() {
   const starterPresets = useMemo(() => presets.filter((p) => p.isStarter), [presets]);
   const morePresets = useMemo(() => presets.filter((p) => !p.isStarter), [presets]);
 
+  const [recordingPresetId, setRecordingPresetId] = useState<string | null>(null);
+
   function onPresetTap(preset: Preset) {
-    show(t("recordComingSoon", { label: t(preset.label) }));
+    if (!activePet || recordingPresetId) return;
+    setRecordingPresetId(preset.id);
+    const label = t(preset.label);
+    (async () => {
+      try {
+        const event = await apiJson<CreatedEvent>("/api/events", {
+          method: "POST",
+          body: JSON.stringify({
+            petId: activePet.id,
+            presetId: preset.id,
+            source: "WEB",
+          }),
+        });
+        show(t("recordSaved", { label }), "success", {
+          label: t("undo"),
+          onClick: () => {
+            void (async () => {
+              try {
+                await apiJson(`/api/events/${event.id}`, { method: "DELETE" });
+                show(t("recordUndone"), "info");
+              } catch {
+                show(t("recordError"), "error");
+              }
+            })();
+          },
+        });
+      } catch {
+        show(t("recordError"), "error");
+      } finally {
+        setRecordingPresetId(null);
+      }
+    })();
   }
 
   if (loading || !user || needsPet) {
@@ -102,6 +135,7 @@ export default function HomePage() {
                     key={preset.id}
                     type="button"
                     className="chip"
+                    disabled={recordingPresetId === preset.id}
                     onClick={() => onPresetTap(preset)}
                   >
                     {t(preset.label)}
@@ -137,6 +171,7 @@ export default function HomePage() {
                   key={preset.id}
                   type="button"
                   className="sheet-item"
+                  disabled={recordingPresetId === preset.id}
                   onClick={() => {
                     setMoreOpen(false);
                     onPresetTap(preset);

@@ -10,16 +10,17 @@ import { settingsRoutes } from "./routes/settings.js";
 import { backupRoutes } from "./routes/backup.js";
 import { startTrashPurgeJob } from "./jobs/trashPurge.js";
 import { localeFromRequest } from "./lib/i18n.js";
-import { getCachedTokenVersion } from "./lib/tokenVersion.js";
-import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
 import { resolveJwtSecret } from "./lib/jwtSecret.js";
-import { getCachedHouseholdMembership } from "./lib/householdScope.js";
+import { isMediaAuthDisabled } from "./lib/mediaAuth.js";
 import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
 import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 import { presetRoutes } from "./routes/presets.js";
 import { homeRoutes } from "./routes/home.js";
+import { eventRoutes, registerSessionGuard } from "./routes/events.js";
+import { apiTokenRoutes } from "./routes/apiTokens.js";
+import { runAuthenticate } from "./lib/authenticate.js";
 
 const jwtSecret = resolveJwtSecret();
 
@@ -58,39 +59,17 @@ await app.register(rateLimit, { global: false });
 app.decorateRequest("locale", "ko");
 app.decorateRequest("householdId", null);
 app.decorateRequest("householdRole", null);
+app.decorateRequest("authMethod", "jwt");
+app.decorateRequest("apiTokenContext", null);
 app.addHook("onRequest", async (request) => {
   request.locale = localeFromRequest(request);
 });
 
 app.decorate("authenticate", async (request, reply) => {
-  try {
-    await request.jwtVerify();
-  } catch {
-    reply.code(401).send({ error: "unauthorized" });
-    return;
-  }
-
-  if (request.user.purpose === "media" || request.user.purpose === "backup") {
-    reply.code(401).send({ error: "unauthorized" });
-    return;
-  }
-
-  const userId = request.user.sub;
-  if (typeof request.user.tv !== "number") {
-    reply.code(401).send({ error: "unauthorized" });
-    return;
-  }
-  const tokenTv = request.user.tv;
-  const dbTv = await getCachedTokenVersion(userId);
-  if (dbTv === null || dbTv !== tokenTv) {
-    reply.code(401).send({ error: "unauthorized" });
-    return;
-  }
-
-  const membership = await getCachedHouseholdMembership(userId);
-  request.householdId = membership?.householdId ?? null;
-  request.householdRole = membership?.role ?? null;
+  await runAuthenticate(app, request, reply);
 });
+
+registerSessionGuard(app);
 
 app.decorate("requireAdmin", async (request, reply) => {
   const user = await prisma.user.findUnique({
@@ -115,6 +94,8 @@ await app.register(onboardingRoutes, { prefix: "/api/onboarding" });
 await app.register(householdRoutes, { prefix: "/api/household" });
 await app.register(presetRoutes, { prefix: "/api/presets" });
 await app.register(homeRoutes, { prefix: "/api/home" });
+await app.register(eventRoutes, { prefix: "/api/events" });
+await app.register(apiTokenRoutes, { prefix: "/api/tokens" });
 await app.register(attachmentRoutes, { prefix: "/api/attachments" });
 await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });
 await app.register(settingsRoutes, { prefix: "/api/settings" });

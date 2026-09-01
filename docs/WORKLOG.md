@@ -221,5 +221,18 @@
 
 **미완 / 다음**
 
-- P1-07 UI: 반려동물 등록 화면·홈 프리셋 칩 (P1-27a)
-- P1-11 펫 CRUD 확장·P1-06a ApiToken
+- P1-08 가구 초대·역할 UI / P1-09 가구 격리 테스트
+- P1-18 `docs/api.md`, P1-20 타임라인, P1-22 파싱·채팅 입력
+- Phase 0 사람 항목 병행
+
+### 2026-09-01 — P1-06a·12·13·21 이벤트 기록 + ApiToken
+
+**한 일**
+
+- `createEvent()` 단일 서비스 (K-4), dedupeKey 멱등
+- `POST/GET/PATCH/DELETE /api/events`, `POST /:id/restore`
+- ApiToken: `kbl_*` Bearer, `POST/GET/DELETE /api/tokens`, `event:create` 스코프만 이벤트 생성 허용
+- 홈 퀵 칩 1탭 → 기록 + 실행취소 토스트 (P1-21)
+- shared zod 스키마 (`event`, `apiToken`)
+
+**다음**: P1-09 격리 테스트, P1-18 api.md, P1-20 타임라인 UI

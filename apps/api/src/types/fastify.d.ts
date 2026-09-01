@@ -1,16 +1,20 @@
 import "fastify";
 import type { Role } from "@prisma/client";
+import type { ApiTokenAuthContext, AuthMethod } from "../lib/authenticate.js";
 
 declare module "fastify" {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireSession: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
   interface FastifyRequest {
     locale: "ko" | "en";
-    /** K-2: authenticate가 사용자 멤버십에서 결정한다. */
+    /** K-2: authenticate가 사용자 멤버십 또는 ApiToken에서 결정한다. */
     householdId: string | null;
     householdRole: Role | null;
+    authMethod: AuthMethod;
+    apiTokenContext: ApiTokenAuthContext | null;
   }
 }
 

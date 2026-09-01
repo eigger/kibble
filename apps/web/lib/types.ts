@@ -24,3 +24,10 @@ export interface Preset {
   isStarter: boolean;
   sortOrder: number;
 }
+
+export interface CreatedEvent {
+  id: string;
+  petId: string;
+  presetId: string | null;
+  occurredAt: string;
+}
