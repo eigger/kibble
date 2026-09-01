@@ -45,6 +45,11 @@ export interface TodaySummaryRow {
   count: number;
 }
 
+export interface JournalStats {
+  totalEventCount: number;
+  distinctDayCount: number;
+}
+
 export interface TimelineEvent {
   id: string;
   occurredAt: string;

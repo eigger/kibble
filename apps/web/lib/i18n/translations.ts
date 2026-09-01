@@ -76,8 +76,21 @@ const dict = {
   },
   homeToday: { ko: "오늘", en: "Today" },
   homeTimelineEmpty: {
-    ko: "아직 기록이 없습니다. 아래 칩을 눌러 시작하세요.",
-    en: "No entries yet. Tap a chip below to start.",
+    ko: "아래 칩이나 입력으로 첫 기록을 남겨 보세요.",
+    en: "Tap a chip below or type to log your first entry.",
+  },
+  homeExampleLabel: { ko: "예시", en: "Example" },
+  homeJournalInsightFirst: {
+    ko: "기록 1건. 3일 모이면 패턴이 보여요.",
+    en: "One entry logged. Patterns emerge after 3 days.",
+  },
+  homeJournalInsightProgress: {
+    ko: "{days}일째 기록 중. 3일 모이면 패턴이 보여요.",
+    en: "Day {days} of logging. Patterns emerge after 3 days.",
+  },
+  homeJournalInsightTrends: {
+    ko: "3일치가 모였어요. 이제 추세를 볼 수 있어요.",
+    en: "Three days logged. You can start spotting trends.",
   },
   homeInputPlaceholder: {
     ko: "기록 입력…",

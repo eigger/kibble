@@ -133,8 +133,40 @@ a {
 }
 
 .timeline-empty {
-  margin-top: 24px;
+  margin-top: 8px;
+  margin-bottom: 12px;
   text-align: center;
+}
+
+.timeline-empty-state {
+  margin-top: 16px;
+}
+
+.timeline-list-example {
+  pointer-events: none;
+  user-select: none;
+}
+
+.timeline-item-example {
+  opacity: 0.45;
+  border-bottom-style: dashed;
+}
+
+.timeline-example-badge {
+  margin-left: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+
+.home-journal-insight {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
 }
 
 .timeline-list {

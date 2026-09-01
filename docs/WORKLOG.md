@@ -305,3 +305,12 @@
 - `parse.ts`: `hiddenAt: null` 프리셋만, `quantityOffered`·`lineIndex` 응답
 
 **다음**: PR #10 push·재리뷰, P1-24 상세 시트(칩 탭 → 수정)
+
+### 2026-09-01 — PR #10 머지 + P1-27b 빈 화면·저널 안내
+
+**한 일**
+
+- PR #10 스쿼시 머지 (`0d478ba`)
+- P1-27b: `journalStats` API, 흐릿한 예시 타임라인, 1건/3일 안내 문구
+
+**다음**: P1-11 펫 CRUD, P1-24 상세 시트

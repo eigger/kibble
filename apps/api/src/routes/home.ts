@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { householdWhere, requireHouseholdId } from "../lib/householdScope.js";
 import { t } from "../lib/i18n.js";
 import { todaySummaryForPet } from "../lib/todaySummary.js";
+import { journalStatsForPet } from "../lib/journalStats.js";
 
 const recentEventSelect = {
   id: true,
@@ -41,7 +42,14 @@ export async function homeRoutes(app: FastifyInstance) {
     }
 
     if (!activePet) {
-      return { pets, activePet: null, presets: [], todaySummary: [], recentEvents: [] };
+      return {
+        pets,
+        activePet: null,
+        presets: [],
+        todaySummary: [],
+        recentEvents: [],
+        journalStats: { totalEventCount: 0, distinctDayCount: 0 },
+      };
     }
 
     const petScope = {
@@ -49,7 +57,7 @@ export async function homeRoutes(app: FastifyInstance) {
       petId: activePet.id,
     };
 
-    const [presets, todaySummary, recentEvents] = await Promise.all([
+    const [presets, todaySummary, recentEvents, journalStats] = await Promise.all([
       prisma.preset.findMany({
         where: {
           ...householdWhere(householdId),
@@ -67,8 +75,9 @@ export async function homeRoutes(app: FastifyInstance) {
         take: 30,
         select: recentEventSelect,
       }),
+      journalStatsForPet(prisma, householdId, activePet.id),
     ]);
 
-    return { pets, activePet, presets, todaySummary, recentEvents };
+    return { pets, activePet, presets, todaySummary, recentEvents, journalStats };
   });
 }

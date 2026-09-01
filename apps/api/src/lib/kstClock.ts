@@ -37,3 +37,11 @@ export function kstCalendarParts(base: Date, offsetMinutes = PHASE1_TODAY_UTC_OF
     date: shifted.getUTCDate(),
   };
 }
+
+/** KST 달력 날짜 키 — journal distinct-day 집계용 */
+export function kstDayKey(base: Date, offsetMinutes = PHASE1_TODAY_UTC_OFFSET_MINUTES): string {
+  const p = kstCalendarParts(base, offsetMinutes);
+  const month = String(p.month + 1).padStart(2, "0");
+  const date = String(p.date).padStart(2, "0");
+  return `${p.year}-${month}-${date}`;
+}
