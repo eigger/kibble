@@ -11,11 +11,24 @@
 
 Self-hosted pet diary focused on **low-friction input** — quick chips for routine care, free-text and photos when you need detail, and a token-authenticated API for automations.
 
-> **Status:** Phase 1 **implementation complete** — personal-use gate in progress ([`docs/WORKPLAN.md`](docs/WORKPLAN.md) §5.6). Deploy with [`docs/deploy.md`](./docs/deploy.md). Release tags after the gate passes.
+> **Status:** Phase 1 **implementation complete** — personal-use gate in progress ([`docs/WORKPLAN.md`](docs/WORKPLAN.md) §5.6). Builds are published to [Releases](https://github.com/eigger/kibble/releases); deploy with [`docs/deploy.md`](./docs/deploy.md).
 
 Docs: [`docs/`](./docs/) · [`docs/PROJECT.md`](docs/PROJECT.md) · [`docs/WORKPLAN.md`](docs/WORKPLAN.md) · [`docs/deploy.md`](docs/deploy.md)
 
 ---
+
+## Features
+
+- **One-tap logging** — preset chips for routine care (meals, water, walks, litter); a detail sheet appears only when you need amount, product, clinic, or a note
+- **Free text, never rejected** — write several lines at once and they are parsed into separate events; anything that does not parse is kept as a note, and the original text is always stored
+- **Built-in event types** — feeding, water, excretion (7-point fecal score), activity, observation, medication, vet visits, grooming, weight, and free notes; new presets are data, not code
+- **Medication courses** — doses per day with named time slots, daily progress, and web-push reminders
+- **Photos and video** — up to 9 attachments per event, with chunked resumable upload for large files and video
+- **Offline-first PWA** — records queue in IndexedDB while offline and sync themselves on reconnect, scoped to the account that made them
+- **Household sharing** — the admin creates family accounts that either join the shared journal or get a separate one; OWNER / MEMBER / VIEWER roles
+- **Token API for automation** — scoped tokens post to `POST /api/events`, so Home Assistant, iOS Shortcuts, ESPHome, or plain `curl` can log without a session ([`docs/api.md`](docs/api.md))
+- **Trends** — weight, food, and water charts over configurable periods
+- **Korean / English** throughout, light / dark themes with accent colors, and admin backup & restore
 
 ## One-click install (Proxmox)
 
