@@ -62,6 +62,30 @@ const MESSAGES = {
 
   adminRoleRequired: { ko: "관리자 권한이 필요합니다", en: "Admin role required" },
   forbidden: { ko: "권한이 없습니다", en: "Forbidden" },
+  invalidApiToken: { ko: "유효하지 않은 API 토큰입니다", en: "Invalid API token" },
+  apiTokenNotAllowed: {
+    ko: "이 경로는 API 토큰으로 접근할 수 없습니다",
+    en: "This route cannot be accessed with an API token",
+  },
+  apiTokenNotFound: { ko: "API 토큰을 찾을 수 없습니다", en: "API token not found" },
+  petNotFound: { ko: "반려동물을 찾을 수 없습니다", en: "Pet not found" },
+  presetNotFound: { ko: "프리셋을 찾을 수 없습니다", en: "Preset not found" },
+  eventTypeNotFound: { ko: "이벤트 유형을 찾을 수 없습니다", en: "Event type not found" },
+  eventNotFound: { ko: "기록을 찾을 수 없습니다", en: "Event not found" },
+  petRequiredForEvent: {
+    ko: "기록할 반려동물이 필요합니다",
+    en: "A pet is required to create an event",
+  },
+  eventTargetRequired: {
+    ko: "프리셋 또는 이벤트 유형을 지정하세요",
+    en: "Specify a preset or event type",
+  },
+  petIdRequired: { ko: "petId가 필요합니다", en: "petId is required" },
+  invalidCursor: { ko: "잘못된 커서입니다", en: "Invalid cursor" },
+  scaleValueInvalid: {
+    ko: "척도 값이 올바르지 않습니다",
+    en: "Scale value is out of range for this event type",
+  },
   noBackupFileUploaded: { ko: "백업 파일이 없습니다", en: "No backup file uploaded" },
   invalidBackupFile: {
     ko: "올바르지 않은 백업 파일입니다 (db.json 없음)",

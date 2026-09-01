@@ -71,13 +71,13 @@ const dict = {
     en: "You are not in a household. Contact your administrator.",
   },
   homeOnboardingHint: {
-    ko: "칩을 누르면 기록됩니다. (이벤트 입력은 다음 단계에서 연결됩니다)",
-    en: "Tap a chip to record. (Event logging connects in the next step.)",
+    ko: "칩을 누르면 지금 시각으로 기록됩니다.",
+    en: "Tap a chip to log an event at the current time.",
   },
-  recordComingSoon: {
-    ko: "「{label}」 기록 — 곧 연결됩니다",
-    en: "「{label}」 — recording connects soon",
-  },
+  recordSaved: { ko: "「{label}」 기록됨", en: "Logged 「{label}」" },
+  recordError: { ko: "기록에 실패했습니다", en: "Could not save the event" },
+  undo: { ko: "실행 취소", en: "Undo" },
+  recordUndone: { ko: "기록을 취소했습니다", en: "Event removed" },
 
   // settings
   myAccountTitle: { ko: "내 계정", en: "My account" },
