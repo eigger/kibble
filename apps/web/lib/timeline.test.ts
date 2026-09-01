@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { TIMELINE_PAGE_SIZE, timelineEventsPath } from "./timeline";
+import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
+import { timelineEventsPath } from "./timeline";
 
 vi.mock("./api", () => ({
   apiJson: vi.fn(),

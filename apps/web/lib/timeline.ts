@@ -1,7 +1,8 @@
 import { apiJson } from "./api";
+import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
 import type { TimelineEvent } from "./types";
 
-export const TIMELINE_PAGE_SIZE = 30;
+export { TIMELINE_PAGE_SIZE };
 
 export type TimelineCursor = {
   occurredAt: string;

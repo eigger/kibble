@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { createEventSchema, updateEventSchema } from "@kibble/shared";
+import { createEventSchema, updateEventSchema, TIMELINE_PAGE_SIZE } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
@@ -148,8 +148,8 @@ export async function eventRoutes(app: FastifyInstance) {
     });
     if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
-    const limitRaw = query.limit ? Number(query.limit) : 30;
-    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 100) : 30;
+    const limitRaw = query.limit ? Number(query.limit) : TIMELINE_PAGE_SIZE;
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 100) : TIMELINE_PAGE_SIZE;
     const beforeAt = query.before ? new Date(query.before) : null;
     if (beforeAt && Number.isNaN(beforeAt.getTime())) {
       return reply.code(400).send({ error: t("invalidCursor", request.locale) });
