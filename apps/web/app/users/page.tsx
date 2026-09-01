@@ -19,6 +19,8 @@ export default function UsersPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"ADMIN" | "GENERAL">("GENERAL");
+  const [householdMode, setHouseholdMode] = useState<"JOIN" | "SEPARATE">("JOIN");
+  const [householdRole, setHouseholdRole] = useState<"MEMBER" | "VIEWER">("MEMBER");
   const [issuedSecrets, setIssuedSecrets] = useState<OneTimeSecret[] | null>(null);
 
   useEffect(() => {
@@ -39,16 +41,19 @@ export default function UsersPage() {
     try {
       await apiJson("/api/auth/users", {
         method: "POST",
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, householdMode, householdRole }),
       });
       setName("");
       setEmail("");
       setPassword("");
       setRole("GENERAL");
+      setHouseholdMode("JOIN");
+      setHouseholdRole("MEMBER");
       await refresh();
       show(t("accountCreatedToast"), "success");
-    } catch (err: any) {
-      show(err.message, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("accountCreateError");
+      show(msg, "error");
     }
   }
 
@@ -57,8 +62,9 @@ export default function UsersPage() {
     try {
       await apiJson(`/api/auth/users/${id}`, { method: "DELETE" });
       await refresh();
-    } catch (err: any) {
-      show(err.message, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("accountCreateError");
+      show(msg, "error");
     }
   }
 
@@ -70,8 +76,9 @@ export default function UsersPage() {
         { method: "POST" },
       );
       setIssuedSecrets([{ label: res.email, value: res.temporaryPassword }]);
-    } catch (err: any) {
-      show(err.message, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t("accountCreateError");
+      show(msg, "error");
     }
   }
 
@@ -94,13 +101,33 @@ export default function UsersPage() {
           <option value="GENERAL">{t("roleGeneral")}</option>
           <option value="ADMIN">{t("roleAdmin")}</option>
         </select>
+        <label className="form-label">
+          {t("householdModeLabel")}
+          <select value={householdMode} onChange={(e) => setHouseholdMode(e.target.value as "JOIN" | "SEPARATE")}>
+            <option value="JOIN">{t("householdModeJoin")}</option>
+            <option value="SEPARATE">{t("householdModeSeparate")}</option>
+          </select>
+        </label>
+        {householdMode === "JOIN" && (
+          <label className="form-label">
+            {t("householdRoleLabel")}
+            <select value={householdRole} onChange={(e) => setHouseholdRole(e.target.value as "MEMBER" | "VIEWER")}>
+              <option value="MEMBER">{t("householdRoleMember")}</option>
+              <option value="VIEWER">{t("householdRoleViewer")}</option>
+            </select>
+          </label>
+        )}
         <button type="submit">{t("createAccountButton")}</button>
       </form>
 
       {users.map((u) => (
         <div key={u.id} className="tree-row">
           <div>
-            {u.name} ({u.email}) <span className="badge badge-muted">{u.role === "ADMIN" ? t("roleAdmin") : t("roleGeneral")}</span>
+            {u.name} ({u.email}){" "}
+            <span className="badge badge-muted">{u.role === "ADMIN" ? t("roleAdmin") : t("roleGeneral")}</span>{" "}
+            <span className="badge badge-muted">
+              {u.inSharedHousehold ? t("accountScopeShared") : t("accountScopeSeparate")}
+            </span>
           </div>
           {u.id !== user.id && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

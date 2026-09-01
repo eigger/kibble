@@ -17,6 +17,7 @@ import { presetRoutes } from "./routes/presets.js";
 import { homeRoutes } from "./routes/home.js";
 import { eventRoutes } from "./routes/events.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
+import { parseRoutes } from "./routes/parse.js";
 import { runAuthenticate } from "./lib/authenticate.js";
 
 export type BuildAppOptions = {
@@ -96,6 +97,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(presetRoutes, { prefix: "/api/presets" });
   await app.register(homeRoutes, { prefix: "/api/home" });
   await app.register(eventRoutes, { prefix: "/api/events" });
+  await app.register(parseRoutes, { prefix: "/api/parse" });
   await app.register(apiTokenRoutes, { prefix: "/api/tokens" });
   await app.register(attachmentRoutes, { prefix: "/api/attachments" });
   await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });

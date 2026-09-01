@@ -8,6 +8,7 @@ export interface User {
   role: UserRole;
   householdId: string | null;
   needsPet: boolean;
+  inSharedHousehold?: boolean;
 }
 
 export interface Pet {
@@ -54,4 +55,25 @@ export interface TimelineEvent {
   note: string | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null };
+}
+
+export interface ParseSuggestion {
+  lineIndex: number;
+  rawLine: string;
+  eventTypeKey: string;
+  eventTypeId: string;
+  presetId: string | null;
+  label: string;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+  occurredAt: string | null;
+  needsReview: boolean;
+  note: string | null;
+}
+
+export interface ParseEntryResponse {
+  entryId: string;
+  rawText: string;
+  suggestions: ParseSuggestion[];
 }

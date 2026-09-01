@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, apiJson } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
-import type { Pet, Preset, CreatedEvent, TodaySummaryRow, TimelineEvent } from "../lib/types";
+import type {
+  Pet,
+  Preset,
+  CreatedEvent,
+  TodaySummaryRow,
+  TimelineEvent,
+  ParseSuggestion,
+  ParseEntryResponse,
+} from "../lib/types";
 
 interface HomePayload {
   pets: Pet[];
@@ -96,6 +104,9 @@ export default function HomePage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [textInput, setTextInput] = useState("");
+  const [parseBatch, setParseBatch] = useState<ParseEntryResponse | null>(null);
+  const [parseBatchRetryable, setParseBatchRetryable] = useState(false);
   const loadSeq = useRef(0);
 
   useEffect(() => {
@@ -190,6 +201,122 @@ export default function HomePage() {
   const [recording, setRecording] = useState(false);
   const inFlightDedupeKey = useRef<string | null>(null);
 
+  function applyCreatedEvent(event: CreatedEvent) {
+    setRecentEvents((prev) => [createdEventToTimeline(event), ...prev]);
+    setTodaySummary((prev) =>
+      bumpSummary(prev, event.eventType.key, event.eventType.label),
+    );
+  }
+
+  async function persistSuggestion(
+    suggestion: ParseSuggestion,
+    entryId: string,
+    dedupeKey: string,
+  ) {
+    if (!activePet) return;
+    const body: Record<string, unknown> = {
+      petId: activePet.id,
+      source: "WEB",
+      rawText: suggestion.rawLine,
+      entryId,
+      dedupeKey,
+      needsReview: suggestion.needsReview,
+    };
+    if (suggestion.presetId) body.presetId = suggestion.presetId;
+    else body.eventTypeId = suggestion.eventTypeId;
+    if (suggestion.quantity != null) body.quantity = suggestion.quantity;
+    if (suggestion.quantityOffered != null) body.quantityOffered = suggestion.quantityOffered;
+    if (suggestion.unit) body.unit = suggestion.unit;
+    if (suggestion.note) body.note = suggestion.note;
+    if (suggestion.occurredAt) body.occurredAt = suggestion.occurredAt;
+
+    const event = await apiJson<CreatedEvent>("/api/events", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    applyCreatedEvent(event);
+  }
+
+  function suggestionKey(entryId: string, suggestion: ParseSuggestion): string {
+    return `${entryId}:${suggestion.lineIndex}`;
+  }
+
+  async function persistParseBatch(batch: ParseEntryResponse): Promise<ParseSuggestion[]> {
+    const failed: ParseSuggestion[] = [];
+    for (const suggestion of batch.suggestions) {
+      try {
+        await persistSuggestion(suggestion, batch.entryId, suggestionKey(batch.entryId, suggestion));
+      } catch {
+        failed.push(suggestion);
+      }
+    }
+    return failed;
+  }
+
+  async function handleTextSubmit(e: FormEvent) {
+    e.preventDefault();
+    const text = textInput.trim();
+    if (!text || !activePet || recording) return;
+    setRecording(true);
+    try {
+      const parsed = await apiJson<ParseEntryResponse>("/api/parse/entry", {
+        method: "POST",
+        body: JSON.stringify({ petId: activePet.id, text }),
+      });
+      setTextInput("");
+      const failed = await persistParseBatch(parsed);
+      const savedCount = parsed.suggestions.length - failed.length;
+      if (savedCount > 0) {
+        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+      }
+      const failedIndexes = new Set(failed.map((s) => s.lineIndex));
+      const needsReview = parsed.suggestions.filter((s) => s.needsReview && !failedIndexes.has(s.lineIndex));
+      if (failed.length > 0) {
+        setParseBatch({ ...parsed, suggestions: failed });
+        setParseBatchRetryable(true);
+        show(t("parsePartialError"), "error");
+      } else if (needsReview.length > 0) {
+        setParseBatch({ ...parsed, suggestions: needsReview });
+        setParseBatchRetryable(false);
+      } else {
+        setParseBatch(null);
+        setParseBatchRetryable(false);
+      }
+    } catch {
+      show(t("parseError"), "error");
+    } finally {
+      setRecording(false);
+    }
+  }
+
+  async function retryFailedSuggestions() {
+    if (!parseBatch || recording) return;
+    setRecording(true);
+    const batch = parseBatch;
+    try {
+      const failed = await persistParseBatch(batch);
+      const savedCount = batch.suggestions.length - failed.length;
+      if (savedCount > 0) {
+        show(t("recordSavedCount", { count: String(savedCount) }), "success");
+      }
+      setParseBatch(failed.length > 0 ? { ...batch, suggestions: failed } : null);
+      setParseBatchRetryable(failed.length > 0);
+      if (failed.length > 0) show(t("parsePartialError"), "error");
+    } catch {
+      show(t("recordError"), "error");
+    } finally {
+      setRecording(false);
+    }
+  }
+
+  function dismissParseSuggestion(suggestion: ParseSuggestion) {
+    setParseBatch((prev) => {
+      if (!prev) return null;
+      const next = prev.suggestions.filter((s) => s.lineIndex !== suggestion.lineIndex);
+      return next.length > 0 ? { ...prev, suggestions: next } : null;
+    });
+  }
+
   function onPresetTap(preset: Preset) {
     if (!activePet || recording) return;
     setRecording(true);
@@ -211,10 +338,9 @@ export default function HomePage() {
 
         const timelineEntry = createdEventToTimeline(event);
         const typeKey = event.eventType.key;
-        const typeLabel = event.eventType.label;
 
         setRecentEvents((prev) => [timelineEntry, ...prev]);
-        setTodaySummary((prev) => bumpSummary(prev, typeKey, typeLabel));
+        setTodaySummary((prev) => bumpSummary(prev, typeKey, event.eventType.label));
 
         show(t("recordSaved", { label }), "success", {
           label: t("undo"),
@@ -341,13 +467,64 @@ export default function HomePage() {
               </button>
             )}
           </section>
-          <input
-            type="text"
-            className="home-text-input"
-            placeholder={t("homeInputPlaceholder")}
-            disabled
-            aria-disabled="true"
-          />
+          {parseBatch && parseBatch.suggestions.length > 0 && (
+            <section className="parse-suggestions" aria-label={t("parseSuggestionsTitle")}>
+              <p className="meta parse-suggestions-title">
+                {t(parseBatchRetryable ? "parseSuggestionsFailedTitle" : "parseSuggestionsTitle")}
+              </p>
+              <div className="chip-row">
+                {parseBatch.suggestions.map((suggestion) => (
+                  <button
+                    key={suggestionKey(parseBatch.entryId, suggestion)}
+                    type="button"
+                    className={`chip chip-suggestion${suggestion.needsReview ? " chip-needs-review" : ""}`}
+                    disabled={recording}
+                    onClick={() => dismissParseSuggestion(suggestion)}
+                  >
+                    {t(suggestion.label)}
+                    {suggestion.quantityOffered != null && suggestion.quantity != null && (
+                      <span className="chip-qty">
+                        {" "}
+                        {suggestion.quantityOffered}
+                        {suggestion.unit ?? ""} / {suggestion.quantity}
+                        {suggestion.unit ?? ""}
+                      </span>
+                    )}
+                    {suggestion.quantityOffered == null && suggestion.quantity != null && (
+                      <span className="chip-qty">
+                        {" "}
+                        {suggestion.quantity}
+                        {suggestion.unit ?? ""}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {parseBatchRetryable && (
+                <button
+                  type="button"
+                  className="btn-link"
+                  disabled={recording}
+                  onClick={() => void retryFailedSuggestions()}
+                >
+                  {t("parseRetryFailed")}
+                </button>
+              )}
+            </section>
+          )}
+          <form className="home-text-form" onSubmit={(e) => void handleTextSubmit(e)}>
+            <input
+              type="text"
+              className="home-text-input"
+              placeholder={t("homeInputPlaceholder")}
+              value={textInput}
+              disabled={recording || !activePet}
+              onChange={(e) => setTextInput(e.target.value)}
+            />
+            <button type="submit" className="home-text-submit" disabled={recording || !activePet || !textInput.trim()}>
+              {t("textSubmit")}
+            </button>
+          </form>
           <p className="meta home-input-hint">{t("homeOnboardingHint")}</p>
         </div>
       </footer>

@@ -16,6 +16,10 @@ export const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["ADMIN", "GENERAL"]).default("GENERAL"),
+  /** JOIN: 관리자 Household에 합류. SEPARATE: 새 Household(별도 일지) — WORKPLAN §7.12 */
+  householdMode: z.enum(["JOIN", "SEPARATE"]).default("JOIN"),
+  /** JOIN일 때만 적용 */
+  householdRole: z.enum(["MEMBER", "VIEWER"]).default("MEMBER"),
 });
 
 export const updateProfileSchema = z.object({
