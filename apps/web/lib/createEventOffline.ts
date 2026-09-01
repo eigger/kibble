@@ -14,6 +14,8 @@ function notifyQueued(): void {
 }
 
 export async function createEventWithOfflineFallback(input: {
+  /** 큐에 남을 경우의 소유자 — 본인이 다시 로그인했을 때만 전송된다 */
+  userId: string;
   labelKey: string;
   body: CreateEventInput;
   attachments?: File[];
@@ -35,7 +37,7 @@ export async function createEventWithOfflineFallback(input: {
     const queueId = await enqueueOfflineEvent(input);
     notifyQueued();
     // 온라인인데 5xx·네트워크만 실패 — 큐에 넣은 뒤 바로 flush
-    void flushOfflineQueue();
+    void flushOfflineQueue(input.userId);
     return { status: "queued", queueId };
   }
 }
