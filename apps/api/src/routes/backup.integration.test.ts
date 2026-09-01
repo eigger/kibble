@@ -33,6 +33,19 @@ async function buildArchive(dbData: Record<string, unknown>): Promise<Buffer> {
   }
 }
 
+/** 아카이브 안의 db.json을 그대로 읽는다 — 무엇이 담겼는지(그리고 안 담겼는지) 검사용. */
+async function readDbJson(archive: Buffer): Promise<Record<string, unknown>> {
+  const dir = await mkdtemp(path.join(tmpdir(), "kibble-backup-read-"));
+  try {
+    const archivePath = path.join(dir, "archive.tar.gz");
+    await writeFile(archivePath, archive);
+    await execFileAsync("tar", ["-xzf", archivePath, "-C", dir, "./db.json"]);
+    return JSON.parse(await readFile(path.join(dir, "db.json"), "utf8"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 function multipartRestoreRequest(archive: Buffer) {
   const boundary = `----kibbleBackupTest${randomUUID()}`;
   const body = Buffer.concat([
@@ -62,7 +75,9 @@ describe("backup export/restore round trip", () => {
   let adminId: string;
   let memberId: string;
   let adminToken: string;
+  let householdId: string;
   const settingKey = `fixture-setting-${suffix}`;
+  const vapidPrivateValue = `vapid-private-${suffix}`;
 
   beforeAll(async () => {
     assertSafeToWipeDatabase();
@@ -93,14 +108,29 @@ describe("backup export/restore round trip", () => {
     });
     memberId = member.id;
 
+    const household = await prisma.household.create({ data: { name: `Backup HH ${suffix}` } });
+    householdId = household.id;
+    await prisma.householdMember.createMany({
+      data: [
+        { householdId, userId: adminId, role: "OWNER" },
+        { householdId, userId: memberId, role: "MEMBER" },
+      ],
+    });
+
     await prisma.setting.create({
       data: { key: settingKey, value: "backup-value" },
+    });
+    await prisma.setting.create({
+      data: { key: "VAPID_PRIVATE_KEY", value: vapidPrivateValue },
     });
   });
 
   afterAll(async () => {
-    await prisma.setting.deleteMany({ where: { key: settingKey } }).catch(() => {});
+    await prisma.setting
+      .deleteMany({ where: { key: { in: [settingKey, "VAPID_PRIVATE_KEY"] } } })
+      .catch(() => {});
     await prisma.user.deleteMany({ where: { id: { in: [adminId, memberId] } } }).catch(() => {});
+    await prisma.household.deleteMany({ where: { id: householdId } }).catch(() => {});
     await app.close();
     await prisma.$disconnect();
     if (uploadDir) await rm(uploadDir, { recursive: true, force: true }).catch(() => {});
@@ -156,6 +186,28 @@ describe("backup export/restore round trip", () => {
 
     const restoredSetting = await prisma.setting.findUnique({ where: { key: settingKey } });
     expect(restoredSetting?.value).toBe("backup-value");
+
+    // 가구·멤버십이 살아남아야 한다 — 계정만 되살리면 전원이 householdId=null로 떨어진다.
+    await expect(prisma.household.count({ where: { id: householdId } })).resolves.toBe(1);
+    const restoredMembers = await prisma.householdMember.findMany({
+      where: { householdId },
+      orderBy: { userId: "asc" },
+      select: { userId: true, role: true },
+    });
+    expect(restoredMembers).toEqual(
+      [
+        { userId: adminId, role: "OWNER" },
+        { userId: memberId, role: "MEMBER" },
+      ].sort((a, b) => a.userId.localeCompare(b.userId)),
+    );
+
+    // VAPID 개인키는 아카이브에 실리지 않고, 복원이 서버의 기존 값을 지우지도 않는다.
+    const dbJson = await readDbJson(archive);
+    const exportedSettings = dbJson.settings as { key: string }[];
+    expect(exportedSettings.map((row) => row.key)).not.toContain("VAPID_PRIVATE_KEY");
+    expect(JSON.stringify(dbJson)).not.toContain(vapidPrivateValue);
+    const survivingVapid = await prisma.setting.findUnique({ where: { key: "VAPID_PRIVATE_KEY" } });
+    expect(survivingVapid?.value).toBe(vapidPrivateValue);
   });
 
   it("rejects a restore request with no file part", async () => {

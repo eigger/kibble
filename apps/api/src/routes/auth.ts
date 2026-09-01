@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { UserRole } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import {
@@ -13,13 +14,31 @@ import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersi
 import { clearMediaCookie, setMediaCookie } from "../lib/mediaAuth.js";
 import { isRecordNotFoundError, isUniqueConstraintError } from "../lib/prismaErrors.js";
 import { JWT_EXPIRES_IN } from "../lib/jwtSecret.js";
-import { householdWhere, requireHouseholdId, invalidateHouseholdCache } from "../lib/householdScope.js";
+import {
+  householdWhere,
+  requireHouseholdId,
+  invalidateHouseholdCache,
+  findHouseholdMember,
+} from "../lib/householdScope.js";
 
 class BootstrapDisabledError extends Error {
   constructor() {
     super("BOOTSTRAP_DISABLED");
     this.name = "BootstrapDisabledError";
   }
+}
+
+/**
+ * §7.12는 ADMIN이 인스턴스 내 임의 사용자를 삭제·재설정하도록 확정했다. 다만 ADMIN이
+ * 여럿이면 다른 가구의 ADMIN에게 그 권한을 쓰는 순간 그 가구를 탈취하는 권한 상승이 된다.
+ * 같은 가구를 공유하는 ADMIN끼리는 이미 서로의 데이터에 접근할 수 있으므로 그대로 둔다.
+ */
+async function isAdminOutsideHousehold(
+  householdId: string,
+  target: { id: string; role: UserRole },
+): Promise<boolean> {
+  if (target.role !== "ADMIN") return false;
+  return (await findHouseholdMember(householdId, target.id)) === null;
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -90,7 +109,7 @@ export async function authRoutes(app: FastifyInstance) {
       );
 
       // <img src>용 미디어 전용 httpOnly 쿠키. API JWT를 그대로 넣지 않고 짧은 수명·purpose 분리.
-      setMediaCookie(app, reply, user.id);
+      setMediaCookie(app, reply, user.id, user.tokenVersion);
 
       return {
         token,
@@ -119,7 +138,7 @@ export async function authRoutes(app: FastifyInstance) {
     // AuthProvider 마운트·탭 복귀(visibilitychange) 때마다 /me가 호출되므로
     // 여기서 미디어 쿠키를 슬라이딩 갱신한다. 로그인만 심으면 24h 뒤 JWT는 살아 있는데
     // 사진만 전부 401이 된다.
-    setMediaCookie(app, reply, user.id);
+    setMediaCookie(app, reply, user.id, user.tokenVersion);
 
     const householdId = request.householdId;
     let needsPet: boolean;
@@ -218,8 +237,14 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: t("cannotDeleteSelf", request.locale) });
       }
 
-      const target = await prisma.user.findUnique({ where: { id }, select: { id: true } });
+      const target = await prisma.user.findUnique({
+        where: { id },
+        select: { id: true, role: true },
+      });
       if (!target) return reply.code(404).send({ error: t("userNotFound", request.locale) });
+      if (await isAdminOutsideHousehold(householdId, target)) {
+        return reply.code(403).send({ error: t("cannotManageOtherAdmin", request.locale) });
+      }
 
       try {
         await prisma.user.delete({ where: { id } });
@@ -249,6 +274,9 @@ export async function authRoutes(app: FastifyInstance) {
 
       const target = await prisma.user.findUnique({ where: { id } });
       if (!target) return reply.code(404).send({ error: t("userNotFound", request.locale) });
+      if (await isAdminOutsideHousehold(householdId, target)) {
+        return reply.code(403).send({ error: t("cannotManageOtherAdmin", request.locale) });
+      }
 
       // 복원 경로와 동일한 엔트로피 — 관리자가 고른 값이 아니므로 사칭·영구공유 여지가 줄어든다.
       const temporaryPassword = randomBytes(12).toString("base64url");

@@ -91,6 +91,7 @@ export default function BackupPage() {
 
       <div className="card">
         <p className="meta">{t("backupRestoreHint")}</p>
+        <p className="backup-scope-warning">{t("backupScopeWarning")}</p>
         <p className="meta">{t("backupSecurityHint")}</p>
         <div className="form">
           <button type="button" onClick={() => void handleExport()} disabled={exporting || restoring}>

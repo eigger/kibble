@@ -494,12 +494,16 @@ const dict = {
   },
   backupRestoreTitle: { ko: "백업 / 복원", en: "Backup / restore" },
   backupRestoreHint: {
-    ko: "사용자·설정·업로드 파일을 tar.gz로 보냅니다.",
-    en: "Export users, settings, and uploaded files as tar.gz.",
+    ko: "계정·가구·설정과 업로드 파일을 tar.gz로 보냅니다.",
+    en: "Export accounts, households, settings, and uploaded files as tar.gz.",
+  },
+  backupScopeWarning: {
+    ko: "일지 데이터(반려동물·기록·프리셋·첨부)는 포함되지 않습니다. 전체 백업은 pg_dump와 uploads 볼륨 스냅샷을 쓰세요.",
+    en: "Journal data (pets, events, presets, attachments) is not included. For a full backup use pg_dump plus an uploads volume snapshot.",
   },
   backupSecurityHint: {
-    ko: "백업에는 비밀번호 해시가 포함됩니다. 안전한 곳에 보관하세요.",
-    en: "Backups contain password hashes. Store them securely.",
+    ko: "비밀번호 해시와 푸시 서명키는 아카이브에 담기지 않습니다. 복원하면 계정마다 임시 비밀번호가 새로 발급됩니다.",
+    en: "Password hashes and push signing keys are not included. Restoring issues a new temporary password for each account.",
   },
   exportButton: { ko: "백업 보내기", en: "Export backup" },
   exportingLabel: { ko: "보내는 중...", en: "Exporting..." },

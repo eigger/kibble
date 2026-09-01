@@ -214,7 +214,11 @@ curl -sS -X POST "$BASE/api/parse/entry" \
 
 ## 백업 / 복원 (관리자)
 
-계정·설정(`User`, `Setting`)과 업로드 파일을 `.tar.gz`로 보내고 복원합니다. UI는 **더보기 → 백업/복원** (`/backup`).
+계정·가구·설정(`User`, `Household`, `HouseholdMember`, `Setting`)과 업로드 파일을 `.tar.gz`로 보내고 복원합니다. UI는 **더보기 → 백업/복원** (`/backup`).
+
+> ⚠️ **일지 데이터는 포함되지 않습니다.** `Pet`·`Event`·`Preset`·`Attachment` 행은 담기지 않으므로 이 아카이브만으로 일지를 복구할 수 없습니다. 전체 백업은 `pg_dump` + uploads 볼륨 스냅샷을 쓰십시오 ([`deploy.md §7`](deploy.md)).
+>
+> 푸시 서명키(`VAPID_*`)는 **아카이브에서 제외**되며 복원이 서버의 기존 값을 지우지도 않습니다 (WORKPLAN §8).
 
 ```bash
 # 1) 보내기 티켓 (60초 유효, 1회용)
@@ -230,7 +234,7 @@ curl -sS -X POST "$BASE/api/backup/restore" \
   -F "file=@kibble_backup.tar.gz"
 ```
 
-복원 시 백업에 `passwordHash`가 없으면 임시 비밀번호가 응답에 포함됩니다.
+복원 시 백업에 `passwordHash`가 없으면 임시 비밀번호가 응답에 포함됩니다. 아카이브의 `households`·`householdMembers`가 함께 복원되므로 복원 후에도 각 계정이 원래 가구에 그대로 붙습니다.
 
 ---
 

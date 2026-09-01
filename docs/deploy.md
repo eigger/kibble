@@ -218,7 +218,7 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 2. **관리자 계정** 생성 (최초 1회)
 3. 온보딩에서 반려동물 이름·종 입력 → 기본 기록 칩 자동 생성
 4. 하단 네비: **홈** · **기록**(`/q`) · **이력** · **더보기**
-5. (선택) 더보기 → **백업/복원**(`/backup`), 계정·프리셋·설정
+5. (선택) 더보기 → **백업/복원**(`/backup`) — **계정·가구·설정만** 다룹니다. 일지(반려동물·이벤트·프리셋·첨부)는 포함되지 않습니다
 
 ---
 
@@ -234,7 +234,14 @@ docker compose -f docker-compose.prod.yml exec api \
   npx prisma migrate reset --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts
 ```
 
-> `migrate reset`은 **DB 데이터를 삭제**합니다. 운영 전 반드시 더보기 → **백업/복원**(`/backup`)에서 보내기.
+> ⚠️ `migrate reset`은 **DB 데이터를 전부 삭제**합니다. `/backup`의 보내기는 **계정·가구·설정만** 담으므로 이것만으로는 일지를 되살릴 수 없습니다. 실행 전 **반드시 `pg_dump` + uploads 볼륨 스냅샷**을 먼저 뜨십시오:
+>
+> ```bash
+> docker compose -f docker-compose.prod.yml exec -T postgres >   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > kibble_db_$(date +%F).sql.gz
+> docker run --rm -v kibble_uploads:/data -v "$PWD":/out alpine >   tar -czf /out/kibble_uploads_$(date +%F).tar.gz -C /data .
+> ```
+>
+> 되돌리기: `gunzip -c kibble_db_*.sql.gz | docker compose ... exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"`
 
 ### 7.1 데이터 마이그레이션 (Prisma 외 — 시드)
 
