@@ -20,10 +20,11 @@ export default function manifest(): MetadataRoute.Manifest {
       {
         name: "빠른 기록",
         short_name: "기록",
-        description: "프리셋으로 바로 기록",
+        description: "프리셋 칩으로 바로 기록 (/q)",
         url: "/q",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
     ],
+    categories: ["lifestyle", "utilities"],
   };
 }

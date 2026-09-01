@@ -163,6 +163,15 @@ const dict = {
   },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: { ko: "수량은 숫자로 입력해 주세요.", en: "Enter amounts as numbers." },
+  eventDetailFecalScore: { ko: "대변 스코어", en: "Stool score" },
+  eventDetailFecalScoreHint: {
+    ko: "1(단단함)~7(묽음). 선택하지 않아도 저장됩니다.",
+    en: "1 (firm) to 7 (loose). Optional — you can save without picking.",
+  },
+
+  quickRecordTitle: { ko: "빠른 기록", en: "Quick log" },
+  quickRecordLoadError: { ko: "프리셋을 불러오지 못했습니다.", en: "Could not load presets." },
+  quickRecordOpenHome: { ko: "홈으로", en: "Open home" },
   "quickTime.now": { ko: "방금", en: "Just now" },
   "quickTime.oneHourAgo": { ko: "1시간 전", en: "1 hour ago" },
   "quickTime.yesterdayEvening": { ko: "어제 저녁", en: "Yesterday evening" },

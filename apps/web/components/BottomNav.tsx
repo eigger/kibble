@@ -16,7 +16,7 @@ export function BottomNav() {
   const { user } = useAuth();
   const { t } = useLocale();
 
-  if (!user || pathname === "/login" || pathname === "/onboarding") return null;
+  if (!user || pathname === "/login" || pathname === "/onboarding" || pathname === "/q") return null;
 
   return (
     <nav className="bottom-nav">
