@@ -627,7 +627,7 @@ UI:
 | P1-21 | **퀵 칩 1탭 기록** + 실행취소 토스트 3초 | **완료** — 홈 칩 → POST /api/events, 실행취소 DELETE |
 | P1-22 | **자유 텍스트 입력 + 파싱 제안 칩** | **완료(Phase 1)** — `POST /api/parse/entry`, 입력 즉시 저장(K-12·K-13)·`rawText`는 줄 단위·`entryId` 공유·`dedupeKey` 멱등. 검토 칩·저장 실패 재시도. 편집 시트는 P1-24 |
 | P1-23 | **다중 사진·영상 첨부** (카메라 / 갤러리) | 한 번에 여러 장. 실기록이 그렇다 (P4) |
-| P1-24 | 상세 시트 + **시각 빠른 버튼**("방금 / 1시간 전 / 어제 저녁") + **제공량·섭취량 2필드** | 소급 입력이 3탭 안에 (F3). "100g 주고 30g 먹음"이 입력된다 |
+| P1-24 | 상세 시트 + **시각 빠른 버튼**("방금 / 1시간 전 / 어제 저녁") + **제공량·섭취량 2필드** | **완료** — 칩 길게 누르기·검토 칩·타임라인 탭 → `EventDetailSheet`, `@kibble/shared/quickTime` |
 | P1-25 | **`/q` 빠른 기록 초경량 화면** | 앱 셸을 로딩하지 않고 칩만 |
 | P1-26 | 오프라인 큐 (IndexedDB, **첨부 Blob 포함**) | 비행기 모드 5건 + 사진 → 복귀 시 자동 전송. 4xx는 재전송 않고 알림 |
 | P1-27 | 타임라인 무한 스크롤 + 삭제/복구 + 편집 | `@@index([petId, occurredAt(sort: Desc)])`를 타는 쿼리 |
@@ -765,7 +765,7 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 
 | 단계 | 처방 |
 |---|---|
-| **Phase 1** | `todaySummaryForPet`의 `occurredAt >= since`에서 **`since` = KST(UTC+9) 당일 00:00**을 UTC instant로 변환. 타임존 설정 UI 없음 |
+| **Phase 1** | `todaySummaryForPet`의 `occurredAt >= since`에서 **`since` = KST(UTC+9) 당일 00:00**을 UTC instant로 변환. 타임존 설정 UI 없음. **웹 상세 시트 `datetime-local`·타임라인 시각 표시도 KST 벽시계**(`datetimeLocal.ts`, `timeZone: Asia/Seoul`) — 서버·파서·빠른 버튼과 일치 |
 | **Phase 2+** | `Setting` 또는 가구별 IANA 타임존. P2-06(퀵 칩 시간대 가중)과 함께 검토 |
 
 근거: (a) Phase 1 주 사용자·게이트 실사용이 KST, (b) 클라이언트 오프셋 전송은 오프라인·API·curl 경로와 불일치, (c) UTC는 문서화 없이 넣으면 매 세션 재논의.

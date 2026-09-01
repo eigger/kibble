@@ -350,4 +350,24 @@
 - `petPhotoAbsolutePath`: `path.resolve` + UPLOAD_DIR 접두 검증
 - `householdIsolation.test.ts` 펫 라우트 4케이스 추가
 
-**다음**: P1-24 상세 시트, P1-14 프리셋 CRUD
+**다음**: P1-14 프리셋 CRUD
+
+### 2026-09-01 — P1-24 상세 시트
+
+**한 일**
+
+- `@kibble/shared/quickTime` — 방금·1시간 전·어제 저녁(KST 19:00, 파서와 동일)
+- `EventDetailSheet`: 시각 빠른 버튼, 제공량/섭취량, 메모, datetime-local
+- 홈: 칩 탭=1탭 기록 유지, **길게 누르기**=상세 시트 / 검토 칩·타임라인 탭=PATCH
+
+### 2026-09-01 — P1-24 PR 리뷰 반영
+
+**한 일**
+
+- `PresetChip`: onClick 탭 경로 복원(키보드·스크린리더), 포인터는 롱프레스만
+- `datetime-local` KST 벽시계 + 빈/무효 시각·수량 검증
+- create 저장 후에도 `removeParseSuggestionByKey`; `applyCreatedEvent` id 중복 방지
+- 편집 후 `loadHome`으로 오늘 요약·타임라인 재동기화
+- §7.11에 웹 시각 입력·표시 KST 고정 한 줄 추가
+
+**다음**: P1-14 프리셋 CRUD

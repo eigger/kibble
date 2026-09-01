@@ -906,6 +906,99 @@ button:disabled {
   transform: translateY(0.5px);
 }
 
+.chip-compact {
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.long-press-target {
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+
+.event-detail-sheet h2.event-detail-heading {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.event-detail-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.event-detail-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.event-detail-quick-times {
+  margin-bottom: 8px;
+}
+
+.event-detail-datetime {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.event-detail-qty-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+.event-detail-qty-input,
+.event-detail-unit,
+.event-detail-note {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 15px;
+}
+
+.event-detail-note {
+  resize: vertical;
+  min-height: 56px;
+  font-family: inherit;
+}
+
+.event-detail-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.timeline-item-clickable {
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 10px 0;
+}
+
+.timeline-item-clickable:active {
+  opacity: 0.85;
+}
+
+.home-timeline-hint {
+  margin-top: 8px;
+}
+
 /* 세로가 짧은 폰에서 4:3 프레임이 화면을 거의 다 먹으면 결과 배너와 수동 입력이 접힌 화면
    밖으로 밀린다 — 뷰포트 높이에 상한을 걸면 비율을 유지한 채 폭이 줄어 함께 보인다. */
 .scanner-frame {
