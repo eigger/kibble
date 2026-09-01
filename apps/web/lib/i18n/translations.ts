@@ -243,6 +243,12 @@ const dict = {
   themeDark: { ko: "다크", en: "Dark" },
   themeSystem: { ko: "시스템", en: "System" },
   languageLabel: { ko: "언어", en: "Language" },
+  languageKo: { ko: "한국어", en: "Korean" },
+  languageEn: { ko: "English", en: "English" },
+  metaDescription: {
+    ko: "입력 마찰을 최소화하는 셀프호스트 반려동물 일지",
+    en: "Self-hosted pet diary with minimal input friction",
+  },
   backupRestoreTitle: { ko: "백업 / 복원", en: "Backup / restore" },
   backupRestoreHint: {
     ko: "사용자·설정·업로드 파일을 tar.gz로 보냅니다.",
