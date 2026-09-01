@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, apiJson } from "../lib/api";
+import { createEventWithOfflineFallback } from "../lib/createEventOffline";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
@@ -265,6 +266,14 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [userId, needsPet, router, t, loadHome]);
+
+  useEffect(() => {
+    const onFlushed = () => {
+      if (activePet) void loadHome(activePet.id);
+    };
+    window.addEventListener("kibble-offline-flushed", onFlushed);
+    return () => window.removeEventListener("kibble-offline-flushed", onFlushed);
+  }, [activePet, loadHome]);
 
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
@@ -819,16 +828,25 @@ export default function HomePage() {
 
     (async () => {
       try {
-        const event = await apiJson<CreatedEvent>("/api/events", {
-          method: "POST",
-          body: JSON.stringify({
+        const outcome = await createEventWithOfflineFallback({
+          labelKey: preset.label,
+          body: {
             petId: activePet.id,
             presetId: preset.id,
             source: "WEB",
             dedupeKey,
-          }),
+          },
+          attachments: homePendingFilesRef.current,
         });
 
+        if (outcome.status === "queued") {
+          setHomePendingFiles([]);
+          window.dispatchEvent(new Event("kibble-offline-queued"));
+          show(t("offlineQueuedToast"), "info");
+          return;
+        }
+
+        const event = outcome.event;
         applyCreatedEvent(event);
 
         const attachmentsOk = await consumeHomePendingFiles(event.id);

@@ -8,6 +8,7 @@ import { ThemeProvider } from "../lib/theme-context";
 import { LocaleProvider } from "../lib/i18n/locale-context";
 import { BottomNav } from "../components/BottomNav";
 import { OfflineBanner } from "../components/OfflineBanner";
+import { OfflineSync } from "../components/OfflineSync";
 
 // 첫 페인트 전에 저장된 테마를 적용해서, React가 붙기 전까지 잠깐 시스템 테마로
 // 보였다가 사용자가 고른 테마로 바뀌는 깜빡임을 막는다.
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <ToastProvider>
               <AuthProvider>
                 <OfflineBanner />
+                <OfflineSync />
                 {children}
                 <BottomNav />
               </AuthProvider>

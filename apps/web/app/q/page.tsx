@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiJson } from "../../lib/api";
+import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
-import type { CreatedEvent, Pet, Preset } from "../../lib/types";
+import type { Pet, Preset } from "../../lib/types";
 import { PresetChip, MorePresetItem } from "../../components/PresetChip";
 
 function newDedupeKey(petId: string, presetId: string): string {
@@ -77,15 +78,23 @@ export default function QuickRecordPage() {
 
     void (async () => {
       try {
-        const event = await apiJson<CreatedEvent>("/api/events", {
-          method: "POST",
-          body: JSON.stringify({
+        const outcome = await createEventWithOfflineFallback({
+          labelKey: preset.label,
+          body: {
             petId: pet.id,
             presetId: preset.id,
             source: "QUICK",
             dedupeKey,
-          }),
+          },
         });
+
+        if (outcome.status === "queued") {
+          window.dispatchEvent(new Event("kibble-offline-queued"));
+          show(t("offlineQueuedToast"), "info");
+          return;
+        }
+
+        const event = outcome.event;
 
         show(t("recordSaved", { label }), "success", {
           label: t("undo"),
