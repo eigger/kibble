@@ -150,17 +150,27 @@ export async function authRoutes(app: FastifyInstance) {
       const parsed = createUserSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
-      const { name, email, password, role } = parsed.data;
-      const householdId = requireHouseholdId(request, reply);
-      if (!householdId) return;
+      const { name, email, password, role, householdMode, householdRole } = parsed.data;
+      const adminHouseholdId =
+        householdMode === "JOIN" ? requireHouseholdId(request, reply) : undefined;
+      if (householdMode === "JOIN" && !adminHouseholdId) return;
 
       const passwordHash = await bcrypt.hash(password, 10);
       try {
         const user = await prisma.$transaction(async (tx) => {
           const created = await tx.user.create({ data: { name, email, passwordHash, role } });
-          await tx.householdMember.create({
-            data: { householdId, userId: created.id, role: "MEMBER" },
-          });
+
+          if (householdMode === "SEPARATE") {
+            const household = await tx.household.create({ data: { name: `${name}` } });
+            await tx.householdMember.create({
+              data: { householdId: household.id, userId: created.id, role: "OWNER" },
+            });
+          } else {
+            await tx.householdMember.create({
+              data: { householdId: adminHouseholdId!, userId: created.id, role: householdRole },
+            });
+          }
+
           return created;
         });
         invalidateHouseholdCache(user.id);

@@ -203,13 +203,52 @@ a {
 }
 
 .home-text-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 10px 12px;
   border-radius: 20px;
   border: 1px solid var(--color-input-border);
   background: var(--color-bg);
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font-size: 0.95rem;
+}
+
+.home-text-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.home-text-submit {
+  width: auto;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.parse-suggestions {
+  margin-bottom: 8px;
+}
+
+.parse-suggestions-title {
+  margin: 0 0 4px;
+}
+
+.chip-suggestion .chip-qty {
+  opacity: 0.85;
+}
+
+.form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.form-label select {
+  width: 100%;
 }
 
 .home-text-input:disabled {

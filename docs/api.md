@@ -181,6 +181,19 @@ curl -sS -X DELETE "$BASE/api/tokens/<token-id>" -H "$AUTH"
 
 ---
 
+## 파싱 (텍스트 입력)
+
+```bash
+curl -sS -X POST "$BASE/api/parse/entry" \
+  -H "Content-Type: application/json" \
+  -H "$AUTH" \
+  -d '{"petId":"<pet-id>","text":"8시 40분 사료 40g\n물"}'
+```
+
+응답: `entryId`, `rawText`, `suggestions[]`(줄별 eventType·quantity·occurredAt). 파싱 실패 줄은 `note` 타입으로 제안된다(K-12).
+
+---
+
 ## 가구 격리 (K-1~K-3)
 
 모든 리소스 쿼리는 인증된 사용자의 `householdId`로 스코프된다. 다른 가구의 `petId`·`presetId`·`eventId`를 넣으면 **404**(존재 여부를 노출하지 않음).

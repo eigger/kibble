@@ -273,3 +273,18 @@
 - 기타: `Promise.all` home 쿼리, K-1 주석, quantity 표시 순서, tabpanel a11y, 입력 바 padding CSS 변수
 
 **다음**: P1-22 파싱·채팅 입력
+
+### 2026-09-01 — P1-08/15/22 파싱·텍스트 입력·가구 모드
+
+**확정 (WORKPLAN §7.12)**
+
+- 셀프호스트 "초대" = **관리자 계정 생성**. `householdMode`: **JOIN**(공유 타임라인) vs **SEPARATE**(별도 Household·일지)
+- Phase 1 기본은 JOIN(§3.7 메신저 대체). SEPARATE는 같은 물리적 반려동물이라도 데이터 분리 — 사용자 선택
+
+**한 일**
+
+- P1-15: `parseEntry.ts` — 줄 분해, 시각·수량·별칭, NOTE 폴백
+- P1-22: `POST /api/parse/entry`, 홈 텍스트 입력 → 제안 칩 → 저장(`rawText`·`entryId` 보존)
+- P1-08: `/users`에 JOIN/SEPARATE + MEMBER/VIEWER 선택, API `createUserSchema` 확장
+
+**다음**: P1-11 펫 CRUD, P1-24 상세 시트, P1-27b 빈 화면 안내
