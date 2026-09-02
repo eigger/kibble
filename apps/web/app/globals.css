@@ -3466,3 +3466,122 @@ th {
   font-size: 0.82rem;
   color: var(--color-primary);
 }
+
+/* ---------- API 탐색기 (/api-explorer) ---------- */
+
+.api-explorer-section-title {
+  margin: 28px 0 4px;
+  font-size: 0.95rem;
+}
+
+.api-explorer-pet {
+  margin-top: 12px;
+}
+
+.api-explorer-pet select {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.api-explorer-inline-code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-surface-hover);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.api-explorer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.api-explorer-card {
+  margin: 0;
+}
+
+.api-explorer-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.api-explorer-method {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-surface));
+  color: var(--color-success);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.api-explorer-method-write {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
+  color: var(--color-danger);
+}
+
+.api-explorer-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.api-explorer-run {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+.api-explorer-desc {
+  margin: 8px 0 0;
+}
+
+.api-explorer-result {
+  margin-top: 10px;
+}
+
+.api-explorer-status {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.api-explorer-status-ok {
+  color: var(--color-success);
+}
+
+.api-explorer-status-fail {
+  color: var(--color-danger);
+}
+
+.api-explorer-pre {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.api-explorer-body {
+  max-height: 260px;
+  overflow-y: auto;
+  white-space: pre;
+  word-break: normal;
+}
