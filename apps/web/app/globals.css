@@ -3380,3 +3380,89 @@ th {
   font-size: 0.8rem;
   color: var(--color-text-muted);
 }
+
+/* ---------- API 연동 화면 (/integrations) ---------- */
+
+.integration-group {
+  margin-top: 24px;
+}
+
+.integration-group-title {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.integration-card {
+  margin-top: 12px;
+}
+
+.integration-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.integration-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.integration-badge-off {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+.integration-help {
+  margin: 6px 0 0;
+}
+
+.integration-value {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.integration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.integration-form input {
+  margin-bottom: 0;
+}
+
+.integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.integration-actions button {
+  width: auto;
+  padding: 0 16px;
+}
+
+.integration-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--color-primary);
+}

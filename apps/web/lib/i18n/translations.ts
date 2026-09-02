@@ -231,15 +231,59 @@ const dict = {
   "navProvider.kakao": { ko: "카카오내비", en: "Kakao" },
   "navProvider.naver": { ko: "네이버지도", en: "Naver" },
 
-  // 지도 API 키 (관리자)
-  mapIntegrationTitle: { ko: "지도 연동", en: "Map integration" },
-  mapIntegrationHint: {
-    ko: "카카오 개발자 콘솔에서 발급한 JavaScript 키를 넣으면 병원 검색·지도·길찾기가 켜집니다. 키가 없으면 병원 이름만 직접 입력합니다.",
-    en: "Add a Kakao Developers JavaScript key to enable clinic search, maps, and navigation. Without a key you simply type the clinic name.",
+  // API 연동 화면 (관리자, /integrations)
+  integrationsTitle: { ko: "API 연동", en: "Integrations" },
+  integrationsHeading: { ko: "API 연동", en: "Integrations" },
+  integrationsIntro: {
+    ko: "외부 서비스 키는 서버 DB에 저장되고 코드·.env에 들어가지 않습니다. 키를 넣지 않아도 앱의 핵심 기능은 그대로 동작합니다.",
+    en: "External service keys are stored in the server database, never in code or .env. The app's core features work without them.",
+  },
+  integrationGroupMap: { ko: "지도", en: "Maps" },
+  integrationGroupNotification: { ko: "알림", en: "Notifications" },
+  integrationGroupServer: { ko: "서버", en: "Server" },
+  integrationSourceDb: { ko: "화면에서 저장됨", en: "Set here" },
+  integrationSourceEnv: { ko: ".env 값", en: "From .env" },
+  integrationSavedToast: { ko: "저장했습니다.", en: "Saved." },
+  integrationRemovedToast: { ko: "지웠습니다.", en: "Removed." },
+  integrationRemoveConfirm: { ko: "{name} 값을 지울까요?", en: "Remove {name}?" },
+  integrationLinkGeneric: { ko: "발급 안내 열기", en: "How to get a key" },
+  integrationLinkKakao: { ko: "카카오 개발자 콘솔 열기", en: "Open Kakao Developers" },
+
+  kakaoMapAppKeyLabel: { ko: "카카오 지도 JavaScript 키", en: "Kakao Maps JavaScript key" },
+  kakaoMapAppKeyHelp: {
+    ko: "넣으면 병원 상호 검색·지도·길찾기가 켜집니다. 없으면 병원 이름을 직접 입력합니다. 콘솔에서 도메인 제한을 함께 걸어 두세요.",
+    en: "Enables clinic search, maps, and navigation. Without it you simply type the clinic name. Restrict the key to your domain in the console.",
   },
   kakaoKeyPlaceholder: { ko: "카카오 JavaScript 키", en: "Kakao JavaScript key" },
-  kakaoKeySavedToast: { ko: "지도 API 키를 저장했습니다.", en: "Map API key saved." },
-  kakaoKeyClearedToast: { ko: "지도 API 키를 지웠습니다.", en: "Map API key removed." },
+
+  vapidHeading: { ko: "웹 푸시 키 (VAPID)", en: "Web push keys (VAPID)" },
+  vapidHelp: {
+    ko: "푸시 알림에 필요한 키 쌍입니다. 직접 입력하지 않고 발급 버튼으로 만듭니다.",
+    en: "The key pair web push needs. Generate it here rather than entering it by hand.",
+  },
+  vapidRegenerateButton: { ko: "다시 발급", en: "Regenerate" },
+  vapidRegenerateConfirm: {
+    ko: "키를 다시 발급하면 기존 구독이 모두 끊깁니다. 계속할까요?",
+    en: "Regenerating invalidates every existing subscription. Continue?",
+  },
+  vapidRegenerateWarning: {
+    ko: "다시 발급하면 기기별로 알림을 다시 켜야 합니다.",
+    en: "After regenerating, each device must re-enable notifications.",
+  },
+  vapidSubjectLabel: { ko: "푸시 발신자 (VAPID subject)", en: "Push sender (VAPID subject)" },
+  vapidSubjectHelp: {
+    ko: "푸시 서비스가 문제 발생 시 연락할 주소입니다. mailto: 또는 https: 형식.",
+    en: "Where push services contact you about problems. A mailto: or https: URL.",
+  },
+  vapidSubjectPlaceholder: { ko: "mailto:admin@example.com", en: "mailto:admin@example.com" },
+  pushConfigureLink: { ko: "API 연동 화면에서 키 발급", en: "Generate keys in Integrations" },
+
+  appPublicUrlLabel: { ko: "앱 공개 주소", en: "App public URL" },
+  appPublicUrlHelp: {
+    ko: "알림 링크와 CORS 허용 오리진에 쓰입니다. 브라우저에서 접속하는 주소 그대로 넣으세요.",
+    en: "Used for notification links and the allowed CORS origin. Use the address you open in the browser.",
+  },
+  appPublicUrlPlaceholder: { ko: "https://kibble.example.com", en: "https://kibble.example.com" },
   eventDetailDelete: { ko: "기록 삭제", en: "Delete event" },
   confirmDeleteEvent: { ko: "이 기록을 삭제할까요?", en: "Delete this event?" },
   deleting: { ko: "삭제 중…", en: "Deleting…" },

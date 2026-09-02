@@ -139,6 +139,10 @@ const MESSAGES = {
   },
 
   unknownSettingKey: { ko: "알 수 없는 설정 키입니다", en: "Unknown setting key" },
+  settingKeyGeneratedOnly: {
+    ko: "이 키는 발급 버튼으로만 바뀝니다",
+    en: "This key can only be changed by generating it",
+  },
   naverCredentialsRequired: {
     ko: "Client ID/Secret을 먼저 저장하세요.",
     en: "Save a Client ID/Secret first.",
