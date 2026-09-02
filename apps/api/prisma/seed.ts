@@ -29,8 +29,20 @@ async function main() {
     console.log("시스템 EventType 변경 없음");
   }
 
+  // 관리자는 ADMIN_PASSWORD를 명시적으로 준 경우에만 만든다.
+  //
+  // 기본값(admin@example.com / changeme123)을 두면 이 시드를 한 번이라도 돌린 인스턴스가
+  // **공개 저장소에 적힌 비밀번호**의 관리자 계정을 갖게 된다. 게다가 user.count()가 1이 되어
+  // 로그인 화면의 부트스트랩 분기(`user.count() === 0`)가 영영 열리지 않는다 — 안전한 최초
+  // 계정 생성 경로를 시드가 스스로 막는 셈이다.
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    console.log(
+      "ADMIN_PASSWORD가 없어 관리자 계정을 만들지 않습니다. 첫 관리자는 웹 로그인 화면에서 생성하세요.",
+    );
+    return;
+  }
   const email = process.env.ADMIN_EMAIL ?? "admin@example.com";
-  const password = process.env.ADMIN_PASSWORD ?? "changeme123";
   const name = process.env.ADMIN_NAME ?? "관리자";
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -51,9 +63,6 @@ async function main() {
   });
 
   console.log(`관리자 계정 생성 완료: ${admin.email} (id: ${admin.id})`);
-  if (!process.env.ADMIN_PASSWORD) {
-    console.log(`기본 비밀번호(${password})를 사용했습니다. 로그인 후 즉시 변경하세요.`);
-  }
 }
 
 main()

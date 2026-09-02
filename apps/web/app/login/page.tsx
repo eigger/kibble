@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { API_URL } from "../../lib/api";
 import { postLoginPath, useAuth } from "../../lib/auth-context";
@@ -18,14 +18,29 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checkingBootstrap, setCheckingBootstrap] = useState(true);
   const [needsBootstrap, setNeedsBootstrap] = useState(false);
+  const [bootstrapUnreachable, setBootstrapUnreachable] = useState(false);
+
+  // "관리자가 이미 있다"와 "서버에 못 닿았다"를 구분해야 한다. 예전에는 실패를 모두
+  // needsBootstrap=false로 흡수해서, 첫 부팅에 마이그레이션이 도는 동안 접속하면
+  // 만들 수 없는 로그인 폼만 보였다.
+  const checkBootstrap = useCallback(async () => {
+    setCheckingBootstrap(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/bootstrap/status`);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = (await res.json()) as { needsBootstrap: boolean };
+      setNeedsBootstrap(data.needsBootstrap);
+      setBootstrapUnreachable(false);
+    } catch {
+      setBootstrapUnreachable(true);
+    } finally {
+      setCheckingBootstrap(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/auth/bootstrap/status`)
-      .then((res) => (res.ok ? res.json() : { needsBootstrap: false }))
-      .then((data: { needsBootstrap: boolean }) => setNeedsBootstrap(data.needsBootstrap))
-      .catch(() => setNeedsBootstrap(false))
-      .finally(() => setCheckingBootstrap(false));
-  }, []);
+    void checkBootstrap();
+  }, [checkBootstrap]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -98,6 +113,18 @@ export default function LoginPage() {
     return (
       <main className="container">
         <p>{t("loading")}</p>
+      </main>
+    );
+  }
+
+  if (bootstrapUnreachable) {
+    return (
+      <main className="container">
+        <h1>{t("appName")}</h1>
+        <p className="error-text">{t("bootstrapCheckFailed")}</p>
+        <button type="button" onClick={() => void checkBootstrap()}>
+          {t("retryButton")}
+        </button>
       </main>
     );
   }

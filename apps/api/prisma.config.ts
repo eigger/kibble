@@ -11,6 +11,10 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // 이 경로는 **실행 시점 cwd 기준**으로 풀린다(config 파일 위치가 아니다).
+    // 따라서 `prisma db seed`는 apps/api 에서만 동작한다 — `npm run seed -w apps/api`.
+    // 컨테이너(cwd=/app)에서 돌리면 /app/prisma/seed.ts 를 찾다 실패하므로
+    // docker-compose 의 기동 커맨드에서는 시드를 부르지 않는다.
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
