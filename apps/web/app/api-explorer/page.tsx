@@ -17,7 +17,7 @@ type ReadEndpoint = {
 };
 
 type WriteEndpoint = {
-  method: "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   descKey: string;
   curl: string;
@@ -29,6 +29,12 @@ const JSON_HEADER = '-H "Content-Type: application/json"';
 function writeEndpoints(petId: string): WriteEndpoint[] {
   const pet = petId || "<pet-id>";
   return [
+    {
+      method: "GET",
+      path: "/api/states",
+      descKey: "apiExplorerTokenState",
+      curl: `curl "${API_URL}/api/states" -H "Authorization: Bearer kbl_..."`,
+    },
     {
       method: "POST",
       path: "/api/events",
@@ -154,6 +160,7 @@ export default function ApiExplorerPage() {
         path: p ? `/api/events/clinic-suggestions?petId=${p}` : null,
         descKey: "apiExplorerReadClinicSuggestions",
       },
+      { key: "states", path: p ? `/api/states?petId=${p}` : null, descKey: "apiExplorerReadStates" },
       { key: "care", path: p ? `/api/care?petId=${p}` : null, descKey: "apiExplorerReadCare" },
       {
         key: "courses",
@@ -217,13 +224,15 @@ export default function ApiExplorerPage() {
         ))}
       </div>
 
-      <h2 className="api-explorer-section-title">{t("apiExplorerWriteHeading")}</h2>
-      <p className="meta">{t("apiExplorerWriteHint")}</p>
+      <h2 className="api-explorer-section-title">{t("apiExplorerCurlHeading")}</h2>
+      <p className="meta">{t("apiExplorerCurlHint")}</p>
       <div className="api-explorer-list">
         {writeEndpoints(petId).map((ep) => (
           <section key={`${ep.method}:${ep.path}:${ep.descKey}`} className="card api-explorer-card">
             <div className="api-explorer-head">
-              <span className="api-explorer-method api-explorer-method-write">{ep.method}</span>
+              <span className={`api-explorer-method ${ep.method === "GET" ? "" : "api-explorer-method-write"}`}>
+                {ep.method}
+              </span>
               <code className="api-explorer-path">{ep.path}</code>
             </div>
             <p className="meta api-explorer-desc">{t(ep.descKey)}</p>

@@ -34,7 +34,16 @@ AUTH="Authorization: Bearer $TOKEN"
 
 ### API 토큰 (`kbl_…`)
 
-자동 입력용. **가구 OWNER 세션으로만** 발급·폐기할 수 있다. 기본적으로 대부분의 라우트는 ApiToken을 거부한다(403). `POST /api/events`만 `allowApiToken: true`로 허용된다.
+자동 입력용. **가구 OWNER 세션으로만** 발급·폐기할 수 있다. 기본적으로 대부분의 라우트는 ApiToken을 거부한다(403).
+
+허용 라우트와 스코프:
+
+| 라우트 | 필요한 스코프 |
+|---|---|
+| `POST /api/events` | `event:create` |
+| `GET /api/states` | `state:read` |
+
+`scopes`를 생략하면 `["event:create"]`만 발급된다. **기존 토큰은 `state:read`가 없으므로 상태 조회를 하려면 새로 발급해야 한다.**
 
 ```bash
 # 토큰 발급 (plaintext는 이 응답에서만 한 번 노출)
@@ -105,6 +114,33 @@ curl -sS "$BASE/api/presets?petId=<pet-id>" -H "$AUTH"
 
 ---
 
+## 상태 조회 (역방향)
+
+밖에서 kibble의 현재 상태를 읽는다. 세션 또는 `state:read` 토큰. **읽기 전용이다 (K-7).**
+
+```bash
+# 세션으로
+curl -sS "$BASE/api/states?petId=<pet-id>" -H "$AUTH"
+
+# 자동화(홈어시스턴트 등)에서 토큰으로 — 개체 스코프 토큰이면 petId 생략 가능
+curl -sS "$BASE/api/states" -H "Authorization: Bearer kbl_..."
+```
+
+응답에 담기는 것:
+
+| 필드 | 내용 |
+|---|---|
+| `pet` | 대상 반려동물 |
+| `lastEvents[]` | 이벤트 타입별 **마지막 기록** — 시각, 수량·단위, 척도값, `hoursSince`(경과 시간) |
+| `today[]` | 오늘(KST 기준) 타입별 **건수와 합계** — 급여량·음수량 등 |
+| `todaySince` | 오늘 합계의 시작 경계 |
+| `medication` | 진행 중 과정 수, 오늘 먹인/계획된 횟수, **시각이 지난 슬롯** |
+| `reminders[]` | 예정일과 지남 여부 |
+
+이벤트 타입을 코드에 나열하지 않으므로(K-8), **프리셋·타입을 늘리면 응답이 저절로 따라온다.**
+
+---
+
 ## 이벤트
 
 ### 생성
@@ -134,6 +170,14 @@ curl -sS -X POST "$BASE/api/events" \
 ```
 
 선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시).
+
+### 단건 읽기
+
+```bash
+curl -sS "$BASE/api/events/<event-id>" -H "$AUTH"
+```
+
+**세션 전용이다.** 토큰은 개체·프리셋 스코프인데 임의 `:id` 읽기를 열면 가구 안의 다른 기록까지 보인다 — 밖에서 읽을 것은 `GET /api/states`다.
 
 ### 목록 (타임라인)
 

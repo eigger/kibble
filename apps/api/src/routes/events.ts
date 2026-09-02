@@ -319,6 +319,21 @@ export async function eventRoutes(app: FastifyInstance) {
     return events;
   });
 
+  // 단건 읽기. 토큰은 허용하지 않는다 — 토큰은 개체·프리셋 스코프인데 임의 id 읽기를
+  // 열면 가구 안의 다른 기록까지 보인다. 밖에서 읽을 것은 GET /api/states다.
+  app.get("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const { id } = request.params as { id: string };
+    const event = await prisma.event.findFirst({
+      where: { id, ...householdWhere(householdId), deletedAt: null },
+      select: eventWithRelationsSelect,
+    });
+    if (!event) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+    return event;
+  });
+
   app.patch("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;

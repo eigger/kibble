@@ -306,10 +306,14 @@ const dict = {
     ko: "kibble은 GET으로 아무것도 쓰지 않습니다(K-7). 그래서 이 목록은 눌러도 기록이 바뀌지 않습니다.",
     en: "In kibble, GET never writes (K-7) — running anything here cannot change your data.",
   },
-  apiExplorerWriteHeading: { ko: "쓰기 (참고용 curl)", en: "Writes (curl reference)" },
-  apiExplorerWriteHint: {
-    ko: "실제 기록이 만들어지거나 바뀌므로 실행 버튼을 두지 않았습니다. 터미널에서 직접 확인하세요. $TOKEN은 로그인 응답의 accessToken입니다.",
-    en: "These create or change real data, so there is no run button — try them in a terminal. $TOKEN is the accessToken from the login response.",
+  apiExplorerCurlHeading: { ko: "참고용 curl", en: "curl reference" },
+  apiExplorerCurlHint: {
+    ko: "API 토큰(kbl_…)으로 부르는 경로와, 실제 기록을 만들거나 바꾸는 요청입니다. 눌러서 실행되지 않게 예시만 두었습니다 — 터미널에서 확인하세요. $TOKEN은 로그인 응답의 accessToken입니다.",
+    en: "Paths called with an API token (kbl_…), plus requests that create or change real data. These are examples only — try them in a terminal. $TOKEN is the accessToken from the login response.",
+  },
+  apiExplorerTokenState: {
+    ko: "자동화가 읽는 현재 상태 — 마지막 기록·오늘 합계·밀린 복약. state:read 스코프 토큰이 필요합니다",
+    en: "Current state for automations — last events, today's totals, overdue doses. Needs a state:read token",
   },
 
   apiExplorerReadMe: { ko: "내 계정 정보", en: "My account" },
@@ -324,6 +328,10 @@ const dict = {
   apiExplorerReadHistoryPeriods: { ko: "이력에서 고를 수 있는 기간", en: "Available history periods" },
   apiExplorerReadProductSuggestions: { ko: "자주 준 사료·제품 제안", en: "Frequent product suggestions" },
   apiExplorerReadClinicSuggestions: { ko: "자주 가는 병원 제안 (좌표 포함)", en: "Frequent clinic suggestions" },
+  apiExplorerReadStates: {
+    ko: "현재 상태 묶음 (마지막 기록·오늘 합계·밀린 복약·리마인더)",
+    en: "Current state bundle (last events, today's totals, overdue doses, reminders)",
+  },
   apiExplorerReadCare: { ko: "케어 화면 (리마인더·투약 진행)", en: "Care view (reminders, doses)" },
   apiExplorerReadCourses: { ko: "투약 과정 목록", en: "Medication courses" },
   apiExplorerReadTokens: { ko: "발급된 API 토큰 (해시만 저장됨)", en: "Issued API tokens (hashes only)" },
