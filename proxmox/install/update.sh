@@ -139,7 +139,9 @@ fi
 require_download docker-compose.prod.yml "${TMPDIR_UPD}/docker-compose.prod.yml"
 require_download Caddyfile "${TMPDIR_UPD}/Caddyfile"
 
-if ! docker compose -f "${TMPDIR_UPD}/docker-compose.prod.yml" config -q; then
+# compose 파일이 /tmp 에 있으면 프로젝트 디렉터리가 거기로 잡혀 .env 를 못 읽고
+# POSTGRES_PASSWORD·JWT_SECRET 경고가 난다. 설치 경로를 프로젝트로 고정한다.
+if ! docker compose --project-directory "$KIBBLE_DIR" -f "${TMPDIR_UPD}/docker-compose.prod.yml" config -q; then
   echo "[update] New compose failed 'docker compose config'; aborting (stack untouched)" >&2
   exit 1
 fi
