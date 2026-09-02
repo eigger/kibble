@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { MedicationReminderPrefs } from "@kibble/shared";
 import { DEFAULT_MEDICATION_REMINDER_PREFS } from "@kibble/shared";
@@ -8,7 +9,6 @@ import { useToast } from "../lib/toast-context";
 import {
   fetchMedicationReminderPrefs,
   fetchPushStatus,
-  generateVapidKeys,
   saveMedicationReminderPrefs,
   sendTestPush,
   subscribeToPush,
@@ -29,7 +29,6 @@ export function PushNotificationSettings({ isAdmin }: Props) {
   const [subscribing, setSubscribing] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [generatingVapid, setGeneratingVapid] = useState(false);
 
   const refresh = useCallback(async () => {
     const [pushStatus, reminderPrefs] = await Promise.all([
@@ -99,19 +98,6 @@ export function PushNotificationSettings({ isAdmin }: Props) {
     }
   }
 
-  async function handleGenerateVapid() {
-    setGeneratingVapid(true);
-    try {
-      await generateVapidKeys();
-      show(t("vapidGeneratedToast"), "success");
-      await refresh();
-    } catch (err: unknown) {
-      show(t("pushSubscribeFailToast", { msg: err instanceof Error ? err.message : String(err) }), "error");
-    } finally {
-      setGeneratingVapid(false);
-    }
-  }
-
   if (loading || !status) return null;
 
   const subscribed = status.subscriptionCount > 0;
@@ -123,10 +109,11 @@ export function PushNotificationSettings({ isAdmin }: Props) {
 
       {isAdmin && !status.configured && (
         <div style={{ marginBottom: 12 }}>
+          {/* 키 발급은 연동 화면 한 곳에서만 한다 — 두 군데서 만들면 어디서 고칠지가 갈린다 */}
           <p className="meta">{t("pushNotConfiguredHint")}</p>
-          <button type="button" className="secondary" disabled={generatingVapid} onClick={() => void handleGenerateVapid()}>
-            {generatingVapid ? t("processingLabel") : t("generateVapidButton")}
-          </button>
+          <Link className="integration-link" href="/integrations">
+            {t("pushConfigureLink")}
+          </Link>
         </div>
       )}
 

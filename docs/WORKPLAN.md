@@ -463,6 +463,7 @@ Phase 1은 **규칙 기반 최소판**이다 — 시각(`8시 40분`, `오후 3�
 - **지도 프로바이더는 카카오 하나만 붙인다.** garage는 osm/naver/tmap도 지원하지만 kibble의 지도는 "병원 한 곳"을 보여주는 용도뿐이고, 프로바이더를 늘리면 leaflet 의존과 다크 타일 분기가 따라온다. **내비 딥링크는 SDK 키가 필요 없으므로 T맵·카카오·네이버 3종을 그대로 유지**한다 — 좌표만 있으면 셋 다 실행된다
 - **좌표는 이름이 바뀌면 함께 버린다.** `Contact`의 키가 이름이라, 검색으로 붙은 좌표를 남긴 채 이름만 손으로 고치면 다른 병원에 엉뚱한 좌표가 붙는다. 반대로 **좌표 없는 재기록이 기존 좌표를 지우지도 않는다** (병원은 재방문한다) — `upsertVetContact`가 "새 값이 있을 때만 덮어쓴다"
 - **좌표 없는 옛 기록은 주소를 지오코딩해 폴백**한다. 장소 검색 이전에 자유 텍스트로 적어 둔 병원도 지도·내비를 쓸 수 있다
+- **키 입력은 관리자 연동 화면 `/integrations` 한 곳**이다 (garage 이식). `GET /api/settings`는 **마스킹된 값과 출처(DB / `.env`)만** 내려주고 원문은 내보내지 않는다 — 단 `APP_PUBLIC_URL`·`VAPID_SUBJECT`처럼 비밀이 아닌 값은 화면에서 고쳐야 하므로 원문을 준다. **VAPID 개인키는 꼬리 4자도 내리지 않고**(garage와 갈라지는 지점), 키 쌍은 발급 엔드포인트만 쓴다 — 손으로 한 쪽만 바꾸면 짝이 어긋나 푸시가 조용히 죽는다
 
 ### 3.10 투약 과정 — 처방 수량과 매일 복약 체크
 
@@ -688,7 +689,7 @@ UI:
 | P2-05 | 행위 중복 경고 | `createEvent()` 내부에서만 (F2) |
 | P2-06 | 퀵 칩 시간대 가중 자동 정렬 | 게이트 2주 데이터를 근거로 |
 | P2-07 | 가족 공유 실사용 검증 | 2인 이상 동시 기록 |
-| **P2-08** | **지도 프로바이더 설정** (`GET /api/map/providers` + 키 입력 UI) | **완료** — `routes/mapProviders.ts` + 설정 화면 관리자 카드(`MapProviderSettings`). `KAKAO_MAP_APP_KEY`를 `Setting`에 저장. 키가 없으면 `providers: []` → 검색·지도 UI가 숨는다 |
+| **P2-08** | **지도 프로바이더 설정** (`GET /api/map/providers` + 키 입력 UI) | **완료** — `routes/mapProviders.ts` + **관리자 연동 화면 `/integrations`**(garage `integrations/page.tsx` 이식). `KAKAO_MAP_APP_KEY`를 `Setting`에 저장. 키가 없으면 `providers: []` → 검색·지도 UI가 숨는다 |
 | **P2-09** | **상호(키워드) 검색 → `Contact` 자동 생성** | **완료** — `ClinicSearchModal`(Kakao `Places.keywordSearch`, 카테고리 `HP8` 필터·현위치 가중·미리보기 지도). 선택 결과의 이름·주소·좌표·`place_url`이 `upsertVetContact`로 들어간다 |
 | **P2-10** | **지도 표기 + 내비 실행 버튼** | **완료** — `ClinicMap`(단일 지점·다크 필터·recenter) + `NavLaunchButtons`(T맵/카카오/네이버, `appname=kibble`). 좌표가 없는 옛 기록은 주소를 지오코딩해 폴백. **`Contact` 관리 화면(CRUD)은 미구현** — 병원은 기록 흐름에서 자동 생성되므로 별도 화면의 필요가 아직 확인되지 않았다 |
 | **P2-11** | **병원 방문 이벤트에 `Contact` 연결** + 병원별 방문 이력·비용 집계 | **부분 완료** — `Event.contactId` 연결과 자주 가는 병원 제안(`clinicSuggestionsForPet`)은 동작. **병원별 방문 이력·비용 집계 쿼리는 미구현** |

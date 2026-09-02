@@ -125,6 +125,17 @@ function UsersMenuIcon() {
   );
 }
 
+function IntegrationsMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path d="M10 3v6" />
+      <path d="M14 3v6" />
+      <path d="M6 9h12v3a6 6 0 0 1-12 0z" />
+      <path d="M12 18v3" />
+    </svg>
+  );
+}
+
 function BackupMenuIcon() {
   return (
     <svg {...iconProps()}>
@@ -320,6 +331,12 @@ export function BottomNav() {
                       <UsersMenuIcon />
                     </span>
                     {t("usersTitle")}
+                  </button>
+                  <button type="button" className="sheet-item" onClick={() => go("/integrations")}>
+                    <span className="sheet-item-icon">
+                      <IntegrationsMenuIcon />
+                    </span>
+                    {t("integrationsTitle")}
                   </button>
                 </>
               )}
