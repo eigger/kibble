@@ -208,6 +208,7 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 | `COOKIE_SECURE` | HTTPS 시 | `true` — HTTP만 쓰면 `false` 또는 생략 |
 | `GH_REPOSITORY_OWNER` | prod | GHCR 이미지 소유자 (기본 `eigger`) |
 | `KIBBLE_REF` | Proxmox | `master` 또는 릴리스 태그. 설치·`update` 스크립트용 |
+| `ADMIN_PASSWORD` | 설정 금지 | CLI 시드로 관리자를 만들 때만. **비워 두면 첫 관리자를 브라우저에서 만듭니다**(권장) |
 
 전체 예시: [`.env.example`](../.env.example)
 
@@ -220,6 +221,45 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 3. 온보딩에서 반려동물 이름·종 입력 → 기본 기록 칩 자동 생성
 4. 하단 네비: **홈** · **기록**(`/q`) · **이력** · **더보기**
 5. (선택) 더보기 → **백업/복원**(`/backup`) — **계정·가구·설정만** 다룹니다. 일지(반려동물·이벤트·프리셋·첨부)는 포함되지 않습니다
+
+---
+
+### 6.1 v0.2.0 이하로 설치했다면 — API가 기동하지 않습니다
+
+v0.2.0까지 compose의 api 커맨드는 `migrate deploy && prisma db seed && node …` 였습니다. 그런데 `prisma.config.ts`의 `seed: "tsx prisma/seed.ts"`는 **컨테이너 작업 디렉터리(`/app`) 기준**으로 풀려 `/app/prisma/seed.ts`를 찾습니다 — 실제 위치는 `/app/apps/api/prisma/seed.ts`입니다. 시드가 실패하면 `&&` 체인이 끊겨 **API 프로세스가 아예 실행되지 않습니다.**
+
+(경로를 맞췄더라도 `seed.ts`가 `apps/api/src`를 import하는데 프로덕션 이미지에는 `dist`만 들어 있어 다음 단계에서 다시 실패합니다. 시드 CLI는 소스 트리 전제로 만들어진 개발용 도구입니다.)
+
+증상: 브라우저에 로그인 화면만 뜨고(관리자 생성 화면이 나오지 않음), 어떤 계정으로도 로그인되지 않습니다. `/api/*`가 전부 실패하기 때문입니다.
+
+확인:
+
+```bash
+cd /opt/kibble
+docker compose -f docker-compose.prod.yml logs --tail=40 api
+```
+
+`Cannot find module '/app/prisma/seed.ts'` 가 보이면 이 문제입니다.
+
+**해결** — `update`로 v0.2.1 이상을 받으십시오. 즉시 조치가 필요하면 compose에서 시드 단계만 빼도 됩니다:
+
+```bash
+cd /opt/kibble
+sed -i 's| && npx prisma db seed --config apps/api/prisma.config.ts||' docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml up -d
+```
+
+시스템 `EventType`은 API가 기동할 때 `seedSystemEventTypes`가 직접 시드하므로 이 단계는 원래 불필요했습니다.
+
+### 6.2 로컬에서 `npm run seed`를 돌린 적이 있다면
+
+v0.2.0까지 시드 CLI는 `ADMIN_PASSWORD`가 없어도 **`admin@example.com` / `changeme123`** 관리자를 만들었습니다. 비밀번호가 공개 저장소에 있었으므로 그대로 두면 안 됩니다.
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T postgres   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'select email, role from "User";'
+```
+
+`admin@example.com`이 보이면 로그인해 **설정에서 즉시 비밀번호를 변경**하거나, 기록이 없다면 DB를 비우고 브라우저에서 첫 관리자를 새로 만드십시오. v0.2.1부터 시드는 `ADMIN_PASSWORD`를 명시한 경우에만 관리자를 만듭니다.
 
 ---
 
@@ -276,6 +316,7 @@ docker compose -f docker-compose.prod.yml exec api \
 | 502 / 연결 안 됨 | `docker compose -f docker-compose.prod.yml ps` · `docker compose -f docker-compose.prod.yml logs api web caddy` |
 | 로그인 후 바로 로그아웃 | `JWT_SECRET` 변경 후 기존 토큰 무효 — 재로그인 |
 | 사진 안 보임 | `APP_PUBLIC_URL`과 실제 접속 URL 일치, HTTPS면 `COOKIE_SECURE` |
+| **관리자 생성 화면 대신 로그인 화면이 나오고 로그인도 안 됨** | API가 기동하지 않아 `/api/*`가 전부 실패하는 것입니다. v0.2.0 이하의 알려진 문제 — §6.1 |
 | 브라우저 콘솔에 CORS 오류 | 프로덕션은 `APP_PUBLIC_URL` 오리진만 허용한다. 접속 도메인이 여럿이면 `CORS_EXTRA_ORIGINS`에 추가 |
 | 마이그레이션 실패 | API 로그에서 Prisma 오류 — DB 비밀번호·`DATABASE_URL` 확인. 스쿼시 후 기존 DB면 §7 `migrate reset` |
 | Proxmox 설치 실패 (release) | `export KIBBLE_REF=master` 후 재시도 (§2). 릴리스 없을 때는 자동 fallback되지만 명시 권장 |

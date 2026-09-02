@@ -58,6 +58,11 @@ const dict = {
   creatingAccount: { ko: "생성 중...", en: "Creating..." },
   loginError: { ko: "로그인에 실패했습니다. 이메일/비밀번호를 확인하세요.", en: "Login failed. Check your email/password." },
   connectionError: { ko: "서버에 연결할 수 없습니다.", en: "Could not connect to the server." },
+  bootstrapCheckFailed: {
+    ko: "서버에 연결할 수 없습니다. 첫 실행이라면 데이터베이스 준비가 끝나기까지 잠시 걸립니다.",
+    en: "Could not reach the server. On a first launch, the database can take a moment to finish setting up.",
+  },
+  retryButton: { ko: "다시 시도", en: "Retry" },
   passwordMismatch: { ko: "비밀번호가 일치하지 않습니다.", en: "Passwords don't match." },
   adminExistsError: { ko: "이미 관리자 계정이 있습니다. 로그인해주세요.", en: "An admin account already exists. Please log in." },
   accountCreateError: { ko: "계정 생성에 실패했습니다.", en: "Failed to create account." },

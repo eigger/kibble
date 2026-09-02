@@ -20,7 +20,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -lc "npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts && npx prisma db seed --config apps/api/prisma.config.ts && node apps/api/dist/index.js"
+    # `prisma db seed`를 여기서 돌리지 않는다. prisma.config.ts의 seed 명령은 cwd(/app)
+    # 기준이라 /app/prisma/seed.ts를 찾고(실제는 /app/apps/api/prisma/seed.ts) 실패한다.
+    # 경로를 맞춰도 seed.ts가 apps/api/src를 import하는데 이미지에는 dist만 있다.
+    # && 체인이라 시드 실패가 곧 API 미기동이었다. 시스템 EventType은 index.ts가 기동 시
+    # 직접 시드하므로 이 단계는 애초에 중복이다. 시드 CLI는 개발용으로만 쓴다.
+    command: sh -lc "npx prisma migrate deploy --schema apps/api/prisma/schema.prisma --config apps/api/prisma.config.ts && node apps/api/dist/index.js"
     volumes:
       - uploads:/app/uploads
     environment:
