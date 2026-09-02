@@ -623,7 +623,7 @@ UI:
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
 | P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 + **청크 업로드**(drop 이식) | **완료** — multipart(≤20MB)·청크(8MB·영상/대용량), sharp JPEG, `FILE_SIZE_LIMIT_MB` |
 | P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | **완료** — 30일 경과 `Event` 하드삭제 + 첨부 디스크 정리, 매일 04:00 크론 |
-| P1-18 | `api.md` — 엔드포인트 + curl 예제 | **완료** |
+| P1-18 | `api.md` — 엔드포인트 + curl 예제 | **완료**. 관리자 화면 `/api-explorer`(garage 이식)가 읽기 20종을 실제로 눌러 볼 수 있게 보완한다 — 쓰기는 curl 예시만 |
 
 ### 5.4 웹
 

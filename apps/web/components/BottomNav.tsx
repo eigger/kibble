@@ -125,6 +125,16 @@ function UsersMenuIcon() {
   );
 }
 
+function ApiExplorerMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path d="m8 9-3 3 3 3" />
+      <path d="m16 9 3 3-3 3" />
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+    </svg>
+  );
+}
+
 function IntegrationsMenuIcon() {
   return (
     <svg {...iconProps()}>
@@ -337,6 +347,12 @@ export function BottomNav() {
                       <IntegrationsMenuIcon />
                     </span>
                     {t("integrationsTitle")}
+                  </button>
+                  <button type="button" className="sheet-item" onClick={() => go("/api-explorer")}>
+                    <span className="sheet-item-icon">
+                      <ApiExplorerMenuIcon />
+                    </span>
+                    {t("apiExplorerTitle")}
                   </button>
                 </>
               )}
