@@ -618,7 +618,7 @@ UI:
 |---|---|---|
 | P1-11 | 반려동물 CRUD + 사진 + 사후 편집 필드 전체 | **완료** — GET/PATCH/DELETE(archive)·사진·`/pets` UI 12필드 편집 |
 | P1-12 | **`createEvent()` 단일 서비스 함수** | **완료** — `services/createEvent.ts` |
-| P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. `api.md`는 P1-18 |
+| P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. 단건 `GET /api/events/:id`는 세션 전용(토큰은 개체 스코프라 임의 id 읽기를 열지 않는다). `api.md`는 P1-18 |
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | **완료** — API POST/PATCH/DELETE·`EventTypeAlias`·부분 유니크·`/presets` UI(이름·순서·숨김·별칭)·칩 길게 누르기 메뉴. 생성·삭제 UI는 미포함 |
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
 | P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 + **청크 업로드**(drop 이식) | **완료** — multipart(≤20MB)·청크(8MB·영상/대용량), sharp JPEG, `FILE_SIZE_LIMIT_MB` |
@@ -685,7 +685,7 @@ UI:
 | P2-01 | **파싱 고도화** — 실측 문장 벤치마크 세트로 정확도 개선 | Phase 1 게이트의 `needsReview` 비율을 근거로 |
 | P2-02 | **스캐너 이식 + 제품 바코드 바인딩** (`PresetCode.source = PRODUCT`) | S4 투약 구분, 사료 종류 추적. `@zxing` 동적 import 규칙 + 테스트 함께. 자동 생성은 하지 않는다 |
 | P2-03 | Web Share Target (drop 이식) | S6 |
-| P2-04 | `GET /api/ha/states` (역방향) | **선택 기능** — HA 없이도 앱이 완전해야 한다 (K-10) |
+| P2-04 | **`GET /api/states` (역방향)** | **완료** — 이름을 `/api/ha/states`에서 바꿨다: 경로에 플랫폼 이름을 박지 않는다 (K-14). `state:read` 스코프 토큰 또는 세션으로 읽는다. 반려동물별 마지막 기록·오늘 합계·밀린 복약·리마인더. **선택 기능** — HA 없이도 앱이 완전하다 (K-10) |
 | P2-05 | 행위 중복 경고 | `createEvent()` 내부에서만 (F2) |
 | P2-06 | 퀵 칩 시간대 가중 자동 정렬 | 게이트 2주 데이터를 근거로 |
 | P2-07 | 가족 공유 실사용 검증 | 2인 이상 동시 기록 |

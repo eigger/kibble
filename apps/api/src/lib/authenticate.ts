@@ -154,6 +154,29 @@ export function resolveTokenScopedField(
   return { value: bodyValue, mismatch: false };
 }
 
+/**
+ * 상태 조회 접근. 토큰은 `state:read`가 있어야 한다 — 기존 토큰은 `event:create`만
+ * 갖고 있으므로 자동으로 읽기 권한이 생기지 않는다.
+ */
+export function requireStateReadAccess(request: FastifyRequest, reply: FastifyReply): boolean {
+  if (request.authMethod === "apiToken") {
+    const scopes = request.apiTokenContext?.scopes ?? [];
+    if (!scopes.includes("state:read")) {
+      reply.code(403).send({ error: t("forbidden", request.locale) });
+      return false;
+    }
+  } else if (request.authMethod !== "jwt") {
+    reply.code(401).send({ error: "unauthorized" });
+    return false;
+  }
+
+  if (!request.householdId) {
+    reply.code(403).send({ error: t("noHousehold", request.locale) });
+    return false;
+  }
+  return true;
+}
+
 export function requireEventCreateAccess(request: FastifyRequest, reply: FastifyReply): boolean {
   if (request.authMethod === "apiToken") {
     const scopes = request.apiTokenContext?.scopes ?? [];

@@ -1,12 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { createApiTokenSchema } from "@kibble/shared";
+import { createApiTokenSchema, EVENT_CREATE_SCOPE } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdOwner } from "../lib/householdScope.js";
 import { generateApiTokenPlaintext, hashApiToken } from "../lib/apiToken.js";
 import { isRecordNotFoundError } from "../lib/prismaErrors.js";
 
-const EVENT_CREATE_SCOPE = "event:create";
 
 export async function apiTokenRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -40,7 +39,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
     const parsed = createApiTokenSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
-    const { name, presetId, petId, eventTypeId, expiresAt } = parsed.data;
+    const { name, scopes, presetId, petId, eventTypeId, expiresAt } = parsed.data;
 
     if (presetId) {
       const preset = await prisma.preset.findFirst({
@@ -78,7 +77,7 @@ export async function apiTokenRoutes(app: FastifyInstance) {
         householdId,
         name,
         tokenHash,
-        scopes: [EVENT_CREATE_SCOPE],
+        scopes: scopes ?? [EVENT_CREATE_SCOPE],
         presetId: presetId ?? null,
         petId: petId ?? null,
         eventTypeId: eventTypeId ?? null,
