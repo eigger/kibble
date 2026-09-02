@@ -2360,7 +2360,7 @@ button:disabled {
 }
 
 .quick-record-input-bar {
-  --quick-chip-width: calc(2em + 18px);
+  --quick-chip-width: calc(2em + 20px);
   height: auto;
   max-height: none;
   overflow: visible;
@@ -2390,11 +2390,12 @@ button:disabled {
 
 .quick-chip-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 4px;
   min-width: 0;
   padding: 1px 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .quick-chip-row:nth-child(odd) {
@@ -2424,11 +2425,11 @@ button:disabled {
   justify-content: flex-start;
   gap: 3px;
   min-width: 0;
-  max-width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
 
 .quick-chip-row-chips::-webkit-scrollbar {
@@ -2488,10 +2489,10 @@ button:disabled {
 .quick-record-input-bar .chip-quick,
 .quick-record-input-bar .chip-quick.chip-quick-5,
 .quick-record-input-bar .chip-quick.chip-quick-wide {
-  width: var(--quick-chip-width);
+  width: auto;
   min-width: var(--quick-chip-width);
-  max-width: var(--quick-chip-width);
-  padding-inline: 4px;
+  max-width: 7em;
+  padding-inline: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
 }

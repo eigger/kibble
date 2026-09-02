@@ -15,11 +15,11 @@ import { OfflineSync } from "../components/OfflineSync";
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("kibble_theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}var a=localStorage.getItem("kibble_accent_color");if(a==="amber"||a==="terracotta"||a==="blue"||a==="sage"){document.documentElement.setAttribute("data-accent",a);}else{document.documentElement.setAttribute("data-accent","amber");}}catch(e){}})();`;
 
 export const metadata: Metadata = {
-  title: "kibble",
+  title: "Kibble",
   description: "Self-hosted pet diary with minimal input friction",
   appleWebApp: {
     capable: true,
-    title: "kibble",
+    title: "Kibble",
     statusBarStyle: "default",
   },
   icons: {

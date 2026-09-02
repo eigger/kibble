@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { formatDoseTime, insertTimelineEvent, resolveDoseTimeOccurredAt } from "@kibble/shared";
@@ -111,6 +111,23 @@ export default function QuickRecordPage() {
   const [pendingMedCourse, setPendingMedCourse] = useState<ActiveMedicationCourse | null>(null);
 
   const presetGroups = useMemo(() => groupPresetsByCategory(presets), [presets]);
+  const chipGridRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const root = chipGridRef.current;
+    if (!root) return;
+
+    const stickOddRowsToCenter = () => {
+      root.querySelectorAll<HTMLElement>(".quick-chip-row:nth-child(odd) .quick-chip-row-chips").forEach((el) => {
+        el.scrollLeft = el.scrollWidth;
+      });
+    };
+
+    stickOddRowsToCenter();
+    const observer = new ResizeObserver(stickOddRowsToCenter);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [presetGroups]);
   const previewEvents = useMemo(
     () => recentEvents.slice(0, QUICK_RECENT_COUNT),
     [recentEvents],
@@ -544,7 +561,7 @@ export default function QuickRecordPage() {
         <div className="home-input-bar-inner">
           <section className="home-quick-section" aria-label={t("homeQuickRecord")}>
             {presets.length > 0 ? (
-              <div className="quick-chip-grid" role="group" aria-label={t("homeQuickRecord")}>
+              <div ref={chipGridRef} className="quick-chip-grid" role="group" aria-label={t("homeQuickRecord")}>
                 {presetGroups.map((group) => (
                   <div key={group.category} className="quick-chip-row">
                     <span className="quick-chip-row-label">

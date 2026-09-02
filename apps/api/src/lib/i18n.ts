@@ -181,7 +181,7 @@ const MESSAGES = {
 
   pushNotConfigured: { ko: "서버에 푸시 알림이 설정되지 않았습니다", en: "Push notifications aren't configured on the server" },
   noPushSubscriptions: { ko: "구독 정보가 없습니다", en: "No push subscription found" },
-  pushTestTitle: { ko: "kibble 알림 테스트", en: "kibble test notification" },
+  pushTestTitle: { ko: "Kibble 알림 테스트", en: "Kibble test notification" },
   pushTestBody: {
     ko: "테스트 알림입니다. 정상적으로 도착했다면 푸시 설정이 잘 되어 있는 것입니다.",
     en: "This is a test notification. If it arrived, your push setup is working.",
