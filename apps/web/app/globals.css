@@ -2386,6 +2386,7 @@ button:disabled {
   row-gap: 3px;
   width: 100%;
   margin: 0;
+  overflow: visible;
 }
 
 .quick-chip-row {
@@ -2395,15 +2396,16 @@ button:disabled {
   gap: 4px;
   min-width: 0;
   padding: 1px 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .quick-chip-row:nth-child(odd) {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .quick-chip-row:nth-child(even) {
-  justify-content: flex-start;
+  justify-content: flex-end;
+  z-index: 1;
 }
 
 .quick-chip-row-label {
@@ -2419,21 +2421,12 @@ button:disabled {
 }
 
 .quick-chip-row-chips {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 3px;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-
-.quick-chip-row-chips::-webkit-scrollbar {
-  display: none;
+  overflow: visible;
 }
 
 .quick-record-header {
