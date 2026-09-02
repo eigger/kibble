@@ -21,11 +21,26 @@ export function eventCategoryLabel(
 }
 
 export function clinicFieldsFromContact(event: {
-  contact?: { name: string; address: string | null } | null;
-}): { clinicName: string | null; clinicAddress: string | null } {
+  contact?: {
+    name: string;
+    address: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    placeUrl?: string | null;
+  } | null;
+}): {
+  clinicName: string | null;
+  clinicAddress: string | null;
+  clinicLatitude: number | null;
+  clinicLongitude: number | null;
+  clinicPlaceUrl: string | null;
+} {
   return {
     clinicName: event.contact?.name ?? null,
     clinicAddress: event.contact?.address ?? null,
+    clinicLatitude: event.contact?.latitude ?? null,
+    clinicLongitude: event.contact?.longitude ?? null,
+    clinicPlaceUrl: event.contact?.placeUrl ?? null,
   };
 }
 

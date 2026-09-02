@@ -9,6 +9,7 @@ import { authRoutes } from "./routes/auth.js";
 import { attachmentRoutes, mediaAttachmentRoutes } from "./routes/attachments.js";
 import { attachmentChunkRoutes } from "./routes/attachmentChunks.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { mapProviderRoutes } from "./routes/mapProviders.js";
 import { backupRoutes } from "./routes/backup.js";
 import { localeFromRequest } from "./lib/i18n.js";
 import { resolveJwtSecret } from "./lib/jwtSecret.js";
@@ -133,6 +134,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(attachmentChunkRoutes, { prefix: "/api/attachments" });
   await app.register(attachmentRoutes, { prefix: "/api/attachments" });
   await app.register(mediaAttachmentRoutes, { prefix: "/api/attachments" });
+  await app.register(mapProviderRoutes, { prefix: "/api/map" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(backupRoutes, { prefix: "/api/backup" });
 

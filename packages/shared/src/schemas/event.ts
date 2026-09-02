@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { latitudeSchema, longitudeSchema } from "./maps.js";
 
 const decimalOptional = z.coerce.number().finite().optional();
 
@@ -16,6 +17,9 @@ export const createEventSchema = z.object({
   productName: z.string().trim().max(120).optional(),
   clinicName: z.string().trim().max(120).optional(),
   clinicAddress: z.string().trim().max(500).optional(),
+  clinicLatitude: latitudeSchema.optional(),
+  clinicLongitude: longitudeSchema.optional(),
+  clinicPlaceUrl: z.string().trim().url().max(500).optional(),
   note: z.string().trim().max(4000).optional(),
   rawText: z.string().trim().max(8000).optional(),
   entryId: z.string().trim().min(1).optional(),
@@ -38,6 +42,9 @@ export const updateEventSchema = z
     productName: z.string().trim().max(120).nullable().optional(),
     clinicName: z.string().trim().max(120).nullable().optional(),
     clinicAddress: z.string().trim().max(500).nullable().optional(),
+    clinicLatitude: latitudeSchema.nullable().optional(),
+    clinicLongitude: longitudeSchema.nullable().optional(),
+    clinicPlaceUrl: z.string().trim().url().max(500).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
     needsReview: z.boolean().optional(),
   })

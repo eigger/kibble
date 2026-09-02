@@ -277,7 +277,9 @@ export const eventWithRelationsSelect = {
   ...eventSelect,
   eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
   preset: { select: { id: true, label: true } },
-  contact: { select: { id: true, name: true, address: true } },
+  contact: {
+    select: { id: true, name: true, address: true, latitude: true, longitude: true, placeUrl: true },
+  },
   course: { select: { id: true, name: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },

@@ -18,6 +18,12 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import type { EventAttachment } from "../lib/types";
+import { mapsEnabled } from "../lib/maps/types";
+import { useMapProviders } from "../lib/maps/useMapProviders";
+import { geocodeAddress } from "../lib/maps/geocode";
+import { ClinicSearchModal, type ClinicPlaceResult } from "./ClinicSearchModal";
+import { ClinicMap } from "./maps/ClinicMap";
+import { NavLaunchButtons } from "./NavLaunchButtons";
 import { AttachmentLightbox } from "./AttachmentLightbox";
 import { EventDetailChip } from "./EventDetailChip";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
@@ -44,6 +50,9 @@ export interface EventDetailDraft {
   productName: string | null;
   clinicName: string | null;
   clinicAddress: string | null;
+  clinicLatitude?: number | null;
+  clinicLongitude?: number | null;
+  clinicPlaceUrl?: string | null;
   note: string | null;
   scaleType?: string | null;
   scaleValue?: number | null;
@@ -81,10 +90,27 @@ type ProductSuggestions = {
   frequent: { productName: string; count: number }[];
 };
 
-type ClinicSuggestions = {
-  lastClinic: { name: string; address: string | null } | null;
-  frequent: { name: string; address: string | null; count: number }[];
+type ClinicPlace = {
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  placeUrl: string | null;
 };
+
+type ClinicSuggestions = {
+  lastClinic: ClinicPlace | null;
+  frequent: (ClinicPlace & { count: number })[];
+};
+
+/** 장소 검색으로 얻은 좌표·상세 URL. 이름을 손으로 고치면 함께 버린다. */
+type ClinicPlaceSelection = {
+  latitude: number | null;
+  longitude: number | null;
+  placeUrl: string | null;
+};
+
+const NO_CLINIC_PLACE: ClinicPlaceSelection = { latitude: null, longitude: null, placeUrl: null };
 
 function draftSyncKey(draft: EventDetailDraft | null): string {
   if (!draft) return "";
@@ -114,6 +140,7 @@ function resetFormFromDraft(
     setCustomProductName: (v: string) => void;
     setClinicName: (v: string) => void;
     setClinicAddress: (v: string) => void;
+    setClinicPlace: (v: ClinicPlaceSelection) => void;
     setQuantityOffered: (v: string) => void;
     setQuantity: (v: string) => void;
     setUnit: (v: string) => void;
@@ -136,6 +163,11 @@ function resetFormFromDraft(
   }
   setters.setClinicName(draft.clinicName ?? "");
   setters.setClinicAddress(draft.clinicAddress ?? "");
+  setters.setClinicPlace({
+    latitude: draft.clinicLatitude ?? null,
+    longitude: draft.clinicLongitude ?? null,
+    placeUrl: draft.clinicPlaceUrl ?? null,
+  });
   setters.setQuantityOffered(draft.quantityOffered != null ? String(draft.quantityOffered) : "");
   setters.setQuantity(draft.quantity != null ? String(draft.quantity) : "");
   setters.setUnit(draft.unit ?? "");
@@ -167,6 +199,8 @@ export function EventDetailSheet({
   const [frequentProducts, setFrequentProducts] = useState<ProductSuggestions["frequent"]>([]);
   const [clinicName, setClinicName] = useState("");
   const [clinicAddress, setClinicAddress] = useState("");
+  const [clinicPlace, setClinicPlace] = useState<ClinicPlaceSelection>(NO_CLINIC_PLACE);
+  const [clinicSearchOpen, setClinicSearchOpen] = useState(false);
   const [frequentClinics, setFrequentClinics] = useState<ClinicSuggestions["frequent"]>([]);
   const [quantityOffered, setQuantityOffered] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -179,6 +213,9 @@ export function EventDetailSheet({
   const dialogRef = useRef<HTMLDivElement>(null);
   const busy = saving || deleting;
   const syncKey = draftSyncKey(draft);
+  const wantsMaps = open && draft?.eventTypeKey === "vet_visit";
+  const mapConfig = useMapProviders(wantsMaps);
+  const mapsOn = mapsEnabled(mapConfig);
 
   const fields = useMemo(
     () => eventDetailFields(draft?.eventTypeKey, draft?.scaleType),
@@ -213,6 +250,7 @@ export function EventDetailSheet({
         setCustomProductName,
         setClinicName,
         setClinicAddress,
+        setClinicPlace,
         setQuantityOffered,
         setQuantity,
         setUnit,
@@ -224,6 +262,7 @@ export function EventDetailSheet({
     );
     setFrequentProducts([]);
     setFrequentClinics([]);
+    setClinicSearchOpen(false);
     setIsEditing(draft.mode === "create" || draft.mode === "edit");
     setLightboxAtt(null);
 
@@ -285,8 +324,7 @@ export function EventDetailSheet({
         if (cancelled) return;
         setFrequentClinics(data.frequent);
         if (draft.mode === "create" && !draft.clinicName?.trim() && data.lastClinic) {
-          setClinicName(data.lastClinic.name);
-          setClinicAddress(data.lastClinic.address ?? "");
+          applyClinicPlace(data.lastClinic);
         }
       })
       .catch(() => {
@@ -299,6 +337,32 @@ export function EventDetailSheet({
     // 위와 같은 이유 — draft 전체가 아니라 이 effect가 읽는 필드만 의존한다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, syncKey, fields.clinicName, draft?.mode, draft?.petId, draft?.clinicName]);
+
+  // 장소 검색 이전에 자유 텍스트로 적어 둔 병원은 좌표가 없다 — 주소만 있으면 지오코딩해서
+  // 지도·내비를 쓸 수 있게 한다. 실패하면 지도 없이 기존 화면 그대로다.
+  const [geocodedCoords, setGeocodedCoords] = useState<{ lat: number; lon: number } | null>(null);
+
+  useEffect(() => {
+    setGeocodedCoords(null);
+  }, [syncKey]);
+
+  useEffect(() => {
+    if (!open || !draft || !fields.clinicName || !mapsOn) return;
+    if (draft.clinicLatitude != null && draft.clinicLongitude != null) return;
+    const address = draft.clinicAddress?.trim();
+    if (!address) return;
+
+    let cancelled = false;
+    void geocodeAddress(mapConfig, address)
+      .then((res) => {
+        if (!cancelled) setGeocodedCoords(res);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, syncKey, mapsOn, mapConfig, fields.clinicName, draft?.clinicAddress, draft?.clinicLatitude, draft?.clinicLongitude]);
 
   const visibleAttachments = attachments.filter((a) => !removedAttachmentIds.includes(a.id));
   const showForm = isEditing;
@@ -319,6 +383,12 @@ export function EventDetailSheet({
   if (!open || !draft) return null;
 
   const isObservation = draft.eventTypeKey === "observation" || draft.eventTypeKey === "energy";
+
+  const clinicCoords =
+    draft.clinicLatitude != null && draft.clinicLongitude != null
+      ? { lat: draft.clinicLatitude, lon: draft.clinicLongitude }
+      : geocodedCoords;
+  const clinicMapName = draft.clinicName?.trim() || "";
 
   function renderScale3Field() {
     if (!fields.scale3) return null;
@@ -364,6 +434,7 @@ export function EventDetailSheet({
         setCustomProductName,
         setClinicName,
         setClinicAddress,
+        setClinicPlace,
         setQuantityOffered,
         setQuantity,
         setUnit,
@@ -374,6 +445,34 @@ export function EventDetailSheet({
       fields.detailTags,
     );
     setIsEditing(false);
+  }
+
+  function applyClinicPlace(place: ClinicPlace) {
+    setClinicName(place.name);
+    setClinicAddress(place.address ?? "");
+    setClinicPlace({
+      latitude: place.latitude,
+      longitude: place.longitude,
+      placeUrl: place.placeUrl,
+    });
+  }
+
+  function handleClinicSearchSelect(result: ClinicPlaceResult) {
+    applyClinicPlace({
+      name: result.name,
+      address: result.address || null,
+      latitude: result.lat,
+      longitude: result.lon,
+      placeUrl: result.placeUrl,
+    });
+    setClinicSearchOpen(false);
+  }
+
+  // 이름을 손으로 고치면 검색으로 붙은 좌표는 버린다 — 이름이 곧 Contact의 키라서
+  // 그대로 두면 다른 병원에 엉뚱한 좌표가 붙는다.
+  function handleClinicNameInput(value: string) {
+    setClinicName(value);
+    setClinicPlace(NO_CLINIC_PLACE);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -417,6 +516,9 @@ export function EventDetailSheet({
         productName: savedProductName,
         clinicName: fields.clinicName ? clinicName.trim() || null : null,
         clinicAddress: fields.clinicAddress ? clinicAddress.trim() || null : null,
+        clinicLatitude: fields.clinicName ? clinicPlace.latitude : null,
+        clinicLongitude: fields.clinicName ? clinicPlace.longitude : null,
+        clinicPlaceUrl: fields.clinicName ? clinicPlace.placeUrl : null,
         note: fields.note ? note.trim() || null : null,
         scaleValue: fields.fecalScale || fields.scale3 ? scaleValue : null,
         needsReview: false,
@@ -501,6 +603,32 @@ export function EventDetailSheet({
                   )}
                 {fields.note && renderViewValue(t(fields.noteLabelKey), draft.note)}
               </dl>
+
+              {fields.clinicName && clinicMapName && clinicCoords && (
+                <section className="event-detail-clinic-map" aria-label={t("clinicMapSection")}>
+                  {mapConfig.kakaoAppKey && (
+                    <ClinicMap
+                      appKey={mapConfig.kakaoAppKey}
+                      lat={clinicCoords.lat}
+                      lon={clinicCoords.lon}
+                      name={clinicMapName}
+                    />
+                  )}
+                  <NavLaunchButtons
+                    destination={{ lat: clinicCoords.lat, lon: clinicCoords.lon, name: clinicMapName }}
+                  />
+                  {draft.clinicPlaceUrl && (
+                    <a
+                      className="clinic-place-link"
+                      href={draft.clinicPlaceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {t("clinicPlaceDetailLink")}
+                    </a>
+                  )}
+                </section>
+              )}
 
               {attachments.length > 0 && (
                 <section className="event-detail-view-attachments" aria-label={t("eventDetailAttachments")}>
@@ -639,16 +767,28 @@ export function EventDetailSheet({
                       <label className="field-label" htmlFor="event-clinic-name">
                         {t("eventDetailClinicName")}
                       </label>
-                      <input
-                        id="event-clinic-name"
-                        type="text"
-                        className="event-detail-product-input"
-                        placeholder={t("eventDetailClinicNamePlaceholder")}
-                        maxLength={120}
-                        value={clinicName}
-                        disabled={busy}
-                        onChange={(e) => setClinicName(e.target.value)}
-                      />
+                      <div className="clinic-name-row">
+                        <input
+                          id="event-clinic-name"
+                          type="text"
+                          className="event-detail-product-input"
+                          placeholder={t("eventDetailClinicNamePlaceholder")}
+                          maxLength={120}
+                          value={clinicName}
+                          disabled={busy}
+                          onChange={(e) => handleClinicNameInput(e.target.value)}
+                        />
+                        {mapsOn && (
+                          <button
+                            type="button"
+                            className="clinic-search-open"
+                            disabled={busy}
+                            onClick={() => setClinicSearchOpen(true)}
+                          >
+                            {t("clinicSearchOpenButton")}
+                          </button>
+                        )}
+                      </div>
                     </>
                   )}
                   {fields.clinicAddress && (
@@ -676,10 +816,7 @@ export function EventDetailSheet({
                           <EventDetailChip
                             key={`${item.name}|${item.address ?? ""}`}
                             disabled={busy}
-                            onClick={() => {
-                              setClinicName(item.name);
-                              setClinicAddress(item.address ?? "");
-                            }}
+                            onClick={() => applyClinicPlace(item)}
                           >
                             {item.address ? `${item.name} · ${item.address}` : item.name}
                           </EventDetailChip>
@@ -866,6 +1003,15 @@ export function EventDetailSheet({
           )}
         </div>
       </div>
+
+      {clinicSearchOpen && (
+        <ClinicSearchModal
+          mapConfig={mapConfig}
+          initialQuery={clinicName}
+          onSelect={handleClinicSearchSelect}
+          onClose={() => setClinicSearchOpen(false)}
+        />
+      )}
 
       {lightboxAtt && (
         <AttachmentLightbox
