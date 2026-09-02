@@ -5,7 +5,7 @@ import { t } from "../lib/i18n.js";
 
 const DEFAULT_APP_PUBLIC_URL = "http://localhost:3000";
 
-const MANAGED_KEYS = ["APP_PUBLIC_URL"];
+const MANAGED_KEYS = ["APP_PUBLIC_URL", "KAKAO_MAP_APP_KEY"];
 
 export async function settingsRoutes(app: FastifyInstance) {
   app.addHook("preHandler", app.authenticate);

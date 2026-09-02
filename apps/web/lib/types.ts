@@ -77,7 +77,14 @@ export interface CreatedEvent {
   scaleValue?: number | null;
   productName: string | null;
   note: string | null;
-  contact?: { id: string; name: string; address: string | null } | null;
+  contact?: {
+    id: string;
+    name: string;
+    address: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    placeUrl?: string | null;
+  } | null;
   course?: { id: string; name: string } | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
@@ -150,7 +157,14 @@ export interface TimelineEvent {
   scaleValue: number | null;
   productName: string | null;
   note: string | null;
-  contact?: { id: string; name: string; address: string | null } | null;
+  contact?: {
+    id: string;
+    name: string;
+    address: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    placeUrl?: string | null;
+  } | null;
   course?: { id: string; name: string } | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };

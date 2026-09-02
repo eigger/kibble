@@ -1,5 +1,6 @@
 export * from "./schemas/auth.js";
 export * from "./schemas/settings.js";
+export * from "./schemas/maps.js";
 export * from "./schemas/pet.js";
 export * from "./schemas/preset.js";
 export * from "./schemas/event.js";

@@ -7,7 +7,7 @@ import { periodRangeFromQuery } from "../lib/kstPeriodRange.js";
 import { assertPetInHousehold, listEventHistoryPeriods } from "../lib/historyPeriods.js";
 import { productSuggestionsForPet } from "../lib/frequentProducts.js";
 import { clinicSuggestionsForPet } from "../lib/frequentClinics.js";
-import { upsertVetContact } from "../lib/upsertVetContact.js";
+import { upsertVetContact, type VetContactDetails } from "../lib/upsertVetContact.js";
 import {
   requireEventCreateAccess,
   resolveTokenScopedField,
@@ -39,14 +39,33 @@ function mapSource(raw: string | undefined, authMethod: "jwt" | "apiToken"): Eve
   return "WEB";
 }
 
+type ClinicInput = {
+  clinicName?: string | null;
+  clinicAddress?: string | null;
+  clinicLatitude?: number | null;
+  clinicLongitude?: number | null;
+  clinicPlaceUrl?: string | null;
+};
+
+/** 좌표는 짝으로만 의미가 있다 — 하나만 온 요청은 좌표 없이 처리한다. */
+function vetContactDetails(body: ClinicInput): VetContactDetails {
+  const hasCoords = body.clinicLatitude != null && body.clinicLongitude != null;
+  return {
+    address: body.clinicAddress,
+    latitude: hasCoords ? body.clinicLatitude : null,
+    longitude: hasCoords ? body.clinicLongitude : null,
+    placeUrl: body.clinicPlaceUrl,
+  };
+}
+
 async function resolveClinicContactId(
   householdId: string,
   clinicName: string | null | undefined,
-  clinicAddress: string | null | undefined,
+  details: VetContactDetails,
 ): Promise<string | null> {
   const name = clinicName?.trim();
   if (!name) return null;
-  return upsertVetContact(prisma, householdId, name, clinicAddress);
+  return upsertVetContact(prisma, householdId, name, details);
 }
 
 export async function eventRoutes(app: FastifyInstance) {
@@ -92,7 +111,11 @@ export async function eventRoutes(app: FastifyInstance) {
       try {
         let contactId: string | null | undefined = undefined;
         if (body.clinicName !== undefined) {
-          contactId = await resolveClinicContactId(householdId, body.clinicName, body.clinicAddress);
+          contactId = await resolveClinicContactId(
+            householdId,
+            body.clinicName,
+            vetContactDetails(body),
+          );
         }
 
         const event = await createEvent(prisma, {
@@ -275,7 +298,16 @@ export async function eventRoutes(app: FastifyInstance) {
         ...eventSelect,
         eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true } },
         preset: { select: { id: true, label: true } },
-        contact: { select: { id: true, name: true, address: true } },
+        contact: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+            latitude: true,
+            longitude: true,
+            placeUrl: true,
+          },
+        },
         course: { select: { id: true, name: true } },
         attachments: {
           select: { id: true, path: true, mime: true, size: true, width: true, height: true },
@@ -303,13 +335,19 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.scaleValue !== undefined) updateData.scaleValue = data.scaleValue;
     if (data.productName !== undefined) updateData.productName = data.productName?.trim() || null;
+    const clinicDetailsChanged =
+      data.clinicAddress !== undefined ||
+      data.clinicLatitude !== undefined ||
+      data.clinicLongitude !== undefined ||
+      data.clinicPlaceUrl !== undefined;
     if (data.clinicName !== undefined) {
       updateData.contactId = await resolveClinicContactId(
         householdId,
         data.clinicName,
-        data.clinicAddress,
+        vetContactDetails(data),
       );
-    } else if (data.clinicAddress !== undefined) {
+    } else if (clinicDetailsChanged) {
+      // 이름을 안 보냈으면 기존 Contact의 이름을 그대로 두고 주소·좌표만 갱신한다.
       const row = await prisma.event.findFirst({
         where: { id, ...householdWhere(householdId), deletedAt: null },
         select: { contact: { select: { id: true, name: true } } },
@@ -319,7 +357,7 @@ export async function eventRoutes(app: FastifyInstance) {
         updateData.contactId = await resolveClinicContactId(
           householdId,
           row.contact.name,
-          data.clinicAddress,
+          vetContactDetails(data),
         );
       }
     }
