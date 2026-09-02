@@ -2337,7 +2337,7 @@ button:disabled {
 }
 
 .quick-record-page {
-  --quick-chip-bar-height: 7.75rem;
+  --quick-chip-bar-height: 10rem;
   min-height: calc(100dvh - var(--nav-height) - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
@@ -2383,7 +2383,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 8px;
-  row-gap: 3px;
+  row-gap: 6px;
   width: 100%;
   margin: 0;
   overflow: visible;
@@ -2485,7 +2485,11 @@ button:disabled {
   width: auto;
   min-width: var(--quick-chip-width);
   max-width: 7em;
-  padding-inline: 6px;
+  min-height: 44px;
+  padding-block: 8px;
+  padding-inline: 8px;
+  font-size: 0.82rem;
+  border-radius: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
