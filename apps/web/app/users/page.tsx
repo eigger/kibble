@@ -18,6 +18,7 @@ export default function UsersPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<"ADMIN" | "GENERAL">("GENERAL");
   const [householdMode, setHouseholdMode] = useState<"JOIN" | "SEPARATE">("JOIN");
   const [householdRole, setHouseholdRole] = useState<"MEMBER" | "VIEWER">("MEMBER");
@@ -38,6 +39,10 @@ export default function UsersPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      show(t("passwordMismatch"), "error");
+      return;
+    }
     try {
       await apiJson("/api/auth/users", {
         method: "POST",
@@ -46,6 +51,7 @@ export default function UsersPage() {
       setName("");
       setEmail("");
       setPassword("");
+      setConfirmPassword("");
       setRole("GENERAL");
       setHouseholdMode("JOIN");
       setHouseholdRole("MEMBER");
@@ -92,9 +98,18 @@ export default function UsersPage() {
         <input type="email" placeholder={t("emailPlaceholder")} value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input
           type="password"
+          autoComplete="new-password"
           placeholder={t("passwordMinPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <input
+          type="password"
+          autoComplete="new-password"
+          placeholder={t("confirmPasswordPlaceholder")}
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
         <select value={role} onChange={(e) => setRole(e.target.value as "ADMIN" | "GENERAL")}>
