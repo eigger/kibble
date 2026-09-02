@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 // PWA manifest는 빌드 시점 정적 파일 — OS 설치 UI용 영문 기본값 (런타임 locale 미지원)
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "kibble — pet diary",
-    short_name: "kibble",
+    name: "Kibble — pet diary",
+    short_name: "Kibble",
     description: "Self-hosted pet diary with minimal input friction",
     start_url: "/",
     display: "standalone",

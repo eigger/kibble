@@ -17,7 +17,7 @@ const dict = {
   processingLabel: { ko: "처리 중...", en: "Processing..." },
 
   // app
-  appName: { ko: "kibble", en: "kibble" },
+  appName: { ko: "Kibble", en: "Kibble" },
 
   // bottom nav
   navHome: { ko: "홈", en: "Home" },
