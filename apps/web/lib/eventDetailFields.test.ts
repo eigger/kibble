@@ -167,7 +167,8 @@ describe("formatEventDetailLine", () => {
     expect(line).toBe("4.2kg");
   });
 
-  it("shows clinic name and address for vet visit", () => {
+  // 목록 한 줄은 병원 이름까지 — 주소는 상세 시트가 따로 보여준다.
+  it("shows the clinic name but not the address for vet visit", () => {
     const line = formatEventDetailLine({
       clinicName: "행복동물병원",
       clinicAddress: "강남구",
@@ -178,7 +179,7 @@ describe("formatEventDetailLine", () => {
       note: null,
       eventType: { key: "vet_visit", scaleType: null },
     });
-    expect(line).toBe("행복동물병원 · 강남구");
+    expect(line).toBe("행복동물병원");
   });
 
   it("shows medication course name in detail line", () => {

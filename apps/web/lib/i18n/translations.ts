@@ -228,7 +228,7 @@ const dict = {
   recenterMap: { ko: "지도 중심으로", en: "Recenter map" },
   navLaunchHeading: { ko: "길찾기:", en: "Navigate:" },
   "navProvider.tmap": { ko: "T맵", en: "TMAP" },
-  "navProvider.kakao": { ko: "카카오내비", en: "Kakao" },
+  "navProvider.kakao": { ko: "카카오맵", en: "KakaoMap" },
   "navProvider.naver": { ko: "네이버지도", en: "Naver" },
 
   // API 연동 화면 (관리자, /integrations)
@@ -359,6 +359,7 @@ const dict = {
   loadMore: { ko: "더보기", en: "Load more" },
   timelineLoadMoreError: { ko: "기록을 더 불러오지 못했습니다.", en: "Could not load more events." },
   eventDetailAttachments: { ko: "사진·영상", en: "Photos & videos" },
+  lightboxResetZoom: { ko: "원래 크기", en: "Reset zoom" },
   attachPhotos: { ko: "사진·영상", en: "Photos" },
   attachFromAlbum: { ko: "앨범", en: "Album" },
   capturePhoto: { ko: "사진 촬영", en: "Take photo" },

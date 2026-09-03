@@ -1019,6 +1019,7 @@ export function EventDetailSheet({
           mime={lightboxAtt.mime}
           onClose={() => setLightboxAtt(null)}
           closeLabel={t("close")}
+          resetLabel={t("lightboxResetZoom")}
         />
       )}
     </>

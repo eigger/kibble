@@ -270,10 +270,6 @@ export function formatEventDetailLine(
     parts.push(event.clinicName.trim());
   }
 
-  if (flags.clinicAddress && event.clinicAddress?.trim()) {
-    parts.push(event.clinicAddress.trim());
-  }
-
   if (event.eventType.key === "medication" && event.medicationCourseName?.trim()) {
     parts.push(event.medicationCourseName.trim());
   }
