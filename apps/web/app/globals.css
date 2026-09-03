@@ -1457,6 +1457,7 @@ button:disabled {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: var(--color-surface);
+  color: var(--color-text);
   font-size: 0.8rem;
   white-space: nowrap;
 }
@@ -2334,6 +2335,14 @@ button:disabled {
 .event-detail-chip-hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+/* 작성자 · 최종 수정 — 기록 내용이 아니라 시스템 메타이므로 살짝 떨어뜨려 둔다. */
+.event-detail-audit {
+  margin: 4px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.75rem;
 }
 
 .event-detail-save-error {

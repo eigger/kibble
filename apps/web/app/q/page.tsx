@@ -199,6 +199,9 @@ export default function QuickRecordPage() {
       note: event.note,
       scaleType: event.eventType.scaleType ?? null,
       scaleValue: event.scaleValue,
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt,
+      createdByName: event.createdBy?.name ?? null,
     });
     setDetailOpen(true);
   }

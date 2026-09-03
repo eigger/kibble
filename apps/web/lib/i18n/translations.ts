@@ -359,6 +359,8 @@ const dict = {
   loadMore: { ko: "더보기", en: "Load more" },
   timelineLoadMoreError: { ko: "기록을 더 불러오지 못했습니다.", en: "Could not load more events." },
   eventDetailAttachments: { ko: "사진·영상", en: "Photos & videos" },
+  eventDetailCreatedBy: { ko: "{name} 작성", en: "Logged by {name}" },
+  eventDetailLastModified: { ko: "{datetime} 수정", en: "Edited {datetime}" },
   lightboxResetZoom: { ko: "원래 크기", en: "Reset zoom" },
   attachPhotos: { ko: "사진·영상", en: "Photos" },
   attachFromAlbum: { ko: "앨범", en: "Album" },
