@@ -426,9 +426,16 @@ export default function AnalyticsPage() {
             </section>
           )}
 
-          {costGrouped.length > 0 && (
-            <section className="card analytics-chart-card">
-              <h2 className="analytics-chart-title">{t("analyticsCostChartTitle")}</h2>
+          <section className="card analytics-chart-card">
+            <h2 className="analytics-chart-title">{t("analyticsCostChartTitle")}</h2>
+            {costGrouped.length === 0 ? (
+              <ChartEmpty
+                title={t("analyticsEmptyTitle")}
+                desc={t("analyticsEmptyDesc")}
+                inPeriod={hasAnyData}
+                t={t}
+              />
+            ) : (
               <AnalyticsChart>
                 <BarChart
                   data={costGrouped}
@@ -455,8 +462,8 @@ export default function AnalyticsPage() {
                   />
                 </BarChart>
               </AnalyticsChart>
-            </section>
-          )}
+            )}
+          </section>
 
           {!hasAnyData && (
             <p className="meta" style={{ marginTop: 16, textAlign: "center" }}>
