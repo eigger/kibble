@@ -72,12 +72,14 @@ const EDITED_THRESHOLD_MS = 2000;
 
 /**
  * 상세 시트 하단에 붙는 "작성자 · 최종 수정" 메타 줄. 작성자를 모르면(API 토큰으로
- * 생성된 기록 등) 그 줄을 건너뛰고, 생성 이후 실제로 고친 적이 없으면 수정 시각도
- * 건너뛴다 — 모든 기록에 "방금 수정됨"이 붙는 소음을 피한다.
+ * 생성된 기록, 혹은 계정이 삭제된 경우) 그 줄을 건너뛰고, 생성 이후 실제로 고친 적이
+ * 없으면 수정 시각도 건너뛴다 — 모든 기록에 "방금 수정됨"이 붙는 소음을 피한다.
+ * 수정한 사람이 작성자와 같으면 이름을 반복하지 않는다.
  */
 export function eventAuditParts(
   event: {
-    createdBy?: { name: string } | null;
+    createdByName?: string | null;
+    updatedByName?: string | null;
     createdAt?: string;
     updatedAt?: string;
   },
@@ -85,15 +87,22 @@ export function eventAuditParts(
   locale: string,
 ): string[] {
   const parts: string[] = [];
-  if (event.createdBy?.name) {
-    parts.push(t("eventDetailCreatedBy", { name: event.createdBy.name }));
+  const creatorName = event.createdByName ?? null;
+  if (creatorName) {
+    parts.push(t("eventDetailCreatedBy", { name: creatorName }));
   }
+
   if (event.createdAt && event.updatedAt) {
     const createdMs = new Date(event.createdAt).getTime();
     const updatedMs = new Date(event.updatedAt).getTime();
     if (Number.isFinite(createdMs) && Number.isFinite(updatedMs) && updatedMs - createdMs > EDITED_THRESHOLD_MS) {
       const when = `${formatEventDate(event.updatedAt, locale)} ${formatEventTime(event.updatedAt, locale)}`;
-      parts.push(t("eventDetailLastModified", { datetime: when }));
+      const editorName = event.updatedByName ?? null;
+      if (editorName && editorName !== creatorName) {
+        parts.push(t("eventDetailLastModifiedBy", { name: editorName, datetime: when }));
+      } else {
+        parts.push(t("eventDetailLastModified", { datetime: when }));
+      }
     }
   }
   return parts;

@@ -67,6 +67,7 @@ export interface EventDetailDraft {
   createdAt?: string;
   updatedAt?: string;
   createdByName?: string | null;
+  updatedByName?: string | null;
 }
 
 interface EventDetailSheetProps {

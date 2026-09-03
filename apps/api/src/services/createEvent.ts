@@ -256,6 +256,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         needsReview: params.needsReview ?? false,
         source: params.source,
         createdById: params.createdById ?? undefined,
+        updatedById: params.createdById ?? undefined,
         dedupeKey: params.dedupeKey ?? undefined,
         medicationCourseId: medicationCourseId ?? undefined,
         doseSlotIndex: doseSlotIndex ?? undefined,
@@ -282,6 +283,7 @@ export const eventWithRelationsSelect = {
   },
   course: { select: { id: true, name: true } },
   createdBy: { select: { id: true, name: true } },
+  updatedBy: { select: { id: true, name: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },

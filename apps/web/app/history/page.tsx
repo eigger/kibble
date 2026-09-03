@@ -20,7 +20,8 @@ import {
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { EventCategoryTag } from "../../components/EventCategoryTag";
 import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
-import { EventAttachmentThumb } from "../../components/EventAttachmentThumb";
+import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
+import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
@@ -52,6 +53,8 @@ export default function HistoryPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
+  // 이력 행 사진을 바로 눌렀을 때 — 상세 시트를 거치지 않고 라이트박스만 연다.
+  const [rowLightboxAtt, setRowLightboxAtt] = useState<EventAttachment | null>(null);
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -225,6 +228,7 @@ export default function HistoryPage() {
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
       createdByName: event.createdBy?.name ?? null,
+      updatedByName: event.updatedBy?.name ?? null,
     });
     setDetailOpen(true);
   }
@@ -389,10 +393,16 @@ export default function HistoryPage() {
                     const detail = eventDetailLine(event, t);
                     return (
                       <li key={event.id} className="timeline-row">
-                        <button
-                          type="button"
+                        <div
                           className="timeline-item timeline-item-clickable"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => openDetailFromEvent(event)}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter" && e.key !== " ") return;
+                            e.preventDefault();
+                            openDetailFromEvent(event);
+                          }}
                         >
                           <time className="timeline-time" dateTime={event.occurredAt}>
                             {formatEventTime(event.occurredAt, locale)}
@@ -407,22 +417,13 @@ export default function HistoryPage() {
                             </div>
                             {detail && <span className="timeline-detail">{detail}</span>}
                             {(event.attachments?.length ?? 0) > 0 && (
-                              <div className="timeline-attachments">
-                                <EventAttachmentThumb
-                                  path={event.attachments![0].path}
-                                  mime={event.attachments![0].mime}
-                                  alt=""
-                                  className="attachment-thumb attachment-thumb-inline"
-                                />
-                                {event.attachments!.length > 1 && (
-                                  <span className="timeline-attachment-count">
-                                    +{event.attachments!.length - 1}
-                                  </span>
-                                )}
-                              </div>
+                              <TimelineAttachmentThumbs
+                                attachments={event.attachments ?? []}
+                                onOpen={setRowLightboxAtt}
+                              />
                             )}
                           </div>
-                        </button>
+                        </div>
                         <div className="timeline-row-actions">
                           <button
                             type="button"
@@ -486,6 +487,16 @@ export default function HistoryPage() {
         t={t}
         locale={locale}
       />
+
+      {rowLightboxAtt && (
+        <AttachmentLightbox
+          path={rowLightboxAtt.path}
+          mime={rowLightboxAtt.mime}
+          onClose={() => setRowLightboxAtt(null)}
+          closeLabel={t("close")}
+          resetLabel={t("lightboxResetZoom")}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteConfirmEventId != null}

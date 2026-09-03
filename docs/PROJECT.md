@@ -331,6 +331,9 @@ model Event {
   needsReview  Boolean  @default(false)  // 파싱 제안을 아직 확인받지 않음
   source       EventSource @default(WEB)
   createdById  String?             // 시스템 생성 시 null
+  updatedById  String?             // 마지막으로 고친 사람. 생성 직후엔 createdById와 같다.
+                                   // PATCH 때마다 세션 사용자로 갱신 — "누가 마지막으로 고쳤는지"
+                                   // 표시용(상세 화면 "{이름} · {날짜} 수정"). 계정 삭제 시 SetNull.
   dedupeKey    String?             // 외부 자동화 재시도 중복 방지. @@unique([householdId, dedupeKey])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -343,6 +346,7 @@ model Event {
   contact     Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
   course      MedicationCourse? @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
   createdBy   User?             @relation("EventCreator", fields: [createdById], references: [id])
+  updatedBy   User?             @relation("EventEditor", fields: [updatedById], references: [id], onDelete: SetNull)
   attachments Attachment[]
 
   @@index([petId, occurredAt(sort: Desc)])

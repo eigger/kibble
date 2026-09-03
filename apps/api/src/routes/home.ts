@@ -26,6 +26,7 @@ const recentEventSelect = {
   course: { select: { id: true, name: true } },
   eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
   createdBy: { select: { id: true, name: true } },
+  updatedBy: { select: { id: true, name: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },
