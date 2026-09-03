@@ -128,6 +128,7 @@ export function eventDetailLine(
       productName: event.productName,
       clinicName: clinic.clinicName,
       clinicAddress: clinic.clinicAddress,
+      costKrw: event.costKrw,
       medicationCourseName:
         showCourseInDetail && event.course?.name ? event.course.name : null,
       quantity: event.quantity,

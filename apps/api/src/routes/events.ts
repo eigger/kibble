@@ -130,6 +130,7 @@ export async function eventRoutes(app: FastifyInstance) {
           scaleValue: body.scaleValue,
           productName: body.productName,
           contactId,
+          costKrw: body.costKrw,
           note: body.note,
           rawText: body.rawText,
           entryId: body.entryId,
@@ -378,6 +379,7 @@ export async function eventRoutes(app: FastifyInstance) {
         );
       }
     }
+    if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
     if (data.note !== undefined) updateData.note = data.note;
     if (data.needsReview !== undefined) updateData.needsReview = data.needsReview;
 

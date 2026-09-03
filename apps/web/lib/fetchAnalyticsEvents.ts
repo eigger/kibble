@@ -2,7 +2,16 @@ import { fetchTimelinePage, type TimelineCursor } from "./timeline";
 import type { MetricEvent } from "./petMetrics";
 import type { TimelineEvent } from "./types";
 
-const ANALYTICS_EVENT_KEYS = ["weight", "meal", "water", "treat", "poop", "pee", "observation"] as const;
+const ANALYTICS_EVENT_KEYS = [
+  "weight",
+  "meal",
+  "water",
+  "treat",
+  "poop",
+  "pee",
+  "observation",
+  "vet_visit",
+] as const;
 
 const MAX_PAGES = 20;
 
@@ -13,6 +22,7 @@ function toMetricEvent(event: TimelineEvent): MetricEvent {
     quantity: event.quantity,
     quantityOffered: event.quantityOffered,
     scaleValue: event.scaleValue,
+    costKrw: event.costKrw,
     eventType: {
       key: event.eventType.key,
       scaleType: event.eventType.scaleType,

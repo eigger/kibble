@@ -12,6 +12,7 @@ export type MetricEvent = {
   quantity: number | null;
   quantityOffered: number | null;
   scaleValue: number | null;
+  costKrw: number | null;
   eventType: { key: string; scaleType?: string | null };
 };
 
@@ -152,6 +153,31 @@ export function groupedScaleAverage(
       label: formatGroupLabel(key, granularity, localeTag),
       avg: Math.round((sum / count) * 10) / 10,
     }));
+}
+
+export function groupedCostSums(
+  events: MetricEvent[],
+  eventTypeKey: string,
+  granularity: ChartGranularity,
+  localeTag: string,
+): { label: string; cost: number }[] {
+  const map = new Map<string, number>();
+  for (const e of events) {
+    if (e.eventType.key !== eventTypeKey || e.costKrw == null) continue;
+    const key = getGroupKey(new Date(e.occurredAt), granularity);
+    map.set(key, (map.get(key) ?? 0) + e.costKrw);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([key, cost]) => ({ label: formatGroupLabel(key, granularity, localeTag), cost }));
+}
+
+export function totalCost(events: MetricEvent[], eventTypeKey: string): number | null {
+  const withCost = events.filter(
+    (e) => e.eventType.key === eventTypeKey && e.costKrw != null,
+  );
+  if (withCost.length === 0) return null;
+  return withCost.reduce((sum, e) => sum + e.costKrw!, 0);
 }
 
 export function latestWeight(events: MetricEvent[]): number | null {

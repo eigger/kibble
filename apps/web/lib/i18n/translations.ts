@@ -201,6 +201,10 @@ const dict = {
     en: "e.g. Gangnam-gu, Seoul",
   },
   eventDetailFrequentClinics: { ko: "자주 가는 곳:", en: "Frequent:" },
+  eventDetailCost: { ko: "병원비", en: "Cost" },
+  eventDetailCostPlaceholder: { ko: "30000", en: "30000" },
+  eventDetailCostUnit: { ko: "원", en: " KRW" },
+  eventDetailCostInvalid: { ko: "병원비를 확인해 주세요.", en: "Check the cost." },
 
   // 병원 장소 검색 · 지도 · 내비 (WORKPLAN §3.9)
   clinicSearchOpenButton: { ko: "병원 찾기", en: "Find clinic" },
@@ -539,14 +543,17 @@ const dict = {
   analyticsLatestWeight: { ko: "최근 체중", en: "Latest weight" },
   analyticsAvgMeal: { ko: "일평균 사료", en: "Avg meal / day" },
   analyticsAvgWater: { ko: "일평균 물", en: "Avg water / day" },
+  analyticsTotalCost: { ko: "이 기간 병원비", en: "Cost this period" },
   analyticsWeightChartTitle: { ko: "체중 추이", en: "Weight trend" },
   analyticsMealChartTitle: { ko: "사료 섭취", en: "Meal intake" },
   analyticsWaterChartTitle: { ko: "물 섭취", en: "Water intake" },
   analyticsStoolChartTitle: { ko: "대변 스코어 평균", en: "Stool score avg" },
+  analyticsCostChartTitle: { ko: "병원비 추세", en: "Vet cost trend" },
   analyticsMealOfferedLegend: { ko: "제공", en: "Offered" },
   analyticsMealConsumedLegend: { ko: "섭취", en: "Consumed" },
   analyticsWaterLegend: { ko: "물 (ml)", en: "Water (ml)" },
   analyticsStoolLegend: { ko: "평균", en: "Average" },
+  analyticsCostLegend: { ko: "병원비", en: "Cost" },
   analyticsEmptyTitle: { ko: "아직 분석할 기록이 없습니다", en: "Not enough data yet" },
   analyticsEmptyDesc: {
     ko: "체중·사료·물 기록을 남기면 그래프로 볼 수 있습니다.",

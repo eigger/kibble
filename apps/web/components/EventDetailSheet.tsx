@@ -54,6 +54,7 @@ export interface EventDetailDraft {
   clinicLatitude?: number | null;
   clinicLongitude?: number | null;
   clinicPlaceUrl?: string | null;
+  costKrw: number | null;
   note: string | null;
   scaleType?: string | null;
   scaleValue?: number | null;
@@ -147,6 +148,7 @@ function resetFormFromDraft(
     setClinicName: (v: string) => void;
     setClinicAddress: (v: string) => void;
     setClinicPlace: (v: ClinicPlaceSelection) => void;
+    setCostKrw: (v: string) => void;
     setQuantityOffered: (v: string) => void;
     setQuantity: (v: string) => void;
     setUnit: (v: string) => void;
@@ -174,6 +176,7 @@ function resetFormFromDraft(
     longitude: draft.clinicLongitude ?? null,
     placeUrl: draft.clinicPlaceUrl ?? null,
   });
+  setters.setCostKrw(draft.costKrw != null ? String(draft.costKrw) : "");
   setters.setQuantityOffered(draft.quantityOffered != null ? String(draft.quantityOffered) : "");
   setters.setQuantity(draft.quantity != null ? String(draft.quantity) : "");
   setters.setUnit(draft.unit ?? "");
@@ -207,6 +210,7 @@ export function EventDetailSheet({
   const [clinicAddress, setClinicAddress] = useState("");
   const [clinicPlace, setClinicPlace] = useState<ClinicPlaceSelection>(NO_CLINIC_PLACE);
   const [clinicSearchOpen, setClinicSearchOpen] = useState(false);
+  const [costKrw, setCostKrw] = useState("");
   const [frequentClinics, setFrequentClinics] = useState<ClinicSuggestions["frequent"]>([]);
   const [quantityOffered, setQuantityOffered] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -257,6 +261,7 @@ export function EventDetailSheet({
         setClinicName,
         setClinicAddress,
         setClinicPlace,
+        setCostKrw,
         setQuantityOffered,
         setQuantity,
         setUnit,
@@ -442,6 +447,7 @@ export function EventDetailSheet({
         setClinicName,
         setClinicAddress,
         setClinicPlace,
+        setCostKrw,
         setQuantityOffered,
         setQuantity,
         setUnit,
@@ -511,6 +517,16 @@ export function EventDetailSheet({
       consumed = parsed.value;
     }
 
+    let cost: number | null = null;
+    if (fields.cost) {
+      const parsed = parseOptionalNumber(costKrw.replace(/,/g, ""));
+      if (!parsed.ok || (parsed.value != null && parsed.value < 0)) {
+        onValidationError(t("eventDetailCostInvalid"));
+        return;
+      }
+      cost = parsed.value != null ? Math.round(parsed.value) : null;
+    }
+
     const savedProductName = fields.productName ? resolvedProductName() || null : null;
 
     onSave(
@@ -526,6 +542,7 @@ export function EventDetailSheet({
         clinicLatitude: fields.clinicName ? clinicPlace.latitude : null,
         clinicLongitude: fields.clinicName ? clinicPlace.longitude : null,
         clinicPlaceUrl: fields.clinicName ? clinicPlace.placeUrl : null,
+        costKrw: fields.cost ? cost : null,
         note: fields.note ? note.trim() || null : null,
         scaleValue: fields.fecalScale || fields.scale3 ? scaleValue : null,
         needsReview: false,
@@ -594,6 +611,11 @@ export function EventDetailSheet({
                   )}
                 {fields.clinicName && renderViewValue(t("eventDetailClinicName"), draft.clinicName)}
                 {fields.clinicAddress && renderViewValue(t("eventDetailClinicAddress"), draft.clinicAddress)}
+                {fields.cost &&
+                  renderViewValue(
+                    t("eventDetailCost"),
+                    draft.costKrw != null ? `${draft.costKrw.toLocaleString()}${t("eventDetailCostUnit")}` : null,
+                  )}
                 {fields.fecalScale &&
                   renderViewValue(
                     t("eventDetailFecalScore"),
@@ -835,6 +857,24 @@ export function EventDetailSheet({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {fields.cost && (
+                <div className="event-detail-field">
+                  <label className="field-label" htmlFor="event-cost">
+                    {t("eventDetailCost")}
+                  </label>
+                  <input
+                    id="event-cost"
+                    type="text"
+                    inputMode="numeric"
+                    className="event-detail-qty-input"
+                    placeholder={t("eventDetailCostPlaceholder")}
+                    value={costKrw}
+                    disabled={busy}
+                    onChange={(e) => setCostKrw(e.target.value)}
+                  />
                 </div>
               )}
 
