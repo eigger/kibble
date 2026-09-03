@@ -22,9 +22,11 @@ import {
   avgDailyQuantity,
   filterEventsByPeriod,
   granularityForPeriod,
+  groupedCostSums,
   groupedQuantitySums,
   groupedScaleAverage,
   latestWeight,
+  totalCost,
   type AnalyticsPeriod,
   weightChartPoints,
 } from "../../lib/petMetrics";
@@ -191,10 +193,15 @@ export default function AnalyticsPage() {
     () => groupedScaleAverage(filtered, "poop", granularity, localeTag),
     [filtered, granularity, localeTag],
   );
+  const costGrouped = useMemo(
+    () => groupedCostSums(filtered, "vet_visit", granularity, localeTag),
+    [filtered, granularity, localeTag],
+  );
 
   const summaryWeight = latestWeight(filtered);
   const summaryMeal = avgDailyQuantity(filtered, "meal");
   const summaryWater = avgDailyQuantity(filtered, "water");
+  const summaryCost = totalCost(filtered, "vet_visit");
 
   if (loading || !user || needsPet) return null;
 
@@ -258,6 +265,12 @@ export default function AnalyticsPage() {
                 <div className="analytics-summary-label">{t("analyticsAvgWater")}</div>
                 <div className="analytics-summary-value">
                   {summaryWater != null ? `${summaryWater}ml` : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="analytics-summary-label">{t("analyticsTotalCost")}</div>
+                <div className="analytics-summary-value">
+                  {summaryCost != null ? `${summaryCost.toLocaleString()}${t("eventDetailCostUnit")}` : "—"}
                 </div>
               </div>
             </div>
@@ -401,6 +414,37 @@ export default function AnalyticsPage() {
                   <Bar
                     dataKey="avg"
                     name={t("analyticsStoolLegend")}
+                    fill="var(--chart-secondary)"
+                    maxBarSize={32}
+                  />
+                </BarChart>
+              </AnalyticsChart>
+            </section>
+          )}
+
+          {costGrouped.length > 0 && (
+            <section className="card analytics-chart-card">
+              <h2 className="analytics-chart-title">{t("analyticsCostChartTitle")}</h2>
+              <AnalyticsChart>
+                <BarChart
+                  data={costGrouped}
+                  margin={{ ...CHART_MARGIN, bottom: costGrouped.length > 6 ? 8 : 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="label" {...chartXAxisProps(costGrouped.length)} />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "var(--color-text-muted)" }}
+                    width={44}
+                    tickMargin={4}
+                  />
+                  <Tooltip
+                    formatter={(value) => [`${Number(value).toLocaleString()}${t("eventDetailCostUnit")}`, t("analyticsCostLegend")]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    cursor={TOOLTIP_CURSOR}
+                  />
+                  <Bar
+                    dataKey="cost"
+                    name={t("analyticsCostLegend")}
                     fill="var(--chart-secondary)"
                     maxBarSize={32}
                   />

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   avgDailyQuantity,
   filterEventsByPeriod,
+  groupedCostSums,
   groupedQuantitySums,
   latestWeight,
   periodStartDate,
+  totalCost,
   weightChartPoints,
 } from "./petMetrics";
 import type { MetricEvent } from "./petMetrics";
@@ -14,6 +16,7 @@ function ev(
   occurredAt: string,
   quantity: number | null,
   quantityOffered: number | null = null,
+  costKrw: number | null = null,
 ): MetricEvent {
   return {
     id: occurredAt,
@@ -21,6 +24,7 @@ function ev(
     quantity,
     quantityOffered,
     scaleValue: null,
+    costKrw,
     eventType: { key },
   };
 }
@@ -78,5 +82,22 @@ describe("petMetrics", () => {
 
   it("periodStartDate returns null for all", () => {
     expect(periodStartDate("all")).toBeNull();
+  });
+
+  it("groups vet visit costs by month and totals them", () => {
+    const events = [
+      ev("vet_visit", "2026-08-01T10:00:00+09:00", null, null, 35000),
+      ev("vet_visit", "2026-08-15T10:00:00+09:00", null, null, 12000),
+      ev("vet_visit", "2026-08-20T10:00:00+09:00", null, null, null),
+    ];
+    const grouped = groupedCostSums(events, "vet_visit", "month", "ko-KR");
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0].cost).toBe(47000);
+    expect(totalCost(events, "vet_visit")).toBe(47000);
+  });
+
+  it("totalCost returns null when no cost recorded", () => {
+    const events = [ev("vet_visit", "2026-08-01T10:00:00+09:00", null)];
+    expect(totalCost(events, "vet_visit")).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ export type EventDetailFieldFlags = {
   noteLabelKey: string;
   clinicName: boolean;
   clinicAddress: boolean;
+  cost: boolean;
   quantityOffered: boolean;
   quantity: boolean;
   /** 단위 입력란 노출 (기본 단위만 쓰는 타입은 false) */
@@ -36,6 +37,7 @@ const NOTE_ONLY: EventDetailFieldFlags = {
   noteLabelKey: "eventDetailNote",
   clinicName: false,
   clinicAddress: false,
+  cost: false,
   quantityOffered: false,
   quantity: false,
   showUnitInput: false,
@@ -102,6 +104,7 @@ export function eventDetailFields(
       noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
+      cost: false,
       quantityOffered: key === "meal",
       quantity: true,
       showUnitInput: true,
@@ -133,6 +136,7 @@ export function eventDetailFields(
       noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
+      cost: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
@@ -154,6 +158,7 @@ export function eventDetailFields(
       noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
+      cost: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
@@ -175,6 +180,7 @@ export function eventDetailFields(
       noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,
+      cost: false,
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
@@ -192,6 +198,7 @@ export function eventDetailFields(
       ...NOTE_ONLY,
       clinicName: true,
       clinicAddress: true,
+      cost: true,
       note: true,
     };
   }
@@ -243,6 +250,7 @@ export function formatEventDetailLine(
     productName?: string | null;
     clinicName?: string | null;
     clinicAddress?: string | null;
+    costKrw?: number | null;
     medicationCourseName?: string | null;
     quantity: number | null;
     quantityOffered: number | null;
@@ -268,6 +276,14 @@ export function formatEventDetailLine(
 
   if (flags.clinicName && event.clinicName?.trim()) {
     parts.push(event.clinicName.trim());
+  }
+
+  if (flags.cost && event.costKrw != null) {
+    parts.push(
+      t
+        ? `${event.costKrw.toLocaleString()}${t("eventDetailCostUnit")}`
+        : `${event.costKrw.toLocaleString()}원`,
+    );
   }
 
   if (event.eventType.key === "medication" && event.medicationCourseName?.trim()) {

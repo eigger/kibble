@@ -78,6 +78,7 @@ export interface CreatedEvent {
   unit: string | null;
   scaleValue?: number | null;
   productName: string | null;
+  costKrw: number | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;
   updatedBy?: { id: string; name: string } | null;
@@ -162,6 +163,7 @@ export interface TimelineEvent {
   unit: string | null;
   scaleValue: number | null;
   productName: string | null;
+  costKrw: number | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;
   updatedBy?: { id: string; name: string } | null;

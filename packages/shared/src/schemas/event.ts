@@ -20,6 +20,7 @@ export const createEventSchema = z.object({
   clinicLatitude: latitudeSchema.optional(),
   clinicLongitude: longitudeSchema.optional(),
   clinicPlaceUrl: z.string().trim().url().max(500).optional(),
+  costKrw: z.coerce.number().int().min(0).optional(),
   note: z.string().trim().max(4000).optional(),
   rawText: z.string().trim().max(8000).optional(),
   entryId: z.string().trim().min(1).optional(),
@@ -45,6 +46,7 @@ export const updateEventSchema = z
     clinicLatitude: latitudeSchema.nullable().optional(),
     clinicLongitude: longitudeSchema.nullable().optional(),
     clinicPlaceUrl: z.string().trim().url().max(500).nullable().optional(),
+    costKrw: z.coerce.number().int().min(0).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
     needsReview: z.boolean().optional(),
   })

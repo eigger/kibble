@@ -106,10 +106,11 @@ describe("eventDetailFields", () => {
     expect(f.quantity).toBe(false);
   });
 
-  it("vet_visit shows clinic name and address", () => {
+  it("vet_visit shows clinic name, address, and cost", () => {
     const f = eventDetailFields("vet_visit", null);
     expect(f.clinicName).toBe(true);
     expect(f.clinicAddress).toBe(true);
+    expect(f.cost).toBe(true);
     expect(f.note).toBe(true);
     expect(f.productName).toBe(false);
   });
@@ -180,6 +181,20 @@ describe("formatEventDetailLine", () => {
       eventType: { key: "vet_visit", scaleType: null },
     });
     expect(line).toBe("행복동물병원");
+  });
+
+  it("shows cost for vet visit", () => {
+    const line = formatEventDetailLine({
+      clinicName: "행복동물병원",
+      costKrw: 35000,
+      quantity: null,
+      quantityOffered: null,
+      unit: null,
+      scaleValue: null,
+      note: null,
+      eventType: { key: "vet_visit", scaleType: null },
+    });
+    expect(line).toBe("행복동물병원 · 35,000원");
   });
 
   it("shows medication course name in detail line", () => {

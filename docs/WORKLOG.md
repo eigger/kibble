@@ -93,6 +93,39 @@
 
 ## 2. 세션 로그
 
+### 2026-09-04 — 병원비(`costKrw`) 입력·추세 연결
+
+**배경**
+
+사용자가 "병원 입력에 비용을 추가하고 싶다, 예전에 있었던 것 같은데 언제 없어졌는지"라고 물음.
+확인 결과 **없어진 게 아니라 처음부터 UI에 연결된 적이 없었다** — `Event.costKrw` 컬럼은
+P1-03(최초 스키마, `PROJECT.md §4`)부터 DB에 있었지만, `apps/web` 어디에서도 참조하지 않았다.
+`WORKPLAN.md` P2-11("병원 방문 이벤트에 `Contact` 연결 + 병원별 비용 집계")과 Phase 3 "비용 집계"에
+묶여 Phase 1에서는 보류돼 있었다.
+
+**한 일**
+
+`vet_visit` 이벤트에 한해 비용 입력·표시·집계를 연결했다. `Contact` 연동·병원별 집계(P2-11)는
+그대로 Phase 2로 남기고, 이번엔 이벤트 자체의 비용 필드만 연결한 **부분 구현**이다.
+
+- `packages/shared` `createEventSchema`/`updateEventSchema`에 `costKrw` 추가
+- API: `createEvent()` 서비스·`POST/PATCH /api/events`가 `costKrw`를 받고 돌려준다 (K-4 위반 없음 — 여전히 `createEvent()` 하나만 통과)
+- 웹: `eventDetailFields`에 `cost` 플래그 추가(`vet_visit`만 true) → 기록 시트에 입력란, 상세 보기·타임라인 한 줄 요약에 표시
+- 분석(`/analytics`) 페이지에 "병원비 추세" 막대 그래프 + 기간 합계 요약 타일 추가 (`groupedCostSums`/`totalCost`, `petMetrics.ts`)
+- i18n ko/en 동시 추가 (K-9)
+- 같은 영역(병원 상호 검색·지도·좌표)을 건드린 카카오 지도 연동 커밋(#33)과 리베이스 충돌 — `clinicLatitude`/`clinicLongitude`/`clinicPlaceUrl`과 `costKrw`는 서로 독립적인 추가라 단순 병합
+
+**확인**
+
+`npm run test`(shared+api+web) 전체 통과, `next build` 타입체크 통과. **브라우저 실행은 못했다** —
+이 환경에 Docker/Postgres가 없어 로그인 가능한 로컬 인스턴스를 띄우지 못함. 다음 세션에서
+실제 DB로 골든 패스(비용 입력 → 저장 → 상세/타임라인/추세 반영) 확인 필요.
+
+**다음**
+
+- 실기기에서 비용 입력 → 추세 그래프 확인
+- P2-11(Contact 연결 + 병원별 집계)은 여전히 Phase 2 예정, 이번 작업과 별개
+
 ### 2026-09-03 — 작성자 줄이 처음부터 렌더된 적이 없던 버그 + 편집자 표기 + 첨부 사진 버그 둘
 
 **한 일**
@@ -253,7 +286,6 @@ API 탐색기를 만들다 드러난 구멍: **`allowApiToken`이 붙은 라우�
 
 - P2-11 나머지: 병원별 방문 이력·비용 집계 (`Event.contactId`를 타는 쿼리)
 - 실제 키로 검색·지도·내비 딥링크(특히 모바일에서 `nmap://`·`tmap://`) 동작 확인
-
 
 ### 2026-09-02 — 빠른 기록 칩이 가운데에서 잘림
 

@@ -36,6 +36,7 @@ export type CreateEventParams = {
   scaleValue?: number | null;
   productName?: string | null;
   contactId?: string | null;
+  costKrw?: number | null;
   note?: string | null;
   rawText?: string | null;
   entryId?: string | null;
@@ -62,6 +63,7 @@ const eventSelect = {
   scaleValue: true,
   productName: true,
   contactId: true,
+  costKrw: true,
   note: true,
   rawText: true,
   entryId: true,
@@ -250,6 +252,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         scaleValue: params.scaleValue ?? undefined,
         productName: params.productName?.trim() || undefined,
         contactId: params.contactId ?? undefined,
+        costKrw: params.costKrw ?? undefined,
         note: params.note ?? undefined,
         rawText: params.rawText ?? undefined,
         entryId: params.entryId ?? undefined,
