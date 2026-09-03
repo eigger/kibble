@@ -361,6 +361,7 @@ const dict = {
   eventDetailAttachments: { ko: "사진·영상", en: "Photos & videos" },
   eventDetailCreatedBy: { ko: "{name} 작성", en: "Logged by {name}" },
   eventDetailLastModified: { ko: "{datetime} 수정", en: "Edited {datetime}" },
+  eventDetailLastModifiedBy: { ko: "{name} · {datetime} 수정", en: "Edited by {name}, {datetime}" },
   lightboxResetZoom: { ko: "원래 크기", en: "Reset zoom" },
   attachPhotos: { ko: "사진·영상", en: "Photos" },
   attachFromAlbum: { ko: "앨범", en: "Album" },

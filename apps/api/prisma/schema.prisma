@@ -24,6 +24,7 @@ model User {
 
   memberships HouseholdMember[]
   events      Event[]           @relation("EventCreator")
+  editedEvents Event[]          @relation("EventEditor")
   pushSubscriptions PushSubscription[]
 }
 
@@ -240,6 +241,7 @@ model Event {
   needsReview        Boolean     @default(false)
   source             EventSource @default(WEB)
   createdById        String?
+  updatedById        String?
   dedupeKey          String?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
@@ -252,6 +254,8 @@ model Event {
   contact     Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
   course      MedicationCourse?   @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
   createdBy   User?               @relation("EventCreator", fields: [createdById], references: [id])
+  // 마지막으로 이 행을 고친 사람 — PATCH 때마다 갱신된다. 생성 직후에는 작성자와 같다.
+  updatedBy   User?               @relation("EventEditor", fields: [updatedById], references: [id], onDelete: SetNull)
   attachments Attachment[]
   reminderLastFor Reminder[]      @relation("ReminderLastEvent")
 

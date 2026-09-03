@@ -80,6 +80,7 @@ export interface CreatedEvent {
   productName: string | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;
+  updatedBy?: { id: string; name: string } | null;
   contact?: {
     id: string;
     name: string;
@@ -163,6 +164,7 @@ export interface TimelineEvent {
   productName: string | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;
+  updatedBy?: { id: string; name: string } | null;
   contact?: {
     id: string;
     name: string;

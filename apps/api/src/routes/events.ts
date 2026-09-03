@@ -310,6 +310,7 @@ export async function eventRoutes(app: FastifyInstance) {
         },
         course: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, name: true } },
         attachments: {
           select: { id: true, path: true, mime: true, size: true, width: true, height: true },
           orderBy: { createdAt: "asc" },
@@ -344,7 +345,7 @@ export async function eventRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
     const data = parsed.data;
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = { updatedById: sessionUserId(request) };
     if (data.occurredAt !== undefined) updateData.occurredAt = new Date(data.occurredAt);
     if (data.quantity !== undefined) updateData.quantity = data.quantity;
     if (data.quantityOffered !== undefined) updateData.quantityOffered = data.quantityOffered;

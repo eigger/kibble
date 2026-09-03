@@ -672,6 +672,18 @@ a {
   margin-top: 4px;
 }
 
+/* 사진 버튼 — 행 클릭(상세 열기)과 분리된 클릭 영역. stopPropagation으로 막는다. */
+.timeline-attachment-btn {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 8px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
 .timeline-attachment-count {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -2989,84 +3001,6 @@ button:disabled {
   color: var(--color-danger-text);
 }
 
-/* 첨부파일을 텍스트 링크가 아니라 실제 썸네일로 미리보여준다 — garage 프로젝트의
-   AttachmentList 타일 컨벤션(정사각 썸네일 + 모서리에 겹친 삭제 배지)을 그대로 따른다. */
-.attachment-grid {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 8px;
-}
-
-.attachment-tile {
-  position: relative;
-  width: 84px;
-}
-
-.attachment-thumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--color-surface-hover);
-  border: 1px solid var(--color-border);
-}
-
-.attachment-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.attachment-file-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.attachment-primary-badge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  pointer-events: none;
-}
-
-.attachment-remove-btn {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 24px;
-  height: 24px;
-  min-height: 24px;
-  padding: 0;
-  border-radius: 50%;
-  border: 2px solid var(--color-surface);
-  background: var(--color-danger);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.attachment-set-primary {
-  width: 100%;
-  margin-top: 6px;
-}
 
 .fab-row {
   display: flex;
