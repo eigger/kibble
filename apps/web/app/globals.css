@@ -306,7 +306,9 @@ a {
 
 .timeline-label-row {
   display: flex;
-  align-items: center;
+  /* center로 두면 라벨이 두 줄로 넘어갈 때 태그가 블록 가운데로 내려가 첫 줄을 벗어난다.
+     태그는 항상 첫 줄에 머물러야 수정·삭제 버튼과 같은 높이로 떨어진다. */
+  align-items: flex-start;
   gap: 6px;
   min-width: 0;
 }
@@ -2112,10 +2114,55 @@ button:disabled {
 .attachment-lightbox-body {
   width: 100%;
   max-width: min(720px, 100%);
+  height: calc(100dvh - 80px);
   max-height: calc(100dvh - 80px);
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 확대해도 밖으로 새지 않는 창. touch-action: none이라야 브라우저가 핀치를
+   페이지 확대로 가로채지 않고 포인터 이벤트가 그대로 들어온다. */
+.attachment-lightbox-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+  cursor: zoom-in;
+}
+
+.attachment-lightbox-viewport[data-zoomed="true"] {
+  cursor: grab;
+}
+
+.attachment-lightbox-viewport[data-zoomed="true"]:active {
+  cursor: grabbing;
+}
+
+.attachment-lightbox-zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.attachment-lightbox-reset {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
 }
 
 .attachment-lightbox-media {
@@ -2125,6 +2172,9 @@ button:disabled {
   height: auto;
   object-fit: contain;
   border-radius: 8px;
+  /* 확대 중 이미지가 끌려가지 않게 — 이동은 포인터 이벤트가 처리한다. */
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .attachment-lightbox-video {
@@ -2148,7 +2198,10 @@ button:disabled {
   flex-direction: row;
   gap: 4px;
   flex-shrink: 0;
-  align-self: center;
+  /* 행 전체 기준 가운데가 아니라 첫 줄(태그·라벨)에 맞춘다.
+     .timeline-item의 padding-top과 같은 값이라 태그와 같은 높이로 떨어진다. */
+  align-self: flex-start;
+  margin-top: 10px;
 }
 
 /* garage 이력 행 보조 액션 — .btn-action 컨벤션 */
@@ -2176,6 +2229,16 @@ button:disabled {
 
 .timeline-row .btn-action {
   align-self: center;
+}
+
+/* 태그 줄 높이(24px)와 버튼 높이(24px)를 맞춰 같은 선에 놓는다. */
+.timeline-label-row {
+  min-height: 24px;
+}
+
+/* 태그(18.5px)를 첫 줄(24px) 가운데에 — 그래야 24px 버튼과 중심이 맞는다. */
+.timeline-label-row .event-category-tag {
+  margin-top: 3px;
 }
 
 .event-detail-form {

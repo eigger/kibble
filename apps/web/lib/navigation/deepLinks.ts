@@ -12,7 +12,9 @@ export function buildNavUrl(provider: NavProvider, dest: NavDestination): string
   const name = encodeURIComponent(dest.name);
   switch (provider) {
     case "kakao":
-      return `https://map.kakao.com/link/to/${name},${dest.lat},${dest.lon}`;
+      // map.kakao.com/link/to/... 는 웹 링크라 폰에서 앱으로 넘어가지 않고 웹 지도만 뜬다
+      // (경로가 안 잡힌다). 네이버·티맵처럼 앱 스킴을 쓴다. sp를 비우면 현재 위치가 출발지다.
+      return `kakaomap://route?ep=${dest.lat},${dest.lon}&by=CAR`;
     case "naver":
       return `nmap://route/car?dlat=${dest.lat}&dlng=${dest.lon}&dname=${name}&appname=kibble`;
     case "tmap":
@@ -20,7 +22,7 @@ export function buildNavUrl(provider: NavProvider, dest: NavDestination): string
   }
 }
 
-/** 앱이 없을 때의 웹 폴백. 카카오는 딥링크 자체가 웹 URL이라 같다. */
+/** 앱이 없을 때의 웹 폴백. 여기는 앱 스킴이 아니라 항상 브라우저에서 열리는 주소다. */
 export function buildNavWebFallback(provider: NavProvider, dest: NavDestination): string {
   const name = encodeURIComponent(dest.name);
   switch (provider) {

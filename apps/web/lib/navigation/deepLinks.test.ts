@@ -4,10 +4,9 @@ import { buildNavUrl, buildNavWebFallback } from "./deepLinks";
 const dest = { lat: 37.5, lon: 127.03, name: "행복 동물병원" };
 
 describe("buildNavUrl", () => {
-  it("병원 이름을 인코딩해 카카오 링크를 만든다", () => {
-    expect(buildNavUrl("kakao", dest)).toBe(
-      `https://map.kakao.com/link/to/${encodeURIComponent(dest.name)},37.5,127.03`,
-    );
+  // 웹 링크(map.kakao.com/link/to)는 폰에서 앱으로 안 넘어가 경로가 안 잡힌다.
+  it("카카오는 앱 스킴으로 목적지를 넘긴다", () => {
+    expect(buildNavUrl("kakao", dest)).toBe("kakaomap://route?ep=37.5,127.03&by=CAR");
   });
 
   it("네이버 딥링크의 appname은 kibble이다", () => {
