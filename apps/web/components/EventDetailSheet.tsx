@@ -519,8 +519,8 @@ export function EventDetailSheet({
 
     let cost: number | null = null;
     if (fields.cost) {
-      const parsed = parseOptionalNumber(costKrw);
-      if (!parsed.ok) {
+      const parsed = parseOptionalNumber(costKrw.replace(/,/g, ""));
+      if (!parsed.ok || (parsed.value != null && parsed.value < 0)) {
         onValidationError(t("eventDetailCostInvalid"));
         return;
       }

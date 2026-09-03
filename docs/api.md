@@ -169,7 +169,7 @@ curl -sS -X POST "$BASE/api/events" \
   -d '{"dedupeKey":"auto:001"}'
 ```
 
-선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시).
+선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시).
 
 ### 단건 읽기
 

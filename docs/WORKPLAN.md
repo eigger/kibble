@@ -692,13 +692,13 @@ UI:
 | **P2-08** | **지도 프로바이더 설정** (`GET /api/map/providers` + 키 입력 UI) | **완료** — `routes/mapProviders.ts` + **관리자 연동 화면 `/integrations`**(garage `integrations/page.tsx` 이식). `KAKAO_MAP_APP_KEY`를 `Setting`에 저장. 키가 없으면 `providers: []` → 검색·지도 UI가 숨는다 |
 | **P2-09** | **상호(키워드) 검색 → `Contact` 자동 생성** | **완료** — `ClinicSearchModal`(Kakao `Places.keywordSearch`, 카테고리 `HP8` 필터·현위치 가중·미리보기 지도). 선택 결과의 이름·주소·좌표·`place_url`이 `upsertVetContact`로 들어간다 |
 | **P2-10** | **지도 표기 + 내비 실행 버튼** | **완료** — `ClinicMap`(단일 지점·다크 필터·recenter) + `NavLaunchButtons`(T맵/카카오/네이버, `appname=kibble`). 좌표가 없는 옛 기록은 주소를 지오코딩해 폴백. **`Contact` 관리 화면(CRUD)은 미구현** — 병원은 기록 흐름에서 자동 생성되므로 별도 화면의 필요가 아직 확인되지 않았다 |
-| **P2-11** | **병원 방문 이벤트에 `Contact` 연결** + 병원별 방문 이력·비용 집계 | **부분 완료** — `Event.contactId` 연결과 자주 가는 병원 제안(`clinicSuggestionsForPet`)은 동작. **병원별 방문 이력·비용 집계 쿼리는 미구현** |
+| **P2-11** | **병원 방문 이벤트에 `Contact` 연결** + 병원별 방문 이력·비용 집계 | **부분 완료** — `Event.contactId` 연결, 자주 가는 병원 제안(`clinicSuggestionsForPet`), **이벤트 단위 비용(`costKrw`) 입력·`/analytics` 추세 그래프**(2026-09-04)까지 동작. **병원(`Contact`)별로 나눠 묶는 방문 이력·비용 집계 쿼리는 여전히 미구현** |
 | **P2-12** | **투약 과정 UI** — 과정 등록, "오늘 약 1/2", 잔여 안내, 자동 아카이브 | 남은 수량은 **유도**한다(카운터 금지). **게이트 기간이 실제 투약과 겹치면 Phase 1로 앞당긴다** |
 
 > **`ApiToken` + 자동 입력 API는 Phase 1(P1-06a·P1-13)로 올라갔다** (§3.6). Phase 2에 남은 HA 관련 작업은 역방향 노출뿐이다 — 연동 자체는 사용자가 API로 직접 붙인다.
 
 ### Phase 3 — 인사이트
-체중 / 음수량 / 사료량 추세 그래프, 이상 감지 알림(**진단 문구 금지, "수의사 상담 권장"까지**), 리마인더 엔진(INTERVAL), 캘린더 뷰, 비용 집계, **웹 푸시 이식**(stash `push.ts` + VAPID UI 발급), `pg_dump` + 볼륨 스냅샷 백업 자동화.
+체중 / 음수량 / 사료량 추세 그래프, 이상 감지 알림(**진단 문구 금지, "수의사 상담 권장"까지**), 리마인더 엔진(INTERVAL), 캘린더 뷰, ~~비용 집계~~(이벤트 단위 추세는 P2-11에서 완료 — 병원별 집계만 남음), **웹 푸시 이식**(stash `push.ts` + VAPID UI 발급), `pg_dump` + 볼륨 스냅샷 백업 자동화.
 
 ### Phase 4 — 한국 특화 + 다묘·다종 확장
 동물등록번호(15자리) 검증, 국내 표준 백신 스케줄 프리셋, 병원 방문용 요약 PDF(`pdfkit` + NotoSansKR 도입), 펫보험 청구 묶음 내보내기, 공공데이터포털 동물병원 연동 검토, 종별 EventType 시드 확충, **공용 이벤트·다묘 대상 확정 전략 재검토**.

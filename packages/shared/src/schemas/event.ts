@@ -3,6 +3,9 @@ import { latitudeSchema, longitudeSchema } from "./maps.js";
 
 const decimalOptional = z.coerce.number().finite().optional();
 
+/** Postgres INTEGER 상한 — Event.costKrw는 이 컬럼 타입이라 넘기면 Prisma가 500으로 죽는다. */
+const POSTGRES_INT_MAX = 2_147_483_647;
+
 export const eventSourceSchema = z.enum(["WEB", "QUICK", "API"]);
 
 export const createEventSchema = z.object({
@@ -20,7 +23,7 @@ export const createEventSchema = z.object({
   clinicLatitude: latitudeSchema.optional(),
   clinicLongitude: longitudeSchema.optional(),
   clinicPlaceUrl: z.string().trim().url().max(500).optional(),
-  costKrw: z.coerce.number().int().min(0).optional(),
+  costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).optional(),
   note: z.string().trim().max(4000).optional(),
   rawText: z.string().trim().max(8000).optional(),
   entryId: z.string().trim().min(1).optional(),
@@ -46,7 +49,7 @@ export const updateEventSchema = z
     clinicLatitude: latitudeSchema.nullable().optional(),
     clinicLongitude: longitudeSchema.nullable().optional(),
     clinicPlaceUrl: z.string().trim().url().max(500).nullable().optional(),
-    costKrw: z.coerce.number().int().min(0).nullable().optional(),
+    costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
     needsReview: z.boolean().optional(),
   })

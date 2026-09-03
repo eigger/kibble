@@ -197,6 +197,10 @@ export default function AnalyticsPage() {
     () => groupedCostSums(filtered, "vet_visit", granularity, localeTag),
     [filtered, granularity, localeTag],
   );
+  const compactNumberFormatter = useMemo(
+    () => new Intl.NumberFormat(localeTag, { notation: "compact" }),
+    [localeTag],
+  );
 
   const summaryWeight = latestWeight(filtered);
   const summaryMeal = avgDailyQuantity(filtered, "meal");
@@ -434,7 +438,8 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="label" {...chartXAxisProps(costGrouped.length)} />
                   <YAxis
                     tick={{ fontSize: 10, fill: "var(--color-text-muted)" }}
-                    width={44}
+                    tickFormatter={(value) => compactNumberFormatter.format(Number(value))}
+                    width={40}
                     tickMargin={4}
                   />
                   <Tooltip
