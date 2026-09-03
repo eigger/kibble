@@ -18,6 +18,7 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import type { EventAttachment } from "../lib/types";
+import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
 import { useMapProviders } from "../lib/maps/useMapProviders";
 import { geocodeAddress } from "../lib/maps/geocode";
@@ -62,6 +63,10 @@ export interface EventDetailDraft {
   medicationCourseId?: string | null;
   doseSlotIndex?: number | null;
   needsReview?: boolean;
+  /** 조회용 메타 — 수정 대상이 아니다. view 모드 하단에 "작성자 · 최종 수정"으로만 쓰인다. */
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string | null;
 }
 
 interface EventDetailSheetProps {
@@ -389,6 +394,7 @@ export function EventDetailSheet({
       ? { lat: draft.clinicLatitude, lon: draft.clinicLongitude }
       : geocodedCoords;
   const clinicMapName = draft.clinicName?.trim() || "";
+  const auditParts = eventAuditParts(draft, t, locale);
 
   function renderScale3Field() {
     if (!fields.scale3) return null;
@@ -652,6 +658,10 @@ export function EventDetailSheet({
                     ))}
                   </ul>
                 </section>
+              )}
+
+              {auditParts.length > 0 && (
+                <p className="event-detail-audit meta">{auditParts.join(" · ")}</p>
               )}
 
               <div className="event-detail-actions">

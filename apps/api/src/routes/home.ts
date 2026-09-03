@@ -13,6 +13,8 @@ import { medicationCoursesWithProgress } from "../lib/medicationCourseProgress.j
 const recentEventSelect = {
   id: true,
   occurredAt: true,
+  createdAt: true,
+  updatedAt: true,
   quantity: true,
   quantityOffered: true,
   unit: true,
@@ -23,6 +25,7 @@ const recentEventSelect = {
   contact: { select: { id: true, name: true, address: true } },
   course: { select: { id: true, name: true } },
   eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
+  createdBy: { select: { id: true, name: true } },
   attachments: {
     select: { id: true, path: true, mime: true, size: true, width: true, height: true },
     orderBy: { createdAt: "asc" as const },

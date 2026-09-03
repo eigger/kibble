@@ -71,12 +71,15 @@ export interface CreatedEvent {
   petId: string;
   presetId: string | null;
   occurredAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   quantity: number | null;
   quantityOffered: number | null;
   unit: string | null;
   scaleValue?: number | null;
   productName: string | null;
   note: string | null;
+  createdBy?: { id: string; name: string } | null;
   contact?: {
     id: string;
     name: string;
@@ -151,12 +154,15 @@ export type { JournalStats } from "@kibble/shared";
 export interface TimelineEvent {
   id: string;
   occurredAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   quantity: number | null;
   quantityOffered: number | null;
   unit: string | null;
   scaleValue: number | null;
   productName: string | null;
   note: string | null;
+  createdBy?: { id: string; name: string } | null;
   contact?: {
     id: string;
     name: string;
