@@ -139,6 +139,13 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
   const decoded = await decodeImage(file);
   if (!decoded) return null;
 
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    decoded.release();
+  };
+
   try {
     const { width, height } = decoded;
     if (!width || !height) return null;
@@ -154,6 +161,13 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
     if (!ctx) return null;
     ctx.drawImage(decoded.source, 0, 0, targetWidth, targetHeight);
 
+    // 원본 비트맵을 즉시 놓아준다 — 12MP 사진이면 ~48MB다. JPEG 인코더가 버퍼를
+    // 잡기 전에 비워야 최대 점유가 (원본 + 캔버스 + 인코더)에서 한 단계 내려간다.
+    // (createImageBitmap의 resizeWidth로 디코드 단계에서 줄이는 방법은 못 쓴다 —
+    //  가로/세로 중 어느 쪽이 긴지, 원본이 1600보다 큰지를 디코드 전에 알 수 없어
+    //  작은 이미지를 억지로 확대하게 된다)
+    release();
+
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY);
     });
@@ -164,7 +178,7 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
       lastModified: file.lastModified,
     });
   } finally {
-    decoded.release();
+    release();
   }
 }
 

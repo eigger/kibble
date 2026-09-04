@@ -40,8 +40,30 @@ function isRetriableStatus(status: number): boolean {
   return status >= 500 || status === 429 || status === 408;
 }
 
+/**
+ * 네트워크·5xx에서 다시 시도하는 요청 래퍼. 청크·complete·init이 같은 정책을 쓴다 —
+ * 터널 진입 직후라고 영상 업로드의 첫 요청만 유독 한 번에 포기할 이유가 없다.
+ */
+async function fetchWithRetry(path: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    let res: Response;
+    try {
+      res = await apiFetch(path, init);
+    } catch (err) {
+      if (attempt >= MAX_CHUNK_ATTEMPTS) throw err;
+      await sleep(backoffMs(attempt));
+      continue;
+    }
+    if (res.ok) return res;
+    if (!isRetriableStatus(res.status) || attempt >= MAX_CHUNK_ATTEMPTS) {
+      throw await errorFromResponse(res);
+    }
+    await sleep(backoffMs(attempt));
+  }
+}
+
 async function initUpload(eventId: string, file: File): Promise<string> {
-  const initRes = await apiFetch("/api/attachments/uploads", {
+  const initRes = await fetchWithRetry("/api/attachments/uploads", {
     method: "POST",
     body: JSON.stringify({
       eventId,
@@ -50,7 +72,6 @@ async function initUpload(eventId: string, file: File): Promise<string> {
       totalSize: file.size,
     }),
   });
-  if (!initRes.ok) throw await errorFromResponse(initRes);
   const { uploadId } = (await initRes.json()) as { uploadId: string };
   return uploadId;
 }
@@ -117,21 +138,10 @@ async function putChunk(uploadId: string, index: number, chunk: Blob): Promise<C
 }
 
 async function completeUpload(uploadId: string): Promise<EventAttachment> {
-  for (let attempt = 1; ; attempt++) {
-    let res: Response;
-    try {
-      res = await apiFetch(`/api/attachments/uploads/${uploadId}/complete`, { method: "POST" });
-    } catch (err) {
-      if (attempt >= MAX_CHUNK_ATTEMPTS) throw err;
-      await sleep(backoffMs(attempt));
-      continue;
-    }
-    if (res.ok) return (await res.json()) as EventAttachment;
-    if (!isRetriableStatus(res.status) || attempt >= MAX_CHUNK_ATTEMPTS) {
-      throw await errorFromResponse(res);
-    }
-    await sleep(backoffMs(attempt));
-  }
+  const res = await fetchWithRetry(`/api/attachments/uploads/${uploadId}/complete`, {
+    method: "POST",
+  });
+  return (await res.json()) as EventAttachment;
 }
 
 export async function uploadEventAttachmentInChunks(

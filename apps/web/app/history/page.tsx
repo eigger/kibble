@@ -308,6 +308,15 @@ export default function HistoryPage() {
         const { uploaded, remaining } = await uploadEventAttachments(draft.eventId, filesToUpload);
         if (uploaded.length > 0) {
           setDetailAttachments((prev) => [...prev, ...uploaded]);
+          // 목록도 같이 채운다 — 부분 실패로 아래 loadEvents까지 못 가면
+          // 시트를 닫았을 때 목록 썸네일만 비어 보인다
+          setEvents((prev) =>
+            prev.map((e) =>
+              e.id === draft.eventId
+                ? { ...e, attachments: [...(e.attachments ?? []), ...uploaded] }
+                : e,
+            ),
+          );
         }
         if (remaining.length > 0) {
           setDetailPendingFiles(remaining);

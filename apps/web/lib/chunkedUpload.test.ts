@@ -128,6 +128,26 @@ describe("uploadEventAttachmentInChunks", () => {
     ]);
   });
 
+  it("retries complete after a network error", async () => {
+    const file = new File([new Uint8Array(10)], "note.jpg", { type: "image/jpeg" });
+    let completeAttempts = 0;
+    vi.mocked(apiFetch).mockImplementation(async (path: string) => {
+      if (path === "/api/attachments/uploads") return jsonResponse(201, { uploadId: "u6" });
+      if (path.includes("/chunks/")) return jsonResponse(200, { receivedBytes: 10, nextChunkIndex: 1 });
+      if (path.endsWith("/complete")) {
+        completeAttempts += 1;
+        if (completeAttempts === 1) throw new TypeError("Failed to fetch");
+        return jsonResponse(201, { id: "att6" } as EventAttachment);
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+
+    const result = await uploadEventAttachmentInChunks("evt1", file);
+    expect(result.id).toBe("att6");
+    expect(completeAttempts).toBe(2);
+    expect(getPendingUploads()).toHaveLength(0);
+  });
+
   it("drops the resume record when the session is gone", async () => {
     const file = new File([new Uint8Array(10)], "note.jpg", { type: "image/jpeg" });
     vi.mocked(apiFetch).mockImplementation(async (path: string) => {
