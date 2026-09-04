@@ -82,6 +82,18 @@ docker compose up --build
 
 Caddy serves the stack on `http://localhost:80`.
 
+To serve the web app under a subpath instead of the origin root, set `BASE_PATH` on the
+web container (for example `BASE_PATH=/kibble`). The image is built with a placeholder
+that `apps/web/docker-entrypoint.sh` rewrites at start-up, so one image covers the root,
+a reverse-proxy subpath, and Home Assistant Ingress — whose prefix is assigned per
+installation and cannot be known at build time.
+
+The reverse proxy has to match that prefix. The web client calls `{BASE_PATH}/api/...`,
+but the API still listens at `/api`. The bundled Caddyfile only routes origin-root `/api`;
+for a subpath, strip the prefix on API requests and leave it on for the web app (see the
+commented example in `Caddyfile`). Home Assistant Ingress does this in the add-on's nginx.
+Leave `BASE_PATH` unset to keep today's root compose unchanged.
+
 ---
 
 ## Chassis credit

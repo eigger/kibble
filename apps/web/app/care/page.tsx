@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+
+import { routePath } from "../../lib/base-path";
 import { apiJson, isApiError } from "../../lib/api";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { useAuth } from "../../lib/auth-context";
@@ -46,7 +48,7 @@ function courseMetaParts(
 
 export default function CarePage() {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = routePath(usePathname());
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
   const { t, locale } = useLocale();
