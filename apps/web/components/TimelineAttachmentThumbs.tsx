@@ -40,6 +40,10 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
             className="attachment-thumb attachment-thumb-inline"
           />
           <span className="attachment-thumb-hit" aria-hidden />
+          {/* 포스터가 붙으면 목록에서 사진과 구분이 안 된다 — 상세와 같은 배지를 단다 */}
+          {att.mime.startsWith("video/") && (
+            <span className="attachment-video-badge" aria-hidden />
+          )}
         </button>
       ))}
       {overflow > 0 && <span className="timeline-attachment-count">+{overflow}</span>}

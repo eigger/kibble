@@ -32,9 +32,14 @@ export async function extractVideoPoster(videoPath: string): Promise<Buffer | nu
 
   try {
     await mkdir(TEMP_DIR, { recursive: true });
-    await execFileAsync(
+    // execFile은 spawn과 달리 stdio 옵션을 받지 않는다 — 대신 자식의 stdin을 바로 닫는다.
+    const running = execFileAsync(
       "ffmpeg",
       [
+        // ffmpeg는 기본이 stdin 상호작용이다. Node가 stdin 파이프를 열어 두므로
+        // 이게 없으면 빈 파이프를 기다리다 타임아웃(20초)에 걸려 **모든 포스터가
+        // 실패한다**. 아래에서 stdin을 직접 닫는 것과 짝이다.
+        "-nostdin",
         "-hide_banner",
         "-loglevel",
         "error",
@@ -51,6 +56,9 @@ export async function extractVideoPoster(videoPath: string): Promise<Buffer | nu
       ],
       { timeout: FFMPEG_TIMEOUT_MS, windowsHide: true },
     );
+    running.child.stdin?.end();
+    await running;
+
     const frame = await readFile(outPath);
     return frame.length > 0 ? frame : null;
   } catch (err) {
