@@ -1,7 +1,9 @@
 "use client";
 
+import { releaseScreenWakeLock, requestScreenWakeLock } from "./screenWakeLock";
+
 /**
- * 업로드가 도는 동안 탭을 닫거나 페이지를 벗어나려 하면 브라우저 확인창을 띄운다.
+ * 업로드가 도는 동안 두 가지를 막는다 — 사람의 이탈(확인창)과 기기의 절전(화면 유지).
  *
  * 큰 파일에서는 이탈이 곧 실패다 — 8MB 청크로 150MB면 왕복 19번이라 모바일에서
  * 몇 분이 걸리는데, 그 사이 뒤로 가기 한 번이면 통째로 날아간다. 서버 세션이 디스크에
@@ -22,11 +24,14 @@ function onBeforeUnload(event: BeforeUnloadEvent): void {
 }
 
 function attach(): void {
+  // 화면 유지는 실패해도 조용히 넘어간다 — 업로드의 조건이 아니다
+  requestScreenWakeLock();
   if (typeof window === "undefined") return;
   window.addEventListener("beforeunload", onBeforeUnload);
 }
 
 function detach(): void {
+  releaseScreenWakeLock();
   if (typeof window === "undefined") return;
   window.removeEventListener("beforeunload", onBeforeUnload);
 }
