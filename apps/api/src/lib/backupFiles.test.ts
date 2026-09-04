@@ -48,6 +48,33 @@ describe("backupFiles", () => {
     expect(await readFile(path.join(filesDir, "legacy-flat.jpg"), "utf8")).toBe("legacy-bytes");
   });
 
+  // 정상 종료하면 지워지지만 프로세스가 중간에 죽으면 남는다 — 담으면 백업 안에 백업이 중첩된다
+  it("skips leftover work dirs from crashed backups and restores", async () => {
+    await seedUploads();
+    for (const name of ["backup_1757000000000", "restore_1757000000000"]) {
+      await mkdir(path.join(uploadDir, name, "files", "events"), { recursive: true });
+      await writeFile(path.join(uploadDir, name, "files", "events", "nested.jpg"), "nested");
+    }
+
+    await copyUploadsForBackup(uploadDir, filesDir, "backup-work");
+
+    const copied = await readdir(filesDir);
+    expect(copied).not.toContain("backup_1757000000000");
+    expect(copied).not.toContain("restore_1757000000000");
+    // 진짜 첨부는 그대로 담긴다
+    expect(copied).toContain("events");
+  });
+
+  // 접두어만 보고 자르면 안 된다 — 사용자 첨부 디렉터리가 그 이름일 수도 있다
+  it("only skips work-dir names that are directories", async () => {
+    await mkdir(uploadDir, { recursive: true });
+    await writeFile(path.join(uploadDir, "backup_notes.txt"), "a real file");
+
+    await copyUploadsForBackup(uploadDir, filesDir, "backup-work");
+
+    expect(await readdir(filesDir)).toContain("backup_notes.txt");
+  });
+
   it("skips chunk temp parts, old archives and the in-progress work dir", async () => {
     await seedUploads();
     await mkdir(path.join(uploadDir, "backup-work"), { recursive: true });

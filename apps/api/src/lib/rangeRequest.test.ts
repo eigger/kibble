@@ -86,3 +86,18 @@ describe("parseByteRange", () => {
     expect(parseByteRange("bytes=0-9,20-29", SIZE)).toEqual({ kind: "none" });
   });
 });
+
+// Node는 중복 헤더를 보통 합치지만, 배열이 오면 trim()에서 터지고 라우트 catch가
+// 그걸 "파일 없음" 404로 삼켜 원인을 못 찾게 된다
+describe("parseByteRange — 배열 헤더", () => {
+  it("uses the first value when the header arrives as an array", () => {
+    expect(parseByteRange(["bytes=10-19", "bytes=30-39"], SIZE)).toEqual({
+      kind: "range",
+      range: { start: 10, end: 19 },
+    });
+  });
+
+  it("returns none for an empty array", () => {
+    expect(parseByteRange([], SIZE)).toEqual({ kind: "none" });
+  });
+});
