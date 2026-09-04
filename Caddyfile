@@ -23,15 +23,3 @@
 		reverse_proxy web:3000
 	}
 }
-
-# 기본 설치는 오리진 루트. BASE_PATH=/kibble 처럼 서브패스에 붙이면 웹 클라이언트가
-# /kibble/api/... 를 치므로, 프록시가 그 요청에서 /kibble 만 벗긴 뒤 API로 넘기고,
-# 웹(Next) 요청은 프리픽스를 그대로 남겨야 한다. 아래를 루트 handle 대신 쓴다.
-#
-# handle /kibble/api* {
-# 	uri strip_prefix /kibble
-# 	reverse_proxy api:8080
-# }
-# handle /kibble* {
-# 	reverse_proxy web:3000
-# }

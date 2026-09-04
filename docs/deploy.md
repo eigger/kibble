@@ -206,12 +206,26 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 | `APP_PUBLIC_URL` | 권장 | 미디어 쿠키·절대 URL용, **프로덕션 CORS 허용 오리진**. **브라우저 접속 URL과 동일** |
 | `CORS_EXTRA_ORIGINS` | 선택 | 접속 도메인이 여럿이거나 웹·API 호스트가 다를 때 쉼표로 나열 |
 | `COOKIE_SECURE` | HTTPS 시 | `true` — HTTP만 쓰면 `false` 또는 생략 |
-| `BASE_PATH` | 서브패스 시 | 웹 컨테이너를 오리진 루트가 아닌 경로에 붙일 때만 (예: `/kibble`). 비우면 루트. 이미지는 플레이스홀더로 빌드되고 기동 시 치환된다 — Home Assistant Ingress처럼 설치본마다 경로가 다른 배포용. **프록시도 맞춰야 한다**: 웹은 `{BASE_PATH}/api/...`를 치므로 그 요청에서 프리픽스만 벗긴 뒤 API로 넘긴다. 기본 Caddyfile은 루트의 `/api`만 연결 (`Caddyfile` 주석 예시). |
+| `BASE_PATH` | 서브패스 시 | 웹 컨테이너를 오리진 루트가 아닌 경로에 붙일 때만 (예: `/kibble`). 비우면 루트. 이미지는 플레이스홀더로 빌드되고 기동 시 치환된다 — Home Assistant Ingress처럼 설치본마다 경로가 다른 배포용. **프록시도 맞춰야 한다** — 아래 서브패스 절. |
 | `GH_REPOSITORY_OWNER` | prod | GHCR 이미지 소유자 (기본 `eigger`) |
 | `KIBBLE_REF` | Proxmox | `master` 또는 릴리스 태그. 설치·`update` 스크립트용 |
 | `ADMIN_PASSWORD` | 설정 금지 | CLI 시드로 관리자를 만들 때만. **비워 두면 첫 관리자를 브라우저에서 만듭니다**(권장) |
 
 전체 예시: [`.env.example`](../.env.example)
+
+### 서브패스 (`BASE_PATH`)
+
+기본 Caddyfile은 오리진 루트의 `/api`만 API로 넘긴다. `BASE_PATH=/kibble`이면 웹 클라이언트가 `/kibble/api/...`를 치므로, 그 요청에서 `/kibble`만 벗긴 뒤 API로 보내고 웹(Next) 요청은 프리픽스를 남겨야 한다. 루트 `handle` 대신:
+
+```caddy
+handle /kibble/api* {
+	uri strip_prefix /kibble
+	reverse_proxy api:8080
+}
+handle /kibble* {
+	reverse_proxy web:3000
+}
+```
 
 ---
 
