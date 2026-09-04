@@ -20,6 +20,7 @@ import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js"
 import { FILE_SIZE_LIMIT_BYTES, TEMP_DIR } from "../lib/uploads.js";
 import {
   acquireChunkWriteLock,
+  alignTempFileForWrite,
   createUploadSession,
   deleteUploadSession,
   getUploadSession,
@@ -119,6 +120,9 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       }
 
       await mkdir(TEMP_DIR, { recursive: true });
+      // 재시작으로 되살린 세션이면 크래시가 남긴 꼬리가 있을 수 있다. 되살리기는
+      // GET이라 디스크를 못 고치므로(K-7) 수리는 여기서 — append 바로 앞, 쓰기 잠금 안이다.
+      await alignTempFileForWrite(session);
       await appendFile(session.tempPath, chunk);
       session.receivedBytes += chunk.length;
       session.nextChunkIndex += 1;
@@ -168,6 +172,9 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       await deleteUploadSession(uploadId);
       return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
     }
+
+    // rename 전에 한 번 더 맞춘다 — 세션이 아는 길이보다 긴 파일을 최종 첨부로 옮기지 않는다
+    await alignTempFileForWrite(session).catch(() => {});
 
     let saved;
     try {
