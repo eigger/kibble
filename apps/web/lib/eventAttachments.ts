@@ -1,6 +1,6 @@
 import { apiFetch, apiJson, API_URL, isPermanentApiRejection } from "./api";
 import { shouldUseChunkedUpload, uploadEventAttachmentInChunks } from "./chunkedUpload";
-import { prepareAttachmentForUpload } from "./uploadPrep";
+import { isLocalFileFailure, prepareAttachmentForUpload } from "./uploadPrep";
 import type { EventAttachment } from "./types";
 
 export type UploadAttachmentsResult = {
@@ -85,10 +85,11 @@ export async function uploadEventAttachments(
       );
     } catch (err) {
       remaining.push(files[i]);
-      if (!isPermanentApiRejection(err)) {
-        remaining.push(...files.slice(i + 1));
-        break;
-      }
+      // content URI 만료·NotReadableError는 그 장만의 문제다. HTTP 4xx와 같이
+      // 나머지를 계속 올린다. TypeError("Failed to fetch")는 회선 문제로 두고 중단한다.
+      if (isPermanentApiRejection(err) || isLocalFileFailure(err)) continue;
+      remaining.push(...files.slice(i + 1));
+      break;
     }
   }
   return { uploaded, remaining };

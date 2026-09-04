@@ -7,7 +7,16 @@ vi.mock("./api", async () => {
   return { ...actual, API_URL: "http://localhost:8080", apiJson: vi.fn(), apiFetch: vi.fn() };
 });
 
+vi.mock("./uploadPrep", async () => {
+  const actual = await vi.importActual<typeof import("./uploadPrep")>("./uploadPrep");
+  return {
+    ...actual,
+    prepareAttachmentForUpload: vi.fn(actual.prepareAttachmentForUpload),
+  };
+});
+
 import { ApiError, apiJson } from "./api";
+import { LocalFileError, prepareAttachmentForUpload } from "./uploadPrep";
 
 function attachment(id: string): EventAttachment {
   return { id, path: `events/${id}.jpg`, mime: "image/jpeg", size: 1, width: 1, height: 1 } as EventAttachment;
@@ -16,6 +25,8 @@ function attachment(id: string): EventAttachment {
 describe("uploadEventAttachments", () => {
   beforeEach(() => {
     vi.mocked(apiJson).mockReset();
+    vi.mocked(prepareAttachmentForUpload).mockReset();
+    vi.mocked(prepareAttachmentForUpload).mockImplementation(async (file) => file);
   });
 
   const files = () => [
@@ -60,6 +71,37 @@ describe("uploadEventAttachments", () => {
 
     expect(result.uploaded.map((a) => a.id)).toEqual(["att2", "att3"]);
     expect(result.remaining.map((f) => f.name)).toEqual(["a.jpg"]);
+  });
+
+  // 갤럭시 다중 선택에서 2장째 content URI가 끊겨도, 네트워크가 죽은 것처럼
+  // 나머지를 건너뛰면 "한 장만 올라간다"로 보인다
+  it("keeps going past an unreadable file", async () => {
+    vi.mocked(prepareAttachmentForUpload)
+      .mockResolvedValueOnce(files()[0])
+      .mockRejectedValueOnce(new LocalFileError("b.jpg"))
+      .mockResolvedValueOnce(files()[2]);
+    vi.mocked(apiJson)
+      .mockResolvedValueOnce(attachment("att1"))
+      .mockResolvedValueOnce(attachment("att3"));
+
+    const result = await uploadEventAttachments("evt1", files());
+
+    expect(result.uploaded.map((a) => a.id)).toEqual(["att1", "att3"]);
+    expect(result.remaining.map((f) => f.name)).toEqual(["b.jpg"]);
+  });
+
+  it("keeps going when fetch wraps NotReadableError as TypeError", async () => {
+    vi.mocked(apiJson)
+      .mockResolvedValueOnce(attachment("att1"))
+      .mockRejectedValueOnce(
+        new TypeError("The requested file could not be read, typically due to permission problems."),
+      )
+      .mockResolvedValueOnce(attachment("att3"));
+
+    const result = await uploadEventAttachments("evt1", files());
+
+    expect(result.uploaded.map((a) => a.id)).toEqual(["att1", "att3"]);
+    expect(result.remaining.map((f) => f.name)).toEqual(["b.jpg"]);
   });
 
   it("reports per-file progress", async () => {
