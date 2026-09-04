@@ -10,9 +10,11 @@ import {
   ComposedChart,
   Legend,
   Line,
+  Rectangle,
   Tooltip,
   XAxis,
   YAxis,
+  type BarShapeProps,
 } from "recharts";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
@@ -185,6 +187,16 @@ export default function AnalyticsPage() {
     () => groupedQuantitySums(filtered, "meal", granularity, localeTag, { includeOffered: true }),
     [filtered, granularity, localeTag],
   );
+  // 제공·섭취를 옆으로 나란히 두면 같은 계열 색이라 구분이 안 된다 — 섭취를 바닥에서
+  // 채우고, 제공에서 못 채운 만큼만 위에 옅은 색으로 쌓는다(offered가 목표선처럼 읽힌다).
+  const mealStacked = useMemo(
+    () =>
+      mealGrouped.map((point) => ({
+        ...point,
+        remaining: Math.max((point.offered ?? 0) - point.consumed, 0),
+      })),
+    [mealGrouped],
+  );
   const waterGrouped = useMemo(
     () => groupedQuantitySums(filtered, "water", granularity, localeTag),
     [filtered, granularity, localeTag],
@@ -331,33 +343,60 @@ export default function AnalyticsPage() {
             ) : (
               <AnalyticsChart tall>
                 <BarChart
-                  data={mealGrouped}
-                  margin={{ ...CHART_MARGIN, bottom: mealGrouped.length > 6 ? 8 : 0 }}
+                  data={mealStacked}
+                  margin={{ ...CHART_MARGIN, bottom: mealStacked.length > 6 ? 8 : 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                  <XAxis dataKey="label" {...chartXAxisProps(mealGrouped.length)} />
+                  <XAxis dataKey="label" {...chartXAxisProps(mealStacked.length)} />
                   <YAxis
                     tick={{ fontSize: 10, fill: "var(--color-text-muted)" }}
                     width={40}
                     tickMargin={4}
                   />
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} cursor={TOOLTIP_CURSOR} />
+                  <Tooltip
+                    formatter={(value, name, item) =>
+                      item.dataKey === "remaining"
+                        ? [`${item.payload.offered}g`, t("analyticsMealOfferedLegend")]
+                        : [`${value}g`, name]
+                    }
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    cursor={TOOLTIP_CURSOR}
+                  />
                   <Legend
                     verticalAlign="bottom"
                     align="center"
                     wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
                   />
                   <Bar
-                    dataKey="offered"
-                    name={t("analyticsMealOfferedLegend")}
-                    fill="var(--chart-secondary)"
-                    maxBarSize={28}
-                  />
-                  <Bar
                     dataKey="consumed"
+                    stackId="meal"
                     name={t("analyticsMealConsumedLegend")}
                     fill="var(--color-primary)"
+                    stroke="var(--color-surface)"
+                    strokeWidth={2}
                     maxBarSize={28}
+                    // remaining이 없으면(다 먹음) 섭취 막대가 스택 맨 위다 — 그때만 위쪽을 둥글린다.
+                    shape={(shapeProps: BarShapeProps) => (
+                      <Rectangle
+                        {...shapeProps}
+                        radius={shapeProps.payload.remaining > 0 ? 0 : [4, 4, 0, 0]}
+                      />
+                    )}
+                  />
+                  <Bar
+                    dataKey="remaining"
+                    stackId="meal"
+                    name={t("analyticsMealOfferedLegend")}
+                    fill="color-mix(in srgb, var(--color-primary) 25%, var(--color-surface))"
+                    stroke="var(--color-surface)"
+                    strokeWidth={2}
+                    maxBarSize={28}
+                    shape={(shapeProps: BarShapeProps) => (
+                      <Rectangle
+                        {...shapeProps}
+                        radius={shapeProps.payload.remaining > 0 ? [4, 4, 0, 0] : 0}
+                      />
+                    )}
                   />
                 </BarChart>
               </AnalyticsChart>
