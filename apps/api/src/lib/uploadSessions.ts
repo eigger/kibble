@@ -117,7 +117,12 @@ export async function createUploadSession(
  *
  * 진행량은 사이드카가 아니라 **`.part` 파일 크기**가 정답이다. `appendFile`은 원자적이
  * 아니라 프로세스가 append 도중 죽으면 청크 경계에 걸치지 않는 꼬리가 남을 수 있다 —
- * 그대로 이어 붙이면 파일이 깨지므로 경계까지 잘라내고 그 지점부터 다시 받는다.
+ * 그래서 되살릴 때는 경계까지 내림한 값을 보고한다.
+ *
+ * **여기서 디스크를 고치지는 않는다 (K-7).** 진행 조회는 GET이고, GET이 파일을 자르면
+ * 포스터 지연 백필을 기각한 것(R69)과 같은 규칙이 흔들린다. 실제 잘라내기는 쓰기 경로
+ * (`alignTempFileForWrite`)에서 한다 — 보고한 위치 뒤에 꼬리가 남아 있어도 append 전에
+ * 정리되므로 파일이 깨질 일은 없다.
  */
 async function rehydrateSession(id: string): Promise<UploadSession | undefined> {
   let sidecar: SessionSidecar | null;
@@ -137,16 +142,9 @@ async function rehydrateSession(id: string): Promise<UploadSession | undefined> 
   }
 
   let receivedBytes = Math.min(onDisk, sidecar.totalSize);
+  // 마지막 청크는 경계에 안 맞는 게 정상이다(complete 대기) — 그때는 내리지 않는다.
   if (receivedBytes < sidecar.totalSize) {
-    const aligned = Math.floor(receivedBytes / UPLOAD_CHUNK_SIZE_BYTES) * UPLOAD_CHUNK_SIZE_BYTES;
-    if (aligned !== receivedBytes) {
-      try {
-        await truncate(tempPath, aligned);
-      } catch {
-        return undefined; // 잘라내지 못하면 이어받을 수 없다 — 처음부터 다시 올린다
-      }
-      receivedBytes = aligned;
-    }
+    receivedBytes = Math.floor(receivedBytes / UPLOAD_CHUNK_SIZE_BYTES) * UPLOAD_CHUNK_SIZE_BYTES;
   }
 
   const session: UploadSession = {
@@ -167,6 +165,25 @@ export async function getUploadSession(id: string): Promise<UploadSession | unde
 // 같은 인덱스가 두 번 append되어 파일이 깨진다. 웹 클라이언트는 순차 전송이지만 서버가
 // 그걸 믿을 이유는 없다 — 세션당 한 번에 하나만 쓰게 잠근다.
 const writing = new Set<string>();
+
+/**
+ * `.part`를 세션이 아는 길이에 맞춘다. 크래시로 남은 꼬리를 여기서 걷어낸다.
+ *
+ * 되살리기(GET)는 계산만 하고 디스크를 건드리지 않으므로(K-7), 실제 수리는 **쓰기
+ * 직전 딱 한 번** 여기서 일어난다. append 전에 부르는 것이 계약이다 — 안 그러면
+ * 남은 꼬리 뒤에 새 청크가 붙어 영상이 조용히 깨진다.
+ */
+export async function alignTempFileForWrite(session: UploadSession): Promise<void> {
+  let onDisk: number;
+  try {
+    onDisk = (await stat(session.tempPath)).size;
+  } catch {
+    return; // 아직 파일이 없다 — 첫 append가 만든다
+  }
+  if (onDisk > session.receivedBytes) {
+    await truncate(session.tempPath, session.receivedBytes);
+  }
+}
 
 /** 잠금을 얻으면 true. 이미 쓰는 중이면 false — 호출부는 409로 돌려보낸다. */
 export function acquireChunkWriteLock(id: string): boolean {

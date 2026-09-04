@@ -101,8 +101,25 @@ describe("uploadSessions", () => {
     });
 
     // appendFile은 원자적이 아니다 — append 도중 죽으면 청크 경계에 걸치지 않는 꼬리가
-    // 남는다. 그대로 이어 붙이면 파일이 깨지므로 경계까지 잘라내고 다시 받는다.
-    it("truncates a torn chunk back to the last boundary", async () => {
+    // 남는다. 되살리기는 GET이라 **계산만** 하고, 실제 잘라내기는 쓰기 경로에서 한다 (K-7).
+    it("reports the aligned position without touching the disk", async () => {
+      const totalSize = UPLOAD_CHUNK_SIZE_BYTES * 3;
+      const torn = UPLOAD_CHUNK_SIZE_BYTES + 1234;
+      const session = await sessions.createUploadSession("evt1", "hh1", "clip.mp4", "video/mp4", totalSize);
+      await mkdir(tempDir, { recursive: true });
+      await appendFile(session.tempPath, Buffer.alloc(torn));
+
+      const restarted = await loadSessions();
+      const revived = await restarted.getUploadSession(session.id);
+
+      expect(revived?.receivedBytes).toBe(UPLOAD_CHUNK_SIZE_BYTES);
+      expect(revived?.nextChunkIndex).toBe(1);
+      // GET은 디스크를 고치지 않는다 — 꼬리는 아직 그대로다
+      expect((await stat(session.tempPath)).size).toBe(torn);
+    });
+
+    // 꼬리를 그대로 두고 append하면 조용히 깨진 영상이 된다 — 쓰기 직전에 걷어낸다
+    it("cuts the torn tail on the write path", async () => {
       const totalSize = UPLOAD_CHUNK_SIZE_BYTES * 3;
       const session = await sessions.createUploadSession("evt1", "hh1", "clip.mp4", "video/mp4", totalSize);
       await mkdir(tempDir, { recursive: true });
@@ -110,10 +127,30 @@ describe("uploadSessions", () => {
 
       const restarted = await loadSessions();
       const revived = await restarted.getUploadSession(session.id);
+      expect(revived).toBeDefined();
 
-      expect(revived?.receivedBytes).toBe(UPLOAD_CHUNK_SIZE_BYTES);
-      expect(revived?.nextChunkIndex).toBe(1);
+      await restarted.alignTempFileForWrite(revived!);
+
       expect((await stat(session.tempPath)).size).toBe(UPLOAD_CHUNK_SIZE_BYTES);
+    });
+
+    it("leaves an already-aligned file alone on the write path", async () => {
+      const totalSize = UPLOAD_CHUNK_SIZE_BYTES * 2;
+      const session = await sessions.createUploadSession("evt1", "hh1", "clip.mp4", "video/mp4", totalSize);
+      await mkdir(tempDir, { recursive: true });
+      await appendFile(session.tempPath, Buffer.alloc(UPLOAD_CHUNK_SIZE_BYTES));
+
+      const restarted = await loadSessions();
+      const revived = await restarted.getUploadSession(session.id);
+      await restarted.alignTempFileForWrite(revived!);
+
+      expect((await stat(session.tempPath)).size).toBe(UPLOAD_CHUNK_SIZE_BYTES);
+    });
+
+    it("does not throw when the part file does not exist yet", async () => {
+      const session = await sessions.createUploadSession("evt1", "hh1", "clip.mp4", "video/mp4", 1000);
+      const revived = await sessions.getUploadSession(session.id);
+      await expect(sessions.alignTempFileForWrite(revived!)).resolves.toBeUndefined();
     });
 
     it("keeps a complete file that was waiting for /complete", async () => {
