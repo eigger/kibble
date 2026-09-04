@@ -120,7 +120,8 @@ export async function saveEventAttachment(
 
   const filename = `${eventId}-${randomUUID()}${ext}`;
   const relativePath = `${EVENT_SUBDIR}/${filename}`;
-  await writeFile(attachmentAbsolutePath(relativePath), fileBuffer);
+  const absolutePath = attachmentAbsolutePath(relativePath);
+  await writeFile(absolutePath, fileBuffer);
 
   return {
     path: relativePath,
@@ -128,6 +129,11 @@ export async function saveEventAttachment(
     size: fileBuffer.length,
     width,
     height,
+    // 웹은 영상을 항상 청크로 보내지만, API 토큰으로 20MB 이하 영상을 multipart로
+    // 직행시키는 경로가 있다 — 거기서만 포스터가 없으면 목록이 갈라진다.
+    posterPath: ALLOWED_VIDEO_MIME.has(mime)
+      ? await savePosterForVideo(eventId, absolutePath)
+      : null,
   };
 }
 
