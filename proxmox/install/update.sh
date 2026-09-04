@@ -179,14 +179,18 @@ BACKUP_CADDY=""
 if [[ -f "$COMPOSE_FILE" ]]; then
   BACKUP_COMPOSE="${COMPOSE_FILE}.bak.${TS}"
   cp -a "$COMPOSE_FILE" "$BACKUP_COMPOSE"
-  echo "[update] Diff docker-compose.prod.yml:"
-  diff -u "$COMPOSE_FILE" "${TMPDIR_UPD}/docker-compose.prod.yml" || true
+  if ! cmp -s "$COMPOSE_FILE" "${TMPDIR_UPD}/docker-compose.prod.yml"; then
+    echo "[update] Diff docker-compose.prod.yml:"
+    diff -u "$COMPOSE_FILE" "${TMPDIR_UPD}/docker-compose.prod.yml" || true
+  fi
 fi
 if [[ -f "$CADDY_FILE" ]]; then
   BACKUP_CADDY="${CADDY_FILE}.bak.${TS}"
   cp -a "$CADDY_FILE" "$BACKUP_CADDY"
-  echo "[update] Diff Caddyfile:"
-  diff -u "$CADDY_FILE" "${TMPDIR_UPD}/Caddyfile" || true
+  if ! cmp -s "$CADDY_FILE" "${TMPDIR_UPD}/Caddyfile"; then
+    echo "[update] Diff Caddyfile:"
+    diff -u "$CADDY_FILE" "${TMPDIR_UPD}/Caddyfile" || true
+  fi
 fi
 
 install -m 0644 "${TMPDIR_UPD}/docker-compose.prod.yml" "$COMPOSE_FILE"
