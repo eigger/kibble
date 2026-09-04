@@ -1,6 +1,7 @@
 import { apiFetch, apiFormUpload, apiJson, API_URL, isPermanentApiRejection } from "./api";
 import { shouldUseChunkedUpload, uploadEventAttachmentInChunks } from "./chunkedUpload";
 import { isLocalFileFailure, prepareAttachmentForUpload } from "./uploadPrep";
+import { withUploadGuard } from "./uploadGuard";
 import type { EventAttachment } from "./types";
 
 export type UploadAttachmentsResult = {
@@ -75,17 +76,20 @@ export async function uploadEventAttachment(
   file: File,
   onProgress?: (p: FileProgress) => void,
 ): Promise<EventAttachment> {
-  // MIME 보정·이미지 축소는 전송 직전에 한 번만 한다 — 재개 시에도 같은 결과가 나와야
-  // pendingUploads의 (filename, size) 매칭이 어긋나지 않는다.
-  onProgress?.({ loaded: 0, total: Math.max(file.size, 1), phase: "preparing" });
-  const prepared = await prepareAttachmentForUpload(file);
-  onProgress?.({ loaded: 0, total: Math.max(prepared.size, 1), phase: "uploading" });
-  if (shouldUseChunkedUpload(prepared)) {
-    return uploadEventAttachmentInChunks(eventId, prepared, (p) =>
-      onProgress?.({ loaded: p.loaded, total: p.total, phase: "uploading" }),
-    );
-  }
-  return uploadEventAttachmentMultipart(eventId, prepared, onProgress);
+  // 이탈 경고는 여기서 건다 — 오프라인 큐 재전송을 포함해 모든 업로드 경로가 이 함수를 지난다.
+  return withUploadGuard(async () => {
+    // MIME 보정·이미지 축소는 전송 직전에 한 번만 한다 — 재개 시에도 같은 결과가 나와야
+    // pendingUploads의 (filename, size) 매칭이 어긋나지 않는다.
+    onProgress?.({ loaded: 0, total: Math.max(file.size, 1), phase: "preparing" });
+    const prepared = await prepareAttachmentForUpload(file);
+    onProgress?.({ loaded: 0, total: Math.max(prepared.size, 1), phase: "uploading" });
+    if (shouldUseChunkedUpload(prepared)) {
+      return uploadEventAttachmentInChunks(eventId, prepared, (p) =>
+        onProgress?.({ loaded: p.loaded, total: p.total, phase: "uploading" }),
+      );
+    }
+    return uploadEventAttachmentMultipart(eventId, prepared, onProgress);
+  });
 }
 
 function emptyFileState(file: File): AttachmentFileProgress {
@@ -130,6 +134,16 @@ function emitBatchProgress(
  * 파일은 멈춘다. 이미 전송 중인 파일은 끝까지 간다.
  */
 export async function uploadEventAttachments(
+  eventId: string,
+  files: File[],
+  onProgress?: (p: AttachmentUploadProgress) => void,
+): Promise<UploadAttachmentsResult> {
+  // 배치 전체를 한 번 더 감싼다 — 파일 사이의 짧은 틈에도 가드가 풀리지 않게.
+  // (카운터라 중첩은 안전하다)
+  return withUploadGuard(() => runAttachmentUploads(eventId, files, onProgress));
+}
+
+async function runAttachmentUploads(
   eventId: string,
   files: File[],
   onProgress?: (p: AttachmentUploadProgress) => void,
