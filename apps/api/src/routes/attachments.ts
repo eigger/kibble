@@ -1,5 +1,3 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
@@ -16,6 +14,7 @@ import {
   WritableEventMissingError,
 } from "../lib/eventAttachment.js";
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
+import { sendFileWithRange } from "../lib/sendFile.js";
 import { attachmentSelect } from "../lib/attachmentSelect.js";
 
 export { attachmentSelect };
@@ -51,16 +50,16 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
     } catch {
       return reply.code(404).send({ error: t("fileNotFound", request.locale) });
     }
+
     try {
-      await stat(absPath);
+      // Range를 함께 처리한다 — 영상 탐색과 iOS Safari 재생이 여기에 달려 있다.
+      return await sendFileWithRange(request, reply, absPath, {
+        contentType: safeContentType(attachment.mime),
+        cacheControl: "private, max-age=3600",
+      });
     } catch {
       return reply.code(404).send({ error: t("fileMissingOnDisk", request.locale) });
     }
-
-    const contentType = safeContentType(attachment.mime);
-    reply.header("X-Content-Type-Options", "nosniff");
-    reply.type(contentType);
-    return createReadStream(absPath);
   });
 }
 

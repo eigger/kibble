@@ -8,7 +8,8 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import { existsSync } from "fs";
-import { mkdir, writeFile, readFile, rm, readdir, copyFile } from "fs/promises";
+import { mkdir, writeFile, readFile, rm } from "fs/promises";
+import { copyUploadsForBackup, restoreUploadsFromBackup } from "../lib/backupFiles.js";
 
 const execAsync = promisify(exec);
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
@@ -58,16 +59,7 @@ async function buildBackupArchive(tempDirName: string): Promise<{ tempDir: strin
   await mkdir(filesDir, { recursive: true });
   await writeFile(path.join(tempDir, "db.json"), JSON.stringify(dbData, null, 2), "utf8");
 
-  if (existsSync(UPLOAD_DIR)) {
-    const entries = await readdir(UPLOAD_DIR, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory() && entry.name === tempDirName) continue;
-      if (entry.isFile() && entry.name.endsWith(".tar.gz")) continue;
-      if (entry.isFile()) {
-        await copyFile(path.join(UPLOAD_DIR, entry.name), path.join(filesDir, entry.name));
-      }
-    }
-  }
+  await copyUploadsForBackup(UPLOAD_DIR, filesDir, tempDirName);
 
   await execAsync(`tar -czf "${archivePath}" -C "${tempDir}" .`);
   return { tempDir, archivePath };
@@ -261,13 +253,7 @@ export async function backupRoutes(app: FastifyInstance) {
           }
         });
 
-        const filesDir = path.join(restoreTempDir, "files");
-        if (existsSync(filesDir)) {
-          const restoredFiles = await readdir(filesDir);
-          for (const filename of restoredFiles) {
-            await copyFile(path.join(filesDir, filename), path.join(UPLOAD_DIR, filename));
-          }
-        }
+        await restoreUploadsFromBackup(path.join(restoreTempDir, "files"), UPLOAD_DIR);
 
         return {
           success: true,

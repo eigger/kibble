@@ -1,10 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import { createPetSchema, updatePetSchema } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
+import { sendFileWithRange } from "../lib/sendFile.js";
 import {
   ensurePresetsForPetInTx,
   SystemEventTypesNotSeededError,
@@ -247,17 +246,15 @@ export async function petRoutes(app: FastifyInstance) {
     const pet = await findActivePet(householdId, id);
     if (!pet?.photoPath) return reply.code(404).send({ error: t("photoNotFound", request.locale) });
 
-    let abs: string;
     try {
-      abs = petPhotoAbsolutePath(pet.photoPath);
-      await stat(abs);
+      const abs = petPhotoAbsolutePath(pet.photoPath);
+      return await sendFileWithRange(request, reply, abs, {
+        contentType: "image/webp",
+        cacheControl: "private, max-age=3600",
+      });
     } catch {
       return reply.code(404).send({ error: t("photoNotFound", request.locale) });
     }
-
-    reply.type("image/webp");
-    reply.header("Cache-Control", "private, max-age=3600");
-    return reply.send(createReadStream(abs));
   });
 
   app.delete("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
