@@ -1,28 +1,22 @@
 "use client";
 
 /**
- * 업로드 직전 파일 손질. 두 가지를 한다.
+ * 업로드 직전 파일 손질.
  *
  * 1) MIME 보정 — 안드로이드 파일 제공자·공유 시트는 `type`이 빈 문자열인 File을 준다.
- *    그대로 보내면 서버 허용 목록에 걸려 400이 된다. 확장자로 되살린다 (K-12).
- * 2) 이미지 리인코딩 — 서버는 어차피 1600px JPEG로 줄인다. 원본을 그대로 올리면
- *    모바일 전송량만 몇 배가 되고 그만큼 중간에 끊길 확률이 오른다. 덤으로 아이폰
- *    HEIC이 JPEG가 된다 — sharp 프리빌트 바이너리는 HEIC을 열지 못한다.
+ * 2) HEIC/HEIF 등 서버가 못 여는 이미지만 canvas로 JPEG. JPEG/PNG/WebP는 원본을 보낸다.
+ *    서버 sharp가 1600px JPEG로 줄인다. 갤럭시에서 12MP JPEG를 장마다 캔버스로 바꾸면
+ *    수 초~20초가 걸려 쓸 수 없었다 (R63).
  *
- * 변환이 안 되면 원본을 그대로 돌려준다. 여기서 파일을 거부하지 않는다 (K-12) —
- * 판단은 서버에 맡기고, 사용자는 최소한 시도라도 하게 둔다.
- *
- * 갤럭시 크롬은 HEIF를 `<img>`로 못 여는 기기가 있고, `createImageBitmap`이
- * 끝나지 않는 경우도 있다. 타임아웃 없이 기다리면 진행률이 0%인 채로 멈추고
- * 그 한 장의 실패를 네트워크 장애로 오인해 나머지 파일까지 포기한다.
+ * 변환이 안 되면 원본을 그대로 돌려준다 (K-12).
  */
 
 /** 서버 imageProcessing.ts와 같은 값을 쓴다 — 여기서 줄여 보내면 서버는 그대로 통과시킨다. */
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 
-/** 디코드·toBlob이 영영 안 끝나면 업로드 전체가 멈춘다 — 그럴 바엔 원본을 올린다. */
-export const DECODE_TIMEOUT_MS = 20_000;
+/** HEIC 디코드가 안 끝나면 원본을 올린다. JPEG 경로에는 쓰지 않는다. */
+export const DECODE_TIMEOUT_MS = 8_000;
 
 const EXTENSION_MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -353,11 +347,13 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
 }
 
 export async function prepareAttachmentForUpload(file: File): Promise<File> {
-  // 선택 시점에 이미 스냅샷된 File이면 arrayBuffer는 메모리 복사뿐이라 싸다.
   const local = await snapshotFile(file);
   const type = normalizeAttachmentType(local);
   const typed = withType(local, type);
   if (!type.startsWith("image/")) return typed;
+  // 서버가 여는 JPEG/PNG/WebP는 canvas를 거치지 않는다. 갤럭시 12MP에서
+  // createImageBitmap이 장당 수 초~타임아웃이라 업로드가 실사용 불가였다.
+  if (SERVER_DECODABLE_IMAGE.has(type)) return typed;
 
   let converted: File | null = null;
   try {
@@ -366,9 +362,6 @@ export async function prepareAttachmentForUpload(file: File): Promise<File> {
     logPrep(`reencode failed ${typed.name}`, err);
     converted = null;
   }
-  if (!converted) return typed;
-
-  // 서버가 못 여는 형식(HEIC 등)은 크기와 무관하게 변환본만이 유일한 길이다.
-  if (!SERVER_DECODABLE_IMAGE.has(type)) return converted;
-  return converted.size < typed.size ? converted : typed;
+  // HEIC 등은 변환본만이 서버를 통과한다. 실패하면 원본을 보내고 서버 400을 받는다 (K-12).
+  return converted ?? typed;
 }
