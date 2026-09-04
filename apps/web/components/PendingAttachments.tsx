@@ -44,6 +44,8 @@ export function PendingAttachments({
   progress,
   t,
 }: Props) {
+  const filesRef = useRef(files);
+  filesRef.current = files;
   const galleryRef = useRef<HTMLInputElement>(null);
   const photoCaptureRef = useRef<HTMLInputElement>(null);
   const videoCaptureRef = useRef<HTMLInputElement>(null);
@@ -58,19 +60,26 @@ export function PendingAttachments({
     };
   }, [previewUrls]);
 
-  async function addFiles(list: FileList | null) {
+  function addFiles(list: FileList | null) {
     if (!list || list.length === 0) return;
-    const incoming = Array.from(list);
+    const picked = Array.from(list);
     const room = MAX_FILES - existingCount - files.length;
     if (room <= 0) return;
-    const sliced = incoming.slice(0, room);
-    // content URI는 1장을 변환·전송하는 수 초 안에 만료된다. 전부 한꺼번에 바이트를
-    // 복사해야 2장째부터 NotReadableError가 안 난다 — 순차로 arrayBuffer하면
-    // 뒤 파일의 핸들이 그 사이에 끊긴다.
-    const snapped = await Promise.all(
-      sliced.map((file) => snapshotFile(file).catch(() => file)),
-    );
-    onChange([...files, ...snapped]);
+    const incoming = picked.slice(0, room);
+    // 썸네일은 즉시 그린다. 바이트 복사는 백그라운드 — 복사가 끝날 때까지
+    // onChange를 미루면 앨범을 닫은 뒤 화면이 멈춘 것처럼 보인다.
+    onChange([...files, ...incoming]);
+    void Promise.all(incoming.map((file) => snapshotFile(file).catch(() => file))).then((snapped) => {
+      const current = filesRef.current;
+      let changed = false;
+      const next = current.map((file) => {
+        const i = incoming.indexOf(file);
+        if (i === -1 || snapped[i] === file) return file;
+        changed = true;
+        return snapped[i];
+      });
+      if (changed) onChange(next);
+    });
   }
 
   function removeAt(index: number) {
