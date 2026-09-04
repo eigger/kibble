@@ -18,15 +18,18 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads")
 const BACKUP_TICKET_EXPIRES = "60s";
 
 /**
- * 복원 아카이브 상한 (기본 2GB).
+ * 복원 아카이브 상한 (기본 2047MB).
  *
  * 백업이 실제로 사진·영상을 담게 되면서 이 숫자가 처음으로 의미를 갖게 됐다 — 그전에는
  * 아카이브가 사실상 db.json뿐이라 500MB든 5MB든 상관이 없었다. 업로드 단건 상한이
  * 150MB라도 **누적 첨부**는 금방 그걸 넘으므로, 내보내기는 되는데 복원이 막히는 상황이
  * 나오면 안 된다. 아카이브는 스트림으로 디스크에 받으므로 메모리가 아니라 디스크가
  * 유일한 제약이다.
+ *
+ * 2048이 아니라 2047인 이유: 2048MB는 정확히 2^31바이트다. 경로 어딘가에 크기를 signed
+ * 32-bit로 다루는 층이 있으면 하필 그 경계에서 뒤집힌다 — 1MB 덜 잡아 피한다.
  */
-const RESTORE_LIMIT_BYTES = Number(process.env.BACKUP_RESTORE_LIMIT_MB ?? 2048) * 1024 * 1024;
+const RESTORE_LIMIT_BYTES = Number(process.env.BACKUP_RESTORE_LIMIT_MB ?? 2047) * 1024 * 1024;
 
 const USER_EXPORT_SELECT = {
   id: true,
