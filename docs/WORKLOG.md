@@ -137,6 +137,11 @@
 - **통합 테스트가 업로드 파일을 시드한다.** `files/events/` 누락을 유닛 테스트가 잡긴 하지만,
   CI의 backup-restore 잡은 이번 버그를 그대로 놓쳤다. 이제 아카이브 목록과 복원 결과
   양쪽을 본다
+- 그 과정에서 드러난 것: **통합 테스트의 `UPLOAD_DIR` 격리가 지금까지 작동한 적이 없다.**
+  `routes/backup.ts`가 모듈 로드 시점에 `UPLOAD_DIR`을 굳히는데 ESM `import`는 `beforeAll`
+  보다 먼저 실행된다 — 임시 디렉터리를 잡아도 백업 라우트는 실제 `apps/api/uploads`를
+  보고 있었다. `db.json`만 검사해서 아무도 몰랐고, 첨부를 검사하기 시작하자 바로 드러났다.
+  `buildApp`을 동적 import로 바꿔 고쳤다
 
 **확인**
 
