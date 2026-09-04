@@ -200,6 +200,10 @@ export async function sweepStaleUploadSessions(): Promise<void> {
 /**
  * 조각과 사이드카는 짝이다 — 24시간이 지나면 둘 다 지운다. 메모리에 살아 있는 세션은
  * 건드리지 않는다(느린 회선에서 오래 걸리는 업로드가 있을 수 있다).
+ *
+ * 영상 포스터 추출이 쓰는 `poster-*.jpg`도 같이 본다. 정상 경로에서는 추출 직후
+ * `finally`가 지우지만, 그 사이에 프로세스가 죽으면 남는다 — 주인이 없는 파일이라
+ * 시간 말고는 판단할 근거가 없다.
  */
 async function sweepStaleTempFiles(now: number): Promise<void> {
   const live = new Set(sessions.keys());
@@ -212,12 +216,15 @@ async function sweepStaleTempFiles(now: number): Promise<void> {
   }
 
   for (const entry of entries) {
-    const id = entry.endsWith(".part")
-      ? entry.slice(0, -".part".length)
-      : entry.endsWith(".json")
-        ? entry.slice(0, -".json".length)
-        : null;
-    if (id === null || live.has(id)) continue;
+    let sweepable = false;
+    if (entry.endsWith(".part")) {
+      sweepable = !live.has(entry.slice(0, -".part".length));
+    } else if (entry.endsWith(".json")) {
+      sweepable = !live.has(entry.slice(0, -".json".length));
+    } else if (entry.startsWith("poster-") && entry.endsWith(".jpg")) {
+      sweepable = true;
+    }
+    if (!sweepable) continue;
 
     const filePath = path.join(TEMP_DIR, entry);
     try {

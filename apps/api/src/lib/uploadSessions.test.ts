@@ -182,11 +182,14 @@ describe("sweepStaleUploadSessions — 고아 임시 파일", () => {
     const staleSidecar = path.join(tempDir, "gone-after-restart.json");
     const freshPart = path.join(tempDir, "still-warm.part");
     const notOurs = path.join(tempDir, "keep-me.txt");
-    for (const filePath of [stalePart, staleSidecar, freshPart, notOurs]) {
+    // 포스터 추출 중 프로세스가 죽으면 finally가 못 돌아 남는다
+    const stalePoster = path.join(tempDir, "poster-abandoned.jpg");
+    const freshPoster = path.join(tempDir, "poster-in-flight.jpg");
+    for (const filePath of [stalePart, staleSidecar, freshPart, notOurs, stalePoster, freshPoster]) {
       await writeFile(filePath, "x");
     }
     const longAgo = new Date(Date.now() - 25 * 60 * 60 * 1000);
-    for (const filePath of [stalePart, staleSidecar, notOurs]) {
+    for (const filePath of [stalePart, staleSidecar, notOurs, stalePoster]) {
       await utimes(filePath, longAgo, longAgo);
     }
 
@@ -201,6 +204,8 @@ describe("sweepStaleUploadSessions — 고아 임시 파일", () => {
     expect(await exists(staleSidecar)).toBe(false);
     expect(await exists(freshPart)).toBe(true);
     expect(await exists(notOurs)).toBe(true);
+    expect(await exists(stalePoster)).toBe(false);
+    expect(await exists(freshPoster)).toBe(true);
     expect(await exists(live.tempPath)).toBe(true);
   });
 });
