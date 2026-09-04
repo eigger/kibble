@@ -45,7 +45,9 @@ export function PendingAttachments({
   t,
 }: Props) {
   const filesRef = useRef(files);
-  filesRef.current = files;
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
   const galleryRef = useRef<HTMLInputElement>(null);
   const photoCaptureRef = useRef<HTMLInputElement>(null);
   const videoCaptureRef = useRef<HTMLInputElement>(null);
@@ -66,9 +68,11 @@ export function PendingAttachments({
     const room = MAX_FILES - existingCount - files.length;
     if (room <= 0) return;
     const incoming = picked.slice(0, room);
+    const appended = [...files, ...incoming];
     // 썸네일은 즉시 그린다. 바이트 복사는 백그라운드 — 복사가 끝날 때까지
     // onChange를 미루면 앨범을 닫은 뒤 화면이 멈춘 것처럼 보인다.
-    onChange([...files, ...incoming]);
+    filesRef.current = appended;
+    onChange(appended);
     void Promise.all(incoming.map((file) => snapshotFile(file).catch(() => file))).then((snapped) => {
       const current = filesRef.current;
       let changed = false;
@@ -78,12 +82,17 @@ export function PendingAttachments({
         changed = true;
         return snapped[i];
       });
-      if (changed) onChange(next);
+      if (changed) {
+        filesRef.current = next;
+        onChange(next);
+      }
     });
   }
 
   function removeAt(index: number) {
-    onChange(files.filter((_, i) => i !== index));
+    const next = files.filter((_, i) => i !== index);
+    filesRef.current = next;
+    onChange(next);
   }
 
   const atLimit = files.length + existingCount >= MAX_FILES;
