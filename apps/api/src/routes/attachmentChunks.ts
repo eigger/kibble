@@ -8,10 +8,13 @@ import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import {
   ALLOWED_ATTACHMENT_MIME,
+  AttachmentLimitError,
   InvalidAttachmentError,
   MAX_ATTACHMENTS_PER_EVENT,
   finalizeEventAttachmentFromTemp,
-  type SavedEventAttachment,
+  insertEventAttachment,
+  removeEventAttachmentFile,
+  WritableEventMissingError,
 } from "../lib/eventAttachment.js";
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 import { FILE_SIZE_LIMIT_BYTES, TEMP_DIR } from "../lib/uploads.js";
@@ -22,26 +25,11 @@ import {
   getUploadSession,
   releaseChunkWriteLock,
 } from "../lib/uploadSessions.js";
-import { attachmentSelect } from "../lib/attachmentSelect.js";
 
 async function loadWritableEvent(eventId: string, householdId: string) {
   return prisma.event.findFirst({
     where: { id: eventId, ...householdWhere(householdId), deletedAt: null },
     select: { id: true, _count: { select: { attachments: true } } },
-  });
-}
-
-async function createAttachmentRecord(eventId: string, saved: SavedEventAttachment) {
-  return prisma.attachment.create({
-    data: {
-      eventId,
-      path: saved.path,
-      mime: saved.mime,
-      size: saved.size,
-      width: saved.width ?? undefined,
-      height: saved.height ?? undefined,
-    },
-    select: attachmentSelect,
   });
 }
 
@@ -192,7 +180,20 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       throw err;
     }
 
-    const attachment = await createAttachmentRecord(session.eventId, saved);
+    let attachment;
+    try {
+      attachment = await insertEventAttachment(session.eventId, householdId, saved);
+    } catch (err) {
+      await removeEventAttachmentFile(saved.path).catch(() => {});
+      deleteUploadSession(uploadId);
+      if (err instanceof AttachmentLimitError) {
+        return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
+      }
+      if (err instanceof WritableEventMissingError) {
+        return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+      }
+      throw err;
+    }
     deleteUploadSession(uploadId);
     return reply.code(201).send(attachment);
   });
