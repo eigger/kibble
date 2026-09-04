@@ -676,6 +676,7 @@ export function EventDetailSheet({
                           <EventAttachmentThumb
                             path={att.path}
                             mime={att.mime}
+                            posterPath={att.posterPath}
                             alt=""
                             className="attachment-thumb attachment-thumb-large"
                           />
@@ -1001,6 +1002,7 @@ export function EventDetailSheet({
                             <EventAttachmentThumb
                               path={att.path}
                               mime={att.mime}
+                              posterPath={att.posterPath}
                               alt=""
                               className="attachment-thumb attachment-thumb-large"
                             />

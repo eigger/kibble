@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promis
 import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
+import { extractVideoPoster } from "./videoPoster.js";
 import { UPLOAD_DIR, deleteUploadedFile } from "./uploads.js";
 import { prisma } from "./prisma.js";
 import { attachmentSelect } from "./attachmentSelect.js";
@@ -63,7 +64,26 @@ export type SavedEventAttachment = {
   size: number;
   width: number | null;
   height: number | null;
+  /** 영상 목록용 대표 프레임. 추출에 실패하면 null — 첨부의 조건이 아니다 (K-12) */
+  posterPath?: string | null;
 };
+
+/**
+ * 영상의 대표 프레임을 저장하고 상대 경로를 돌려준다. 실패는 전부 삼킨다 —
+ * 포스터가 없으면 클라이언트가 예전처럼 <video>로 되돌아갈 뿐이다.
+ */
+async function savePosterForVideo(eventId: string, videoAbsPath: string): Promise<string | null> {
+  try {
+    const frame = await extractVideoPoster(videoAbsPath);
+    if (!frame) return null;
+    const processed = await processImageForStorage(frame);
+    const relativePath = `${EVENT_SUBDIR}/${eventId}-${randomUUID()}-poster${processed.ext}`;
+    await writeFile(attachmentAbsolutePath(relativePath), processed.buffer);
+    return relativePath;
+  } catch {
+    return null;
+  }
+}
 
 /** 이벤트 첨부 1건을 디스크에 저장한다. 이미지는 sharp 파이프라인을 탄다. */
 export async function saveEventAttachment(
@@ -141,11 +161,16 @@ export async function finalizeEventAttachmentFromTemp(
     size: fileStat.size,
     width: null,
     height: null,
+    posterPath: await savePosterForVideo(eventId, destPath),
   };
 }
 
-export async function removeEventAttachmentFile(relativePath: string): Promise<void> {
+export async function removeEventAttachmentFile(
+  relativePath: string,
+  posterPath?: string | null,
+): Promise<void> {
   await deleteUploadedFile(relativePath);
+  if (posterPath) await deleteUploadedFile(posterPath);
 }
 
 export class AttachmentLimitError extends Error {
@@ -192,6 +217,7 @@ export async function insertEventAttachment(
         size: saved.size,
         width: saved.width ?? undefined,
         height: saved.height ?? undefined,
+        posterPath: saved.posterPath ?? undefined,
       },
       select: attachmentSelect,
     });

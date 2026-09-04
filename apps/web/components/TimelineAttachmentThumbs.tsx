@@ -35,6 +35,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
           <EventAttachmentThumb
             path={att.path}
             mime={att.mime}
+            posterPath={att.posterPath}
             alt=""
             className="attachment-thumb attachment-thumb-inline"
           />

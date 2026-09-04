@@ -33,16 +33,19 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
     const viewerHouseholdId = await resolveMediaViewerHouseholdId(app, request, reply);
     if (viewerHouseholdId === undefined) return;
 
+    // 포스터(영상 대표 프레임)도 같은 경로로 나간다 — 별도 라우트를 두면 인증·격리
+    // 검사가 두 벌이 된다. 어느 쪽으로 찾혔는지는 아래에서 콘텐츠 타입에 반영한다.
     const attachment = await prisma.attachment.findFirst({
       where: {
-        path: relPath,
+        OR: [{ path: relPath }, { posterPath: relPath }],
         ...(viewerHouseholdId != null ? { event: { householdId: viewerHouseholdId } } : {}),
       },
-      select: { mime: true },
+      select: { mime: true, path: true },
     });
     if (!attachment) {
       return reply.code(404).send({ error: t("fileNotFound", request.locale) });
     }
+    const isPoster = attachment.path !== relPath;
 
     let absPath: string;
     try {
@@ -54,7 +57,7 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
     try {
       // Range를 함께 처리한다 — 영상 탐색과 iOS Safari 재생이 여기에 달려 있다.
       return await sendFileWithRange(request, reply, absPath, {
-        contentType: safeContentType(attachment.mime),
+        contentType: isPoster ? "image/jpeg" : safeContentType(attachment.mime),
         cacheControl: "private, max-age=3600",
       });
     } catch {
@@ -114,7 +117,7 @@ export async function attachmentRoutes(app: FastifyInstance) {
       try {
         attachment = await insertEventAttachment(event.id, householdId, saved);
       } catch (err) {
-        await removeEventAttachmentFile(saved.path).catch(() => {});
+        await removeEventAttachmentFile(saved.path, saved.posterPath).catch(() => {});
         if (err instanceof AttachmentLimitError) {
           return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
         }
@@ -138,14 +141,14 @@ export async function attachmentRoutes(app: FastifyInstance) {
         id,
         event: { householdId },
       },
-      select: { id: true, path: true },
+      select: { id: true, path: true, posterPath: true },
     });
     if (!attachment) {
       return reply.code(404).send({ error: t("attachmentNotFound", request.locale) });
     }
 
     await prisma.attachment.delete({ where: { id } });
-    await removeEventAttachmentFile(attachment.path);
+    await removeEventAttachmentFile(attachment.path, attachment.posterPath);
     return reply.code(204).send();
   });
 }
