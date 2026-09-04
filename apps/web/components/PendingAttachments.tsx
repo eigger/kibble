@@ -24,14 +24,14 @@ type Props = {
 };
 
 function progressLabel(
-  progress: AttachmentUploadProgress,
+  progress: { phase: AttachmentUploadProgress["phase"]; loaded: number; total: number },
   t: (key: string, params?: Record<string, string>) => string,
 ): string {
   if (progress.phase === "preparing" || progress.total <= 0) return t("attachmentPreparing");
   return `${Math.min(100, Math.round((progress.loaded / progress.total) * 100))}%`;
 }
 
-function progressRatio(progress: AttachmentUploadProgress): number {
+function progressRatio(progress: { phase: AttachmentUploadProgress["phase"]; loaded: number; total: number }): number {
   if (progress.phase === "preparing" || progress.total <= 0) return 0;
   return Math.min(1, progress.loaded / progress.total);
 }
@@ -172,7 +172,7 @@ export function PendingAttachments({
       {progress && files.length > 0 && (
         <p className="meta pending-attachments-status" aria-live="polite">
           {t("attachmentUploading", {
-            current: String(progress.fileIndex + 1),
+            current: String(progress.startedCount),
             total: String(progress.fileCount),
           })}
         </p>
@@ -185,8 +185,9 @@ export function PendingAttachments({
             // 안드로이드 파일 제공자는 type이 빈 File을 준다 — 그대로 보면 영상도
             // <img>로 그려 미리보기가 깨진다. 업로드 경로와 같은 기준을 쓴다.
             const isVideo = normalizeAttachmentType(file).startsWith("video/");
-            const fileProgress = progress && progress.fileIndex === index ? progress : null;
-            const done = progress != null && index < progress.fileIndex;
+            const fileState = progress?.fileStates[index];
+            const fileProgress = fileState?.active ? fileState : null;
+            const done = fileState?.done === true;
             return (
               <li key={`${index}-${file.name}-${file.lastModified}`} className="pending-attachments-item">
                 {isVideo ? (

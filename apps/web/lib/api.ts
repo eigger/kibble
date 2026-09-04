@@ -75,6 +75,65 @@ export function isApiError(err: unknown): err is ApiError {
   );
 }
 
+/**
+ * multipart POST with byte-level upload progress. `fetch` does not expose
+ * `xhr.upload.onprogress`, so a 2.5MB photo sat at 0% until the server
+ * replied and then jumped to the checkmark.
+ */
+export function apiFormUpload<T>(
+  path: string,
+  formData: FormData,
+  onUploadProgress?: (loaded: number, total: number) => void,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}${path}`);
+    xhr.withCredentials = true;
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
+    if (locale) xhr.setRequestHeader("X-Locale", locale);
+
+    xhr.upload.onprogress = (event) => {
+      const total = event.lengthComputable && event.total > 0 ? event.total : 0;
+      onUploadProgress?.(event.loaded, total);
+    };
+    xhr.upload.onload = () => {
+      // Bytes have left the device. Fetch-based uploads never fired this, so the
+      // overlay sat at 0% until the JSON reply and then jumped to the checkmark.
+      onUploadProgress?.(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+    };
+
+    xhr.onload = () => {
+      let body: { error?: unknown } | null = null;
+      try {
+        body = xhr.responseText ? (JSON.parse(xhr.responseText) as { error?: unknown }) : null;
+      } catch {
+        body = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (xhr.status === 204) {
+          resolve(undefined as T);
+          return;
+        }
+        resolve(body as T);
+        return;
+      }
+      recordFailedRequest("POST", path, xhr.status);
+      const message =
+        typeof body?.error === "string" ? body.error : requestFailedMessage(xhr.status);
+      reject(new ApiError(message, xhr.status));
+    };
+    xhr.onerror = () => {
+      reject(new TypeError("Failed to fetch"));
+    };
+    xhr.onabort = () => {
+      reject(new ApiError("", 0));
+    };
+    xhr.send(formData);
+  });
+}
+
 export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await apiFetch(path, init);
   if (!res.ok) {

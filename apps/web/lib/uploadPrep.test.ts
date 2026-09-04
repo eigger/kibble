@@ -107,6 +107,22 @@ describe("snapshotFile", () => {
     expect(twice).toBe(once);
   });
 
+  it("shares an in-flight snapshot so save does not re-read the picker URI", async () => {
+    let reads = 0;
+    const file = new File(["hello"], "a.jpg", { type: "image/jpeg" });
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: async () => {
+        reads += 1;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return new TextEncoder().encode("hello").buffer;
+      },
+    });
+    const [first, second] = await Promise.all([snapshotFile(file), snapshotFile(file)]);
+    expect(reads).toBe(1);
+    expect(first).toBe(second);
+  });
+
   it("throws LocalFileError when the picker file cannot be read", async () => {
     const file = new File(["x"], "a.heif", { type: "image/heif" });
     Object.defineProperty(file, "arrayBuffer", {

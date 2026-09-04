@@ -150,28 +150,36 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   });
 }
 
-const snapshottedFiles = new WeakSet<File>();
+const snapshotMemo = new WeakMap<File, Promise<File>>();
 
 /**
  * 안드로이드 다중 선택은 File이 content URI를 가리키는 경우가 많다.
  * 미리보기·디코드·FormData가 같은 URI를 늦게 다시 읽으면 NotReadableError가 난다.
  * 선택 직후 바이트를 복사해 두면 이후 단계는 메모리만 본다.
- * 이미 복사된 File은 그대로 돌려준다 — prepare가 한 번 더 읽지 않게.
+ * 이미 복사된 File·진행 중인 복사는 그대로 돌려준다 — 저장을 눌러도 같은 URI를 두 번 읽지 않게.
  */
 export async function snapshotFile(file: File): Promise<File> {
-  if (snapshottedFiles.has(file)) return file;
-  try {
-    const buf = await withTimeout(blobToArrayBuffer(file), DECODE_TIMEOUT_MS, "READ_TIMEOUT");
-    const copy = new File([buf], file.name, {
-      type: file.type,
-      lastModified: file.lastModified,
-    });
-    snapshottedFiles.add(copy);
-    return copy;
-  } catch (err) {
-    logPrep(`unreadable file ${file.name}`, err);
-    throw new LocalFileError(file.name);
-  }
+  const memo = snapshotMemo.get(file);
+  if (memo) return memo;
+
+  const task = (async () => {
+    try {
+      const buf = await withTimeout(blobToArrayBuffer(file), DECODE_TIMEOUT_MS, "READ_TIMEOUT");
+      const copy = new File([buf], file.name, {
+        type: file.type,
+        lastModified: file.lastModified,
+      });
+      snapshotMemo.set(copy, Promise.resolve(copy));
+      return copy;
+    } catch (err) {
+      snapshotMemo.delete(file);
+      logPrep(`unreadable file ${file.name}`, err);
+      throw new LocalFileError(file.name);
+    }
+  })();
+
+  snapshotMemo.set(file, task);
+  return task;
 }
 
 /** 캔버스를 못 쓰는 환경(SSR·테스트·구형 WebView)이면 리인코딩 자체를 시도하지 않는다. */

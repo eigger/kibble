@@ -4,6 +4,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
 import { UPLOAD_DIR, deleteUploadedFile } from "./uploads.js";
+import { prisma } from "./prisma.js";
+import { attachmentSelect } from "./attachmentSelect.js";
 
 export const MAX_ATTACHMENTS_PER_EVENT = 9;
 const EVENT_SUBDIR = "events";
@@ -144,4 +146,54 @@ export async function finalizeEventAttachmentFromTemp(
 
 export async function removeEventAttachmentFile(relativePath: string): Promise<void> {
   await deleteUploadedFile(relativePath);
+}
+
+export class AttachmentLimitError extends Error {
+  constructor() {
+    super("ATTACHMENT_LIMIT");
+    this.name = "AttachmentLimitError";
+  }
+}
+
+export class WritableEventMissingError extends Error {
+  constructor() {
+    super("EVENT_NOT_FOUND");
+    this.name = "WritableEventMissingError";
+  }
+}
+
+/**
+ * 같은 이벤트에 첨부가 동시에 여러 개 붙어도 9장을 넘기지 않게 이벤트 행을 잠근다.
+ * 디스크 저장(sharp)은 잠금 밖에서 하고, INSERT 순간에만 센다.
+ */
+export async function insertEventAttachment(
+  eventId: string,
+  householdId: string,
+  saved: SavedEventAttachment,
+) {
+  return prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Event"
+      WHERE id = ${eventId} AND "householdId" = ${householdId} AND "deletedAt" IS NULL
+      FOR UPDATE
+    `;
+    if (locked.length === 0) {
+      throw new WritableEventMissingError();
+    }
+    const count = await tx.attachment.count({ where: { eventId } });
+    if (count >= MAX_ATTACHMENTS_PER_EVENT) {
+      throw new AttachmentLimitError();
+    }
+    return tx.attachment.create({
+      data: {
+        eventId,
+        path: saved.path,
+        mime: saved.mime,
+        size: saved.size,
+        width: saved.width ?? undefined,
+        height: saved.height ?? undefined,
+      },
+      select: attachmentSelect,
+    });
+  });
 }

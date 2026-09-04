@@ -6,11 +6,14 @@ import { t } from "../lib/i18n.js";
 import { resolveMediaViewerHouseholdId } from "../lib/attachmentAccess.js";
 import {
   ALLOWED_ATTACHMENT_MIME,
+  AttachmentLimitError,
   InvalidAttachmentError,
   MAX_ATTACHMENTS_PER_EVENT,
   attachmentAbsolutePath,
+  insertEventAttachment,
   removeEventAttachmentFile,
   saveEventAttachment,
+  WritableEventMissingError,
 } from "../lib/eventAttachment.js";
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 import { attachmentSelect } from "../lib/attachmentSelect.js";
@@ -108,17 +111,19 @@ export async function attachmentRoutes(app: FastifyInstance) {
         throw err;
       }
 
-      const attachment = await prisma.attachment.create({
-        data: {
-          eventId: event.id,
-          path: saved.path,
-          mime: saved.mime,
-          size: saved.size,
-          width: saved.width ?? undefined,
-          height: saved.height ?? undefined,
-        },
-        select: attachmentSelect,
-      });
+      let attachment;
+      try {
+        attachment = await insertEventAttachment(event.id, householdId, saved);
+      } catch (err) {
+        await removeEventAttachmentFile(saved.path).catch(() => {});
+        if (err instanceof AttachmentLimitError) {
+          return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
+        }
+        if (err instanceof WritableEventMissingError) {
+          return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+        }
+        throw err;
+      }
 
       return reply.code(201).send(attachment);
     },
