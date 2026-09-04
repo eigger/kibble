@@ -82,6 +82,12 @@ docker compose up --build
 
 Caddy serves the stack on `http://localhost:80`.
 
+To serve the web app under a subpath instead of the origin root, set `BASE_PATH` on the
+web container (for example `BASE_PATH=/kibble`). The image is built with a placeholder
+that `apps/web/docker-entrypoint.sh` rewrites at start-up, so one image covers the root,
+a reverse-proxy subpath, and Home Assistant Ingress — whose prefix is assigned per
+installation and cannot be known at build time.
+
 ---
 
 ## Chassis credit

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+
+import { routePath } from "../lib/base-path";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { initBugReportCapture } from "../lib/bugReport";
@@ -191,7 +193,7 @@ const NAV_TABS_RIGHT: {
 const MORE_ROUTES = ["/settings", "/backup", "/pets", "/presets", "/users", "/analytics"];
 
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = routePath(usePathname());
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const { t } = useLocale();

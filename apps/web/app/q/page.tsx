@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+
+import { routePath } from "../../lib/base-path";
 import { formatDoseTime, insertTimelineEvent, resolveDoseTimeOccurredAt } from "@kibble/shared";
 import { apiJson } from "../../lib/api";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
@@ -88,7 +90,7 @@ function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
 
 export default function QuickRecordPage() {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = routePath(usePathname());
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
   const { t, locale } = useLocale();
