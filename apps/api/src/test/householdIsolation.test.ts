@@ -342,7 +342,9 @@ describe("household isolation (K-3)", () => {
     expect(mockPrisma.attachment.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          path: "events/other-hh.jpg",
+          // 포스터(영상 대표 프레임)도 같은 라우트로 나가므로 두 컬럼 중 하나로 찾는다.
+          // 가구 필터는 그대로다 — 이 테스트가 지키는 것이 그것이다.
+          OR: [{ path: "events/other-hh.jpg" }, { posterPath: "events/other-hh.jpg" }],
           event: { householdId: HH_A },
         }),
       }),

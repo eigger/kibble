@@ -5,4 +5,5 @@ export const attachmentSelect = {
   size: true,
   width: true,
   height: true,
+  posterPath: true,
 } as const;

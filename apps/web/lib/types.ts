@@ -64,6 +64,8 @@ export interface EventAttachment {
   size: number;
   width: number | null;
   height: number | null;
+  /** 영상 대표 프레임. 없으면(구 첨부·ffmpeg 없는 서버) 목록이 <video>로 되돌아간다 */
+  posterPath?: string | null;
 }
 
 export interface CreatedEvent {

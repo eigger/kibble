@@ -184,7 +184,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     try {
       attachment = await insertEventAttachment(session.eventId, householdId, saved);
     } catch (err) {
-      await removeEventAttachmentFile(saved.path).catch(() => {});
+      await removeEventAttachmentFile(saved.path, saved.posterPath).catch(() => {});
       deleteUploadSession(uploadId);
       if (err instanceof AttachmentLimitError) {
         return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
