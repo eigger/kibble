@@ -616,6 +616,11 @@ a {
   position: relative;
 }
 
+.event-detail-view-att-btn,
+.timeline-attachment-btn {
+  position: relative;
+}
+
 .attachment-thumb {
   width: 56px;
   height: 56px;
@@ -642,18 +647,28 @@ a {
   right: 2px;
   width: 22px;
   height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   padding: 0;
   border-radius: 50%;
   font-size: 1.1rem;
   line-height: 1;
   border: none;
-  background: rgba(0, 0, 0, 0.62);
+  background: var(--color-danger);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  z-index: 3;
+}
+
+/* 22px 원은 너무 작아 영상 네이티브 레이어와 겹치면 안 눌린다. 터치 영역만 44px로 키운다. */
+.attachment-remove-btn::after {
+  content: "";
+  position: absolute;
+  inset: -11px;
 }
 
 .attachment-remove-btn:disabled {
@@ -663,6 +678,87 @@ a {
 
 .attachment-remove-btn span {
   margin-top: -1px;
+}
+
+/* iOS/안드로이드 <video>는 별도 합성 레이어라 HTML × 버튼 위로 터치가 샌다. 투명 덮개로 막는다. */
+.attachment-thumb-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+video.attachment-thumb-inert {
+  pointer-events: none;
+}
+
+video.attachment-thumb-inert::-webkit-media-controls {
+  display: none !important;
+}
+
+.attachment-video-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.attachment-video-badge-large {
+  border-width: 10px 0 10px 16px;
+}
+
+.pending-attachments-status {
+  margin: 6px 0 0;
+}
+
+.attachment-progress-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.48);
+  color: #fff;
+  pointer-events: none;
+}
+
+.attachment-progress-label {
+  font-size: 0.7rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.attachment-progress-track {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+}
+
+.attachment-progress-fill {
+  display: block;
+  height: 100%;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.attachment-progress-done {
+  font-size: 0.95rem;
 }
 
 .timeline-attachments {
@@ -682,6 +778,7 @@ a {
   border-radius: 8px;
   flex-shrink: 0;
   line-height: 0;
+  position: relative;
 }
 
 .timeline-attachment-count {
@@ -2089,6 +2186,7 @@ button:disabled {
   cursor: pointer;
   border-radius: 10px;
   overflow: hidden;
+  position: relative;
 }
 
 .attachment-thumb-large {

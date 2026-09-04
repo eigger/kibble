@@ -18,6 +18,7 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import type { EventAttachment } from "../lib/types";
+import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
 import { useMapProviders } from "../lib/maps/useMapProviders";
@@ -78,6 +79,7 @@ interface EventDetailSheetProps {
   attachments?: EventAttachment[];
   pendingFiles?: File[];
   onPendingFilesChange?: (files: File[]) => void;
+  uploadProgress?: AttachmentUploadProgress | null;
   onDeleteEvent?: () => void;
   deleting?: boolean;
   onClose: () => void;
@@ -192,6 +194,7 @@ export function EventDetailSheet({
   attachments = [],
   pendingFiles = [],
   onPendingFilesChange,
+  uploadProgress = null,
   onDeleteEvent,
   deleting = false,
   onClose,
@@ -676,6 +679,10 @@ export function EventDetailSheet({
                             alt=""
                             className="attachment-thumb attachment-thumb-large"
                           />
+                          <span className="attachment-thumb-hit" aria-hidden />
+                          {att.mime.startsWith("video/") && (
+                            <span className="attachment-video-badge attachment-video-badge-large" aria-hidden />
+                          )}
                         </button>
                       </li>
                     ))}
@@ -997,6 +1004,10 @@ export function EventDetailSheet({
                               alt=""
                               className="attachment-thumb attachment-thumb-large"
                             />
+                            <span className="attachment-thumb-hit" aria-hidden />
+                            {att.mime.startsWith("video/") && (
+                              <span className="attachment-video-badge attachment-video-badge-large" aria-hidden />
+                            )}
                           </button>
                           {draft.eventId && (
                             <button
@@ -1023,6 +1034,7 @@ export function EventDetailSheet({
                       existingCount={visibleAttachments.length}
                       disabled={busy}
                       onChange={onPendingFilesChange}
+                      progress={uploadProgress}
                       t={t}
                     />
                   )}

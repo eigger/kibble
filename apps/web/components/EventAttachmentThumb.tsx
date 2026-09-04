@@ -57,11 +57,13 @@ export function EventAttachmentThumb({ path, mime, alt, className, controls = fa
     return (
       <video
         src={src}
-        className={className}
+        className={controls ? className : `${className ?? ""} attachment-thumb-inert`.trim()}
         muted={!controls}
         controls={controls}
         playsInline
         preload="metadata"
+        tabIndex={controls ? undefined : -1}
+        disablePictureInPicture
         aria-label={alt}
       />
     );

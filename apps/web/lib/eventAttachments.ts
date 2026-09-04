@@ -9,7 +9,20 @@ export type UploadAttachmentsResult = {
   remaining: File[];
 };
 
+export type AttachmentUploadPhase = "preparing" | "uploading";
+
+/** 일괄 업로드 중 지금 처리 중인 파일의 위치. 사진(multipart)은 준비/완료만, 영상(청크)은 바이트 단위. */
+export type AttachmentUploadProgress = {
+  fileIndex: number;
+  fileCount: number;
+  loaded: number;
+  total: number;
+  phase: AttachmentUploadPhase;
+};
+
 export { shouldUseChunkedUpload };
+
+type FileProgress = { loaded: number; total: number; phase: AttachmentUploadPhase };
 
 async function uploadEventAttachmentMultipart(
   eventId: string,
@@ -26,14 +39,25 @@ async function uploadEventAttachmentMultipart(
 export async function uploadEventAttachment(
   eventId: string,
   file: File,
+  onProgress?: (p: FileProgress) => void,
 ): Promise<EventAttachment> {
   // MIME 보정·이미지 축소는 전송 직전에 한 번만 한다 — 재개 시에도 같은 결과가 나와야
   // pendingUploads의 (filename, size) 매칭이 어긋나지 않는다.
+  onProgress?.({ loaded: 0, total: Math.max(file.size, 1), phase: "preparing" });
   const prepared = await prepareAttachmentForUpload(file);
+  onProgress?.({ loaded: 0, total: Math.max(prepared.size, 1), phase: "uploading" });
   if (shouldUseChunkedUpload(prepared)) {
-    return uploadEventAttachmentInChunks(eventId, prepared);
+    return uploadEventAttachmentInChunks(eventId, prepared, (p) =>
+      onProgress?.({ loaded: p.loaded, total: p.total, phase: "uploading" }),
+    );
   }
-  return uploadEventAttachmentMultipart(eventId, prepared);
+  const uploaded = await uploadEventAttachmentMultipart(eventId, prepared);
+  onProgress?.({
+    loaded: prepared.size,
+    total: Math.max(prepared.size, 1),
+    phase: "uploading",
+  });
+  return uploaded;
 }
 
 /**
@@ -47,12 +71,18 @@ export async function uploadEventAttachment(
 export async function uploadEventAttachments(
   eventId: string,
   files: File[],
+  onProgress?: (p: AttachmentUploadProgress) => void,
 ): Promise<UploadAttachmentsResult> {
   const uploaded: EventAttachment[] = [];
   const remaining: File[] = [];
+  const fileCount = files.length;
   for (let i = 0; i < files.length; i++) {
     try {
-      uploaded.push(await uploadEventAttachment(eventId, files[i]));
+      uploaded.push(
+        await uploadEventAttachment(eventId, files[i], (p) =>
+          onProgress?.({ fileIndex: i, fileCount, ...p }),
+        ),
+      );
     } catch (err) {
       remaining.push(files[i]);
       if (!isPermanentApiRejection(err)) {
