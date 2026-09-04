@@ -298,7 +298,7 @@ curl -sS -X POST "$BASE/api/attachments?eventId=<event-id>" \
 
 ### 청크 업로드 (영상·대용량 — drop 이식)
 
-총 파일 상한: `FILE_SIZE_LIMIT_MB` 환경 변수(기본 **150MB**). 청크 크기 **8MB** (`@kibble/shared` `UPLOAD_CHUNK_SIZE_BYTES`).
+총 파일 상한: `FILE_SIZE_LIMIT_MB` 환경 변수(기본 **150MB**). 백업 복원 아카이브는 별도로 `BACKUP_RESTORE_LIMIT_MB`(기본 **2047MB**)를 쓰며, 전역 multipart 20MB 제한이 아니라 이 라우트별 상한이 적용됩니다. 청크 크기 **8MB** (`@kibble/shared` `UPLOAD_CHUNK_SIZE_BYTES`).
 
 상한을 넘으면 첫 요청(`POST /api/attachments/uploads`)이 바로 **413**을 돌려준다 — 바이트를 보내기 전이다. 150MB는 1080p 30fps 약 2분, 4K 30fps 약 40초에 해당한다. 그보다 큰 파일은 청크 왕복이 수십 분이 되어 실제로 끝까지 올라가지 못하는 경우가 많다.
 
