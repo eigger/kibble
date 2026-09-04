@@ -49,6 +49,18 @@ describe("prepareAttachmentForUpload", () => {
     expect(prepared.type).toBe("video/quicktime");
     expect(prepared.size).toBe(file.size);
   });
+
+  it("does not canvas-reencode jpeg the server can already open", async () => {
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(() => new Promise(() => {})),
+    );
+    const file = new File(["jpeg-bytes"], "a.jpg", { type: "image/jpeg" });
+    const prepared = await prepareAttachmentForUpload(file);
+    expect(prepared.type).toBe("image/jpeg");
+    expect(createImageBitmap).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("withTimeout", () => {
