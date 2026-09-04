@@ -79,12 +79,21 @@ describe("snapshotFile", () => {
     const snapped = await snapshotFile(file);
     expect(snapped).not.toBe(file);
     expect(snapped.size).toBe(file.size);
-    expect(await snapped.text()).toBe("hello");
+    const copied = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(snapped);
+    });
+    expect(copied).toBe("hello");
   });
 
   it("throws LocalFileError when the picker file cannot be read", async () => {
     const file = new File(["x"], "a.heif", { type: "image/heif" });
-    vi.spyOn(file, "arrayBuffer").mockRejectedValueOnce(new DOMException("locked", "NotReadableError"));
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: () => Promise.reject(new DOMException("locked", "NotReadableError")),
+    });
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(snapshotFile(file)).rejects.toBeInstanceOf(LocalFileError);
     errorSpy.mockRestore();
@@ -93,7 +102,10 @@ describe("snapshotFile", () => {
   it("throws LocalFileError when arrayBuffer never settles", async () => {
     vi.useFakeTimers();
     const file = new File(["x"], "a.jpg", { type: "image/jpeg" });
-    vi.spyOn(file, "arrayBuffer").mockReturnValue(new Promise(() => {}));
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: () => new Promise(() => {}),
+    });
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const pending = snapshotFile(file);
     const assertion = expect(pending).rejects.toBeInstanceOf(LocalFileError);

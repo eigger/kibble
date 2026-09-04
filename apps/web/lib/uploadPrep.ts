@@ -142,6 +142,20 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
   });
 }
 
+function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
+  // jsdom File에는 arrayBuffer가 없다. FileReader는 양쪽에서 동작한다.
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result instanceof ArrayBuffer) resolve(reader.result);
+      else reject(new Error("READ_FAILED"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("READ_FAILED"));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
 /**
  * 안드로이드 다중 선택은 File이 content URI를 가리키는 경우가 많다.
  * 미리보기·디코드·FormData가 같은 URI를 늦게 다시 읽으면 NotReadableError가 난다.
@@ -149,7 +163,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
  */
 export async function snapshotFile(file: File): Promise<File> {
   try {
-    const buf = await withTimeout(file.arrayBuffer(), DECODE_TIMEOUT_MS, "READ_TIMEOUT");
+    const buf = await withTimeout(blobToArrayBuffer(file), DECODE_TIMEOUT_MS, "READ_TIMEOUT");
     return new File([buf], file.name, {
       type: file.type,
       lastModified: file.lastModified,
@@ -205,12 +219,9 @@ async function decodeWithBitmap(file: File): Promise<BitmapDecode | null> {
 
   const tryOnce = async (options?: ImageBitmapOptions): Promise<DecodedImage> => {
     const signal = bitmapAbortSignal();
+    // DOM 타입에 signal이 아직 없는 TS 버전 — 런타임 크롬은 받는다.
     const bitmap = await withTimeout(
-      options
-        ? createImageBitmap(file, signal ? { ...options, signal } : options)
-        : signal
-          ? createImageBitmap(file, { signal })
-          : createImageBitmap(file),
+      createImageBitmap(file, { ...options, ...(signal ? { signal } : {}) } as ImageBitmapOptions),
       DECODE_TIMEOUT_MS,
       "BITMAP_TIMEOUT",
     );
