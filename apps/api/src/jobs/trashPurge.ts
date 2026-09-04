@@ -18,12 +18,16 @@ export async function purgeOldTrash(now = new Date()): Promise<number> {
     where: { deletedAt: { not: null, lte: threshold } },
     select: {
       id: true,
-      attachments: { select: { path: true } },
+      attachments: { select: { path: true, posterPath: true } },
     },
   });
 
   for (const event of stale) {
-    await Promise.all(event.attachments.map((a) => deleteUploadedFile(a.path)));
+    await Promise.all(
+      event.attachments.flatMap((a) =>
+        a.posterPath ? [deleteUploadedFile(a.path), deleteUploadedFile(a.posterPath)] : [deleteUploadedFile(a.path)],
+      ),
+    );
     await prisma.event.delete({ where: { id: event.id } });
   }
 

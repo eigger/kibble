@@ -41,7 +41,7 @@ describe("첨부 파일 서빙 — Range", () => {
 
     mockPrisma.householdMember.findFirst.mockResolvedValue({ householdId: HH_A, role: "OWNER" });
     mockPrisma.user.findUnique.mockResolvedValue({ tokenVersion: TOKEN_VERSION });
-    mockPrisma.attachment.findFirst.mockResolvedValue({ mime: "video/mp4" });
+    mockPrisma.attachment.findFirst.mockResolvedValue({ mime: "video/mp4", path: REL_PATH });
 
     const { buildApp } = await import("../app.js");
     const { signMediaToken } = await import("../lib/mediaAuth.js");
@@ -95,6 +95,25 @@ describe("첨부 파일 서빙 — Range", () => {
     const res = await getFile("bytes=999-");
     expect(res.statusCode).toBe(416);
     expect(res.headers["content-range"]).toBe(`bytes */${BODY.length}`);
+  });
+
+  // 포스터는 별도 라우트 없이 같은 경로로 나간다 — 인증·격리 검사를 두 벌로 만들지 않는다
+  it("serves a poster frame as jpeg through the same route", async () => {
+    const posterRel = "events/clip-poster.jpg";
+    await writeFile(path.join(uploadDir, posterRel), "poster-bytes");
+    // 영상 행이 posterPath로 찾힌 상황 — path는 영상 쪽을 가리킨다
+    mockPrisma.attachment.findFirst.mockResolvedValue({ mime: "video/mp4", path: REL_PATH });
+
+    const { MEDIA_COOKIE_NAME } = await import("../lib/mediaAuth.js");
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/attachments/file/${posterRel}`,
+      cookies: { [MEDIA_COOKIE_NAME]: cookie },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/jpeg");
+    expect(res.body).toBe("poster-bytes");
   });
 
   it("still 404s a path with no attachment row (K-1 유지)", async () => {
