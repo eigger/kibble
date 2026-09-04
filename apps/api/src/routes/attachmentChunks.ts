@@ -33,8 +33,9 @@ async function loadWritableEvent(eventId: string, householdId: string) {
   });
 }
 
-function sessionForHousehold(uploadId: string, householdId: string) {
-  const session = getUploadSession(uploadId);
+async function sessionForHousehold(uploadId: string, householdId: string) {
+  // 재시작 뒤에는 디스크에서 되살아난다 — 그래서 await다 (K-1: 가구는 여기서 거른다)
+  const session = await getUploadSession(uploadId);
   if (!session || session.householdId !== householdId) return undefined;
   return session;
 }
@@ -75,7 +76,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
       }
 
-      const session = createUploadSession(eventId, householdId, filename, mimeType, totalSize);
+      const session = await createUploadSession(eventId, householdId, filename, mimeType, totalSize);
       return reply.code(201).send({ uploadId: session.id });
     },
   );
@@ -85,7 +86,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { uploadId, index } = request.params as { uploadId: string; index: string };
-    const session = sessionForHousehold(uploadId, householdId);
+    const session = await sessionForHousehold(uploadId, householdId);
     if (!session) return reply.code(404).send({ error: t("uploadSessionNotFound", request.locale) });
 
     // 인덱스 검사부터 카운터 증가까지가 한 덩어리여야 한다 — 잠금 밖에서 검사하면
@@ -133,7 +134,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { uploadId } = request.params as { uploadId: string };
-    const session = sessionForHousehold(uploadId, householdId);
+    const session = await sessionForHousehold(uploadId, householdId);
     if (!session) return reply.code(404).send({ error: t("uploadSessionNotFound", request.locale) });
 
     return {
@@ -150,7 +151,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { uploadId } = request.params as { uploadId: string };
-    const session = sessionForHousehold(uploadId, householdId);
+    const session = await sessionForHousehold(uploadId, householdId);
     if (!session) return reply.code(404).send({ error: t("uploadSessionNotFound", request.locale) });
     if (session.receivedBytes !== session.totalSize) {
       return reply.code(400).send({ error: t("uploadIncomplete", request.locale) });
@@ -159,12 +160,12 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     const event = await loadWritableEvent(session.eventId, householdId);
     if (!event) {
       await unlink(session.tempPath).catch(() => {});
-      deleteUploadSession(uploadId);
+      await deleteUploadSession(uploadId);
       return reply.code(404).send({ error: t("eventNotFound", request.locale) });
     }
     if (event._count.attachments >= MAX_ATTACHMENTS_PER_EVENT) {
       await unlink(session.tempPath).catch(() => {});
-      deleteUploadSession(uploadId);
+      await deleteUploadSession(uploadId);
       return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
     }
 
@@ -173,7 +174,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       saved = await finalizeEventAttachmentFromTemp(session.eventId, session.tempPath, session.mimeType);
     } catch (err) {
       await unlink(session.tempPath).catch(() => {});
-      deleteUploadSession(uploadId);
+      await deleteUploadSession(uploadId);
       if (err instanceof InvalidAttachmentError) {
         return reply.code(400).send({ error: t("invalidImageFile", request.locale) });
       }
@@ -185,7 +186,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       attachment = await insertEventAttachment(session.eventId, householdId, saved);
     } catch (err) {
       await removeEventAttachmentFile(saved.path, saved.posterPath).catch(() => {});
-      deleteUploadSession(uploadId);
+      await deleteUploadSession(uploadId);
       if (err instanceof AttachmentLimitError) {
         return reply.code(400).send({ error: t("attachmentLimitReached", request.locale) });
       }
@@ -194,7 +195,7 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       }
       throw err;
     }
-    deleteUploadSession(uploadId);
+    await deleteUploadSession(uploadId);
     return reply.code(201).send(attachment);
   });
 
@@ -203,11 +204,11 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { uploadId } = request.params as { uploadId: string };
-    const session = sessionForHousehold(uploadId, householdId);
+    const session = await sessionForHousehold(uploadId, householdId);
     if (!session) return reply.code(404).send({ error: t("uploadSessionNotFound", request.locale) });
 
     await unlink(session.tempPath).catch(() => {});
-    deleteUploadSession(uploadId);
+    await deleteUploadSession(uploadId);
     return reply.code(204).send();
   });
 }
