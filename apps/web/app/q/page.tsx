@@ -34,6 +34,7 @@ import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
   deleteEventAttachment,
   uploadEventAttachments,
+  type AttachmentUploadProgress,
 } from "../../lib/eventAttachments";
 import { groupPresetsByCategory } from "../../lib/presetGroups";
 import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
@@ -115,6 +116,7 @@ export default function QuickRecordPage() {
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<AttachmentUploadProgress | null>(null);
   const [medPickOpen, setMedPickOpen] = useState(false);
   const [medSlotPickOpen, setMedSlotPickOpen] = useState(false);
   const [pendingMedPreset, setPendingMedPreset] = useState<Preset | null>(null);
@@ -178,7 +180,11 @@ export default function QuickRecordPage() {
     onRemaining: (remaining: File[]) => void,
   ): Promise<boolean> {
     if (files.length === 0) return true;
-    const { uploaded, remaining } = await uploadEventAttachments(eventId, files);
+    const { uploaded, remaining } = await uploadEventAttachments(
+      eventId,
+      files,
+      setUploadProgress,
+    );
     if (uploaded.length > 0) mergeEventAttachments(eventId, uploaded);
     if (remaining.length > 0) {
       onRemaining(remaining);
@@ -432,6 +438,7 @@ export default function QuickRecordPage() {
       show(message, "error");
     } finally {
       setDetailSaving(false);
+      setUploadProgress(null);
     }
   }
 
@@ -677,6 +684,7 @@ export default function QuickRecordPage() {
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
+        uploadProgress={uploadProgress}
         onDeleteEvent={detailDraft?.eventId ? handleDeleteEvent : undefined}
         onClose={() => {
           if (detailSaving) return;

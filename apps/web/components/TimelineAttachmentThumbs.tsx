@@ -38,6 +38,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
             alt=""
             className="attachment-thumb attachment-thumb-inline"
           />
+          <span className="attachment-thumb-hit" aria-hidden />
         </button>
       ))}
       {overflow > 0 && <span className="timeline-attachment-count">+{overflow}</span>}

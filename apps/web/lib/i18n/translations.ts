@@ -375,6 +375,8 @@ const dict = {
   pendingAttachmentsLabel: { ko: "첨부 대기", en: "Pending attachments" },
   pendingAttachmentCount: { ko: "{count}개 선택", en: "{count} selected" },
   removeAttachment: { ko: "첨부 제거", en: "Remove attachment" },
+  attachmentPreparing: { ko: "준비 중", en: "Preparing" },
+  attachmentUploading: { ko: "{current}/{total} 업로드 중", en: "Uploading {current}/{total}" },
   attachmentUploadError: {
     ko: "첨부 업로드에 실패했습니다.",
     en: "Could not upload attachment.",

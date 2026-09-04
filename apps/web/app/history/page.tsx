@@ -27,6 +27,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   deleteEventAttachment,
   uploadEventAttachments,
+  type AttachmentUploadProgress,
 } from "../../lib/eventAttachments";
 import { fetchTimelinePage } from "../../lib/timeline";
 import type { EventAttachment } from "../../lib/types";
@@ -62,6 +63,7 @@ export default function HistoryPage() {
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<AttachmentUploadProgress | null>(null);
 
   const loadSeq = useRef(0);
   const loadMoreSeq = useRef(0);
@@ -305,7 +307,11 @@ export default function HistoryPage() {
         }),
       });
       if (filesToUpload.length > 0) {
-        const { uploaded, remaining } = await uploadEventAttachments(draft.eventId, filesToUpload);
+        const { uploaded, remaining } = await uploadEventAttachments(
+          draft.eventId,
+          filesToUpload,
+          setUploadProgress,
+        );
         if (uploaded.length > 0) {
           setDetailAttachments((prev) => [...prev, ...uploaded]);
           // 목록도 같이 채운다 — 부분 실패로 아래 loadEvents까지 못 가면
@@ -338,6 +344,7 @@ export default function HistoryPage() {
       show(message, "error");
     } finally {
       setDetailSaving(false);
+      setUploadProgress(null);
     }
   }
 
@@ -483,6 +490,7 @@ export default function HistoryPage() {
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
+        uploadProgress={uploadProgress}
         onDeleteEvent={detailDraft?.eventId ? handleDeleteEvent : undefined}
         onClose={() => {
           if (detailSaving) return;

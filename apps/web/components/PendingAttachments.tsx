@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { normalizeAttachmentType } from "../lib/uploadPrep";
 
 const MAX_FILES = 9;
@@ -18,10 +19,31 @@ type Props = {
   existingCount?: number;
   disabled?: boolean;
   onChange: (files: File[]) => void;
+  progress?: AttachmentUploadProgress | null;
   t: (key: string, params?: Record<string, string>) => string;
 };
 
-export function PendingAttachments({ files, existingCount = 0, disabled, onChange, t }: Props) {
+function progressLabel(
+  progress: AttachmentUploadProgress,
+  t: (key: string, params?: Record<string, string>) => string,
+): string {
+  if (progress.phase === "preparing" || progress.total <= 0) return t("attachmentPreparing");
+  return `${Math.min(100, Math.round((progress.loaded / progress.total) * 100))}%`;
+}
+
+function progressRatio(progress: AttachmentUploadProgress): number {
+  if (progress.phase === "preparing" || progress.total <= 0) return 0;
+  return Math.min(1, progress.loaded / progress.total);
+}
+
+export function PendingAttachments({
+  files,
+  existingCount = 0,
+  disabled,
+  onChange,
+  progress,
+  t,
+}: Props) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const photoCaptureRef = useRef<HTMLInputElement>(null);
   const videoCaptureRef = useRef<HTMLInputElement>(null);
@@ -122,6 +144,14 @@ export function PendingAttachments({ files, existingCount = 0, disabled, onChang
           </span>
         )}
       </div>
+      {progress && files.length > 0 && (
+        <p className="meta pending-attachments-status" aria-live="polite">
+          {t("attachmentUploading", {
+            current: String(progress.fileIndex + 1),
+            total: String(progress.fileCount),
+          })}
+        </p>
+      )}
       {files.length > 0 && (
         <ul className="pending-attachments-list" aria-label={t("pendingAttachmentsLabel")}>
           {files.map((file, index) => {
@@ -130,13 +160,42 @@ export function PendingAttachments({ files, existingCount = 0, disabled, onChang
             // 안드로이드 파일 제공자는 type이 빈 File을 준다 — 그대로 보면 영상도
             // <img>로 그려 미리보기가 깨진다. 업로드 경로와 같은 기준을 쓴다.
             const isVideo = normalizeAttachmentType(file).startsWith("video/");
+            const fileProgress = progress && progress.fileIndex === index ? progress : null;
+            const done = progress != null && index < progress.fileIndex;
             return (
               <li key={`${index}-${file.name}-${file.lastModified}`} className="pending-attachments-item">
                 {isVideo ? (
-                  <video src={url} className="attachment-thumb" muted playsInline preload="metadata" />
+                  <video
+                    src={url}
+                    className="attachment-thumb attachment-thumb-inert"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    tabIndex={-1}
+                    disablePictureInPicture
+                  />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={url} alt="" className="attachment-thumb" />
+                )}
+                {/* 네이티브 video 레이어가 × 버튼 터치를 가로채지 않게 덮는다 */}
+                <span className="attachment-thumb-hit" aria-hidden />
+                {isVideo && <span className="attachment-video-badge" aria-hidden />}
+                {fileProgress && (
+                  <span className="attachment-progress-overlay">
+                    <span className="attachment-progress-label">{progressLabel(fileProgress, t)}</span>
+                    <span className="attachment-progress-track">
+                      <span
+                        className="attachment-progress-fill"
+                        style={{ width: `${progressRatio(fileProgress) * 100}%` }}
+                      />
+                    </span>
+                  </span>
+                )}
+                {done && (
+                  <span className="attachment-progress-overlay attachment-progress-done" aria-hidden>
+                    ✓
+                  </span>
                 )}
                 <button
                   type="button"

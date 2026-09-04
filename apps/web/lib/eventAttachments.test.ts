@@ -61,4 +61,19 @@ describe("uploadEventAttachments", () => {
     expect(result.uploaded.map((a) => a.id)).toEqual(["att2", "att3"]);
     expect(result.remaining.map((f) => f.name)).toEqual(["a.jpg"]);
   });
+
+  it("reports per-file progress", async () => {
+    vi.mocked(apiJson)
+      .mockResolvedValueOnce(attachment("att1"))
+      .mockResolvedValueOnce(attachment("att2"));
+
+    const seen: string[] = [];
+    await uploadEventAttachments("evt1", files().slice(0, 2), (p) => {
+      seen.push(`${p.fileIndex}:${p.phase}:${p.fileCount}`);
+    });
+
+    expect(seen.some((s) => s === "0:preparing:2")).toBe(true);
+    expect(seen.some((s) => s === "0:uploading:2")).toBe(true);
+    expect(seen.some((s) => s === "1:preparing:2")).toBe(true);
+  });
 });
