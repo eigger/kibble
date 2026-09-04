@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import bcrypt from "bcryptjs";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
@@ -15,6 +16,17 @@ const execAsync = promisify(exec);
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
 
 const BACKUP_TICKET_EXPIRES = "60s";
+
+/**
+ * 복원 아카이브 상한 (기본 2GB).
+ *
+ * 백업이 실제로 사진·영상을 담게 되면서 이 숫자가 처음으로 의미를 갖게 됐다 — 그전에는
+ * 아카이브가 사실상 db.json뿐이라 500MB든 5MB든 상관이 없었다. 업로드 단건 상한이
+ * 150MB라도 **누적 첨부**는 금방 그걸 넘으므로, 내보내기는 되는데 복원이 막히는 상황이
+ * 나오면 안 된다. 아카이브는 스트림으로 디스크에 받으므로 메모리가 아니라 디스크가
+ * 유일한 제약이다.
+ */
+const RESTORE_LIMIT_BYTES = Number(process.env.BACKUP_RESTORE_LIMIT_MB ?? 2048) * 1024 * 1024;
 
 const USER_EXPORT_SELECT = {
   id: true,
@@ -133,7 +145,7 @@ export async function backupRoutes(app: FastifyInstance) {
     });
 
     admin.post("/restore", async (request, reply) => {
-      const file = await request.file({ limits: { fileSize: 500 * 1024 * 1024 } });
+      const file = await request.file({ limits: { fileSize: RESTORE_LIMIT_BYTES } });
       if (!file) return reply.code(400).send({ error: t("noBackupFileUploaded", request.locale) });
 
       const restoreTempDirName = `restore_${Date.now()}`;
@@ -142,8 +154,13 @@ export async function backupRoutes(app: FastifyInstance) {
 
       try {
         await mkdir(restoreTempDir, { recursive: true });
-        const buffer = await file.toBuffer();
-        await writeFile(archivePath, buffer);
+        // toBuffer()는 아카이브 전체를 메모리에 올린다 — 첨부가 들어간 뒤로는 그대로
+        // 프로세스를 죽이는 길이다. 디스크로 흘려보낸다.
+        await pipeline(file.file, createWriteStream(archivePath));
+        if (file.file.truncated) {
+          const limit = `${Math.floor(RESTORE_LIMIT_BYTES / 1024 / 1024)}MB`;
+          return reply.code(413).send({ error: t("fileTooLarge", request.locale, { limit }) });
+        }
         await execAsync(`tar -xzf "${archivePath}" -C "${restoreTempDir}"`);
 
         const dbJsonPath = path.join(restoreTempDir, "db.json");

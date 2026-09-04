@@ -27,10 +27,16 @@ function parseInteger(text: string): number | null {
   return Number.isSafeInteger(value) ? value : null;
 }
 
-export function parseByteRange(header: string | undefined | null, size: number): RangeParse {
-  if (!header) return NONE;
+export function parseByteRange(
+  // Node는 중복 헤더를 보통 하나로 합치지만 타입상 배열이 올 수 있다 — 여기서 터지면
+  // 라우트의 catch가 "디스크에 파일 없음" 404로 삼켜 버려 원인을 못 찾는다.
+  header: string | string[] | undefined | null,
+  size: number,
+): RangeParse {
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (!raw) return NONE;
 
-  const spec = header.trim().toLowerCase();
+  const spec = raw.trim().toLowerCase();
   if (!spec.startsWith("bytes=")) return NONE;
 
   const value = spec.slice("bytes=".length).trim();

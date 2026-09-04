@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { mkdtemp, writeFile, readFile, rm } from "fs/promises";
+import { mkdir, mkdtemp, writeFile, readFile, rm } from "fs/promises";
+import { existsSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -46,6 +47,19 @@ async function readDbJson(archive: Buffer): Promise<Record<string, unknown>> {
   }
 }
 
+/** 아카이브에 담긴 파일 목록. files/events/ 가 빠졌던 회귀를 여기서 잡는다. */
+async function listArchiveEntries(archive: Buffer): Promise<string[]> {
+  const dir = await mkdtemp(path.join(tmpdir(), "kibble-backup-list-"));
+  try {
+    const archivePath = path.join(dir, "archive.tar.gz");
+    await writeFile(archivePath, archive);
+    const { stdout } = await execFileAsync("tar", ["-tzf", archivePath]);
+    return stdout.split("\n").filter(Boolean);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 function multipartRestoreRequest(archive: Buffer) {
   const boundary = `----kibbleBackupTest${randomUUID()}`;
   const body = Buffer.concat([
@@ -78,11 +92,19 @@ describe("backup export/restore round trip", () => {
   let householdId: string;
   const settingKey = `fixture-setting-${suffix}`;
   const vapidPrivateValue = `vapid-private-${suffix}`;
+  /** 첨부가 사는 곳은 uploads/events/ — 디렉터리다. 백업이 이걸 담는지 확인한다. */
+  const seededAttachmentRel = `events/backup-fixture-${suffix}.jpg`;
+  const seededAttachmentBody = "fixture-photo-bytes";
+  let seededAttachmentAbs = "";
 
   beforeAll(async () => {
     assertSafeToWipeDatabase();
     uploadDir = await mkdtemp(path.join(tmpdir(), "kibble-uploads-"));
     process.env.UPLOAD_DIR = uploadDir;
+
+    seededAttachmentAbs = path.join(uploadDir, seededAttachmentRel);
+    await mkdir(path.dirname(seededAttachmentAbs), { recursive: true });
+    await writeFile(seededAttachmentAbs, seededAttachmentBody, "utf8");
 
     app = await buildApp({ logger: false });
 
@@ -155,6 +177,12 @@ describe("backup export/restore round trip", () => {
     const archive = exportRes.rawPayload;
     expect(archive.length).toBeGreaterThan(0);
 
+    // 첨부는 uploads/events/ 아래에 있다 — 최상위 파일만 복사하던 시절 통째로 빠졌고,
+    // 이 잡이 그걸 놓쳤다. 아카이브 목록과 복원 결과 양쪽으로 못박는다.
+    const archiveEntries = await listArchiveEntries(archive);
+    expect(archiveEntries.some((entry) => entry.endsWith(seededAttachmentRel))).toBe(true);
+    await rm(seededAttachmentAbs, { force: true });
+
     await prisma.user.create({
       data: {
         name: "Should Be Wiped",
@@ -173,6 +201,10 @@ describe("backup export/restore round trip", () => {
     };
     expect(body.success).toBe(true);
     expect(body.passwordResetRequired).toBe(true);
+
+    // 내보내기와 복원이 대칭이어야 한다 — 평평하게 복사하면 여기서 걸린다
+    expect(existsSync(seededAttachmentAbs)).toBe(true);
+    expect(await readFile(seededAttachmentAbs, "utf8")).toBe(seededAttachmentBody);
     expect(body.recoveryPasswords.map((r) => r.email).sort()).toEqual(
       [`backup-admin-${suffix}@example.com`, `backup-member-${suffix}@example.com`].sort(),
     );

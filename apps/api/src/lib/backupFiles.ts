@@ -6,6 +6,18 @@ import path from "node:path";
 const UPLOAD_TEMP_DIRNAME = "tmp";
 
 /**
+ * 백업·복원이 UPLOAD_DIR 안에 만드는 작업 디렉터리(`backup_<ts>` / `restore_<ts>`).
+ * 정상 종료하면 지워지지만 프로세스가 중간에 죽으면 남는다 — 남은 걸 다음 아카이브에
+ * 담으면 백업 안에 백업이 중첩된다. 이번에 고친 버그가 정확히 "디렉터리 취급을 빼먹음"
+ * 이었으므로, 이제 디렉터리를 담게 된 만큼 무엇을 담지 **않을지**도 분명히 해 둔다.
+ */
+const WORK_DIR_PREFIXES = ["backup_", "restore_"];
+
+function isWorkDir(name: string): boolean {
+  return WORK_DIR_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+/**
  * 업로드 디렉터리를 백업 아카이브의 files/ 아래로 복사한다.
  *
  * **재귀여야 한다.** 첨부는 `uploads/events/`, 펫 사진은 `uploads/pets/` — 둘 다
@@ -25,6 +37,7 @@ export async function copyUploadsForBackup(
   for (const entry of entries) {
     if (entry.name === skipDirName) continue;
     if (entry.name === UPLOAD_TEMP_DIRNAME) continue;
+    if (entry.isDirectory() && isWorkDir(entry.name)) continue;
     // 이전 백업 아카이브를 백업에 다시 담지 않는다
     if (entry.isFile() && entry.name.endsWith(".tar.gz")) continue;
     if (!entry.isFile() && !entry.isDirectory()) continue;
