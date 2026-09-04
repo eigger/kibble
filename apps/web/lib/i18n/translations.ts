@@ -357,6 +357,7 @@ const dict = {
   eventDetailDelete: { ko: "기록 삭제", en: "Delete event" },
   confirmDeleteEvent: { ko: "이 기록을 삭제할까요?", en: "Delete this event?" },
   deleting: { ko: "삭제 중…", en: "Deleting…" },
+  eventDetailCreated: { ko: "기록을 저장했습니다.", en: "Event saved." },
   eventDetailSaved: { ko: "기록을 수정했습니다.", en: "Event updated." },
   eventRestored: { ko: "기록을 복구했습니다", en: "Event restored" },
   timelineLoadingMore: { ko: "더 불러오는 중…", en: "Loading more…" },

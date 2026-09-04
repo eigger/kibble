@@ -8,14 +8,29 @@ import { UPLOAD_DIR, deleteUploadedFile } from "./uploads.js";
 export const MAX_ATTACHMENTS_PER_EVENT = 9;
 const EVENT_SUBDIR = "events";
 
+// sharp 프리빌트 바이너리는 라이선스 때문에 HEVC 디코더 없이 빌드된다 — libheif가
+// 들어 있어도 .heic은 열지 못하고 .avif만 된다. 못 여는 형식을 허용 목록에 두면
+// 받아놓고 "손상된 이미지"로 되돌려주게 되므로, 런타임에 물어보고 목록을 정한다.
+// (libheif-full로 빌드한 환경에서는 자동으로 다시 허용된다)
+const HEIC_DECODABLE = sharp.format.heif?.input?.fileSuffix?.includes(".heic") ?? false;
+
 const ALLOWED_IMAGE_MIME = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/heic",
-  "image/heif",
+  ...(HEIC_DECODABLE ? ["image/heic", "image/heif"] : []),
 ]);
-const ALLOWED_VIDEO_MIME = new Set(["video/mp4", "video/quicktime"]);
+
+// 안드로이드 갤러리·기본 카메라는 mp4/mov 밖의 컨테이너도 내놓는다. 영상은 재인코딩
+// 없이 그대로 저장하므로 확장자만 알면 받아줄 수 있다 (K-12).
+const VIDEO_EXTENSIONS: Record<string, string> = {
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+  "video/webm": ".webm",
+  "video/3gpp": ".3gp",
+  "video/x-matroska": ".mkv",
+};
+const ALLOWED_VIDEO_MIME = new Set(Object.keys(VIDEO_EXTENSIONS));
 
 export const ALLOWED_ATTACHMENT_MIME = new Set([...ALLOWED_IMAGE_MIME, ...ALLOWED_VIDEO_MIME]);
 
@@ -37,8 +52,7 @@ export function attachmentAbsolutePath(relativePath: string): string {
 }
 
 function videoExtension(mime: string): string {
-  if (mime === "video/quicktime") return ".mov";
-  return ".mp4";
+  return VIDEO_EXTENSIONS[mime] ?? ".mp4";
 }
 
 export type SavedEventAttachment = {

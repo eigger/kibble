@@ -1,4 +1,4 @@
-import { apiJson, isApiError } from "./api";
+import { apiJson, isApiError, isPermanentApiRejection } from "./api";
 import { uploadEventAttachment } from "./eventAttachments";
 import {
   listOfflineEvents,
@@ -15,12 +15,8 @@ export type FlushOfflineResult = {
   remaining: number;
 };
 
-/** 검증·대상 없음만 영구 거부. 인증·권한·레이트리밋은 큐에 남긴다 */
-export function isPermanentApiRejection(err: unknown): boolean {
-  if (!isApiError(err)) return false;
-  const { status } = err;
-  return status === 400 || status === 404 || status === 409 || status === 422;
-}
+/** 검증·대상 없음만 영구 거부. 인증·권한·레이트리밋은 큐에 남긴다 (구현은 api.ts) */
+export { isPermanentApiRejection };
 
 export function shouldQueueOnSubmit(err: unknown): boolean {
   if (isApiError(err)) return err.status >= 500;

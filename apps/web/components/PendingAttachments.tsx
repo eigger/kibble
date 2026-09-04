@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef } from "react";
 
 const MAX_FILES = 9;
 
-const GALLERY_ACCEPT =
-  "image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime";
+// MIME을 하나하나 나열하면 안드로이드 갤러리에서 HEIF·webm 같은 항목이 통째로 회색이
+// 되고, iOS Safari는 accept에 image/heic이 있으면 원본 HEIC을 그대로 넘긴다(빼면 JPEG로
+// 변환해 준다). 넓게 열어두고 형식 판단은 uploadPrep + 서버에 맡긴다 (K-12).
+const GALLERY_ACCEPT = "image/*,video/*";
 
 type Props = {
   files: File[];

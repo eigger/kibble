@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { unlink } from "node:fs/promises";
+import { readdir, stat, unlink } from "node:fs/promises";
 import { TEMP_DIR } from "./uploads.js";
 
 export interface UploadSession {
@@ -76,6 +76,34 @@ export async function sweepStaleUploadSessions(): Promise<void> {
     if (now - session.createdAt > SESSION_TTL_MS) {
       await unlink(session.tempPath).catch(() => {});
       sessions.delete(session.id);
+    }
+  }
+  await sweepOrphanTempFiles(now);
+}
+
+/**
+ * 세션은 프로세스 메모리에만 산다 — API가 재시작하면 진행 중이던 .part 조각의 주인이
+ * 사라져 메모리 기준 스윕으로는 영영 지워지지 않는다. 디스크도 같이 훑는다.
+ */
+async function sweepOrphanTempFiles(now: number): Promise<void> {
+  const live = new Set([...sessions.values()].map((session) => session.tempPath));
+
+  let entries: string[];
+  try {
+    entries = await readdir(TEMP_DIR);
+  } catch {
+    return; // tmp 디렉터리가 아직 없으면 지울 것도 없다
+  }
+
+  for (const entry of entries) {
+    if (!entry.endsWith(".part")) continue;
+    const filePath = path.join(TEMP_DIR, entry);
+    if (live.has(filePath)) continue;
+    try {
+      const info = await stat(filePath);
+      if (now - info.mtimeMs > SESSION_TTL_MS) await unlink(filePath);
+    } catch {
+      // 이미 지워졌거나 접근 불가 — 다음 스윕에서 다시 본다
     }
   }
 }
