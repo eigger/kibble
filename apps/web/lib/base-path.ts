@@ -14,6 +14,17 @@ export function withBasePath(path: string): string {
 }
 
 /**
+ * 배포 프리픽스를 뗀 앱 기준 경로. 서비스워커 `appPath()`와 같은 규칙 —
+ * `startsWith(basePath)`만 쓰면 `/kibble`이 `/kibble-admin`까지 먹는다.
+ */
+export function stripBasePath(pathname: string, basePath: string = BASE_PATH): string {
+  if (!basePath) return pathname || "/";
+  if (pathname === basePath) return "/";
+  if (pathname.startsWith(`${basePath}/`)) return pathname.slice(basePath.length) || "/";
+  return pathname;
+}
+
+/**
  * 라우트 비교용으로 정규화한 경로. trailingSlash 배포에서 usePathname()은 "/login/"처럼
  * 뒤 슬래시가 붙은 값을 주는데, 라우트 상수는 슬래시 없이 적혀 있어 그대로 비교하면 전부
  * 어긋난다 — 하단 탭 강조가 사라지고 로그인 화면에서도 탭이 뜬다.

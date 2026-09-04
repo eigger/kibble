@@ -190,7 +190,16 @@ const NAV_TABS_RIGHT: {
 }[] = [{ href: "/history", labelKey: "navHistory", Icon: HistoryIcon }];
 
 /** 더보기 시트에서만 열리는 화면 — 탭 강조용 */
-const MORE_ROUTES = ["/settings", "/backup", "/pets", "/presets", "/users", "/analytics"];
+const MORE_ROUTES = [
+  "/settings",
+  "/backup",
+  "/pets",
+  "/presets",
+  "/users",
+  "/analytics",
+  "/integrations",
+  "/api-explorer",
+];
 
 export function BottomNav() {
   const pathname = routePath(usePathname());

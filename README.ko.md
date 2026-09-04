@@ -82,6 +82,17 @@ docker compose up --build
 
 Caddy가 `http://localhost:80`에서 서비스합니다.
 
+웹을 오리진 루트가 아닌 서브패스에 붙이려면 웹 컨테이너에 `BASE_PATH`를 넣습니다
+(예: `BASE_PATH=/kibble`). 이미지는 플레이스홀더로 빌드되고 기동 시
+`apps/web/docker-entrypoint.sh`가 치환하므로, 같은 이미지로 루트·리버스 프록시 서브패스·
+Home Assistant Ingress(설치본마다 경로가 달라 빌드 때 알 수 없음)를 커버합니다.
+
+프록시도 그 프리픽스에 맞춰야 합니다. 웹 클라이언트는 `{BASE_PATH}/api/...`를 치지만
+API는 여전히 `/api`에서 듣습니다. 기본 Caddyfile은 오리진 루트의 `/api`만 연결하므로,
+서브패스에서는 API 요청에서 프리픽스를 벗기고 웹 요청은 남겨야 합니다 (`Caddyfile` 주석
+예시). Home Assistant Ingress는 애드온 nginx가 이 작업을 합니다. `BASE_PATH`를 비우면
+기존 루트 컴포즈 그대로입니다.
+
 ---
 
 ## 섀시 출처
