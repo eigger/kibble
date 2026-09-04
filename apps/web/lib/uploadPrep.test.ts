@@ -100,6 +100,13 @@ describe("snapshotFile", () => {
     expect(copied).toBe("hello");
   });
 
+  it("returns the same File on a second snapshot", async () => {
+    const file = new File(["hello"], "a.jpg", { type: "image/jpeg" });
+    const once = await snapshotFile(file);
+    const twice = await snapshotFile(once);
+    expect(twice).toBe(once);
+  });
+
   it("throws LocalFileError when the picker file cannot be read", async () => {
     const file = new File(["x"], "a.heif", { type: "image/heif" });
     Object.defineProperty(file, "arrayBuffer", {

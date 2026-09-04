@@ -150,18 +150,24 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   });
 }
 
+const snapshottedFiles = new WeakSet<File>();
+
 /**
  * 안드로이드 다중 선택은 File이 content URI를 가리키는 경우가 많다.
  * 미리보기·디코드·FormData가 같은 URI를 늦게 다시 읽으면 NotReadableError가 난다.
  * 선택 직후 바이트를 복사해 두면 이후 단계는 메모리만 본다.
+ * 이미 복사된 File은 그대로 돌려준다 — prepare가 한 번 더 읽지 않게.
  */
 export async function snapshotFile(file: File): Promise<File> {
+  if (snapshottedFiles.has(file)) return file;
   try {
     const buf = await withTimeout(blobToArrayBuffer(file), DECODE_TIMEOUT_MS, "READ_TIMEOUT");
-    return new File([buf], file.name, {
+    const copy = new File([buf], file.name, {
       type: file.type,
       lastModified: file.lastModified,
     });
+    snapshottedFiles.add(copy);
+    return copy;
   } catch (err) {
     logPrep(`unreadable file ${file.name}`, err);
     throw new LocalFileError(file.name);
