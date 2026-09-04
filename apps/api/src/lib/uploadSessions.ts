@@ -134,12 +134,10 @@ async function rehydrateSession(id: string): Promise<UploadSession | undefined> 
   if (!sidecar || sidecar.id !== id) return undefined;
 
   const tempPath = tempPathFor(id);
-  let onDisk = 0;
-  try {
-    onDisk = (await stat(tempPath)).size;
-  } catch {
-    onDisk = 0; // 아직 첫 청크가 오지 않았다
-  }
+  // 파일이 없으면 아직 첫 청크가 오지 않은 것 — 0부터 시작한다
+  const onDisk = await stat(tempPath)
+    .then((info) => info.size)
+    .catch(() => 0);
 
   let receivedBytes = Math.min(onDisk, sidecar.totalSize);
   // 마지막 청크는 경계에 안 맞는 게 정상이다(complete 대기) — 그때는 내리지 않는다.
