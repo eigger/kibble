@@ -8,8 +8,12 @@ import path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { buildApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+
+// buildApp을 정적으로 import하면 안 된다. routes/backup.ts가 모듈 로드 시점에
+// UPLOAD_DIR을 굳히는데, ESM import는 beforeAll보다 먼저 실행된다 — 그래서 아래에서
+// 임시 디렉터리를 잡아도 백업 라우트는 실제 apps/api/uploads를 보고 있었다.
+// (이 격리는 지금까지 작동한 적이 없다. db.json만 검사해서 아무도 몰랐다)
 
 const execFileAsync = promisify(execFile);
 
@@ -106,6 +110,7 @@ describe("backup export/restore round trip", () => {
     await mkdir(path.dirname(seededAttachmentAbs), { recursive: true });
     await writeFile(seededAttachmentAbs, seededAttachmentBody, "utf8");
 
+    const { buildApp } = await import("../app.js");
     app = await buildApp({ logger: false });
 
     const passwordHash = await bcrypt.hash("test-password-123", 10);
