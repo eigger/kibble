@@ -348,20 +348,30 @@ export default function QuickRecordPage() {
         }
 
         const event = outcome.event;
+        // 첨부보다 먼저 타임라인에 넣는다 — mergeEventAttachments()는 목록에서 이벤트를
+        // 찾아 썸네일을 붙이므로, 순서가 뒤집히면 새 기록에 사진이 안 보인다.
+        setRecentEvents((prev) => insertTimelineEvent(prev, createdEventToTimeline(event)));
+
         if (filesToUpload.length > 0) {
+          // 생성은 이미 끝났다. 첨부가 실패해 시트를 열어둔 채 다시 저장할 때 같은
+          // dedupeKey로 재POST되면 유니크 제약에 걸리므로 여기서 편집 모드로 넘긴다.
+          setDetailDraft((prev) =>
+            prev ? { ...prev, mode: "edit", eventId: event.id } : prev,
+          );
           const attachmentsOk = await uploadFilesToEvent(
             event.id,
             filesToUpload,
             setDetailPendingFiles,
           );
-          if (attachmentsOk) setDetailPendingFiles([]);
+          // 실패한 파일은 시트에 남겨 다시 시도할 수 있게 한다
+          if (!attachmentsOk) return;
+          setDetailPendingFiles([]);
         }
 
-        setRecentEvents((prev) => insertTimelineEvent(prev, createdEventToTimeline(event)));
         setDetailOpen(false);
         setDetailDraft(null);
         setDetailAttachments([]);
-        show(t("eventDetailSaved"), "success");
+        show(t("eventDetailCreated"), "success");
         return;
       }
 

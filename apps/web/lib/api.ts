@@ -92,3 +92,25 @@ export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<
     throw new ApiError(requestFailedMessage(res.status), res.status);
   }
 }
+
+/**
+ * 이 요청은 다시 보내도 같은 결과인가. 검증 실패·대상 없음·형식/용량 거부만 영구
+ * 거부로 보고, 인증·권한·레이트리밋·5xx·네트워크는 "나중에 되면 될 수도 있는"
+ * 실패로 남긴다. (오프라인 큐 재전송, 첨부 일괄 업로드가 같은 기준을 써야 해서 여기에 둔다)
+ *
+ * 413·415는 파일 하나의 문제이지 서버·회선의 문제가 아니다 — 일시 실패로 두면
+ * 용량 초과 영상 하나가 뒤따르는 사진 전부를 막아버리고(이 PR이 고친 바로 그 버그),
+ * 오프라인 큐에서는 영원히 재시도된다.
+ */
+export function isPermanentApiRejection(err: unknown): boolean {
+  if (!isApiError(err)) return false;
+  const { status } = err;
+  return (
+    status === 400 ||
+    status === 404 ||
+    status === 409 ||
+    status === 413 ||
+    status === 415 ||
+    status === 422
+  );
+}

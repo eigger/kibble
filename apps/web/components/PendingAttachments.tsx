@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { normalizeAttachmentType } from "../lib/uploadPrep";
 
 const MAX_FILES = 9;
 
-const GALLERY_ACCEPT =
-  "image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime";
+// MIME을 하나하나 나열하면 안드로이드 갤러리에서 HEIF·webm 같은 항목이 통째로 회색이
+// 된다. 넓게 열어두고 형식 판단은 uploadPrep + 서버에 맡긴다 (K-12).
+//
+// iOS는 accept에 image/heic이 있으면 원본 HEIC을 확실히 넘긴다. 반대로 image/*면 JPEG로
+// 바꿔 주는 버전이 많지만 **보장되지는 않는다** — HEIC 대응의 실제 담보는 accept가 아니라
+// uploadPrep의 canvas 변환이다. 여기서는 나열의 부작용만 피한다.
+const GALLERY_ACCEPT = "image/*,video/*";
 
 type Props = {
   files: File[];
@@ -121,7 +127,9 @@ export function PendingAttachments({ files, existingCount = 0, disabled, onChang
           {files.map((file, index) => {
             const url = previewUrls[index];
             if (!url) return null;
-            const isVideo = file.type.startsWith("video/");
+            // 안드로이드 파일 제공자는 type이 빈 File을 준다 — 그대로 보면 영상도
+            // <img>로 그려 미리보기가 깨진다. 업로드 경로와 같은 기준을 쓴다.
+            const isVideo = normalizeAttachmentType(file).startsWith("video/");
             return (
               <li key={`${index}-${file.name}-${file.lastModified}`} className="pending-attachments-item">
                 {isVideo ? (

@@ -8,6 +8,10 @@ describe("offlineSync helpers", () => {
     expect(isPermanentApiRejection(new ApiError("bad", 400))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad", 404))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad", 422))).toBe(true);
+    // 파일 하나의 문제다 — 일시 실패로 두면 큐에서 영원히 재시도되고,
+    // 일괄 업로드에서는 뒤따르는 파일을 전부 막는다
+    expect(isPermanentApiRejection(new ApiError("too large", 413))).toBe(true);
+    expect(isPermanentApiRejection(new ApiError("bad type", 415))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad", 401))).toBe(false);
     expect(isPermanentApiRejection(new ApiError("bad", 403))).toBe(false);
     expect(isPermanentApiRejection(new ApiError("bad", 429))).toBe(false);
