@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { normalizeAttachmentType, prepareAttachmentForUpload } from "./uploadPrep";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  DECODE_TIMEOUT_MS,
+  LocalFileError,
+  isLocalFileFailure,
+  normalizeAttachmentType,
+  prepareAttachmentForUpload,
+  snapshotFile,
+  withTimeout,
+} from "./uploadPrep";
 
 describe("normalizeAttachmentType", () => {
   it("keeps a declared type", () => {
@@ -40,5 +48,71 @@ describe("prepareAttachmentForUpload", () => {
     const prepared = await prepareAttachmentForUpload(file);
     expect(prepared.type).toBe("video/quicktime");
     expect(prepared.size).toBe(file.size);
+  });
+});
+
+describe("withTimeout", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("rejects when the promise never settles", async () => {
+    vi.useFakeTimers();
+    const pending = withTimeout(new Promise(() => {}), DECODE_TIMEOUT_MS, "BITMAP_TIMEOUT");
+    const assertion = expect(pending).rejects.toThrow("BITMAP_TIMEOUT");
+    await vi.advanceTimersByTimeAsync(DECODE_TIMEOUT_MS);
+    await assertion;
+  });
+
+  it("resolves when the inner promise wins", async () => {
+    await expect(withTimeout(Promise.resolve(7), DECODE_TIMEOUT_MS, "BITMAP_TIMEOUT")).resolves.toBe(7);
+  });
+});
+
+describe("snapshotFile", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("copies bytes so later reads do not depend on the picker URI", async () => {
+    const file = new File(["hello"], "IMG_0001.HEIF", { type: "image/heif" });
+    const snapped = await snapshotFile(file);
+    expect(snapped).not.toBe(file);
+    expect(snapped.size).toBe(file.size);
+    expect(await snapped.text()).toBe("hello");
+  });
+
+  it("throws LocalFileError when the picker file cannot be read", async () => {
+    const file = new File(["x"], "a.heif", { type: "image/heif" });
+    vi.spyOn(file, "arrayBuffer").mockRejectedValueOnce(new DOMException("locked", "NotReadableError"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(snapshotFile(file)).rejects.toBeInstanceOf(LocalFileError);
+    errorSpy.mockRestore();
+  });
+
+  it("throws LocalFileError when arrayBuffer never settles", async () => {
+    vi.useFakeTimers();
+    const file = new File(["x"], "a.jpg", { type: "image/jpeg" });
+    vi.spyOn(file, "arrayBuffer").mockReturnValue(new Promise(() => {}));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const pending = snapshotFile(file);
+    const assertion = expect(pending).rejects.toBeInstanceOf(LocalFileError);
+    await vi.advanceTimersByTimeAsync(DECODE_TIMEOUT_MS);
+    await assertion;
+    errorSpy.mockRestore();
+  });
+});
+
+describe("isLocalFileFailure", () => {
+  it("treats unreadable picker files as per-file, not as a dead server", () => {
+    expect(isLocalFileFailure(new LocalFileError("a.heif"))).toBe(true);
+    expect(isLocalFileFailure(new DOMException("locked", "NotReadableError"))).toBe(true);
+    expect(
+      isLocalFileFailure(
+        new TypeError("The requested file could not be read, typically due to permission problems."),
+      ),
+    ).toBe(true);
+    expect(isLocalFileFailure(new Error("network down"))).toBe(false);
+    expect(isLocalFileFailure(new TypeError("Failed to fetch"))).toBe(false);
   });
 });
