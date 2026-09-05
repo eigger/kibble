@@ -18,6 +18,17 @@ export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 
+/** 경량화된 이벤트 관계용 제품 요약 타입 (전성분·메모 등 대형 필드 제외) */
+export interface ProductSummary {
+  id: string;
+  name: string;
+  brand: string | null;
+  category: ProductCategory;
+  photoPath: string | null;
+  dosage: string | null;
+  isActive: boolean;
+}
+
 function isValidHttpUrl(val: string): boolean {
   try {
     const parsed = new URL(val);

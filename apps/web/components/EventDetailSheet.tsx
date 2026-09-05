@@ -19,7 +19,7 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import { ProductDetailSheet } from "./ProductDetailSheet";
-import type { EventAttachment, Product } from "../lib/types";
+import type { EventAttachment, Product, ProductSummary } from "../lib/types";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
@@ -59,7 +59,7 @@ export interface EventDetailDraft {
   quantityOffered: number | null;
   unit: string | null;
   productId?: string | null;
-  product?: Product | null;
+  product?: ProductSummary | null;
   productName: string | null;
   clinicName: string | null;
   clinicAddress: string | null;
@@ -309,18 +309,13 @@ export function EventDetailSheet({
     }
   }
 
-  async function handleOpenProductPopup(productToView?: Product | null, pId?: string | null) {
-    if (productToView) {
-      setPopupProduct(productToView);
-      return;
-    }
-    const targetId = pId ?? productId ?? draft?.productId;
+  async function handleOpenProductPopup(targetIdInput?: string | null) {
+    const targetId = targetIdInput ?? productId ?? draft?.productId ?? draft?.product?.id;
     if (!targetId) return;
     try {
-      const res = await apiJson<Product & { product?: Product }>(`/api/products/${targetId}`);
-      const resolved = res?.id ? res : res?.product ?? null;
-      if (resolved) {
-        setPopupProduct(resolved);
+      const res = await apiJson<Product>(`/api/products/${targetId}`);
+      if (res?.id) {
+        setPopupProduct(res);
       }
     } catch {
       // fallback
@@ -711,7 +706,7 @@ export function EventDetailSheet({
                         <button
                           type="button"
                           className="product-info-trigger-btn"
-                          onClick={() => handleOpenProductPopup(draft.product, draft.productId)}
+                          onClick={() => handleOpenProductPopup(draft.productId ?? draft.product?.id)}
                           title={t("productDetailTitle")}
                         >
                           ℹ️ {t("productViewDetail")}
@@ -896,7 +891,7 @@ export function EventDetailSheet({
                                   title={t("productDetailTitle")}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleOpenProductPopup(null, p.id);
+                                    handleOpenProductPopup(p.id);
                                   }}
                                 >
                                   ℹ️

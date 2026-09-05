@@ -281,7 +281,7 @@ curl -sS -X POST "$BASE/api/products/<product-id>/restore" -H "$AUTH"
 
 ### 사진 업로드 / 조회 / 삭제
 
-사진 업로드는 1600px WebP로 자동 변환되며 분당 30회 rate limit이 적용됩니다.
+사진 업로드는 1000px WebP로 자동 변환되며 분당 30회 rate limit이 적용됩니다.
 
 ```bash
 # 업로드 (multipart/form-data)

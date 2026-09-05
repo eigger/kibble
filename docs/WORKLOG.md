@@ -130,7 +130,7 @@
 **한 일**
 
 - DB/Schema: `Product` 테이블, `ProductCategory` enum, `Event.productId` 외래키 추가
-- API: `/api/products` CRUD, `/api/products/:id/restore` 보관 복원, `/api/products/:id/photo` 사진 업로드(WebP 1600px, rateLimit 30/분)
+- API: `/api/products` CRUD, `/api/products/:id/restore` 보관 복원, `/api/products/:id/photo` 사진 업로드(WebP 1000px, rateLimit 30/분)
 - 기록 연동: `createEvent()` 단일 진입점 유지(K-4), `resolveEventProductFields` 순수 함수로 `productId`/`productName` 동기화 및 테이블 기반 테스트 작성
 - 타임라인 최적화: `eventWithRelationsSelect.product` 페이로드를 필수 필드(`id, name, brand, category, photoPath, dosage, isActive`)로 경량화
 - 웹: `/products` 관리 페이지(탭별 필터, KST 기반 D-Day/개봉일 계산, 보관/복원), `ProductDetailSheet`, `ProductEditSheet`, `EventDetailSheet` 상세 팝업 및 빠른 제품 칩 연동

@@ -106,9 +106,21 @@ export default function ProductsPage() {
     { key: "OTHER", label: t("productCategoryOther") },
   ];
 
-  function getDdayBadge(expiryIso: string | null) {
+  const [nowDate, setNowDate] = useState(() => new Date());
+
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        setNowDate(new Date());
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  function getDdayBadge(expiryIso: string | null, baseDate = nowDate) {
     if (!expiryIso) return null;
-    const diffDays = kstDayDiff(new Date(expiryIso));
+    const diffDays = kstDayDiff(new Date(expiryIso), baseDate);
     if (diffDays < 0) return { label: t("productDdayExpired"), cls: "dday-expired" };
     if (diffDays === 0) return { label: t("productDdayToday"), cls: "dday-imminent" };
     return {
@@ -117,13 +129,13 @@ export default function ProductsPage() {
     };
   }
 
-  function getOpenedDays(openedIso: string | null): number | null {
+  function getOpenedDays(openedIso: string | null, baseDate = nowDate): number | null {
     if (!openedIso) return null;
-    const diffDays = kstDayDiff(new Date(), new Date(openedIso));
+    const diffDays = kstDayDiff(baseDate, new Date(openedIso));
     return Math.max(0, diffDays);
   }
 
-  // Summary stats (computed inside useMemo without calling Date.now() during render)
+  // Summary stats (computed inside useMemo using nowDate state)
   const { activeCount, imminentCount, totalCost } = useMemo(() => {
     let active = 0;
     let imminent = 0;
@@ -132,12 +144,12 @@ export default function ProductsPage() {
       if (p.isActive) active++;
       if (p.costKrw != null) cost += p.costKrw;
       if (p.expiryDate) {
-        const diff = kstDayDiff(new Date(p.expiryDate));
+        const diff = kstDayDiff(new Date(p.expiryDate), nowDate);
         if (diff >= 0 && diff <= 30) imminent++;
       }
     }
     return { activeCount: active, imminentCount: imminent, totalCost: cost };
-  }, [products]);
+  }, [products, nowDate]);
 
   return (
     <main className="container products-page">

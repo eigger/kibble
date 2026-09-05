@@ -73,6 +73,16 @@ export interface EventAttachment {
 export type ProductCategory = "MEAL" | "SUPPLEMENT" | "TREAT" | "HYGIENE" | "DEVICE" | "OTHER";
 export type Palatability = "HIGH" | "MEDIUM" | "LOW";
 
+export interface ProductSummary {
+  id: string;
+  name: string;
+  brand: string | null;
+  category: ProductCategory;
+  photoPath: string | null;
+  dosage: string | null;
+  isActive: boolean;
+}
+
 export interface Product {
   id: string;
   householdId: string;
@@ -103,7 +113,7 @@ export interface CreatedEvent {
   petId: string;
   presetId: string | null;
   productId?: string | null;
-  product?: Product | null;
+  product?: ProductSummary | null;
   occurredAt: string;
   createdAt?: string;
   updatedAt?: string;

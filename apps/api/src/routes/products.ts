@@ -292,44 +292,45 @@ export async function productRoutes(app: FastifyInstance) {
       config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
     },
     async (request, reply) => {
-    const householdId = requireHouseholdWrite(request, reply);
-    if (!householdId) return;
+      const householdId = requireHouseholdWrite(request, reply);
+      if (!householdId) return;
 
-    const { id } = request.params as { id: string };
-    const existing = await prisma.product.findFirst({
-      where: { id, ...householdWhere(householdId) },
-    });
-    if (!existing) {
-      return reply.code(404).send({ error: t("productNotFound", request.locale) });
-    }
-
-    const file = await request.file();
-    if (!file) {
-      return reply.code(400).send({ error: t("photoRequired", request.locale) });
-    }
-
-    let photoPath: string;
-    try {
-      const buffer = await file.toBuffer();
-      photoPath = await saveProductPhoto(id, buffer, existing.photoPath);
-    } catch (err) {
-      if (err instanceof InvalidProductPhotoError) {
-        return reply.code(400).send({ error: t("photoMustBeImage", request.locale) });
+      const { id } = request.params as { id: string };
+      const existing = await prisma.product.findFirst({
+        where: { id, ...householdWhere(householdId) },
+      });
+      if (!existing) {
+        return reply.code(404).send({ error: t("productNotFound", request.locale) });
       }
-      throw err;
-    }
 
-    const updated = await prisma.product.update({
-      where: { id },
-      data: { photoPath },
-      include: { pet: { select: { id: true, name: true } } },
-    });
+      const file = await request.file();
+      if (!file) {
+        return reply.code(400).send({ error: t("photoRequired", request.locale) });
+      }
 
-    return {
-      ...serializeProduct(updated),
-      pet: updated.pet,
-    };
-  });
+      let photoPath: string;
+      try {
+        const buffer = await file.toBuffer();
+        photoPath = await saveProductPhoto(id, buffer, existing.photoPath);
+      } catch (err) {
+        if (err instanceof InvalidProductPhotoError) {
+          return reply.code(400).send({ error: t("photoMustBeImage", request.locale) });
+        }
+        throw err;
+      }
+
+      const updated = await prisma.product.update({
+        where: { id },
+        data: { photoPath },
+        include: { pet: { select: { id: true, name: true } } },
+      });
+
+      return {
+        ...serializeProduct(updated),
+        pet: updated.pet,
+      };
+    },
+  );
 
   // GET /api/products/:id/photo
   app.get("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
