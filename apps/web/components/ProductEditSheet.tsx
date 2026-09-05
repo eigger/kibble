@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import type { Pet, Product, ProductCategory, Palatability } from "../lib/types";
+import type {
+  Pet,
+  Product,
+  ProductCategory,
+  Palatability,
+  ProductForm,
+  KibbleSize,
+} from "../lib/types";
+import { hasFormDetails, weightToGrams } from "@kibble/shared";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson, apiFetch } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
@@ -43,6 +51,12 @@ export function ProductEditSheet({
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [palatability, setPalatability] = useState<Palatability | "">("");
+  const [origin, setOrigin] = useState("");
+  const [form, setForm] = useState<ProductForm | "">("");
+  const [kibbleSize, setKibbleSize] = useState<KibbleSize | "">("");
+  // 저장은 g으로 통일하고, 입력만 kg/g을 고른다. 2kg을 2000이라고 쓰게 하지 않는다.
+  const [weight, setWeight] = useState("");
+  const [weightUnit, setWeightUnit] = useState<"kg" | "g">("kg");
   const [adverseReactions, setAdverseReactions] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState("");
   const [notes, setNotes] = useState("");
@@ -75,6 +89,20 @@ export function ProductEditSheet({
       setPurchaseUrl(product.purchaseUrl ?? "");
       setIsActive(product.isActive ?? true);
       setPalatability(product.palatability ?? "");
+      setOrigin(product.origin ?? "");
+      setForm(product.form ?? "");
+      setKibbleSize(product.kibbleSize ?? "");
+      if (product.weightG == null) {
+        setWeight("");
+        setWeightUnit("kg");
+      } else if (product.weightG >= 1000 && product.weightG % 100 === 0) {
+        // 2000g은 사람이 "2kg"이라고 산다. 1000으로 안 떨어지는 값만 g으로 보여준다.
+        setWeight(String(product.weightG / 1000));
+        setWeightUnit("kg");
+      } else {
+        setWeight(String(product.weightG));
+        setWeightUnit("g");
+      }
       setAdverseReactions(product.adverseReactions ?? []);
       setNotes(product.notes ?? "");
 
@@ -85,7 +113,14 @@ export function ProductEditSheet({
       if (product.expiryDate || product.openedAt) {
         setShowDates(true);
       }
-      if (product.costKrw != null || product.purchaseDate || product.purchaseUrl) {
+      if (
+        product.costKrw != null ||
+        product.purchaseDate ||
+        product.purchaseUrl ||
+        product.origin ||
+        product.form ||
+        product.weightG != null
+      ) {
         setShowPurchase(true);
       }
     } else {
@@ -103,6 +138,11 @@ export function ProductEditSheet({
       setPurchaseUrl("");
       setIsActive(true);
       setPalatability("");
+      setOrigin("");
+      setForm("");
+      setKibbleSize("");
+      setWeight("");
+      setWeightUnit("kg");
       setAdverseReactions([]);
       setNotes("");
       setShowFeeding(false);
@@ -113,6 +153,9 @@ export function ProductEditSheet({
     setPhotoPreview(null);
     setNewTagInput("");
   }, [open, mode, product]);
+
+  // 기기·위생용품에 "알갱이 크기"를 묻지 않는다. 사료·영양제·간식만.
+  const showFormDetails = hasFormDetails(category);
 
   if (!open) return null;
 
@@ -171,6 +214,11 @@ export function ProductEditSheet({
         purchaseUrl: normalizedUrl,
         isActive,
         palatability: palatability || null,
+        origin: showFormDetails ? origin.trim() || null : null,
+        form: showFormDetails ? form || null : null,
+        // 건식이 아니면 서버도 버리지만, 보내지 않는 편이 의도가 분명하다
+        kibbleSize: showFormDetails && form === "DRY" ? kibbleSize || null : null,
+        weightG: showFormDetails ? weightToGrams(weight, weightUnit) : null,
         adverseReactions,
         notes: notes.trim() || null,
       };
@@ -571,6 +619,98 @@ export function ProductEditSheet({
 
             {showPurchase && (
               <div className="product-section-content">
+                {showFormDetails && (
+                  <>
+                    <div className="field-row">
+                      <div className="field-group flex-1">
+                        <label className="field-label" htmlFor="prod-form">
+                          {t("productFormLabel")}
+                        </label>
+                        <select
+                          id="prod-form"
+                          className="select-input"
+                          value={form}
+                          onChange={(e) => setForm(e.target.value as ProductForm | "")}
+                          disabled={saving}
+                        >
+                          <option value="">{t("statusUnset")}</option>
+                          <option value="DRY">{t("productFormDry")}</option>
+                          <option value="WET">{t("productFormWet")}</option>
+                          <option value="SEMI_MOIST">{t("productFormSemiMoist")}</option>
+                          <option value="POWDER">{t("productFormPowder")}</option>
+                          <option value="CAPSULE">{t("productFormCapsule")}</option>
+                          <option value="TABLET">{t("productFormTablet")}</option>
+                          <option value="LIQUID">{t("productFormLiquid")}</option>
+                        </select>
+                      </div>
+                      {/* 알갱이 크기는 건식에만 있는 개념이다 — 습식을 고르면 칸 자체를 숨긴다 */}
+                      {form === "DRY" && (
+                        <div className="field-group flex-1">
+                          <label className="field-label" htmlFor="prod-kibble-size">
+                            {t("productKibbleSizeLabel")}
+                          </label>
+                          <select
+                            id="prod-kibble-size"
+                            className="select-input"
+                            value={kibbleSize}
+                            onChange={(e) => setKibbleSize(e.target.value as KibbleSize | "")}
+                            disabled={saving}
+                          >
+                            <option value="">{t("statusUnset")}</option>
+                            <option value="SMALL">{t("productKibbleSizeSmall")}</option>
+                            <option value="MEDIUM">{t("productKibbleSizeMedium")}</option>
+                            <option value="LARGE">{t("productKibbleSizeLarge")}</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="field-row">
+                      <div className="field-group flex-1">
+                        <label className="field-label" htmlFor="prod-origin">
+                          {t("productOriginLabel")}
+                        </label>
+                        <input
+                          id="prod-origin"
+                          type="text"
+                          className="text-input"
+                          placeholder={t("productOriginPlaceholder")}
+                          value={origin}
+                          onChange={(e) => setOrigin(e.target.value)}
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="field-group flex-1">
+                        <label className="field-label" htmlFor="prod-weight">
+                          {t("productWeightLabel")}
+                        </label>
+                        <div className="product-weight-row">
+                          <input
+                            id="prod-weight"
+                            type="text"
+                            inputMode="decimal"
+                            className="text-input flex-1"
+                            placeholder="2"
+                            value={weight}
+                            onChange={(e) => setWeight(e.target.value)}
+                            disabled={saving}
+                          />
+                          <select
+                            className="select-input product-weight-unit"
+                            aria-label={t("productWeightLabel")}
+                            value={weightUnit}
+                            onChange={(e) => setWeightUnit(e.target.value as "kg" | "g")}
+                            disabled={saving}
+                          >
+                            <option value="kg">{t("productWeightUnitKg")}</option>
+                            <option value="g">{t("productWeightUnitG")}</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 <div className="field-row">
                   <div className="field-group flex-1">
                     <label className="field-label" htmlFor="prod-cost">

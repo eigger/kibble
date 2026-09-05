@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createProductSchema, updateProductSchema } from "./product.js";
+import {
+  createProductSchema,
+  hasFormDetails,
+  kibbleSizeForForm,
+  formatWeightG,
+  updateProductSchema,
+  WEIGHT_G_MAX,
+  weightToGrams,
+} from "./product.js";
 
 describe("createProductSchema", () => {
   it("requires only name and provides default category MEAL and isActive true", () => {
@@ -90,5 +98,73 @@ describe("updateProductSchema", () => {
     expect(updateProductSchema.safeParse({ isActive: false }).success).toBe(true);
     expect(updateProductSchema.safeParse({ costKrw: 29000 }).success).toBe(true);
     expect(updateProductSchema.safeParse({ dosage: "1일 2회" }).success).toBe(true);
+  });
+});
+
+describe("제형·입자크기·중량", () => {
+  it("건식이 아니면 입자크기를 남기지 않는다", () => {
+    expect(kibbleSizeForForm("DRY", "SMALL")).toBe("SMALL");
+    expect(kibbleSizeForForm("WET", "SMALL")).toBeNull();
+    expect(kibbleSizeForForm("CAPSULE", "LARGE")).toBeNull();
+    expect(kibbleSizeForForm(null, "SMALL")).toBeNull();
+    expect(kibbleSizeForForm("DRY", null)).toBeNull();
+  });
+
+  it("제형·중량은 사료·영양제·간식에만 묻는다", () => {
+    expect(hasFormDetails("MEAL")).toBe(true);
+    expect(hasFormDetails("SUPPLEMENT")).toBe(true);
+    expect(hasFormDetails("TREAT")).toBe(true);
+    expect(hasFormDetails("HYGIENE")).toBe(false);
+    expect(hasFormDetails("DEVICE")).toBe(false);
+    expect(hasFormDetails("OTHER")).toBe(false);
+  });
+
+  it("중량은 g 정수만 받는다", () => {
+    expect(createProductSchema.safeParse({ name: "a", weightG: 2000 }).success).toBe(true);
+    expect(createProductSchema.safeParse({ name: "a", weightG: -1 }).success).toBe(false);
+    expect(createProductSchema.safeParse({ name: "a", weightG: 1.5 }).success).toBe(false);
+    expect(createProductSchema.safeParse({ name: "a", weightG: WEIGHT_G_MAX + 1 }).success).toBe(false);
+  });
+
+  it("모르는 제형·입자크기는 거절한다", () => {
+    expect(createProductSchema.safeParse({ name: "a", form: "FREEZE_DRIED" }).success).toBe(false);
+    expect(createProductSchema.safeParse({ name: "a", kibbleSize: "TINY" }).success).toBe(false);
+    expect(createProductSchema.safeParse({ name: "a", form: "WET" }).success).toBe(true);
+  });
+});
+
+describe("weightToGrams / formatWeightG", () => {
+  it("kg 입력을 g으로 바꾼다", () => {
+    expect(weightToGrams("2", "kg")).toBe(2000);
+    expect(weightToGrams("2.5", "kg")).toBe(2500);
+    expect(weightToGrams("400", "g")).toBe(400);
+  });
+
+  it("비었거나 숫자가 아니면 null", () => {
+    expect(weightToGrams("", "kg")).toBeNull();
+    expect(weightToGrams("  ", "g")).toBeNull();
+    expect(weightToGrams("abc", "kg")).toBeNull();
+    expect(weightToGrams("-1", "kg")).toBeNull();
+    expect(weightToGrams("0", "kg")).toBeNull();
+  });
+
+  it("상한을 넘지 않는다", () => {
+    expect(weightToGrams("99999", "kg")).toBe(WEIGHT_G_MAX);
+  });
+
+  it("사람이 사는 단위로 되돌린다", () => {
+    expect(formatWeightG(2000)).toBe("2kg");
+    expect(formatWeightG(2500)).toBe("2.5kg");
+    expect(formatWeightG(400)).toBe("400g");
+    expect(formatWeightG(1250)).toBe("1250g");
+    expect(formatWeightG(null)).toBeNull();
+    expect(formatWeightG(0)).toBeNull();
+  });
+
+  it("입력 → 저장 → 표시가 왕복한다", () => {
+    for (const [raw, unit] of [["2", "kg"], ["2.5", "kg"], ["400", "g"]] as const) {
+      const g = weightToGrams(raw, unit);
+      expect(formatWeightG(g)).toBe(`${raw}${unit}`);
+    }
   });
 });

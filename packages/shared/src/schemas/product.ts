@@ -18,6 +18,64 @@ export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 
+/** 제형. 사료(건식·습식·반습식)와 영양제(파우더·캡슐·정제·액상)를 한 목록으로 덮는다. */
+export const PRODUCT_FORMS = [
+  "DRY",
+  "WET",
+  "SEMI_MOIST",
+  "POWDER",
+  "CAPSULE",
+  "TABLET",
+  "LIQUID",
+] as const;
+export const productFormSchema = z.enum(PRODUCT_FORMS);
+export type ProductForm = z.infer<typeof productFormSchema>;
+
+/** 알갱이 크기. 건식에서만 의미가 있다. */
+export const KIBBLE_SIZES = ["SMALL", "MEDIUM", "LARGE"] as const;
+export const kibbleSizeSchema = z.enum(KIBBLE_SIZES);
+export type KibbleSize = z.infer<typeof kibbleSizeSchema>;
+
+/** 제형·입자크기·원산지·중량을 입력받는 카테고리. 기기·위생용품에는 안 묻는다. */
+export const FORM_DETAIL_CATEGORIES = ["MEAL", "SUPPLEMENT", "TREAT"] as const;
+
+export function hasFormDetails(category: ProductCategory): boolean {
+  return (FORM_DETAIL_CATEGORIES as readonly string[]).includes(category);
+}
+
+/** 알갱이 크기는 건식일 때만 남긴다 — 습식 사료에 "소립"이 붙어 있으면 거짓 정보다. */
+export function kibbleSizeForForm(
+  form: ProductForm | null | undefined,
+  kibbleSize: KibbleSize | null | undefined,
+): KibbleSize | null {
+  if (form !== "DRY") return null;
+  return kibbleSize ?? null;
+}
+
+/** 2kg이면 2000. 저장은 g으로 통일하고 입력 단위는 UI가 고른다. */
+export const WEIGHT_G_MAX = 1_000_000;
+
+/** 입력값(문자열) + 단위 → 저장용 g 정수. 비었거나 숫자가 아니면 null. */
+export function weightToGrams(raw: string, unit: "kg" | "g"): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const grams = Math.round(unit === "kg" ? n * 1000 : n);
+  if (grams <= 0) return null;
+  return Math.min(grams, WEIGHT_G_MAX);
+}
+
+/** 저장된 g을 사람이 읽는 문자열로. 1kg 이상이고 딱 떨어지면 kg으로 보여준다. */
+export function formatWeightG(grams: number | null | undefined): string | null {
+  if (grams == null || grams <= 0) return null;
+  if (grams >= 1000 && grams % 100 === 0) {
+    const kg = grams / 1000;
+    return `${Number.isInteger(kg) ? kg : kg.toFixed(1)}kg`;
+  }
+  return `${grams}g`;
+}
+
 /** 경량화된 이벤트 관계용 제품 요약 타입 (전성분·메모 등 대형 필드 제외) */
 export interface ProductSummary {
   id: string;
@@ -55,6 +113,10 @@ export const createProductSchema = z.object({
   category: productCategorySchema.default("MEAL"),
   petId: z.string().trim().min(1).nullable().optional(),
   purchaseUrl: safeUrlSchema,
+  origin: z.string().trim().max(80).nullable().optional(),
+  form: productFormSchema.nullable().optional(),
+  kibbleSize: kibbleSizeSchema.nullable().optional(),
+  weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
   dosage: z.string().trim().max(500).nullable().optional(),
   ingredients: z.string().trim().max(4000).nullable().optional(),
   expiryDate: z.string().datetime().nullable().optional(),
@@ -76,6 +138,10 @@ export const updateProductSchema = z
     category: productCategorySchema.optional(),
     petId: z.string().trim().min(1).nullable().optional(),
     purchaseUrl: safeUrlSchema,
+    origin: z.string().trim().max(80).nullable().optional(),
+    form: productFormSchema.nullable().optional(),
+    kibbleSize: kibbleSizeSchema.nullable().optional(),
+    weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
     dosage: z.string().trim().max(500).nullable().optional(),
     ingredients: z.string().trim().max(4000).nullable().optional(),
     expiryDate: z.string().datetime().nullable().optional(),

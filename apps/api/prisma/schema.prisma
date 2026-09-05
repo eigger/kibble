@@ -22,9 +22,9 @@ model User {
   tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
 
-  memberships HouseholdMember[]
-  events      Event[]           @relation("EventCreator")
-  editedEvents Event[]          @relation("EventEditor")
+  memberships       HouseholdMember[]
+  events            Event[]            @relation("EventCreator")
+  editedEvents      Event[]            @relation("EventEditor")
   pushSubscriptions PushSubscription[]
 }
 
@@ -33,17 +33,17 @@ model Household {
   name      String
   createdAt DateTime @default(now())
 
-  members     HouseholdMember[]
-  pets        Pet[]
-  eventTypes  EventType[]
-  presets     Preset[]
-  presetCodes PresetCode[]
-  contacts    Contact[]
-  courses     MedicationCourse[]
-  tokens      ApiToken[]
-  events      Event[]
+  members          HouseholdMember[]
+  pets             Pet[]
+  eventTypes       EventType[]
+  presets          Preset[]
+  presetCodes      PresetCode[]
+  contacts         Contact[]
+  courses          MedicationCourse[]
+  tokens           ApiToken[]
+  events           Event[]
   eventTypeAliases EventTypeAlias[]
-  products    Product[]
+  products         Product[]
 }
 
 model HouseholdMember {
@@ -229,6 +229,14 @@ model Product {
   category         ProductCategory @default(MEAL)
   photoPath        String?
   purchaseUrl      String?
+  /// 원산지. 나라 이름이든 "국내산"이든 사용자가 적은 그대로 (K-12)
+  origin           String?
+  /// 제형. 사료는 건식·습식, 영양제는 캡슐·정제·파우더·액상
+  form             ProductForm?
+  /// 알갱이 크기. 건식(DRY)에서만 의미가 있어 그 외에는 null
+  kibbleSize       KibbleSize?
+  /// 구매 중량(g). 2kg이면 2000. 입력은 kg/g을 골라서 하고 저장은 g으로 통일한다
+  weightG          Int?
   dosage           String?
   ingredients      String?
   expiryDate       DateTime?
@@ -266,6 +274,24 @@ enum Palatability {
   LOW
 }
 
+/// 제형. 사료(건식·습식·반습식)와 영양제(파우더·캡슐·정제·액상)를 함께 덮는다
+enum ProductForm {
+  DRY
+  WET
+  SEMI_MOIST
+  POWDER
+  CAPSULE
+  TABLET
+  LIQUID
+}
+
+/// 건식 사료 알갱이 크기
+enum KibbleSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
 // ---------- 이벤트 ----------
 model Event {
   id                 String      @id @default(cuid())
@@ -297,18 +323,18 @@ model Event {
   updatedAt          DateTime    @updatedAt
   deletedAt          DateTime?
 
-  household   Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet         Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType   EventType           @relation(fields: [eventTypeId], references: [id])
-  preset      Preset?             @relation(fields: [presetId], references: [id], onDelete: SetNull)
-  product     Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
-  contact     Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  course      MedicationCourse?   @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
-  createdBy   User?               @relation("EventCreator", fields: [createdById], references: [id])
+  household       Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet             Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType       EventType         @relation(fields: [eventTypeId], references: [id])
+  preset          Preset?           @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  product         Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  contact         Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  course          MedicationCourse? @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
+  createdBy       User?             @relation("EventCreator", fields: [createdById], references: [id])
   // 마지막으로 이 행을 고친 사람 — PATCH 때마다 갱신된다. 생성 직후에는 작성자와 같다.
-  updatedBy   User?               @relation("EventEditor", fields: [updatedById], references: [id], onDelete: SetNull)
-  attachments Attachment[]
-  reminderLastFor Reminder[]      @relation("ReminderLastEvent")
+  updatedBy       User?             @relation("EventEditor", fields: [updatedById], references: [id], onDelete: SetNull)
+  attachments     Attachment[]
+  reminderLastFor Reminder[]        @relation("ReminderLastEvent")
 
   @@unique([householdId, dedupeKey])
   @@index([petId, occurredAt(sort: Desc)])
@@ -329,19 +355,19 @@ enum EventSource {
 }
 
 model Attachment {
-  id        String   @id @default(cuid())
-  eventId   String
-  path      String
-  mime      String
-  size      Int
-  width     Int?
-  height    Int?
+  id              String   @id @default(cuid())
+  eventId         String
+  path            String
+  mime            String
+  size            Int
+  width           Int?
+  height          Int?
   /// 영상 목록용 대표 프레임 JPEG. 목록이 <img>로 이걸 쓰면 영상 바이트를 받지 않는다.
   /// 이 컬럼이 생기기 전에 올라온 영상과 ffmpeg 없는 설치에서는 null이다.
-  posterPath String?
+  posterPath      String?
   /// 영상 백그라운드 720p 변환. pending/processing/skipped/ready/failed. 사진은 null.
   transcodeStatus String?
-  createdAt DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
@@ -357,9 +383,9 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String
-  dosesPerDay  Int      @default(1)
-  doseTimes    String[] @default([])
-  totalDoses   Int?
+  dosesPerDay Int       @default(1)
+  doseTimes   String[]  @default([])
+  totalDoses  Int?
   startDate   DateTime
   endDate     DateTime?
   contactId   String?
@@ -367,9 +393,9 @@ model MedicationCourse {
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  household Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet                  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  contact   Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
   events    Event[]
   pushSent  MedicationPushSent[]
 
@@ -417,9 +443,9 @@ model Reminder {
   lastEventId  String?
   active       Boolean      @default(true)
 
-  pet       Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType EventType  @relation(fields: [eventTypeId], references: [id])
-  lastEvent Event?     @relation("ReminderLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
+  pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType EventType @relation(fields: [eventTypeId], references: [id])
+  lastEvent Event?    @relation("ReminderLastEvent", fields: [lastEventId], references: [id], onDelete: SetNull)
 
   @@index([petId, active, nextDueAt])
 }

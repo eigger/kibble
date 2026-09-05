@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { kstDayDiff } from "@kibble/shared";
+import { formatWeightG, kstDayDiff } from "@kibble/shared";
 import type { Product } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { ProductPhoto } from "./ProductPhoto";
@@ -72,6 +72,35 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     MEDIUM: t("productPalatabilityMedium"),
     LOW: t("productPalatabilityLow"),
   };
+
+  const formMap: Record<string, string> = {
+    DRY: t("productFormDry"),
+    WET: t("productFormWet"),
+    SEMI_MOIST: t("productFormSemiMoist"),
+    POWDER: t("productFormPowder"),
+    CAPSULE: t("productFormCapsule"),
+    TABLET: t("productFormTablet"),
+    LIQUID: t("productFormLiquid"),
+  };
+
+  const kibbleSizeMap: Record<string, string> = {
+    SMALL: t("productKibbleSizeSmall"),
+    MEDIUM: t("productKibbleSizeMedium"),
+    LARGE: t("productKibbleSizeLarge"),
+  };
+
+  // 제형·알갱이 크기·중량·원산지는 "이게 어떤 물건인가"를 한 줄로 말한다.
+  const specs: { label: string; value: string }[] = [];
+  if (product.form) {
+    const size = product.kibbleSize ? kibbleSizeMap[product.kibbleSize] : null;
+    specs.push({
+      label: t("productFormLabel"),
+      value: size ? `${formMap[product.form]} · ${size}` : formMap[product.form],
+    });
+  }
+  const weightLabel = formatWeightG(product.weightG);
+  if (weightLabel) specs.push({ label: t("productWeightLabel"), value: weightLabel });
+  if (product.origin) specs.push({ label: t("productOriginLabel"), value: product.origin });
 
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
@@ -203,6 +232,19 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {specs.length > 0 && (
+            <div className="product-info-card">
+              <div className="product-spec-grid">
+                {specs.map((spec) => (
+                  <div key={spec.label}>
+                    <span className="product-info-label">{spec.label}</span>
+                    <div className="product-spec-val">{spec.value}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

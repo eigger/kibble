@@ -812,6 +812,10 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 | 결정 | 내용 |
 |---|---|
 | **`ProductCategory` Enum** | `MEAL`, `SUPPLEMENT`, `TREAT`, `HYGIENE`, `DEVICE`, `OTHER`. 도메인 수명주기 및 기능(급여 힌트, 개봉일·소비기한 D-Day 등)을 분기하는 고정 축 (R91) |
+| **제형·입자크기** | `ProductForm`(건식·습식·반습식·파우더·캡슐·정제·액상) + `KibbleSize`(소립·중립·대립). 알갱이 크기는 **건식일 때만** 존재하며, 제형이 바뀌면 서버가 `kibbleSizeForForm()`으로 정리한다 (R102) |
+| **구매 중량** | g 정수로 저장(2kg → 2000), 입력만 kg/g 선택. 문자열로 두면 단가·소진일 계산을 못 붙인다 (R103) |
+| **원산지** | 자유 텍스트. 국가명이든 "국내산"이든 쓰는 대로 (K-12) |
+| **노출 카테고리** | 제형·원산지·중량은 사료·영양제·간식(`FORM_DETAIL_CATEGORIES`)에만. 기기·위생용품에는 묻지 않는다 (R104) |
 | **`Event.productName` 유지** | K-12 제로 마찰 입력 보장. 미등록 제품도 빠른 텍스트 입력 가능 및 제품 삭제·수정 시 과거 기록 불변성 유지 (R92) |
 | **타임라인 페이로드 경량화** | `eventWithRelationsSelect.product`는 목록 표시에 필요한 경량 필드(`id, name, brand, category, photoPath, dosage, isActive`)만 포함. 전성분(4000자)·메모 등은 상세 시트에서 지연 로드 |
 | **일 경계 KST 동기화** | 제품 유통기한 D-Day 및 개봉 경과일 계산은 §7.11에 따라 `kstDayDiff` (Asia/Seoul 자정 기준) 사용 |

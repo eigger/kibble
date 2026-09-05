@@ -234,20 +234,33 @@ curl -sS -X POST "$BASE/api/products" \
     "category": "SUPPLEMENT",
     "brand": "닥터벳",
     "petId": "<pet-id>",
+    "form": "LIQUID",
+    "origin": "노르웨이",
+    "weightG": 250,
     "dosage": "1일 1회 1펌프",
-    "dosageAmount": 1.0,
-    "dosageUnit": "펌프",
-    "dosageFrequency": "1일 1회",
-    "expiryDate": "2027-12-31",
-    "openedAt": "2026-09-01T00:00:00Z",
-    "purchasePriceKrw": 35000,
+    "expiryDate": "2027-12-31T00:00:00.000Z",
+    "openedAt": "2026-09-01T00:00:00.000Z",
+    "costKrw": 35000,
     "purchaseUrl": "https://example.com/product/omega3",
     "ingredients": "정제어유, 비타민E",
     "notes": "냉장 보관 필수"
   }'
 ```
 
-선택 필드: `brand`, `petId`, `dosage`, `dosageAmount`, `dosageUnit`, `dosageFrequency`, `expiryDate`(YYYY-MM-DD), `openedAt`(ISO), `purchaseDate`(YYYY-MM-DD), `purchasePriceKrw`(정수), `purchaseUrl`(http/https URL), `ingredients`, `notes`, `adverseReactions`(string[]).
+선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `ingredients`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
+
+날짜 3종(`expiryDate`·`openedAt`·`purchaseDate`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
+
+**제형과 입자크기**
+
+- `form`: `DRY`(건식) · `WET`(습식) · `SEMI_MOIST`(반습식) · `POWDER` · `CAPSULE` · `TABLET` · `LIQUID`
+- `kibbleSize`: `SMALL`(소립) · `MEDIUM`(중립) · `LARGE`(대립)
+
+`kibbleSize`는 **`form`이 `DRY`일 때만** 저장됩니다. 그 외의 제형으로 보내면 서버가 `null`로 정리하며, 나중에 `form`만 `WET`으로 바꿔도 저장돼 있던 `kibbleSize`가 함께 지워집니다 — "습식인데 소립"이 남지 않게 하기 위해서입니다.
+
+**중량**
+
+`weightG`는 **그램 정수**입니다. 2kg이면 `2000`. 웹 UI는 kg/g을 골라 입력받고 g으로 환산해 보냅니다.
 
 ### 상세 단건 조회
 

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { Product, ProductCategory, Palatability } from "@prisma/client";
-import { createProductSchema, updateProductSchema } from "@kibble/shared";
+import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
+import { createProductSchema, kibbleSizeForForm, updateProductSchema } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
@@ -103,6 +103,11 @@ export async function productRoutes(app: FastifyInstance) {
         category: data.category as ProductCategory,
         petId: data.petId ?? null,
         purchaseUrl: data.purchaseUrl ?? null,
+        origin: data.origin ?? null,
+        form: (data.form as ProductForm) ?? null,
+        // 습식에 "소립"이 붙어 있으면 거짓 정보다 — 건식이 아니면 버린다
+        kibbleSize: kibbleSizeForForm(data.form, data.kibbleSize) as KibbleSize | null,
+        weightG: data.weightG ?? null,
         dosage: data.dosage ?? null,
         ingredients: data.ingredients ?? null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
@@ -204,6 +209,16 @@ export async function productRoutes(app: FastifyInstance) {
     if (data.category !== undefined) updateData.category = data.category as ProductCategory;
     if (data.petId !== undefined) updateData.petId = data.petId;
     if (data.purchaseUrl !== undefined) updateData.purchaseUrl = data.purchaseUrl;
+    if (data.origin !== undefined) updateData.origin = data.origin;
+    if (data.weightG !== undefined) updateData.weightG = data.weightG;
+    // form과 kibbleSize는 짝이다. 한쪽만 와도 저장된 다른 쪽과 맞춰 봐야
+    // "습식인데 소립"이 남지 않는다.
+    if (data.form !== undefined || data.kibbleSize !== undefined) {
+      const nextForm = data.form !== undefined ? data.form : existing.form;
+      const nextSize = data.kibbleSize !== undefined ? data.kibbleSize : existing.kibbleSize;
+      if (data.form !== undefined) updateData.form = data.form;
+      updateData.kibbleSize = kibbleSizeForForm(nextForm, nextSize);
+    }
     if (data.dosage !== undefined) updateData.dosage = data.dosage;
     if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
     if (data.expiryDate !== undefined) {
