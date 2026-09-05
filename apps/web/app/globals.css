@@ -2564,7 +2564,7 @@ button:disabled {
   flex: 0 0 auto;
   width: auto;
   min-height: auto;
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: 6px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -2717,7 +2717,7 @@ button:disabled {
 }
 
 .quick-record-input-bar {
-  --quick-chip-width: calc(2em + 20px);
+  --quick-chip-width: calc(2em + 14px);
   height: auto;
   max-height: none;
   overflow: visible;
@@ -2806,12 +2806,12 @@ button:disabled {
   justify-content: center;
   text-align: center;
   box-sizing: border-box;
-  width: calc(3em + 18px);
-  min-width: calc(3em + 18px);
-  max-width: calc(3em + 18px);
+  width: calc(3em + 14px);
+  min-width: calc(3em + 14px);
+  max-width: calc(3em + 14px);
   white-space: nowrap;
   overflow: visible;
-  padding: 4px 8px;
+  padding: 4px 6px;
   min-height: 28px;
   font-size: 0.76rem;
   line-height: 1.2;
@@ -2835,16 +2835,16 @@ button:disabled {
 }
 
 .chip-quick-5 {
-  width: calc(4.5em + 18px);
-  min-width: calc(4.5em + 18px);
-  max-width: calc(4.5em + 18px);
+  width: calc(4.5em + 14px);
+  min-width: calc(4.5em + 14px);
+  max-width: calc(4.5em + 14px);
 }
 
 .chip-quick-wide {
   width: auto;
-  min-width: calc(5em + 20px);
-  max-width: calc(7em + 24px);
-  padding-inline: 10px;
+  min-width: calc(5em + 16px);
+  max-width: calc(7em + 20px);
+  padding-inline: 8px;
 }
 
 .quick-record-input-bar .chip-quick,
@@ -2855,7 +2855,7 @@ button:disabled {
   max-width: 7em;
   min-height: 44px;
   padding-block: 8px;
-  padding-inline: 8px;
+  padding-inline: 6px;
   font-size: 0.82rem;
   border-radius: 10px;
   overflow: hidden;
