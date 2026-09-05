@@ -313,6 +313,10 @@ export default function ProductsPage() {
                     {p.brand && <div className="product-card-brand">{p.brand}</div>}
                     <h3 className="product-card-name">{p.name}</h3>
 
+                    {p.mainIngredients && (
+                      <p className="product-card-main-ingredients">{p.mainIngredients}</p>
+                    )}
+
                     {p.dosage && (
                       <p className="product-card-dosage-hint">{p.dosage}</p>
                     )}

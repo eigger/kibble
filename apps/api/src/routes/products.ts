@@ -109,6 +109,7 @@ export async function productRoutes(app: FastifyInstance) {
         kibbleSize: kibbleSizeForForm(data.form, data.kibbleSize) as KibbleSize | null,
         weightG: data.weightG ?? null,
         dosage: data.dosage ?? null,
+        mainIngredients: data.mainIngredients ?? null,
         ingredients: data.ingredients ?? null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         openedAt: data.openedAt ? new Date(data.openedAt) : null,
@@ -220,6 +221,7 @@ export async function productRoutes(app: FastifyInstance) {
       updateData.kibbleSize = kibbleSizeForForm(nextForm, nextSize);
     }
     if (data.dosage !== undefined) updateData.dosage = data.dosage;
+    if (data.mainIngredients !== undefined) updateData.mainIngredients = data.mainIngredients;
     if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
     if (data.expiryDate !== undefined) {
       updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;

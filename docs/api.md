@@ -238,6 +238,7 @@ curl -sS -X POST "$BASE/api/products" \
     "origin": "노르웨이",
     "weightG": 250,
     "dosage": "1일 1회 1펌프",
+    "mainIngredients": "오메가3 1000mg, 비타민E",
     "expiryDate": "2027-12-31T00:00:00.000Z",
     "openedAt": "2026-09-01T00:00:00.000Z",
     "costKrw": 35000,
@@ -247,7 +248,7 @@ curl -sS -X POST "$BASE/api/products" \
   }'
 ```
 
-선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `ingredients`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
+선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
 
 날짜 3종(`expiryDate`·`openedAt`·`purchaseDate`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
 
@@ -257,6 +258,10 @@ curl -sS -X POST "$BASE/api/products" \
 - `kibbleSize`: `SMALL`(소립) · `MEDIUM`(중립) · `LARGE`(대립)
 
 `kibbleSize`는 **`form`이 `DRY`일 때만** 저장됩니다. 그 외의 제형으로 보내면 서버가 `null`로 정리하며, 나중에 `form`만 `WET`으로 바꿔도 저장돼 있던 `kibbleSize`가 함께 지워집니다 — "습식인데 소립"이 남지 않게 하기 위해서입니다.
+
+**주성분과 전성분**
+
+`mainIngredients`는 목록 카드에 한 줄로 뜨는 **주성분**(200자)이고, `ingredients`는 상세에서 접었다 펴는 **전성분**(4000자)입니다. 목록에 4000자를 띄울 수 없어 컬럼을 나눴습니다.
 
 **중량**
 
