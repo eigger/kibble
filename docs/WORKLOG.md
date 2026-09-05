@@ -151,6 +151,22 @@
 
 ## 2. 세션 로그
 
+### 2026-09-06 — v0.16.3 릴리스
+
+PR #85(Service Worker direct fetch로 앱 최소화 시 백그라운드 업로드 지속 지원) 머지 후 태그.
+DB 마이그레이션 없음.
+
+---
+
+### 2026-09-06 — Service Worker direct fetch로 앱 최소화 시 백그라운드 업로드 지속 지원
+
+- **문제 해결 (앱 내리면 업로드 중단)**: 화면 스레드(Window XHR)는 사용자가 앱을 최소화하거나 화면을 끄면 안드로이드 OS가 렌더러 프로세스를 절전/frozen 처리하여 전송이 멈추던 문제를 해결했다.
+- **Service Worker 직접 `fetch()` 전송**: `sw-background-fetch.js`의 업로드 방식을 크롬이 미지원하는 Background Fetch API 대신, Service Worker의 표준 `fetch()`를 직접 실행하고 `event.waitUntil(kickIfIdle())`로 보호하여 앱이 최소화되거나 화면이 꺼져도 백그라운드에서 업로드가 중단 없이 완료되도록 보장했다 (R120).
+- **Service Worker 상단바 실시간 알림 연동**: Service Worker 내에서 직접 `self.registration.showNotification`을 호출하여 백그라운드에서도 상단바 알림창(`tag: 'kibble-upload'`) 진행률 및 완료 알림(3.5초 뒤 자동 닫기)을 갱신하도록 했다.
+- **캐시 버전 갱신**: `sw.js`의 `CACHE_NAME`을 `kibble-shell-v5`로 갱신하여 클라이언트에서 서비스 워커가 즉시 최신화되도록 했다.
+
+---
+
 ### 2026-09-06 — v0.16.2 릴리스
 
 PR #84(PWA 상단바 업로드 알림(Notification API) 연동 및 8초 지연 제거) 머지 후 태그.
