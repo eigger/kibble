@@ -5049,3 +5049,12 @@ th {
   object-fit: cover;
   display: block;
 }
+
+/* 이력 종류 필터. 기간 필터와 같은 줄 리듬 */
+.history-type-filter {
+  margin-bottom: 10px;
+}
+
+.history-type-select {
+  width: 100%;
+}

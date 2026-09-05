@@ -548,6 +548,8 @@ const dict = {
   periodFilterDayPlaceholder: { ko: "일", en: "Day" },
   periodMonthLabel: { ko: "{month}월", en: "{month}" },
   periodDayLabel: { ko: "{day}일", en: "{day}" },
+  historyTypeFilterAll: { ko: "전체 종류", en: "All types" },
+  historyTypeFilterLabel: { ko: "기록 종류", en: "Record type" },
   periodFilterClear: { ko: "기간 해제", en: "Clear period" },
 
   "quickTime.now": { ko: "방금", en: "Just now" },
