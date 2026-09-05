@@ -14,7 +14,7 @@ const BF_FETCH_PREFIX = "kbf:";
 const BF_MESSAGE_TYPE = "kibble-bf";
 const BF_SW_KICK = "kibble-bf-kick";
 const BF_SW_CANCEL = "kibble-bf-cancel";
-const BF_MAX_RETRIES = 5;
+const BF_MAX_RETRIES = 2;
 const BF_MAX_BACKOFF_MS = 5000;
 
 function fileCacheUrl(jobId, index) {
@@ -311,18 +311,21 @@ async function abortAllBf() {
   );
 }
 
-async function startBgFetch(job, request) {
+async function startBgFetch(job, request, uploadSize) {
   if (!self.registration.backgroundFetch) throw new Error("NO_BACKGROUND_FETCH");
   job.seq = (job.seq || 0) + 1;
   const id = `${BF_FETCH_PREFIX}${job.id}:${job.seq}`;
   job.fetchId = id;
   await putJob(job);
   const icons = job.iconUrl ? [{ src: job.iconUrl, sizes: "192x192", type: "image/png" }] : [];
-  await self.registration.backgroundFetch.fetch(id, [request], {
+  const options = {
     title: (job.ui && job.ui.uploading) || "Kibble",
     icons,
-    downloadTotal: 0,
-  });
+  };
+  if (typeof uploadSize === "number" && uploadSize > 0) {
+    options.uploadTotal = uploadSize;
+  }
+  await self.registration.backgroundFetch.fetch(id, [request], options);
 }
 
 async function retryOrFail(job) {
@@ -413,7 +416,7 @@ async function doMultipartBf(job, work) {
     jobHeaders(job),
   );
   try {
-    await startBgFetch(job, request);
+    await startBgFetch(job, request, blob.size);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
   } catch (err) {
     console.warn("[kibble] bf multipart", err);
@@ -440,7 +443,7 @@ async function doChunkBf(job, work) {
     },
   );
   try {
-    await startBgFetch(job, request);
+    await startBgFetch(job, request, chunk.size);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
   } catch (err) {
     console.warn("[kibble] bf chunk", err);
