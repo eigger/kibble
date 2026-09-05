@@ -1,4 +1,4 @@
-const CACHE_NAME = "kibble-shell-v5";
+const CACHE_NAME = "kibble-shell-v6";
 importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로
@@ -38,6 +38,8 @@ const SHELL_ASSETS = [
   "/users/",
   "/offline/",
   "/icons/icon.svg",
+  "/icons/badge-96.png",
+  "/icons/badge.svg",
 ].map(url);
 
 self.addEventListener("install", (event) => {
@@ -92,7 +94,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: url("/icons/icon.svg"),
+      icon: url("/icons/icon-192.png"),
+      badge: url("/icons/badge-96.png"),
       // API가 주는 경로는 앱 기준(루트 상대)이라, 서브패스 배포에서는 프리픽스를 붙여야
       // 알림을 눌렀을 때 앱 밖으로 나가지 않는다. trailingSlash 때문에 슬래시 없는
       // 주소는 308이 되므로 페이지 경로는 슬래시를 붙여 연다.

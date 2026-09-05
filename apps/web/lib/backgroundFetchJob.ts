@@ -47,6 +47,7 @@ export type BfJob = {
   apiBase: string;
   locale: string | null;
   iconUrl: string;
+  badgeUrl?: string;
   ui: BfUiCopy;
   files: BfFileMeta[];
   /** 서버·페이지와 같은 청크 크기. SW는 상수를 갖지 않고 이 값을 쓴다. */

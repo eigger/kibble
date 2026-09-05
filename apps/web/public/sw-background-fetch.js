@@ -301,6 +301,14 @@ function kickIfIdle() {
 
 const SW_NOTIFICATION_TAG = "kibble-upload";
 
+function jobBadgeUrl(job) {
+  if (job && job.badgeUrl) return job.badgeUrl;
+  if (job && job.iconUrl && job.iconUrl.indexOf("/icons/icon-192.png") !== -1) {
+    return job.iconUrl.replace(/\/icons\/icon-192\.png$/, "/icons/badge-96.png");
+  }
+  return "/icons/badge-96.png";
+}
+
 async function showSwProgressNotification(job) {
   if (!self.registration || !self.registration.showNotification) return;
   const currentNum = Math.min((job.fileIndex || 0) + 1, job.files.length);
@@ -314,12 +322,13 @@ async function showSwProgressNotification(job) {
       ? `사진 ${currentNum}/${total}장 올리는 중...`
       : "사진 올리는 중...";
   const icon = job.iconUrl || "/icons/icon-192.png";
+  const badge = jobBadgeUrl(job);
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: true,
       data: { url: "/" },
     });
@@ -338,12 +347,13 @@ async function showSwCompleteNotification(job) {
       ? `사진 ${total}장 업로드 완료`
       : "사진 업로드 완료";
   const icon = job.iconUrl || "/icons/icon-192.png";
+  const badge = jobBadgeUrl(job);
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: true,
       data: { url: "/" },
     });
@@ -363,12 +373,13 @@ async function showSwFailedNotification(job, leftover) {
     ? `Upload failed (${leftover} files). Please try again.`
     : `사진 ${leftover}장 업로드 실패. 다시 시도해 주세요.`;
   const icon = job.iconUrl || "/icons/icon-192.png";
+  const badge = jobBadgeUrl(job);
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: false,
       data: { url: "/" },
     });

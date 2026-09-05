@@ -71,6 +71,8 @@ describe("uploadNotification", () => {
       expect.objectContaining({
         tag: "kibble-upload",
         body: "사진 1/2장 올리는 중... (50%)",
+        icon: expect.stringContaining("icon-192.png"),
+        badge: expect.stringContaining("badge-96.png"),
         silent: true,
       }),
     );
