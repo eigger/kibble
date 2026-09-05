@@ -130,4 +130,23 @@ describe("startBackgroundUpload", () => {
     canUse.mockRestore();
     startVia.mockRestore();
   });
+
+  it("cleans up background fetch failed jobs when foreground upload succeeds", async () => {
+    const abortBf = vi.spyOn(backgroundFetchUpload, "abortBackgroundFetchesFor").mockResolvedValue();
+    const uploaded: EventAttachment = {
+      id: "a1",
+      path: "e/a.jpg",
+      mime: "image/jpeg",
+      size: 1,
+      width: null,
+      height: null,
+    };
+    uploadMock.mockResolvedValueOnce({ uploaded: [uploaded], remaining: [] });
+    startBackgroundUpload("e1", [file("a.jpg")]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()).toBeNull();
+    });
+    expect(abortBf).toHaveBeenCalledOnce();
+    abortBf.mockRestore();
+  });
 });

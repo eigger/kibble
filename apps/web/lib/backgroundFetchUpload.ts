@@ -87,7 +87,7 @@ function isBfMessage(data: unknown): data is BfClientMessage {
   return msg.type === BF_MESSAGE_TYPE && typeof msg.action === "string";
 }
 
-function waitForStarted(jobId: string, ms = 15_000): Promise<boolean> {
+function waitForStarted(jobId: string, ms = 3_000): Promise<boolean> {
   if (!("serviceWorker" in navigator)) return Promise.resolve(false);
   return new Promise((resolve) => {
     const timer = window.setTimeout(() => {

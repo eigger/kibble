@@ -309,7 +309,20 @@ async function drain(): Promise<void> {
           abort.signal,
         );
         notifyUploaded(job.eventId, uploaded);
-        if (!abort.signal.aborted) holdFailed(job.eventId, remaining);
+        if (!abort.signal.aborted) {
+          if (remaining.length === 0) {
+            for (let i = failed.length - 1; i >= 0; i--) {
+              if (failed[i].eventId === job.eventId) failed.splice(i, 1);
+            }
+          } else {
+            holdFailed(job.eventId, remaining);
+          }
+        }
+        if (uploaded.length > 0) {
+          void abortBackgroundFetchesFor((bfJob) => bfJob.eventId === job.eventId).then(() => {
+            void refreshBfFailedCount();
+          });
+        }
       } catch (err) {
         if (isUploadCancelled(err)) {
           // 그만두기 — 실패 배너에 남기지 않는다
