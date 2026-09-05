@@ -876,6 +876,11 @@ const dict = {
 
   productStatusActive: { ko: "급여 중", en: "In use" },
   productStatusInactive: { ko: "급여 종료", en: "Finished" },
+  productMainIngredientsLabel: { ko: "주성분", en: "Key ingredients" },
+  productMainIngredientsPlaceholder: {
+    ko: "예: 닭고기, 현미 / 오메가3 1000mg",
+    en: "e.g. chicken, brown rice",
+  },
   productOriginLabel: { ko: "원산지", en: "Origin" },
   productOriginPlaceholder: { ko: "예: 국내산, 캐나다", en: "e.g. Canada" },
   productFormLabel: { ko: "제형", en: "Form" },

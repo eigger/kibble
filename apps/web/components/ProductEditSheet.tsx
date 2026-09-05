@@ -44,6 +44,7 @@ export function ProductEditSheet({
   const [petId, setPetId] = useState<string>("");
   const [dosage, setDosage] = useState("");
   const [ingredients, setIngredients] = useState("");
+  const [mainIngredients, setMainIngredients] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [openedAt, setOpenedAt] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
@@ -82,6 +83,7 @@ export function ProductEditSheet({
       setPetId(product.petId ?? "");
       setDosage(product.dosage ?? "");
       setIngredients(product.ingredients ?? "");
+      setMainIngredients(product.mainIngredients ?? "");
       setExpiryDate(product.expiryDate ? product.expiryDate.slice(0, 10) : "");
       setOpenedAt(product.openedAt ? product.openedAt.slice(0, 10) : "");
       setPurchaseDate(product.purchaseDate ? product.purchaseDate.slice(0, 10) : "");
@@ -107,7 +109,13 @@ export function ProductEditSheet({
       setNotes(product.notes ?? "");
 
       // Auto-open sections if they have values
-      if (product.dosage || product.ingredients || product.palatability || (product.adverseReactions?.length ?? 0) > 0) {
+      if (
+        product.dosage ||
+        product.mainIngredients ||
+        product.ingredients ||
+        product.palatability ||
+        (product.adverseReactions?.length ?? 0) > 0
+      ) {
         setShowFeeding(true);
       }
       if (product.expiryDate || product.openedAt) {
@@ -131,6 +139,7 @@ export function ProductEditSheet({
       setPetId("");
       setDosage("");
       setIngredients("");
+      setMainIngredients("");
       setExpiryDate("");
       setOpenedAt("");
       setPurchaseDate("");
@@ -206,6 +215,7 @@ export function ProductEditSheet({
         category,
         petId: petId || null,
         dosage: dosage.trim() || null,
+        mainIngredients: showFormDetails ? mainIngredients.trim() || null : null,
         ingredients: ingredients.trim() || null,
         expiryDate: expiryDate ? new Date(`${expiryDate}T00:00:00.000Z`).toISOString() : null,
         openedAt: openedAt ? new Date(`${openedAt}T00:00:00.000Z`).toISOString() : null,
@@ -465,6 +475,23 @@ export function ProductEditSheet({
                     disabled={saving}
                   />
                 </div>
+
+                {showFormDetails && (
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="prod-main-ingredients">
+                      {t("productMainIngredientsLabel")}
+                    </label>
+                    <input
+                      id="prod-main-ingredients"
+                      type="text"
+                      className="text-input"
+                      placeholder={t("productMainIngredientsPlaceholder")}
+                      value={mainIngredients}
+                      onChange={(e) => setMainIngredients(e.target.value)}
+                      disabled={saving}
+                    />
+                  </div>
+                )}
 
                 <div className="field-group">
                   <label className="field-label" htmlFor="prod-ingredients">

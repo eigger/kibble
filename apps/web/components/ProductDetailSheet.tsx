@@ -91,6 +91,9 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
 
   // 제형·알갱이 크기·중량·원산지는 "이게 어떤 물건인가"를 한 줄로 말한다.
   const specs: { label: string; value: string }[] = [];
+  if (product.mainIngredients) {
+    specs.push({ label: t("productMainIngredientsLabel"), value: product.mainIngredients });
+  }
   if (product.form) {
     const size = product.kibbleSize ? kibbleSizeMap[product.kibbleSize] : null;
     specs.push({
