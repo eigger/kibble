@@ -364,14 +364,16 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
 
           {specs.length > 0 && (
             <div className="product-info-card">
-              <div className="product-spec-grid">
+              {/* 한 항목당 한 줄. 라벨 왼쪽·값 오른쪽이라 짧은 값은 한 줄에 끝나고
+                  등록성분처럼 긴 값만 값 칸 안에서 접힌다. */}
+              <dl className="product-spec-list">
                 {specs.map((spec) => (
-                  <div key={spec.label}>
-                    <span className="product-info-label">{spec.label}</span>
-                    <div className="product-spec-val">{spec.value}</div>
+                  <div key={spec.label} className="product-spec-row">
+                    <dt className="product-spec-key">{spec.label}</dt>
+                    <dd className="product-spec-val">{spec.value}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </div>
           )}
 

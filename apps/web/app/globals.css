@@ -4890,18 +4890,43 @@ th {
 
 
 /* 제품 사양(제형·중량·원산지) — 구매 정보와 같은 2열 리듬 */
-.product-spec-grid {
+/* 제품 사양 — 한 항목당 한 줄. 라벨 왼쪽·값 오른쪽이라 짧은 값은 한 줄에 끝나고,
+   등록성분처럼 긴 값만 값 칸 안에서 접힌다. 예전 다열 그리드(minmax(96px,1fr))는
+   긴 값이 좁은 칸에 갇혀 세로로 늘어졌다.
+
+   목록 전체가 하나의 2열 그리드다 — 행마다 따로 그리드를 만들면 라벨 폭이 제각각이라
+   값이 들쭉날쭉해진다. 행 래퍼는 <dl> 안에서 dt/dd를 묶는 데 필요하므로 남기되,
+   display: contents로 그리드에서는 없는 셈 친다. */
+.product-spec-list {
+  margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: baseline;
+}
+
+.product-spec-row {
+  display: contents;
+}
+
+.product-spec-key {
+  margin: 0;
+  max-width: 104px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
 }
 
 .product-spec-val {
-  margin-top: 2px;
+  margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
+
+
 
 /* 수량 + 단위. 단위 칸은 내용만큼만 */
 .product-weight-row {
