@@ -247,6 +247,18 @@ describe("formatEventDetailLine", () => {
       },
       t,
     );
-    expect(line).toBe("눈꼽 · 보통 · 왼쪽만");
+    expect(line).toBe("눈꼽 · 보통");
+  });
+
+  it("does not dump the note into the summary line", () => {
+    const line = formatEventDetailLine({
+      quantity: 30,
+      quantityOffered: 100,
+      unit: "g",
+      scaleValue: null,
+      note: "오늘은 평소보다 천천히 먹었고 남긴 것도 있다. 내일 병원을 가자.",
+      eventType: { key: "meal", scaleType: null },
+    });
+    expect(line).toBe("100g / 30g");
   });
 });

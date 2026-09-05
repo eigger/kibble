@@ -245,6 +245,7 @@ export function formatScaleValuePart(
   return null;
 }
 
+/** 목록 요약(제품·수량·척도). 메모는 넣지 않는다 — 행을 눌러 상세에서 본다. */
 export function formatEventDetailLine(
   event: {
     productName?: string | null;
@@ -314,6 +315,7 @@ export function formatEventDetailLine(
     );
   }
 
-  if (flags.note && event.note?.trim()) parts.push(event.note.trim());
+  // 메모는 목록 요약에 넣지 않는다. 한 줄로 이어 붙이면 수량·척도가 밀리고,
+  // 긴 메모는 행을 눌러 상세에서 본다.
   return parts.length > 0 ? parts.join(" · ") : null;
 }
