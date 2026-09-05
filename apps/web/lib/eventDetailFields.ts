@@ -1,12 +1,13 @@
 import { formatProductNameDisplay, productNameFieldLabelKey } from "./eventDetailTags";
+import type { TranslationKey } from "./i18n/translations";
 export type EventDetailFieldFlags = {
   productName: boolean;
   /** 사료 원재료·구토 종류·관찰 항목 등 태그 칩 */
   detailTags: boolean;
   /** 태그 외 직접 입력란 (관찰은 메모로 대체) */
   productCustomInput: boolean;
-  productNameLabelKey: string;
-  noteLabelKey: string;
+  productNameLabelKey: TranslationKey;
+  noteLabelKey: TranslationKey;
   clinicName: boolean;
   clinicAddress: boolean;
   cost: boolean;
@@ -55,18 +56,18 @@ export function isScale3Type(scaleType: string | null | undefined): boolean {
   return scaleType != null && SCALE3_TYPES.has(scaleType);
 }
 
-export function scale3FieldLabelKey(scaleType: string | null | undefined): string {
+export function scale3FieldLabelKey(scaleType: string | null | undefined): TranslationKey {
   if (scaleType === "URINE_AMOUNT_3") return "eventDetailUrineAmountLabel";
   if (scaleType === "ENERGY_3") return "eventDetailEnergyLabel";
   if (scaleType === "APPETITE_3") return "eventDetailAppetiteLabel";
   return "eventDetailScaleLabel";
 }
 
-export function scale3ValueLabelKey(scaleType: string | null | undefined, value: number): string {
-  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${value}`;
-  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${value}`;
-  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${value}`;
-  return `eventDetailScale.${value}`;
+export function scale3ValueLabelKey(scaleType: string | null | undefined, value: number): TranslationKey {
+  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${value}` as TranslationKey;
+  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${value}` as TranslationKey;
+  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${value}` as TranslationKey;
+  return `eventDetailScale.${value}` as TranslationKey;
 }
 
 export function eventDetailFields(
@@ -237,7 +238,7 @@ export function quantityPlaceholder(
 export function formatScaleValuePart(
   scaleType: string | null | undefined,
   scaleValue: number | null,
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string | null {
   if (scaleValue == null) return null;
   if (scaleType === "FECAL_7") return `${scaleValue}/7`;
@@ -259,7 +260,7 @@ export function formatEventDetailLine(
     scaleValue: number | null;
     eventType: { key: string; scaleType?: string | null };
   },
-  t?: (key: string) => string,
+  t?: (key: TranslationKey) => string,
 ): string | null {
   const flags = eventDetailFields(event.eventType.key, event.eventType.scaleType);
   const unit = event.unit ?? flags.defaultUnit ?? "";

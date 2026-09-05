@@ -816,6 +816,16 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 | **타임라인 페이로드 경량화** | `eventWithRelationsSelect.product`는 목록 표시에 필요한 경량 필드(`id, name, brand, category, photoPath, dosage, isActive`)만 포함. 전성분(4000자)·메모 등은 상세 시트에서 지연 로드 |
 | **일 경계 KST 동기화** | 제품 유통기한 D-Day 및 개봉 경과일 계산은 §7.11에 따라 `kstDayDiff` (Asia/Seoul 자정 기준) 사용 |
 
+### 7.14 디자인 시스템, 하단 내비 레이아웃 및 번역 키 무결성
+
+| 결정 | 내용 |
+|---|---|
+| **디자인 시스템 & 라인아트 SVG** | 컬러 이모지를 전면 제거하고 모노크롬 라인아트 SVG로 통일 (`ProductIcons.tsx`). 모든 SVG 아이콘에 `aria-hidden: true`, `focusable: false` 기본 부여하여 스크린리더 이중 낭독 방지 (R94) |
+| **하단 내비 높이 및 안전 영역 계산** | `* { box-sizing: border-box }` 전제 하에서 `height: calc(var(--nav-height) + env(safe-area-inset-bottom))`으로 정의하여 노치 기기에서 내비 내부 콘텐츠가 30px로 찌그러지던 현상 및 전역 34px 오프셋 오차 영구 해결 (R93) |
+| **플로팅 버튼 레이어 및 터치 영역 분리** | `.bottom-nav`(`z-index: 50`), `.home-input-bar`(`z-index: 40`) 계층 엄수. 18px 돌출 플로팅 버튼이 잘리지 않도록 유지하고, 칩과의 간섭은 `.home-input-bar-inner`에 `padding-bottom: 20px`을 주어 물리적으로 해결. CSS transition은 `transform: scale(0.94)`를 적용해 리플로우 방지 (R96) |
+| **접근성 있는 독립 버튼 분리** | 칩 내부 `<span onClick>` 중첩을 배제하고, `.product-quick-chip-wrap` 컨테이너 아래 형제 `<button>`으로 분리하여 `aria-label` 및 키보드 접근성 보장 (R97) |
+| **`t()` 번역 키 타입 엄격화** | `t(key: TranslationKey)`로 `| string` 탈출구 제거. 누락/오타 i18n 키를 컴파일 타임에 원천 차단하고 K-9(ko/en 동시 작성) 강제 (R95) |
+
 ### 7.10 지금 결정하지 않는 것
 
 | 항목 | 언제 | 근거가 될 것 |

@@ -12,6 +12,8 @@ import {
 import type { MedicationCourseProgress } from "../lib/types";
 import { MedicationCourseForm } from "./MedicationCourseForm";
 
+import type { TranslationKey } from "../lib/i18n/translations";
+
 type Props = {
   open: boolean;
   mode: "add" | "edit";
@@ -20,7 +22,7 @@ type Props = {
   onClose: () => void;
   onSaved: () => void;
   onArchived?: () => void;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   locale: "ko" | "en";
   showToast: (message: string, kind: "success" | "error" | "info") => void;
 };

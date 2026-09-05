@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiJson, isApiError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
+import type { TranslationKey } from "../lib/i18n/translations";
 import type { Pet, TodaySummaryRow, TimelineEvent } from "../lib/types";
 import type { JournalStats } from "@kibble/shared";
 import { journalInsightMessage } from "@kibble/shared";
@@ -106,7 +107,7 @@ export default function HomePage() {
   }
 
   const journalInsight = useMemo(
-    () => journalInsightMessage(journalStats, t),
+    () => journalInsightMessage(journalStats, (key, vars) => t(key as TranslationKey, vars)),
     [journalStats, t],
   );
 
@@ -177,7 +178,7 @@ export default function HomePage() {
                   {todaySummary.map((row) => (
                     <li key={row.eventTypeKey} className="summary-card">
                       <span className="summary-card-count">{row.count}</span>
-                      <span className="summary-card-label">{t(row.label)}</span>
+                      <span className="summary-card-label">{t(row.label as TranslationKey)}</span>
                     </li>
                   ))}
                 </ul>

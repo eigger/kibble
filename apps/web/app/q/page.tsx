@@ -11,6 +11,7 @@ import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import { useToast } from "../../lib/toast-context";
 import {
   clinicFieldsFromContact,
@@ -211,7 +212,7 @@ export default function QuickRecordPage() {
           ]
         : null;
     const slotLabel = slotTime ? formatDoseTime(slotTime, localeTag) : null;
-    const labelParts = [t(preset.label)];
+    const labelParts = [t(preset.label as TranslationKey)];
     if (courseName) labelParts.push(courseName);
     if (slotLabel) labelParts.push(slotLabel);
     const label = labelParts.join(" · ");
@@ -539,7 +540,7 @@ export default function QuickRecordPage() {
                     <span className="quick-chip-row-label">
                       <EventCategoryTag
                         category={group.category}
-                        label={t(`presetCategoryShort.${group.category}`)}
+                        label={t(`presetCategoryShort.${group.category}` as TranslationKey)}
                       />
                     </span>
                     <div className="quick-chip-row-chips">
@@ -547,7 +548,7 @@ export default function QuickRecordPage() {
                         <PresetChip
                           key={preset.id}
                           preset={preset}
-                          label={t(preset.label)}
+                          label={t(preset.label as TranslationKey)}
                           disabled={detailSaving || !pet}
                           tapOnly
                           compact

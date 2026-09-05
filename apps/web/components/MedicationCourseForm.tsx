@@ -3,12 +3,14 @@
 import type { MedicationCourseDraft } from "../lib/medicationCourseDraft";
 import { syncDoseTimesForCount, updateDoseTimeAt } from "../lib/medicationCourseDraft";
 
+import type { TranslationKey } from "../lib/i18n/translations";
+
 type Props = {
   formId: string;
   draft: MedicationCourseDraft;
   onChange: (patch: Partial<MedicationCourseDraft>) => void;
   disabled?: boolean;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
 };
 
 export function MedicationCourseForm({

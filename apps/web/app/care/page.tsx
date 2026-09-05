@@ -8,6 +8,7 @@ import { apiJson, isApiError } from "../../lib/api";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import { useToast } from "../../lib/toast-context";
 import { MedicationCourseSheet } from "../../components/MedicationCourseSheet";
 import type { CareReminder, MedicationCourseProgress, Pet } from "../../lib/types";
@@ -23,15 +24,14 @@ interface CarePayload {
 
 function formatDueDate(iso: string, locale: "ko" | "en"): string {
   return new Date(iso).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
-    month: "short",
+    month: "numeric",
     day: "numeric",
-    timeZone: "Asia/Seoul",
   });
 }
 
 function courseMetaParts(
   course: MedicationCourseProgress,
-  t: (key: string, params?: Record<string, string>) => string,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
 ): string {
   const parts = [
     t("careTodayProgress", {
@@ -303,7 +303,7 @@ export default function CarePage() {
                   >
                     <span className="care-reminder-label">{reminder.label}</span>
                     <span className="care-reminder-meta meta">
-                      {t(reminder.eventTypeLabel)} · {formatDueDate(reminder.nextDueAt, locale)}
+                      {t(reminder.eventTypeLabel as TranslationKey)} · {formatDueDate(reminder.nextDueAt, locale)}
                     </span>
                   </li>
                 ))}

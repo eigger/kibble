@@ -7,6 +7,7 @@ import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import type { EventTypeAliasesRow, Pet, PresetDetail } from "../../lib/types";
 
 export default function PresetsPage() {
@@ -129,14 +130,14 @@ export default function PresetsPage() {
           <li key={preset.id} className="preset-manage-item card">
             <div className="preset-manage-row">
               <label className="field-label" htmlFor={`preset-label-${preset.id}`}>
-                {t(preset.eventType.label)}
+                {t(preset.eventType.label as TranslationKey)}
                 {preset.hiddenAt && (
                   <span className="preset-hidden-badge">{t("presetsHiddenBadge")}</span>
                 )}
               </label>
               <input
                 id={`preset-label-${preset.id}`}
-                value={preset.label.startsWith("eventType.") ? t(preset.label) : preset.label}
+                value={preset.label.startsWith("eventType.") ? t(preset.label as TranslationKey) : preset.label}
                 onChange={(e) =>
                   setPresets((rows) =>
                     rows.map((r) => (r.id === preset.id ? { ...r, label: e.target.value } : r)),
@@ -204,7 +205,7 @@ function PresetAliasRow({
   onSave,
 }: {
   row: EventTypeAliasesRow;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
   onSave: (row: EventTypeAliasesRow, raw: string) => Promise<void>;
 }) {
   const [value, setValue] = useState(row.aliases.join(", "));
@@ -216,7 +217,7 @@ function PresetAliasRow({
   return (
     <li className="preset-alias-item">
       <label className="field-label" htmlFor={`alias-${row.key}`}>
-        {t(row.label)}
+        {t(row.label as TranslationKey)}
       </label>
       <input
         id={`alias-${row.key}`}

@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { eventAuditParts } from "./eventDisplay";
+import type { TranslationKey } from "./i18n/translations";
 
-function t(key: string, params?: Record<string, string>): string {
-  const dict: Record<string, string> = {
+function t(key: TranslationKey, params?: Record<string, string | number>): string {
+  const dict: Partial<Record<TranslationKey, string>> = {
     eventDetailCreatedBy: "{name} 작성",
     eventDetailLastModified: "{datetime} 수정",
     eventDetailLastModifiedBy: "{name} · {datetime} 수정",
   };
   const template = dict[key] ?? key;
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (m, k) => (k in params ? params[k] : m));
+  return template.replace(/\{(\w+)\}/g, (m, k) => (k in params ? String(params[k]) : m));
 }
 
 describe("eventAuditParts", () => {

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { normalizeAttachmentType, snapshotFile } from "../lib/uploadPrep";
 
+import type { TranslationKey } from "../lib/i18n/translations";
+
 const MAX_FILES = 9;
 
 // MIME을 하나하나 나열하면 안드로이드 갤러리에서 HEIF·webm 같은 항목이 통째로 회색이
@@ -20,12 +22,12 @@ type Props = {
   disabled?: boolean;
   onChange: (files: File[]) => void;
   progress?: AttachmentUploadProgress | null;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
 };
 
 function progressLabel(
   progress: { phase: AttachmentUploadProgress["phase"]; loaded: number; total: number },
-  t: (key: string, params?: Record<string, string>) => string,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
 ): string {
   if (progress.phase === "preparing" || progress.total <= 0) return t("attachmentPreparing");
   return `${Math.min(100, Math.round((progress.loaded / progress.total) * 100))}%`;

@@ -21,6 +21,7 @@ import {
 import { ProductDetailSheet } from "./ProductDetailSheet";
 import { InfoIcon, LightbulbIcon } from "./ProductIcons";
 import type { EventAttachment, Product, ProductSummary } from "../lib/types";
+import type { TranslationKey } from "../lib/i18n/translations";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
@@ -98,7 +99,7 @@ interface EventDetailSheetProps {
   onSave: (draft: EventDetailDraft, meta: EventDetailSaveMeta) => void;
   onValidationError: (message: string) => void;
   saveError?: string | null;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   locale?: "ko" | "en";
 }
 
@@ -879,27 +880,28 @@ export function EventDetailSheet({
                         {activeProducts.map((p) => {
                           const isSelected = productId === p.id;
                           return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              className={`product-quick-chip ${isSelected ? "selected" : ""}`}
-                              disabled={busy}
-                              onClick={() => selectActiveProduct(p)}
-                            >
-                              <span className="chip-name">{p.name}</span>
+                            <div key={p.id} className="product-quick-chip-wrap">
+                              <button
+                                type="button"
+                                className={`product-quick-chip ${isSelected ? "selected" : ""}`}
+                                disabled={busy}
+                                onClick={() => selectActiveProduct(p)}
+                              >
+                                <span className="chip-name">{p.name}</span>
+                              </button>
                               {isSelected && (
-                                <span
+                                <button
+                                  type="button"
                                   className="chip-info-btn"
                                   title={t("productDetailTitle")}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenProductPopup(p.id);
-                                  }}
+                                  aria-label={`${p.name} ${t("productDetailTitle")}`}
+                                  disabled={busy}
+                                  onClick={() => handleOpenProductPopup(p.id)}
                                 >
                                   <InfoIcon size={12} />
-                                </span>
+                                </button>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

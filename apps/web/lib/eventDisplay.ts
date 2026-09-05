@@ -1,3 +1,4 @@
+import type { TranslationKey } from "./i18n/translations";
 import type { PresetCategory } from "./presetGroups";
 import { PRESET_CATEGORY_ORDER } from "./presetGroups";
 import { formatEventDetailLine } from "./eventDetailFields";
@@ -15,9 +16,9 @@ export function eventCategory(event: {
 
 export function eventCategoryLabel(
   event: { eventType: { key: string; category?: string | null } },
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string {
-  return t(`presetCategoryShort.${eventCategory(event)}`);
+  return t(`presetCategoryShort.${eventCategory(event)}` as TranslationKey);
 }
 
 export function clinicFieldsFromContact(event: {
@@ -83,7 +84,7 @@ export function eventAuditParts(
     createdAt?: string;
     updatedAt?: string;
   },
-  t: (key: string, params?: Record<string, string>) => string,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
   locale: string,
 ): string[] {
   const parts: string[] = [];
@@ -108,17 +109,17 @@ export function eventAuditParts(
   return parts;
 }
 
-export function eventDisplayLabel(event: TimelineEvent, t: (key: string) => string): string {
+export function eventDisplayLabel(event: TimelineEvent, t: (key: TranslationKey) => string): string {
   if (event.eventType.key === "medication" && event.course?.name) {
     return event.course.name;
   }
-  if (event.preset?.label) return t(event.preset.label);
-  return t(event.eventType.label);
+  if (event.preset?.label) return t(event.preset.label as TranslationKey);
+  return t(event.eventType.label as TranslationKey);
 }
 
 export function eventDetailLine(
   event: TimelineEvent,
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string | null {
   const clinic = clinicFieldsFromContact(event);
   const showCourseInDetail =

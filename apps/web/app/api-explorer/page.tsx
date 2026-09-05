@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { API_URL, apiFetch } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import type { Pet } from "../../lib/types";
 
 type RunResult = { status: number; ms: number; body: unknown } | { error: string };
@@ -13,13 +14,13 @@ type ReadEndpoint = {
   key: string;
   /** petId가 필요한 항목은 반려동물을 고르기 전까지 null */
   path: string | null;
-  descKey: string;
+  descKey: TranslationKey;
 };
 
 type WriteEndpoint = {
   method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
-  descKey: string;
+  descKey: TranslationKey;
   curl: string;
 };
 

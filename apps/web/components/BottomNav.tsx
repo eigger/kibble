@@ -19,6 +19,8 @@ function iconProps(): SVGProps<SVGSVGElement> {
     strokeWidth: 1.8,
     strokeLinecap: "round",
     strokeLinejoin: "round",
+    "aria-hidden": true,
+    focusable: "false",
   };
 }
 
@@ -270,7 +272,6 @@ export function BottomNav() {
             href={NAV_TAB_CENTER.href}
             className={`scan-tab ${pathname === NAV_TAB_CENTER.href ? "active" : ""}`}
             aria-current={pathname === NAV_TAB_CENTER.href ? "page" : undefined}
-            tabIndex={pathname === NAV_TAB_CENTER.href ? -1 : undefined}
           >
             <span className="icon-wrap">
               <span className="icon">

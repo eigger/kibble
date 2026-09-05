@@ -10,6 +10,8 @@ function iconProps(size = 18, strokeWidth = 1.8): SVGProps<SVGSVGElement> {
     strokeWidth,
     strokeLinecap: "round",
     strokeLinejoin: "round",
+    "aria-hidden": true,
+    focusable: "false",
   };
 }
 
