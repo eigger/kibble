@@ -1172,12 +1172,35 @@ button:disabled {
   background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 0.82rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.chip:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  color: var(--color-text);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.chip:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
 }
 
 .chip-selected {
   background: var(--color-primary);
   border-color: var(--color-primary);
   color: var(--color-primary-text);
+}
+
+.chip-selected:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 90%, black);
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 .dashboard-section h2 {
@@ -2507,10 +2530,21 @@ button:disabled {
   font-size: 0.82rem;
   line-height: 1.2;
   touch-action: manipulation;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.event-detail-chip:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  color: var(--color-text);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
 }
 
 .event-detail-chip:active:not(:disabled) {
   transform: scale(0.97);
+  box-shadow: none;
 }
 
 .event-detail-chip-selected {
@@ -2518,6 +2552,14 @@ button:disabled {
   background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
   color: var(--color-primary);
   font-weight: 600;
+}
+
+.event-detail-chip-selected:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 .event-detail-chip-hint {
@@ -2720,10 +2762,21 @@ button:disabled {
   line-height: 1.2;
   border-radius: 8px;
   touch-action: manipulation;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.chip-quick:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  color: var(--color-text);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
 }
 
 .chip-quick:active:not(:disabled) {
   transform: scale(0.97);
+  box-shadow: none;
 }
 
 .chip-quick-5 {
@@ -4712,16 +4765,43 @@ th {
   font-weight: 500;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
+.product-quick-chip:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  color: var(--color-text);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+
+.product-quick-chip:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+.product-quick-chip.selected,
 .product-quick-chip-selected {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface));
+  color: var(--color-primary);
   border-color: var(--color-primary);
   font-weight: 600;
+}
+
+.product-quick-chip.selected:hover:not(:disabled),
+.product-quick-chip-selected:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 
 
