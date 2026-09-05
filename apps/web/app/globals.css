@@ -4890,6 +4890,30 @@ th {
 
 
 /* 제품 사양(제형·중량·원산지) — 구매 정보와 같은 2열 리듬 */
+/**
+ * 입력 두 칸을 한 행에 두려는 자리. 지금까지 CSS에 정의가 없어서 실제로는 세로로
+ * 쌓여 있었다 — 좁은 폰에서는 그게 맞으므로 그 동작을 기본으로 두고, 폭이 생길 때만
+ * 두 칸으로 나눈다. `auto-fit`이라 칸이 하나뿐인 행(제형만 있고 알갱이 크기가 숨은
+ * 경우)은 전체 폭을 쓴다.
+ */
+.field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+@media (min-width: 480px) {
+  .field-row {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+
+/* flex 행에서 남는 폭을 먹는 칸. min-width: 0이라야 안쪽이 접힌다 */
+.flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
 /* 제품 사양 — 한 항목당 한 줄. 라벨 왼쪽·값 오른쪽이라 짧은 값은 한 줄에 끝나고,
    등록성분처럼 긴 값만 값 칸 안에서 접힌다. 예전 다열 그리드(minmax(96px,1fr))는
    긴 값이 좁은 칸에 갇혀 세로로 늘어졌다.
@@ -4907,6 +4931,18 @@ th {
 
 .product-spec-row {
   display: contents;
+}
+
+/* 값이 긴 항목(주성분·등록성분·보관방법)은 라벨 아래 전체 폭을 쓴다. 좁은 폰에서
+   라벨 옆 200px 남짓한 칸에 넣으면 한 글자씩 접혀 세로로 늘어진다. */
+.product-spec-row.is-wide .product-spec-key,
+.product-spec-row.is-wide .product-spec-val {
+  grid-column: 1 / -1;
+}
+
+/* 행 간격(8px)이 라벨과 그 값 사이에도 들어가면 별개 항목처럼 보인다 — 좁힌다 */
+.product-spec-row.is-wide .product-spec-key {
+  margin-bottom: -4px;
 }
 
 .product-spec-key {

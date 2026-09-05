@@ -131,17 +131,20 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
 
   // "이게 어떤 물건인가"를 한 줄씩. 편집 시트와 같은 묶음·순서로 읽히게 한다:
   // 무엇에 쓰나 → 무엇으로 만들었나 → 어떤 형태·크기인가 → 어디서 왔나 → 어떻게 다루나.
-  const specs: { label: string; value: string }[] = [];
+  // wide = 값이 길어 라벨 옆에 두면 좁은 폰에서 세로로 늘어지는 항목. 라벨 아래
+  // 전체 폭을 쓴다. 짧은 항목까지 그렇게 하면 줄 수만 두 배가 된다.
+  const specs: { label: string; value: string; wide?: boolean }[] = [];
   if (product.usage) {
     specs.push({ label: t("productUsageLabel"), value: product.usage });
   }
   if (product.mainIngredients) {
-    specs.push({ label: t("productMainIngredientsLabel"), value: product.mainIngredients });
+    specs.push({ label: t("productMainIngredientsLabel"), value: product.mainIngredients, wide: true });
   }
   if (product.registeredIngredients) {
     specs.push({
       label: t("productRegisteredIngredientsLabel"),
       value: product.registeredIngredients,
+      wide: true,
     });
   }
   if (product.ingredientRegistrationNo) {
@@ -167,7 +170,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   if (product.manufacturedAt) {
     specs.push({ label: t("productManufacturedAtLabel"), value: formatKstDate(product.manufacturedAt) });
   }
-  if (product.storage) specs.push({ label: t("productStorageLabel"), value: product.storage });
+  if (product.storage) specs.push({ label: t("productStorageLabel"), value: product.storage, wide: true });
 
   if (previewOpen && (previewPhotoId || product.photoPath)) {
     // 시트 위에 겹치지 않고 갈아 끼운다 — 배경 두 겹이 쌓이면 닫기 대상이 헷갈린다.
@@ -368,7 +371,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                   등록성분처럼 긴 값만 값 칸 안에서 접힌다. */}
               <dl className="product-spec-list">
                 {specs.map((spec) => (
-                  <div key={spec.label} className="product-spec-row">
+                  <div key={spec.label} className={`product-spec-row ${spec.wide ? "is-wide" : ""}`}>
                     <dt className="product-spec-key">{spec.label}</dt>
                     <dd className="product-spec-val">{spec.value}</dd>
                   </div>
