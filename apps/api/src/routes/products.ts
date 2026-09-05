@@ -408,6 +408,35 @@ export async function productRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * 대표 사진 바이트. 목록 카드·기록 화면·빠른 제품 칩이 전부 이 경로를 쓴다 —
+   * `Product.photoPath` 하나만 알면 되도록 남겨 둔 입구다.
+   */
+  app.get("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const { id } = request.params as { id: string };
+    const product = await prisma.product.findFirst({
+      where: { id, ...householdWhere(householdId) },
+      select: { photoPath: true },
+    });
+
+    if (!product?.photoPath) {
+      return reply.code(404).send({ error: t("photoNotFound", request.locale) });
+    }
+
+    try {
+      const abs = productPhotoAbsolutePath(product.photoPath);
+      return await sendFileWithRange(request, reply, abs, {
+        contentType: "image/webp",
+        cacheControl: "private, max-age=3600",
+      });
+    } catch {
+      return reply.code(404).send({ error: t("photoNotFound", request.locale) });
+    }
+  });
+
   // GET /api/products/:id/photos/:photoId — 바이트
   app.get("/:id/photos/:photoId", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdId(request, reply);
