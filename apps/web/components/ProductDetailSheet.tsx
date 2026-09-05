@@ -97,6 +97,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   const categoryLabelMap: Record<string, string> = {
     MEAL: t("productCategoryMeal"),
     SUPPLEMENT: t("productCategorySupplement"),
+    MEDICATION: t("productCategoryMedication"),
     TREAT: t("productCategoryTreat"),
     HYGIENE: t("productCategoryHygiene"),
     DEVICE: t("productCategoryDevice"),
@@ -128,10 +129,29 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     LARGE: t("productKibbleSizeLarge"),
   };
 
-  // 제형·알갱이 크기·중량·원산지는 "이게 어떤 물건인가"를 한 줄로 말한다.
+  // "이게 어떤 물건인가"를 한 줄씩. 편집 시트와 같은 묶음·순서로 읽히게 한다:
+  // 무엇에 쓰나 → 무엇으로 만들었나 → 어떤 형태·크기인가 → 어디서 왔나 → 어떻게 다루나.
   const specs: { label: string; value: string }[] = [];
+  if (product.usage) {
+    specs.push({ label: t("productUsageLabel"), value: product.usage });
+  }
   if (product.mainIngredients) {
     specs.push({ label: t("productMainIngredientsLabel"), value: product.mainIngredients });
+  }
+  if (product.registeredIngredients) {
+    specs.push({
+      label: t("productRegisteredIngredientsLabel"),
+      value: product.registeredIngredients,
+    });
+  }
+  if (product.ingredientRegistrationNo) {
+    specs.push({
+      label: t("productRegistrationNoLabel"),
+      value: product.ingredientRegistrationNo,
+    });
+  }
+  if (product.flavor) {
+    specs.push({ label: t("productFlavorLabel"), value: product.flavor });
   }
   if (product.form) {
     const size = product.kibbleSize ? kibbleSizeMap[product.kibbleSize] : null;
@@ -143,6 +163,11 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   const weightLabel = formatWeightG(product.weightG);
   if (weightLabel) specs.push({ label: t("productWeightLabel"), value: weightLabel });
   if (product.origin) specs.push({ label: t("productOriginLabel"), value: product.origin });
+  if (product.importer) specs.push({ label: t("productImporterLabel"), value: product.importer });
+  if (product.manufacturedAt) {
+    specs.push({ label: t("productManufacturedAtLabel"), value: formatKstDate(product.manufacturedAt) });
+  }
+  if (product.storage) specs.push({ label: t("productStorageLabel"), value: product.storage });
 
   if (previewOpen && (previewPhotoId || product.photoPath)) {
     // 시트 위에 겹치지 않고 갈아 끼운다 — 배경 두 겹이 쌓이면 닫기 대상이 헷갈린다.

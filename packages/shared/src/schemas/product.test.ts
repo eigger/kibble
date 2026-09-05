@@ -225,3 +225,33 @@ describe("제형 목록", () => {
     expect(kibbleSizeForForm("CHEWY", "MEDIUM")).toBeNull();
   });
 });
+
+describe("약·제제 카테고리와 표기사항", () => {
+  it("MEDICATION을 카테고리로 받는다", () => {
+    expect(createProductSchema.safeParse({ name: "지사제", category: "MEDICATION" }).success).toBe(
+      true,
+    );
+  });
+
+  it("약·제제도 제형·중량 칸을 쓴다 — 캡슐·정제·액상이 여기 몰린다", () => {
+    expect(hasFormDetails("MEDICATION")).toBe(true);
+  });
+
+  it("표기사항은 전부 선택이고 날짜는 ISO datetime이다", () => {
+    const ok = createProductSchema.safeParse({
+      name: "a",
+      flavor: "참치",
+      usage: "급성 제제",
+      registeredIngredients: "조단백질 30% 이상",
+      ingredientRegistrationNo: "제2026-1호",
+      importer: "○○상사",
+      storage: "서늘한 곳",
+      manufacturedAt: "2026-01-01T00:00:00.000Z",
+    });
+    expect(ok.success).toBe(true);
+    // 날짜만 주면 거절한다 — expiryDate와 같은 규칙
+    expect(
+      createProductSchema.safeParse({ name: "a", manufacturedAt: "2026-01-01" }).success,
+    ).toBe(false);
+  });
+});

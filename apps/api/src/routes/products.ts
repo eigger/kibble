@@ -27,6 +27,7 @@ function serializeProduct(product: Product) {
     expiryDate: product.expiryDate?.toISOString() ?? null,
     openedAt: product.openedAt?.toISOString() ?? null,
     purchaseDate: product.purchaseDate?.toISOString() ?? null,
+    manufacturedAt: product.manufacturedAt?.toISOString() ?? null,
     archivedAt: product.archivedAt?.toISOString() ?? null,
   };
 }
@@ -116,6 +117,13 @@ export async function productRoutes(app: FastifyInstance) {
         weightG: data.weightG ?? null,
         dosage: data.dosage ?? null,
         mainIngredients: data.mainIngredients ?? null,
+        flavor: data.flavor ?? null,
+        ingredientRegistrationNo: data.ingredientRegistrationNo ?? null,
+        registeredIngredients: data.registeredIngredients ?? null,
+        importer: data.importer ?? null,
+        manufacturedAt: data.manufacturedAt ? new Date(data.manufacturedAt) : null,
+        storage: data.storage ?? null,
+        usage: data.usage ?? null,
         ingredients: data.ingredients ?? null,
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         openedAt: data.openedAt ? new Date(data.openedAt) : null,
@@ -239,6 +247,19 @@ export async function productRoutes(app: FastifyInstance) {
     }
     if (data.dosage !== undefined) updateData.dosage = data.dosage;
     if (data.mainIngredients !== undefined) updateData.mainIngredients = data.mainIngredients;
+    if (data.flavor !== undefined) updateData.flavor = data.flavor;
+    if (data.ingredientRegistrationNo !== undefined) {
+      updateData.ingredientRegistrationNo = data.ingredientRegistrationNo;
+    }
+    if (data.registeredIngredients !== undefined) {
+      updateData.registeredIngredients = data.registeredIngredients;
+    }
+    if (data.importer !== undefined) updateData.importer = data.importer;
+    if (data.manufacturedAt !== undefined) {
+      updateData.manufacturedAt = data.manufacturedAt ? new Date(data.manufacturedAt) : null;
+    }
+    if (data.storage !== undefined) updateData.storage = data.storage;
+    if (data.usage !== undefined) updateData.usage = data.usage;
     if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
     if (data.expiryDate !== undefined) {
       updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;

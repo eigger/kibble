@@ -5,6 +5,7 @@ const POSTGRES_INT_MAX = 2_147_483_647;
 export const PRODUCT_CATEGORIES = [
   "MEAL",
   "SUPPLEMENT",
+  "MEDICATION",
   "TREAT",
   "HYGIENE",
   "DEVICE",
@@ -40,7 +41,7 @@ export const kibbleSizeSchema = z.enum(KIBBLE_SIZES);
 export type KibbleSize = z.infer<typeof kibbleSizeSchema>;
 
 /** 제형·입자크기·원산지·중량을 입력받는 카테고리. 기기·위생용품에는 안 묻는다. */
-export const FORM_DETAIL_CATEGORIES = ["MEAL", "SUPPLEMENT", "TREAT"] as const;
+export const FORM_DETAIL_CATEGORIES = ["MEAL", "SUPPLEMENT", "MEDICATION", "TREAT"] as const;
 
 export function hasFormDetails(category: ProductCategory): boolean {
   return (FORM_DETAIL_CATEGORIES as readonly string[]).includes(category);
@@ -154,6 +155,13 @@ export const createProductSchema = z.object({
   weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
   dosage: z.string().trim().max(500).nullable().optional(),
   mainIngredients: z.string().trim().max(200).nullable().optional(),
+  flavor: z.string().trim().max(60).nullable().optional(),
+  ingredientRegistrationNo: z.string().trim().max(60).nullable().optional(),
+  registeredIngredients: z.string().trim().max(1000).nullable().optional(),
+  importer: z.string().trim().max(120).nullable().optional(),
+  manufacturedAt: z.string().datetime().nullable().optional(),
+  storage: z.string().trim().max(300).nullable().optional(),
+  usage: z.string().trim().max(200).nullable().optional(),
   ingredients: z.string().trim().max(4000).nullable().optional(),
   expiryDate: z.string().datetime().nullable().optional(),
   openedAt: z.string().datetime().nullable().optional(),
@@ -180,6 +188,13 @@ export const updateProductSchema = z
     weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
     dosage: z.string().trim().max(500).nullable().optional(),
     mainIngredients: z.string().trim().max(200).nullable().optional(),
+    flavor: z.string().trim().max(60).nullable().optional(),
+    ingredientRegistrationNo: z.string().trim().max(60).nullable().optional(),
+    registeredIngredients: z.string().trim().max(1000).nullable().optional(),
+    importer: z.string().trim().max(120).nullable().optional(),
+    manufacturedAt: z.string().datetime().nullable().optional(),
+    storage: z.string().trim().max(300).nullable().optional(),
+    usage: z.string().trim().max(200).nullable().optional(),
     ingredients: z.string().trim().max(4000).nullable().optional(),
     expiryDate: z.string().datetime().nullable().optional(),
     openedAt: z.string().datetime().nullable().optional(),
