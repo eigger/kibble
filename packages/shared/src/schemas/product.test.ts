@@ -3,6 +3,7 @@ import {
   createProductSchema,
   hasFormDetails,
   kibbleSizeForForm,
+  nextPrimaryPhotoPath,
   formatWeightG,
   updateProductSchema,
   WEIGHT_G_MAX,
@@ -166,5 +167,29 @@ describe("weightToGrams / formatWeightG", () => {
       const g = weightToGrams(raw, unit);
       expect(formatWeightG(g)).toBe(`${raw}${unit}`);
     }
+  });
+});
+
+describe("nextPrimaryPhotoPath", () => {
+  it("남은 사진 중 정렬이 가장 앞선 것을 대표로 올린다", () => {
+    expect(
+      nextPrimaryPhotoPath([
+        { path: "b.webp", sortOrder: 2 },
+        { path: "a.webp", sortOrder: 1 },
+      ]),
+    ).toBe("a.webp");
+  });
+
+  it("남은 사진이 없으면 대표도 없다", () => {
+    expect(nextPrimaryPhotoPath([])).toBeNull();
+  });
+
+  it("입력 배열을 뒤집지 않는다", () => {
+    const rows = [
+      { path: "b.webp", sortOrder: 2 },
+      { path: "a.webp", sortOrder: 1 },
+    ];
+    nextPrimaryPhotoPath(rows);
+    expect(rows[0].path).toBe("b.webp");
   });
 });

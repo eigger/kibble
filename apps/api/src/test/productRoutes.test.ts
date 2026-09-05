@@ -19,8 +19,22 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
   },
+  productPhoto: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    count: vi.fn(),
+  },
   event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
 }));
+
+vi.mock("../lib/productPhoto.js", async () => {
+  const actual = await vi.importActual<typeof import("../lib/productPhoto.js")>(
+    "../lib/productPhoto.js",
+  );
+  return { ...actual, removeProductPhoto: vi.fn(async () => {}) };
+});
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
 
@@ -237,6 +251,72 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     expect(call.data).toEqual(expect.objectContaining({ origin: "캐나다" }));
     expect(call.data).not.toHaveProperty("kibbleSize");
     expect(call.data).not.toHaveProperty("form");
+  });
+
+  it("대표 사진을 지우면 남은 첫 장이 대표로 올라온다", async () => {
+    mockPrisma.productPhoto.findFirst.mockResolvedValue({ id: "ph1", path: "products/a.webp" });
+    mockPrisma.productPhoto.delete.mockResolvedValue({});
+    // 지운 사진이 대표였다
+    mockPrisma.product.findFirst.mockResolvedValue({ photoPath: "products/a.webp" });
+    mockPrisma.productPhoto.findMany.mockResolvedValue([
+      { path: "products/c.webp", sortOrder: 2 },
+      { path: "products/b.webp", sortOrder: 1 },
+    ]);
+    mockPrisma.product.update.mockResolvedValue({});
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/products/${PRODUCT_ID}/photos/ph1`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { photoPath: "products/b.webp" } }),
+    );
+  });
+
+  it("대표가 아닌 사진을 지우면 대표를 건드리지 않는다", async () => {
+    mockPrisma.productPhoto.findFirst.mockResolvedValue({ id: "ph2", path: "products/b.webp" });
+    mockPrisma.productPhoto.delete.mockResolvedValue({});
+    mockPrisma.product.findFirst.mockResolvedValue({ photoPath: "products/a.webp" });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/products/${PRODUCT_ID}/photos/ph2`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it("사진이 9장이면 더 받지 않는다", async () => {
+    mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, photoPath: null });
+    mockPrisma.productPhoto.count.mockResolvedValue(9);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/products/${PRODUCT_ID}/photos`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(mockPrisma.productPhoto.create).not.toHaveBeenCalled();
+  });
+
+  it("타 가구의 사진은 대표로 지정할 수 없다", async () => {
+    mockPrisma.productPhoto.findFirst.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/products/${PRODUCT_ID}/photos/ph9/primary`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.product.update).not.toHaveBeenCalled();
   });
 
   it("DELETE /api/products/:id는 제품을 보관(soft-delete) 처리한다", async () => {

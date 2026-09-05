@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
-import { createProductSchema, kibbleSizeForForm, updateProductSchema } from "@kibble/shared";
+import {
+  createProductSchema,
+  kibbleSizeForForm,
+  MAX_PRODUCT_PHOTOS,
+  nextPrimaryPhotoPath,
+  updateProductSchema,
+} from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
@@ -167,9 +173,20 @@ export async function productRoutes(app: FastifyInstance) {
       },
     });
 
+    const photos = await prisma.productPhoto.findMany({
+      where: { productId: product.id },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, path: true, sortOrder: true },
+    });
+
     return {
       ...serializeProduct(product),
       pet: product.pet,
+      photos: photos.map((row) => ({
+        id: row.id,
+        sortOrder: row.sortOrder,
+        isPrimary: row.path === product.photoPath,
+      })),
       recentEvents: recentEvents.map((e) => ({
         ...e,
         occurredAt: e.occurredAt.toISOString(),
@@ -301,9 +318,39 @@ export async function productRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /api/products/:id/photo
+  /**
+   * 사진 목록. 경로는 내보내지 않는다 — 바이트는 아래 :photoId 라우트가 가구 검사를
+   * 거쳐 서빙하므로, 클라이언트는 id만 알면 된다.
+   */
+  app.get("/:id/photos", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const { id } = request.params as { id: string };
+    const product = await prisma.product.findFirst({
+      where: { id, ...householdWhere(householdId) },
+      select: { photoPath: true },
+    });
+    if (!product) {
+      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    }
+
+    const rows = await prisma.productPhoto.findMany({
+      where: { productId: id },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, path: true, sortOrder: true },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      sortOrder: row.sortOrder,
+      isPrimary: row.path === product.photoPath,
+    }));
+  });
+
+  // POST /api/products/:id/photos — 한 장 추가
   app.post(
-    "/:id/photo",
+    "/:id/photos",
     {
       preHandler: [app.authenticate],
       config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
@@ -315,9 +362,15 @@ export async function productRoutes(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const existing = await prisma.product.findFirst({
         where: { id, ...householdWhere(householdId) },
+        select: { id: true, photoPath: true },
       });
       if (!existing) {
         return reply.code(404).send({ error: t("productNotFound", request.locale) });
+      }
+
+      const count = await prisma.productPhoto.count({ where: { productId: id } });
+      if (count >= MAX_PRODUCT_PHOTOS) {
+        return reply.code(400).send({ error: t("photoLimitReached", request.locale) });
       }
 
       const file = await request.file();
@@ -328,7 +381,8 @@ export async function productRoutes(app: FastifyInstance) {
       let photoPath: string;
       try {
         const buffer = await file.toBuffer();
-        photoPath = await saveProductPhoto(id, buffer, existing.photoPath);
+        // 추가는 기존 파일을 지우지 않는다 — 대표 교체가 아니라 한 장 더 붙이는 것이다
+        photoPath = await saveProductPhoto(id, buffer, null);
       } catch (err) {
         if (err instanceof InvalidProductPhotoError) {
           return reply.code(400).send({ error: t("photoMustBeImage", request.locale) });
@@ -336,36 +390,40 @@ export async function productRoutes(app: FastifyInstance) {
         throw err;
       }
 
-      const updated = await prisma.product.update({
-        where: { id },
-        data: { photoPath },
-        include: { pet: { select: { id: true, name: true } } },
+      const created = await prisma.productPhoto.create({
+        data: { productId: id, path: photoPath, sortOrder: count },
+        select: { id: true, sortOrder: true },
       });
 
-      return {
-        ...serializeProduct(updated),
-        pet: updated.pet,
-      };
+      // 첫 장은 자동으로 대표가 된다. 이후에는 사용자가 고른다.
+      if (!existing.photoPath) {
+        await prisma.product.update({ where: { id }, data: { photoPath } });
+      }
+
+      return reply.code(201).send({
+        id: created.id,
+        sortOrder: created.sortOrder,
+        isPrimary: !existing.photoPath,
+      });
     },
   );
 
-  // GET /api/products/:id/photo
-  app.get("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
+  // GET /api/products/:id/photos/:photoId — 바이트
+  app.get("/:id/photos/:photoId", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdId(request, reply);
     if (!householdId) return;
 
-    const { id } = request.params as { id: string };
-    const product = await prisma.product.findFirst({
-      where: { id, ...householdWhere(householdId) },
-      select: { photoPath: true },
+    const { id, photoId } = request.params as { id: string; photoId: string };
+    const photo = await prisma.productPhoto.findFirst({
+      where: { id: photoId, productId: id, product: householdWhere(householdId) },
+      select: { path: true },
     });
-
-    if (!product?.photoPath) {
+    if (!photo) {
       return reply.code(404).send({ error: t("photoNotFound", request.locale) });
     }
 
     try {
-      const abs = productPhotoAbsolutePath(product.photoPath);
+      const abs = productPhotoAbsolutePath(photo.path);
       return await sendFileWithRange(request, reply, abs, {
         contentType: "image/webp",
         cacheControl: "private, max-age=3600",
@@ -375,29 +433,67 @@ export async function productRoutes(app: FastifyInstance) {
     }
   });
 
-  // DELETE /api/products/:id/photo
-  app.delete("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
+  // POST /api/products/:id/photos/:photoId/primary — 대표로 지정
+  app.post(
+    "/:id/photos/:photoId/primary",
+    { preHandler: [app.authenticate] },
+    async (request, reply) => {
+      const householdId = requireHouseholdWrite(request, reply);
+      if (!householdId) return;
+
+      const { id, photoId } = request.params as { id: string; photoId: string };
+      const photo = await prisma.productPhoto.findFirst({
+        where: { id: photoId, productId: id, product: householdWhere(householdId) },
+        select: { path: true },
+      });
+      if (!photo) {
+        return reply.code(404).send({ error: t("photoNotFound", request.locale) });
+      }
+
+      const updated = await prisma.product.update({
+        where: { id },
+        data: { photoPath: photo.path },
+        include: { pet: { select: { id: true, name: true } } },
+      });
+
+      return { ...serializeProduct(updated), pet: updated.pet };
+    },
+  );
+
+  // DELETE /api/products/:id/photos/:photoId
+  app.delete("/:id/photos/:photoId", { preHandler: [app.authenticate] }, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 
-    const { id } = request.params as { id: string };
-    const existing = await prisma.product.findFirst({
-      where: { id, ...householdWhere(householdId) },
+    const { id, photoId } = request.params as { id: string; photoId: string };
+    const photo = await prisma.productPhoto.findFirst({
+      where: { id: photoId, productId: id, product: householdWhere(householdId) },
+      select: { id: true, path: true },
     });
-    if (!existing) {
-      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    if (!photo) {
+      return reply.code(404).send({ error: t("photoNotFound", request.locale) });
     }
 
-    await removeProductPhoto(existing.photoPath);
-    const updated = await prisma.product.update({
-      where: { id },
-      data: { photoPath: null },
-      include: { pet: { select: { id: true, name: true } } },
-    });
+    await prisma.productPhoto.delete({ where: { id: photo.id } });
+    await removeProductPhoto(photo.path);
 
-    return {
-      ...serializeProduct(updated),
-      pet: updated.pet,
-    };
+    // 대표를 지웠으면 남은 것 중 첫 장을 대표로 올린다. 아니면 목록에 빈 칸이 남는다.
+    const product = await prisma.product.findFirst({
+      where: { id, ...householdWhere(householdId) },
+      select: { photoPath: true },
+    });
+    if (product?.photoPath === photo.path) {
+      const remaining = await prisma.productPhoto.findMany({
+        where: { productId: id },
+        select: { path: true, sortOrder: true },
+      });
+      await prisma.product.update({
+        where: { id },
+        data: { photoPath: nextPrimaryPhotoPath(remaining) },
+      });
+    }
+
+    return reply.code(204).send();
   });
+
 }

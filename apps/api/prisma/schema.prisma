@@ -227,6 +227,8 @@ model Product {
   name             String
   brand            String?
   category         ProductCategory @default(MEAL)
+  /// 대표 사진 경로. 여러 장을 올려도 목록·기록 화면은 이 한 장만 본다.
+  /// ProductPhoto가 사진 전부를 들고, 이 컬럼은 그중 하나를 가리키는 포인터다.
   photoPath        String?
   purchaseUrl      String?
   /// 원산지. 나라 이름이든 "국내산"이든 사용자가 적은 그대로 (K-12)
@@ -253,9 +255,10 @@ model Product {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet       Pet?      @relation(fields: [petId], references: [id], onDelete: SetNull)
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet?           @relation(fields: [petId], references: [id], onDelete: SetNull)
   events    Event[]
+  photos    ProductPhoto[]
 
   @@index([householdId, category, archivedAt])
   @@index([householdId, isActive, archivedAt])
@@ -274,6 +277,21 @@ enum Palatability {
   HIGH
   MEDIUM
   LOW
+}
+
+/// 제품 사진 여러 장. 대표 한 장은 Product.photoPath가 가리킨다.
+model ProductPhoto {
+  id        String   @id @default(cuid())
+  productId String
+  path      String
+  /// 목록 정렬용. 대표 여부는 Product.photoPath가 정한다
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@index([path])
 }
 
 /// 제형. 사료(건식·습식·반습식)와 영양제(파우더·캡슐·정제·액상)를 함께 덮는다

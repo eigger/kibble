@@ -92,6 +92,12 @@ export interface ProductSummary {
   isActive: boolean;
 }
 
+export interface ProductPhotoMeta {
+  id: string;
+  sortOrder: number;
+  isPrimary: boolean;
+}
+
 export interface Product {
   id: string;
   householdId: string;
@@ -99,7 +105,10 @@ export interface Product {
   name: string;
   brand: string | null;
   category: ProductCategory;
+  /** 대표 사진 경로. 여러 장을 올려도 목록·기록 화면은 이 한 장만 본다 */
   photoPath: string | null;
+  /** 상세 조회에만 담긴다. 목록 응답에는 없다 */
+  photos?: ProductPhotoMeta[];
   purchaseUrl: string | null;
   origin: string | null;
   form: ProductForm | null;

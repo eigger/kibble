@@ -876,6 +876,14 @@ const dict = {
 
   productStatusActive: { ko: "급여 중", en: "In use" },
   productStatusInactive: { ko: "급여 종료", en: "Finished" },
+  productPhotoSaveFailed: {
+    ko: "제품은 저장됐지만 사진 반영에 실패했습니다.",
+    en: "Product saved, but the photos could not be updated.",
+  },
+  productPhotoPrimary: { ko: "대표", en: "Primary" },
+  productPhotoSetPrimary: { ko: "대표로", en: "Set primary" },
+  productPhotoLimit: { ko: "사진은 최대 {max}장까지 올릴 수 있습니다", en: "Up to {max} photos" },
+  productPhotoHint: { ko: "사진 {count}/{max} · 대표 한 장이 목록에 보입니다", en: "{count}/{max} photos · the primary one shows in the list" },
   productMainIngredientsLabel: { ko: "주성분", en: "Key ingredients" },
   productMainIngredientsPlaceholder: {
     ko: "예: 닭고기, 현미 / 오메가3 1000mg",

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatWeightG, kstDayDiff } from "@kibble/shared";
-import type { Product } from "../lib/types";
+import type { Product, ProductPhotoMeta } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
+import { apiJson } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
 import {
   PackageIcon,
@@ -23,6 +24,33 @@ type Props = {
 export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
+  // 대표 말고 나머지 사진. 목록에서 연 경우 product.photos가 없어 한 번 더 읽는다.
+  const [photos, setPhotos] = useState<ProductPhotoMeta[]>([]);
+  const [shownPhotoId, setShownPhotoId] = useState<string | null>(null);
+
+  const productId = product?.id ?? null;
+  const embeddedPhotos = product?.photos;
+
+  useEffect(() => {
+    setShownPhotoId(null);
+    if (!open || !productId) {
+      setPhotos([]);
+      return;
+    }
+    if (embeddedPhotos) {
+      setPhotos(embeddedPhotos);
+      return;
+    }
+    let cancelled = false;
+    void apiJson<ProductPhotoMeta[]>(`/api/products/${productId}/photos`)
+      .then((rows) => {
+        if (!cancelled) setPhotos(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, productId, embeddedPhotos]);
 
   if (!open || !product) return null;
 
@@ -119,10 +147,11 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
         {/* Header with Photo & Name */}
         <div className="product-popup-header">
           <div className="product-popup-photo-wrap">
-            {product.photoPath ? (
+            {product.photoPath || shownPhotoId ? (
               <ProductPhoto
                 productId={product.id}
-                photoPath={product.photoPath}
+                photoPath={shownPhotoId ? null : product.photoPath}
+                photoId={shownPhotoId}
                 alt={product.name}
                 className="product-popup-photo"
               />
@@ -132,6 +161,31 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
               </div>
             )}
           </div>
+
+          {/* 두 장 이상일 때만 줄이 뜬다. 한 장이면 지금과 똑같이 보인다. */}
+          {photos.length > 1 && (
+            <div className="product-photo-strip">
+              {photos.map((photo) => {
+                const shown = shownPhotoId ? photo.id === shownPhotoId : photo.isPrimary;
+                return (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    className={`product-photo-strip-item ${shown ? "is-shown" : ""}`}
+                    aria-pressed={shown}
+                    onClick={() => setShownPhotoId(photo.id)}
+                  >
+                    <ProductPhoto
+                      productId={product.id}
+                      photoId={photo.id}
+                      alt=""
+                      className="product-preview-img"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="product-popup-titles">
             <div className="product-popup-badge-row">

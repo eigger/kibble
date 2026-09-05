@@ -297,105 +297,37 @@ curl -sS -X DELETE "$BASE/api/products/<product-id>" -H "$AUTH"
 curl -sS -X POST "$BASE/api/products/<product-id>/restore" -H "$AUTH"
 ```
 
-### 사진 업로드 / 조회 / 삭제
+### 사진 (여러 장 + 대표 한 장)
 
-사진 업로드는 1000px WebP로 자동 변환되며 분당 30회 rate limit이 적용됩니다.
+제품당 최대 **9장**입니다. 사진은 1000px WebP로 자동 변환되며 업로드는 분당 30회 rate limit이 적용됩니다.
 
-```bash
-# 업로드 (multipart/form-data)
-curl -sS -X POST "$BASE/api/products/<product-id>/photo" \
-  -H "$AUTH" \
-  -F "file=@omega3.jpg"
-# → {"photoPath":"…"}
-
-# 조회
-curl -sS "$BASE/api/products/<product-id>/photo" -H "$AUTH" -o product.webp
-
-# 삭제
-curl -sS -X DELETE "$BASE/api/products/<product-id>/photo" -H "$AUTH"
-# 204
-```
-
----
-
-## API 토큰 관리
+`Product.photoPath`는 **대표 한 장을 가리키는 포인터**입니다. 목록 카드·기록 화면은 이 한 장만 봅니다. 첫 장은 자동으로 대표가 되고, 이후에는 사용자가 고릅니다.
 
 ```bash
-# 목록
-curl -sS "$BASE/api/tokens" -H "$AUTH"
+# 목록 (경로는 내보내지 않는다 — 바이트는 아래 :photoId로 받는다)
+curl -sS "$BASE/api/products/<product-id>/photos" -H "$AUTH"
+# → [{"id":"…","sortOrder":0,"isPrimary":true}, …]
 
-# 발급
-curl -sS -X POST "$BASE/api/tokens" \
-  -H "Content-Type: application/json" \
+# 한 장 추가 (multipart/form-data). 9장을 넘으면 400
+curl -sS -X POST "$BASE/api/products/<product-id>/photos" \
   -H "$AUTH" \
-  -d '{"name":"water-bowl","petId":"<pet-id>","eventTypeId":"<type-id>"}'
+  -F "file=@front.jpg"
+# → {"id":"…","sortOrder":1,"isPrimary":false}
 
-# 폐기
-curl -sS -X DELETE "$BASE/api/tokens/<token-id>" -H "$AUTH"
+# 특정 사진 바이트
+curl -sS "$BASE/api/products/<product-id>/photos/<photo-id>" -H "$AUTH" --output photo.webp
+
+# 대표 사진 바이트 (Product.photoPath가 가리키는 한 장)
+curl -sS "$BASE/api/products/<product-id>/photo" -H "$AUTH" --output primary.webp
+
+# 대표로 지정 (갱신된 Product 객체 반환)
+curl -sS -X POST "$BASE/api/products/<product-id>/photos/<photo-id>/primary" -H "$AUTH"
+
+# 삭제 (204). 대표를 지우면 남은 것 중 정렬이 가장 앞선 사진이 대표로 올라간다
+curl -sS -X DELETE "$BASE/api/products/<product-id>/photos/<photo-id>" -H "$AUTH"
 ```
 
----
-
-## 파싱 (텍스트 입력)
-
-```bash
-curl -sS -X POST "$BASE/api/parse/entry" \
-  -H "Content-Type: application/json" \
-  -H "$AUTH" \
-  -d '{"petId":"<pet-id>","text":"8시 40분 사료 40g\n물"}'
-```
-
-응답: `entryId`, `rawText`, `suggestions[]`(줄별 eventType·quantity·occurredAt). 파싱 실패 줄은 `note` 타입으로 제안된다(K-12).
-
----
-
-## 가구 격리 (K-1~K-3)
-
-모든 리소스 쿼리는 인증된 사용자의 `householdId`로 스코프된다. 다른 가구의 `petId`·`presetId`·`eventId`를 넣으면 **404**(존재 여부를 노출하지 않음).
-
----
-
-## 오류 코드
-
-| 코드 | 의미 |
-|------|------|
-| 401 | 인증 실패 (JWT 만료·잘못된 토큰) |
-| 403 | 권한 없음 (가구 미소속, VIEWER 쓰기, OWNER 아닌 토큰 관리, ApiToken 미허용 라우트) |
-| 404 | 리소스 없음 또는 다른 가구 |
-| 400 | 본문 검증 실패 |
-| 429 | rate limit (`POST /api/events` — 120/분) |
-
----
-
-## 백업 / 복원 (관리자)
-
-계정·가구·설정(`User`, `Household`, `HouseholdMember`, `Setting`)과 업로드 파일을 `.tar.gz`로 보내고 복원합니다. UI는 **더보기 → 백업/복원** (`/backup`).
-
-> ⚠️ **일지 데이터는 포함되지 않습니다.** `Pet`·`Event`·`Preset`·`Attachment` 행은 담기지 않으므로 이 아카이브만으로 일지를 복구할 수 없습니다. 전체 백업은 `pg_dump` + uploads 볼륨 스냅샷을 쓰십시오 ([`deploy.md §7`](deploy.md)).
->
-> 푸시 서명키(`VAPID_*`)는 **아카이브에서 제외**되며 복원이 서버의 기존 값을 지우지도 않습니다 (WORKPLAN §8).
-
-```bash
-# 1) 보내기 티켓 (60초 유효, 1회용)
-curl -sS -X POST "$BASE/api/backup/export-ticket" -H "$AUTH"
-# → {"ticket":"…","expiresIn":60}
-
-# 2) 아카이브 다운로드
-curl -sS -o kibble_backup.tar.gz "$BASE/api/backup/export?ticket=<ticket>"
-
-# 3) 복원 (관리자만 — 기존 계정·설정을 덮어씀)
-curl -sS -X POST "$BASE/api/backup/restore" \
-  -H "$AUTH" \
-  -F "file=@kibble_backup.tar.gz"
-```
-
-복원 시 백업에 `passwordHash`가 없으면 임시 비밀번호가 응답에 포함됩니다. 아카이브의 `households`·`householdMembers`가 함께 복원되므로 복원 후에도 각 계정이 원래 가구에 그대로 붙습니다.
-
----
-
-## 첨부 (사진·영상)
-
-이벤트당 최대 **9개**. MIME: `image/jpeg`, `png`, `webp`, `heic`, `heif`, `video/mp4`, `video/quicktime`.
+`GET /api/products/<id>` 상세 응답에는 `photos: [{id, sortOrder, isPrimary}]`가 함께 담깁니다. 목록(`GET /api/products`) 응답에는 없습니다 — 카드는 대표 한 장만 필요합니다.
 
 ### 단건 업로드 (15MB 이하 사진 등)
 

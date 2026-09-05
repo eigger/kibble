@@ -109,6 +109,10 @@ const MESSAGES = {
   photoRequired: { ko: "사진 파일이 필요합니다", en: "Photo file is required" },
   photoMustBeImage: { ko: "이미지 파일만 업로드할 수 있습니다", en: "Only image files are allowed" },
   photoNotFound: { ko: "사진이 없습니다", en: "Photo not found" },
+  photoLimitReached: {
+    ko: "사진은 최대 9장까지 올릴 수 있습니다",
+    en: "Up to 9 photos per product",
+  },
   presetNotFound: { ko: "프리셋을 찾을 수 없습니다", en: "Preset not found" },
   presetDuplicate: {
     ko: "이 반려동물에 같은 유형의 프리셋이 이미 있습니다",

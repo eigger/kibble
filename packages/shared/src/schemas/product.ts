@@ -52,6 +52,20 @@ export function kibbleSizeForForm(
   return kibbleSize ?? null;
 }
 
+/** 제품 사진 장수 상한. 기록 첨부(MAX_ATTACHMENTS_PER_EVENT)와 같은 값으로 맞춘다. */
+export const MAX_PRODUCT_PHOTOS = 9;
+
+/**
+ * 대표 사진이 지워졌을 때 남은 사진 중 무엇을 대표로 올릴지.
+ * 정렬 순서를 그대로 따른다 — 사용자가 다시 고르기 전까지 첫 장이 대표다.
+ */
+export function nextPrimaryPhotoPath(
+  remaining: { path: string; sortOrder: number }[],
+): string | null {
+  if (remaining.length === 0) return null;
+  return [...remaining].sort((a, b) => a.sortOrder - b.sortOrder)[0].path;
+}
+
 /** 2kg이면 2000. 저장은 g으로 통일하고 입력 단위는 UI가 고른다. */
 export const WEIGHT_G_MAX = 1_000_000;
 
