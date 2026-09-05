@@ -1,6 +1,7 @@
 import { buildApp } from "./app.js";
 import { startTrashPurgeJob } from "./jobs/trashPurge.js";
 import { startMedicationReminderJob } from "./jobs/medicationReminders.js";
+import { startVideoTranscodeJob } from "./jobs/videoTranscode.js";
 import { assertMediaAuthConfig } from "./lib/mediaAuth.js";
 import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
@@ -12,6 +13,7 @@ const app = await buildApp();
 
 startTrashPurgeJob();
 startMedicationReminderJob();
+startVideoTranscodeJob();
 
 setInterval(() => {
   sweepStaleUploadSessions().catch((err) => app.log.error(err, "청크 업로드 세션 정리 실패"));

@@ -4,6 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
 import { extractVideoPoster } from "./videoPoster.js";
+import { probeVideo, shouldSkipVideoTranscode, TRANSCODE_STATUS } from "./videoTranscode.js";
 import { UPLOAD_DIR, deleteUploadedFile } from "./uploads.js";
 import { prisma } from "./prisma.js";
 import { attachmentSelect } from "./attachmentSelect.js";
@@ -24,8 +25,8 @@ const ALLOWED_IMAGE_MIME = new Set([
   ...(HEIC_DECODABLE ? ["image/heic", "image/heif"] : []),
 ]);
 
-// 안드로이드 갤러리·기본 카메라는 mp4/mov 밖의 컨테이너도 내놓는다. 영상은 재인코딩
-// 없이 그대로 저장하므로 확장자만 알면 받아줄 수 있다 (K-12).
+// 안드로이드 갤러리·기본 카메라는 mp4/mov 밖의 컨테이너도 내놓는다. 업로드는
+// 원본 그대로 받고, 큰 파일만 백그라운드에서 720p로 줄인다 (K-12).
 const VIDEO_EXTENSIONS: Record<string, string> = {
   "video/mp4": ".mp4",
   "video/quicktime": ".mov",
@@ -66,6 +67,8 @@ export type SavedEventAttachment = {
   height: number | null;
   /** 영상 목록용 대표 프레임. 추출에 실패하면 null — 첨부의 조건이 아니다 (K-12) */
   posterPath?: string | null;
+  /** 영상만. pending이면 백그라운드 변환 대기. 사진은 두지 않는다 */
+  transcodeStatus?: string | null;
 };
 
 /**
@@ -83,6 +86,25 @@ async function savePosterForVideo(eventId: string, videoAbsPath: string): Promis
   } catch {
     return null;
   }
+}
+
+async function classifyVideoForTranscode(
+  absPath: string,
+  sizeBytes: number,
+): Promise<{ width: number | null; height: number | null; transcodeStatus: string }> {
+  const probe = await probeVideo(absPath);
+  if (!probe || shouldSkipVideoTranscode({ ...probe, sizeBytes })) {
+    return {
+      width: probe?.width ?? null,
+      height: probe?.height ?? null,
+      transcodeStatus: TRANSCODE_STATUS.SKIPPED,
+    };
+  }
+  return {
+    width: probe.width,
+    height: probe.height,
+    transcodeStatus: TRANSCODE_STATUS.PENDING,
+  };
 }
 
 /** 이벤트 첨부 1건을 디스크에 저장한다. 이미지는 sharp 파이프라인을 탄다. */
@@ -123,17 +145,22 @@ export async function saveEventAttachment(
   const absolutePath = attachmentAbsolutePath(relativePath);
   await writeFile(absolutePath, fileBuffer);
 
+  const videoMeta = ALLOWED_VIDEO_MIME.has(mime)
+    ? await classifyVideoForTranscode(absolutePath, fileBuffer.length)
+    : null;
+
   return {
     path: relativePath,
     mime: outMime,
     size: fileBuffer.length,
-    width,
-    height,
+    width: videoMeta?.width ?? width,
+    height: videoMeta?.height ?? height,
     // 웹은 영상을 항상 청크로 보내지만, API 토큰으로 20MB 이하 영상을 multipart로
     // 직행시키는 경로가 있다 — 거기서만 포스터가 없으면 목록이 갈라진다.
     posterPath: ALLOWED_VIDEO_MIME.has(mime)
       ? await savePosterForVideo(eventId, absolutePath)
       : null,
+    transcodeStatus: videoMeta?.transcodeStatus ?? null,
   };
 }
 
@@ -161,13 +188,15 @@ export async function finalizeEventAttachmentFromTemp(
   const destPath = attachmentAbsolutePath(relativePath);
   await rename(tempPath, destPath);
   const fileStat = await stat(destPath);
+  const videoMeta = await classifyVideoForTranscode(destPath, fileStat.size);
   return {
     path: relativePath,
     mime,
     size: fileStat.size,
-    width: null,
-    height: null,
+    width: videoMeta.width,
+    height: videoMeta.height,
     posterPath: await savePosterForVideo(eventId, destPath),
+    transcodeStatus: videoMeta.transcodeStatus,
   };
 }
 
@@ -224,6 +253,7 @@ export async function insertEventAttachment(
         width: saved.width ?? undefined,
         height: saved.height ?? undefined,
         posterPath: saved.posterPath ?? undefined,
+        transcodeStatus: saved.transcodeStatus ?? undefined,
       },
       select: attachmentSelect,
     });

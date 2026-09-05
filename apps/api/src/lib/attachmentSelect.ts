@@ -6,4 +6,5 @@ export const attachmentSelect = {
   width: true,
   height: true,
   posterPath: true,
+  transcodeStatus: true,
 } as const;

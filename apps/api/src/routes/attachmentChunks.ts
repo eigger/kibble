@@ -26,6 +26,8 @@ import {
   getUploadSession,
   releaseChunkWriteLock,
 } from "../lib/uploadSessions.js";
+import { TRANSCODE_STATUS } from "../lib/videoTranscode.js";
+import { kickVideoTranscode } from "../jobs/videoTranscode.js";
 
 async function loadWritableEvent(eventId: string, householdId: string) {
   return prisma.event.findFirst({
@@ -203,6 +205,9 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
       throw err;
     }
     await deleteUploadSession(uploadId);
+    if (attachment.transcodeStatus === TRANSCODE_STATUS.PENDING) {
+      kickVideoTranscode();
+    }
     return reply.code(201).send(attachment);
   });
 

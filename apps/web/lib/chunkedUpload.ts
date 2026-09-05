@@ -1,5 +1,5 @@
 import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
-import { apiFetch, ApiError } from "./api";
+import { apiFetch, ApiError, isRetriableUploadStatus, UPLOAD_RETRY_ATTEMPTS } from "./api";
 import { findPendingUploadFor, removePendingUpload, savePendingUpload } from "./pendingUploads";
 import type { EventAttachment } from "./types";
 
@@ -13,7 +13,6 @@ export interface UploadProgress {
  * fetch가 통째로 던지는 일이 흔하다 — 응답이 온 경우만 재시도하면 한 번의 끊김에
  * 영상 업로드 전체가 죽는다.
  */
-const MAX_CHUNK_ATTEMPTS = 5;
 const MAX_BACKOFF_MS = 5000;
 
 /** multipart 20MB 제한을 넘거나 영상이면 청크 업로드를 쓴다. */
@@ -35,11 +34,6 @@ function backoffMs(attempt: number): number {
   return Math.min(500 * 2 ** (attempt - 1), MAX_BACKOFF_MS);
 }
 
-/** 5xx·429·네트워크 오류만 "다시 해보면 될 수도 있는" 실패다. 4xx는 다시 해도 같다. */
-function isRetriableStatus(status: number): boolean {
-  return status >= 500 || status === 429 || status === 408;
-}
-
 /**
  * 네트워크·5xx에서 다시 시도하는 요청 래퍼. 청크·complete·init이 같은 정책을 쓴다 —
  * 터널 진입 직후라고 영상 업로드의 첫 요청만 유독 한 번에 포기할 이유가 없다.
@@ -50,12 +44,12 @@ async function fetchWithRetry(path: string, init: RequestInit): Promise<Response
     try {
       res = await apiFetch(path, init);
     } catch (err) {
-      if (attempt >= MAX_CHUNK_ATTEMPTS) throw err;
+      if (attempt >= UPLOAD_RETRY_ATTEMPTS) throw err;
       await sleep(backoffMs(attempt));
       continue;
     }
     if (res.ok) return res;
-    if (!isRetriableStatus(res.status) || attempt >= MAX_CHUNK_ATTEMPTS) {
+    if (!isRetriableUploadStatus(res.status) || attempt >= UPLOAD_RETRY_ATTEMPTS) {
       throw await errorFromResponse(res);
     }
     await sleep(backoffMs(attempt));
@@ -133,7 +127,7 @@ async function putChunk(uploadId: string, index: number, chunk: Blob): Promise<C
   // 서버는 409에 expectedIndex를 실어 보낸다 — 그 값을 무시하고 같은 인덱스를
   // 반복하면 영원히 409만 받는다. 진행 상태를 다시 읽어 위치를 맞춘다.
   if (res.status === 409) return { kind: "desync" };
-  if (isRetriableStatus(res.status)) return { kind: "retry" };
+  if (isRetriableUploadStatus(res.status)) return { kind: "retry" };
   return { kind: "fatal", error: await errorFromResponse(res) };
 }
 
@@ -188,7 +182,7 @@ export async function uploadEventAttachmentInChunks(
     }
 
     attempt += 1;
-    if (attempt >= MAX_CHUNK_ATTEMPTS) {
+    if (attempt >= UPLOAD_RETRY_ATTEMPTS) {
       // 메시지를 비워 둔다 — formatApiErrorMessage()가 호출부의 언어별 폴백 문구를
       // 쓰게 하려는 것이다. 여기서 한국어 문장을 만들면 en 로케일이 깨진다 (K-9).
       // status 0 = 영구 거부가 아님 → 남은 파일도 함께 remaining으로 돌아간다.
