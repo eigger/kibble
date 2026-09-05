@@ -257,7 +257,6 @@ export function formatEventDetailLine(
     quantityOffered: number | null;
     unit: string | null;
     scaleValue: number | null;
-    note: string | null;
     eventType: { key: string; scaleType?: string | null };
   },
   t?: (key: string) => string,

@@ -423,17 +423,6 @@ a {
   line-height: 1.4;
   overflow-wrap: anywhere;
   word-break: break-word;
-}
-
-.timeline-detail {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
-.timeline-note {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

@@ -135,7 +135,6 @@ export function eventDetailLine(
       quantityOffered: event.quantityOffered,
       unit: event.unit,
       scaleValue: event.scaleValue,
-      note: event.note,
       eventType: { key: event.eventType.key, scaleType: event.eventType.scaleType },
     },
     t,
