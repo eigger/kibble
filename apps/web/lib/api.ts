@@ -1,5 +1,6 @@
 import { recordFailedRequest } from "./bugReport";
 import { BASE_PATH } from "./base-path";
+import { isLocalFileFailure } from "./uploadPrep";
 
 function resolveApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
@@ -76,11 +77,50 @@ export function isApiError(err: unknown): err is ApiError {
 }
 
 /**
+ * 청크 업로드와 같은 재시도 예산. 사진 multipart는 한 번만 보내고 끝나,
+ * Cloudflare 터널이 식은 뒤 첫 POST가 502·연결 끊김으로 떨어지면 그 장만 실패했다.
+ */
+export const UPLOAD_RETRY_ATTEMPTS = 5;
+const MAX_UPLOAD_BACKOFF_MS = 5000;
+
+export function isRetriableUploadStatus(status: number): boolean {
+  return status >= 500 || status === 429 || status === 408;
+}
+
+function uploadRetryBackoffMs(attempt: number): number {
+  return Math.min(500 * 2 ** (attempt - 1), MAX_UPLOAD_BACKOFF_MS);
+}
+
+function isRetriableFormUploadError(err: unknown): boolean {
+  if (isLocalFileFailure(err)) return false;
+  if (isApiError(err)) return isRetriableUploadStatus(err.status);
+  return err instanceof TypeError;
+}
+
+/**
  * multipart POST with byte-level upload progress. `fetch` does not expose
  * `xhr.upload.onprogress`, so a 2.5MB photo sat at 0% until the server
  * replied and then jumped to the checkmark.
+ *
+ * 영상 청크는 init부터 재시도하는데 사진 XHR은 한 번이었다. Cloudflare 터널은
+ * 유휴 뒤 첫 POST를 자주 떨어뜨린다 — 같은 정책을 사진에도 쓴다.
  */
-export function apiFormUpload<T>(
+export async function apiFormUpload<T>(
+  path: string,
+  formData: FormData,
+  onUploadProgress?: (loaded: number, total: number) => void,
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await sendFormUploadOnce(path, formData, onUploadProgress);
+    } catch (err) {
+      if (!isRetriableFormUploadError(err) || attempt >= UPLOAD_RETRY_ATTEMPTS) throw err;
+      await new Promise((resolve) => setTimeout(resolve, uploadRetryBackoffMs(attempt)));
+    }
+  }
+}
+
+function sendFormUploadOnce<T>(
   path: string,
   formData: FormData,
   onUploadProgress?: (loaded: number, total: number) => void,

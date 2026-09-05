@@ -73,6 +73,7 @@ describe("첨부 파일 서빙 — Range", () => {
     // 길이가 없으면 <video>가 재생 시간을 못 재고 진행바도 안 잡힌다
     expect(res.headers["content-length"]).toBe(String(BODY.length));
     expect(res.headers["content-type"]).toContain("video/mp4");
+    expect(res.headers["cache-control"]).toBe("private, max-age=0, must-revalidate");
     expect(res.body).toBe(BODY);
   });
 
@@ -113,6 +114,7 @@ describe("첨부 파일 서빙 — Range", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toContain("image/jpeg");
+    expect(res.headers["cache-control"]).toBe("private, max-age=3600");
     expect(res.body).toBe("poster-bytes");
   });
 

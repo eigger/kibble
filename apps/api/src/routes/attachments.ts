@@ -16,6 +16,8 @@ import {
 import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
 import { sendFileWithRange } from "../lib/sendFile.js";
 import { attachmentSelect } from "../lib/attachmentSelect.js";
+import { TRANSCODE_STATUS } from "../lib/videoTranscode.js";
+import { kickVideoTranscode } from "../jobs/videoTranscode.js";
 
 export { attachmentSelect };
 
@@ -58,7 +60,11 @@ export async function mediaAttachmentRoutes(app: FastifyInstance) {
       // Range를 함께 처리한다 — 영상 탐색과 iOS Safari 재생이 여기에 달려 있다.
       return await sendFileWithRange(request, reply, absPath, {
         contentType: isPoster ? "image/jpeg" : safeContentType(attachment.mime),
-        cacheControl: "private, max-age=3600",
+        cacheControl: isPoster
+          ? "private, max-age=3600"
+          : attachment.mime.startsWith("video/")
+            ? "private, max-age=0, must-revalidate"
+            : "private, max-age=3600",
       });
     } catch {
       return reply.code(404).send({ error: t("fileMissingOnDisk", request.locale) });
@@ -125,6 +131,10 @@ export async function attachmentRoutes(app: FastifyInstance) {
           return reply.code(404).send({ error: t("eventNotFound", request.locale) });
         }
         throw err;
+      }
+
+      if (attachment.transcodeStatus === TRANSCODE_STATUS.PENDING) {
+        kickVideoTranscode();
       }
 
       return reply.code(201).send(attachment);

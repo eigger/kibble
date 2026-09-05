@@ -377,6 +377,8 @@ model Attachment {
   // 목록이 <img>로 이걸 쓰면 타임라인이 영상 바이트를 받지 않는다.
   // 이 컬럼 이전 영상과 ffmpeg 없는 설치에서는 null — 그때는 <video>로 되돌아간다.
   posterPath String?
+  // 영상 백그라운드 720p 변환. pending/processing/skipped/ready/failed. 사진은 null.
+  transcodeStatus String?
   createdAt DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
