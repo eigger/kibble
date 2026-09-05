@@ -2,10 +2,8 @@
 // 관리자: CLI에서 바로 쓸 때. 로그인 화면 부트스트랩과 별개.
 // EventType: findFirst → create (upsert 불가 — docs/seed-event-types.md §1.1).
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../src/lib/prisma.js";
 import { seedSystemEventTypes } from "../src/lib/seed/systemEventTypes.js";
-
-const prisma = new PrismaClient();
 
 async function ensureAdminHousehold(userId: string): Promise<void> {
   const existing = await prisma.householdMember.findFirst({ where: { userId } });
