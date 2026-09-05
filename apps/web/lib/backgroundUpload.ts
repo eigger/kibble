@@ -126,8 +126,9 @@ async function drain(): Promise<void> {
         );
         notifyUploaded(job.eventId, uploaded);
         holdFailed(job.eventId, remaining);
-      } catch {
+      } catch (err) {
         // 배치가 통째로 던지면 이 작업의 파일을 실패분에 남긴다. uploading으로 굳히지 않는다.
+        console.warn("[kibble] background upload failed", err);
         holdFailed(job.eventId, job.files);
       }
     }

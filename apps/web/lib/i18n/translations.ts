@@ -394,6 +394,10 @@ const dict = {
     ko: "일부 첨부만 올라갔습니다. 남은 파일을 다시 시도해 주세요.",
     en: "Some attachments failed. Retry the remaining files.",
   },
+  attachmentUploadFailedCount: {
+    ko: "첨부 {count}개를 못 올렸습니다. 다시 시도해 주세요.",
+    en: "{count} attachment(s) failed. Retry the remaining files.",
+  },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: {
     ko: "숫자로 입력해 주세요.",

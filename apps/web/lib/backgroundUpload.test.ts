@@ -88,11 +88,14 @@ describe("startBackgroundUpload", () => {
   });
 
   it("holds files and clears uploading when the batch throws", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     uploadMock.mockRejectedValueOnce(new Error("boom"));
     startBackgroundUpload("e1", [file("a.jpg")]);
     await vi.waitFor(() => {
       expect(getBackgroundUpload()?.failedCount).toBe(1);
       expect(getBackgroundUpload()?.current).toBeNull();
     });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

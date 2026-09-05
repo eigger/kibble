@@ -51,7 +51,7 @@ export function BackgroundUploadBanner() {
       )}
       {snapshot.failedCount > 0 && (
         <div className="bg-upload-banner bg-upload-banner-error" role="status">
-          <span>{t("attachmentUploadPartial")}</span>
+          <span>{t("attachmentUploadFailedCount", { count: String(snapshot.failedCount) })}</span>
           <button type="button" className="bg-upload-retry" onClick={() => retryBackgroundUpload()}>
             {t("attachmentUploadRetry")}
           </button>

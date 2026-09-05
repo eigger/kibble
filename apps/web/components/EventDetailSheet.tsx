@@ -245,10 +245,10 @@ export function EventDetailSheet({
   const qtySteps = quantityStepperSteps(qtyUnit, draft?.eventTypeKey);
   const qtyExtraStep = quantityExtraStep(qtyUnit, draft?.eventTypeKey);
 
-  function formatQtyStep(step: number): string {
+  function formatQtyStep(step: number, steps: number[]): string {
     if (step === 10000) return t("qtyStep10000");
     if (step === 1000) return t("qtyStep1000");
-    if (step === 1 && qtySteps.includes(0.1)) return "1.0";
+    if (step === 1 && steps.includes(0.1)) return "1.0";
     return String(step);
   }
 

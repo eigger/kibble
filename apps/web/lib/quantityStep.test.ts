@@ -59,7 +59,9 @@ describe("quantityStepperSteps", () => {
   });
 
   it("cost gets 1000 and 10000", () => {
-    expect(costStepperSteps()).toEqual([COST_KRW_STEP, COST_KRW_STEP_LARGE]);
+    expect(COST_KRW_STEP).toBe(1000);
+    expect(COST_KRW_STEP_LARGE).toBe(10000);
+    expect(costStepperSteps()).toEqual([1000, 10000]);
   });
 });
 

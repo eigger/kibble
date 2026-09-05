@@ -15,7 +15,7 @@ type Props = {
   inputMode?: "decimal" | "numeric";
   decreaseLabel: string;
   increaseLabel: string;
-  formatStep: (step: number) => string;
+  formatStep: (step: number, steps: number[]) => string;
 };
 
 function StepButton({
@@ -67,13 +67,13 @@ export function QuantityStepper({
   const labeled = large != null;
 
   function minusText(step: number): string {
-    return labeled ? `−${formatStep(step)}` : "−";
+    return labeled ? `−${formatStep(step, unique)}` : "−";
   }
   function plusText(step: number): string {
-    return labeled ? `+${formatStep(step)}` : "+";
+    return labeled ? `+${formatStep(step, unique)}` : "+";
   }
   function isExtra(step: number): boolean {
-    return extraStep != null && step === extraStep;
+    return labeled && extraStep != null && step === extraStep;
   }
 
   return (
@@ -83,7 +83,7 @@ export function QuantityStepper({
           amount={-large}
           extra={isExtra(large)}
           disabled={disabled}
-          label={`${decreaseLabel} ${formatStep(large)}`}
+          label={`${decreaseLabel} ${formatStep(large, unique)}`}
           text={minusText(large)}
           onChange={onChange}
           value={value}
@@ -93,7 +93,7 @@ export function QuantityStepper({
         amount={-small}
         extra={isExtra(small)}
         disabled={disabled}
-        label={labeled ? `${decreaseLabel} ${formatStep(small)}` : decreaseLabel}
+        label={labeled ? `${decreaseLabel} ${formatStep(small, unique)}` : decreaseLabel}
         text={minusText(small)}
         onChange={onChange}
         value={value}
@@ -112,7 +112,7 @@ export function QuantityStepper({
         amount={small}
         extra={isExtra(small)}
         disabled={disabled}
-        label={labeled ? `${increaseLabel} ${formatStep(small)}` : increaseLabel}
+        label={labeled ? `${increaseLabel} ${formatStep(small, unique)}` : increaseLabel}
         text={plusText(small)}
         onChange={onChange}
         value={value}
@@ -122,7 +122,7 @@ export function QuantityStepper({
           amount={large}
           extra={isExtra(large)}
           disabled={disabled}
-          label={`${increaseLabel} ${formatStep(large)}`}
+          label={`${increaseLabel} ${formatStep(large, unique)}`}
           text={plusText(large)}
           onChange={onChange}
           value={value}
