@@ -1,4 +1,4 @@
-const CACHE_NAME = "kibble-shell-v4";
+const CACHE_NAME = "kibble-shell-v5";
 importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로

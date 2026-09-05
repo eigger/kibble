@@ -299,17 +299,105 @@ function kickIfIdle() {
   return kickQueue;
 }
 
+const SW_NOTIFICATION_TAG = "kibble-upload";
+
+async function showSwProgressNotification(job) {
+  if (!self.registration || !self.registration.showNotification) return;
+  const currentNum = Math.min((job.fileIndex || 0) + 1, job.files.length);
+  const total = job.files.length;
+  const isEn = job.locale === "en";
+  const body = isEn
+    ? total > 1
+      ? `Uploading ${currentNum}/${total}...`
+      : "Uploading..."
+    : total > 1
+      ? `사진 ${currentNum}/${total}장 올리는 중...`
+      : "사진 올리는 중...";
+  const icon = job.iconUrl || "/icons/icon-192.png";
+  try {
+    await self.registration.showNotification("Kibble", {
+      tag: SW_NOTIFICATION_TAG,
+      body,
+      icon,
+      badge: icon,
+      silent: true,
+      data: { url: "/" },
+    });
+  } catch {}
+}
+
+async function showSwCompleteNotification(job) {
+  if (!self.registration || !self.registration.showNotification) return;
+  const total = (job.uploaded || []).length || job.files.length;
+  const isEn = job.locale === "en";
+  const body = isEn
+    ? total > 1
+      ? `${total} photos uploaded`
+      : "Photo uploaded"
+    : total > 1
+      ? `사진 ${total}장 업로드 완료`
+      : "사진 업로드 완료";
+  const icon = job.iconUrl || "/icons/icon-192.png";
+  try {
+    await self.registration.showNotification("Kibble", {
+      tag: SW_NOTIFICATION_TAG,
+      body,
+      icon,
+      badge: icon,
+      silent: true,
+      data: { url: "/" },
+    });
+    setTimeout(async () => {
+      try {
+        const notifications = await self.registration.getNotifications({ tag: SW_NOTIFICATION_TAG });
+        for (const n of notifications) n.close();
+      } catch {}
+    }, 3500);
+  } catch {}
+}
+
+async function showSwFailedNotification(job, leftover) {
+  if (!self.registration || !self.registration.showNotification) return;
+  const isEn = job.locale === "en";
+  const body = isEn
+    ? `Upload failed (${leftover} files). Please try again.`
+    : `사진 ${leftover}장 업로드 실패. 다시 시도해 주세요.`;
+  const icon = job.iconUrl || "/icons/icon-192.png";
+  try {
+    await self.registration.showNotification("Kibble", {
+      tag: SW_NOTIFICATION_TAG,
+      body,
+      icon,
+      badge: icon,
+      silent: false,
+      data: { url: "/" },
+    });
+  } catch {}
+}
+
+async function dismissSwNotification() {
+  if (!self.registration || !self.registration.getNotifications) return;
+  try {
+    const notifications = await self.registration.getNotifications({ tag: SW_NOTIFICATION_TAG });
+    for (const n of notifications) n.close();
+  } catch {}
+}
+
 async function abortAllBf() {
-  if (!self.registration.backgroundFetch) return;
-  const ids = await self.registration.backgroundFetch.getIds();
-  await Promise.all(
-    ids
-      .filter((id) => id.indexOf(BF_FETCH_PREFIX) === 0)
-      .map(async (id) => {
-        const active = await self.registration.backgroundFetch.get(id);
-        if (active) await active.abort();
-      }),
-  );
+  if (self.registration.backgroundFetch) {
+    try {
+      const ids = await self.registration.backgroundFetch.getIds();
+      await Promise.all(
+        ids
+          .filter((id) => id.indexOf(BF_FETCH_PREFIX) === 0)
+          .map(async (id) => {
+            const active = await self.registration.backgroundFetch.get(id);
+            if (active) await active.abort();
+          }),
+      );
+    } catch {}
+  }
+  await dismissSwNotification();
 }
 
 async function startBgFetch(job, request) {
@@ -407,6 +495,48 @@ async function doComplete(job, work) {
   }
 }
 
+async function handleSwFetchSettled(job, work, res) {
+  if (cancelling) return;
+  const fresh = await getJob(job.id);
+  if (!fresh || fresh.status === "cancelled") return;
+
+  if (res && res.ok) {
+    const result = {};
+    if (work.kind === "multipart") {
+      try {
+        result.attachment = await res.json();
+      } catch {
+        await retryOrFail(job);
+        return;
+      }
+    }
+    Object.assign(job, applyBfSuccess(job, work, result));
+    await putJob(job);
+    await notifyClients(Object.assign({ action: "progress" }, progressFields(job)));
+    await showSwProgressNotification(job);
+    await performWork(job);
+    return;
+  }
+
+  if (work.kind === "chunk" && res && res.status === 409) {
+    const progress = await fetchProgress(job, work.uploadId).catch(() => null);
+    if (progress && progress.nextChunkIndex !== job.chunkIndex) {
+      Object.assign(job, applyChunkDesync(job, progress.receivedBytes, progress.nextChunkIndex));
+      job.retries = 0;
+      await putJob(job);
+      await performWork(job);
+      return;
+    }
+  }
+
+  if (res) {
+    await handleHttpError(job, work, res);
+    return;
+  }
+
+  await retryOrFail(job);
+}
+
 async function doMultipartBf(job, work) {
   const file = job.files[work.fileIndex];
   const blob = await getFileBlob(job, work.fileIndex);
@@ -418,10 +548,12 @@ async function doMultipartBf(job, work) {
     jobHeaders(job),
   );
   try {
-    await startBgFetch(job, request);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
+    await showSwProgressNotification(job);
+    const res = await fetch(request);
+    await handleSwFetchSettled(job, work, res);
   } catch (err) {
-    console.warn("[kibble] bf multipart", err);
+    console.warn("[kibble] sw multipart", err);
     job.fetchId = null;
     await retryOrFail(job);
   }
@@ -445,10 +577,12 @@ async function doChunkBf(job, work) {
     },
   );
   try {
-    await startBgFetch(job, request);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
+    await showSwProgressNotification(job);
+    const res = await fetch(request);
+    await handleSwFetchSettled(job, work, res);
   } catch (err) {
-    console.warn("[kibble] bf chunk", err);
+    console.warn("[kibble] sw chunk", err);
     job.fetchId = null;
     await retryOrFail(job);
   }
@@ -471,8 +605,10 @@ async function finishJob(job) {
     await notifyClients(
       Object.assign({ action: "fail", remainingCount: leftover }, progressFields(job)),
     );
+    await showSwFailedNotification(job, leftover);
     return;
   }
+  await showSwCompleteNotification(job);
   await deleteJobAndBlobs(job);
 }
 
@@ -642,6 +778,7 @@ async function abortJob(jobId) {
       } catch {}
     }
     await deleteJobAndBlobs(job);
+    await dismissSwNotification();
   }
 }
 
