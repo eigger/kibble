@@ -16,6 +16,13 @@ import {
   subscribeBackgroundFetchMessages,
   type BfClientMessage,
 } from "./backgroundFetchUpload";
+import {
+  dismissUploadNotification,
+  requestUploadNotificationPermission,
+  showUploadCompleteNotification,
+  showUploadFailedNotification,
+  showUploadProgressNotification,
+} from "./uploadNotification";
 
 export const ATTACHMENTS_UPLOADED_EVENT = "kibble-attachments-uploaded";
 
@@ -167,9 +174,10 @@ export function subscribeBackgroundUpload(listener: Listener): () => void {
   };
 }
 
-/** 기록은 이미 저장된 뒤다. 되면 OS가 올리고, 안 되면 이 화면에서 이어서 돈다. */
+/** 기록은 이미 저장된 뒤다. 화면에서 올리며 알림 권한이 있으면 상단바 알림창에 진행 상태를 표시한다. */
 export function startBackgroundUpload(eventId: string, files: File[]): void {
   if (files.length === 0) return;
+  void requestUploadNotificationPermission();
   queue.push({ eventId, files: [...files] });
   void drain();
 }
@@ -182,6 +190,7 @@ export function cancelBackgroundUpload(): void {
   bfActive = false;
   bfFailedCount = 0;
   void cancelAllBackgroundFetches();
+  void dismissUploadNotification();
   if (!running) {
     current = null;
     publish();
@@ -300,6 +309,11 @@ async function drain(): Promise<void> {
 
       const abort = new AbortController();
       jobAbort = abort;
+      void showUploadProgressNotification({
+        fileIndex: 0,
+        fileCount: job.files.length,
+        force: true,
+      });
       try {
         const { uploaded, remaining } = await uploadEventAttachments(
           job.eventId,
@@ -308,6 +322,12 @@ async function drain(): Promise<void> {
             if (current?.eventId !== job.eventId) return;
             current = { ...current, progress, canLeave: false };
             publish();
+            void showUploadProgressNotification({
+              fileIndex: progress.fileIndex,
+              fileCount: progress.fileCount,
+              loaded: progress.loaded,
+              total: progress.total,
+            });
           },
           abort.signal,
         );
@@ -317,8 +337,10 @@ async function drain(): Promise<void> {
             for (let i = failed.length - 1; i >= 0; i--) {
               if (failed[i].eventId === job.eventId) failed.splice(i, 1);
             }
+            void showUploadCompleteNotification(job.files.length);
           } else {
             holdFailed(job.eventId, remaining);
+            void showUploadFailedNotification(remaining.length);
           }
         }
         if (uploaded.length > 0) {
@@ -329,9 +351,11 @@ async function drain(): Promise<void> {
       } catch (err) {
         if (isUploadCancelled(err)) {
           // 그만두기 — 실패 배너에 남기지 않는다
+          void dismissUploadNotification();
         } else {
           console.warn("[kibble] background upload failed", err);
           holdFailed(job.eventId, job.files);
+          void showUploadFailedNotification(job.files.length);
         }
       } finally {
         if (jobAbort === abort) jobAbort = null;
