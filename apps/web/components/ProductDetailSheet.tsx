@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { formatWeightG, kstDayDiff } from "@kibble/shared";
-import type { Product, ProductPhotoMeta } from "../lib/types";
+import type { Product } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
-import { apiJson } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
 import {
   PackageIcon,
@@ -24,33 +23,12 @@ type Props = {
 export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
-  // 대표 말고 나머지 사진. 목록에서 연 경우 product.photos가 없어 한 번 더 읽는다.
-  const [photos, setPhotos] = useState<ProductPhotoMeta[]>([]);
-  const [shownPhotoId, setShownPhotoId] = useState<string | null>(null);
-
-  const productId = product?.id ?? null;
-  const embeddedPhotos = product?.photos;
+  // 사진 미리보기. 상세에서 사진을 누르면 크게 본다.
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
-    setShownPhotoId(null);
-    if (!open || !productId) {
-      setPhotos([]);
-      return;
-    }
-    if (embeddedPhotos) {
-      setPhotos(embeddedPhotos);
-      return;
-    }
-    let cancelled = false;
-    void apiJson<ProductPhotoMeta[]>(`/api/products/${productId}/photos`)
-      .then((rows) => {
-        if (!cancelled) setPhotos(rows);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [open, productId, embeddedPhotos]);
+    if (!open) setPreviewOpen(false);
+  }, [open]);
 
   if (!open || !product) return null;
 
@@ -133,6 +111,35 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   if (weightLabel) specs.push({ label: t("productWeightLabel"), value: weightLabel });
   if (product.origin) specs.push({ label: t("productOriginLabel"), value: product.origin });
 
+  if (previewOpen && product.photoPath) {
+    // 시트 위에 겹치지 않고 갈아 끼운다 — 배경 두 겹이 쌓이면 닫기 대상이 헷갈린다.
+    return (
+      <div
+        className="attachment-lightbox-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("productPhotoPreview")}
+        onClick={() => setPreviewOpen(false)}
+      >
+        <button
+          type="button"
+          className="attachment-lightbox-close"
+          onClick={() => setPreviewOpen(false)}
+        >
+          {t("close")}
+        </button>
+        <div className="attachment-lightbox-body" onClick={(e) => e.stopPropagation()}>
+          <ProductPhoto
+            productId={product.id}
+            photoPath={product.photoPath}
+            alt={product.name}
+            className="attachment-lightbox-media"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -146,44 +153,25 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
 
         {/* Header with Photo & Name */}
         <div className="product-popup-header">
-          <div className="product-popup-photo-wrap">
-            {product.photoPath || shownPhotoId ? (
+          {product.photoPath ? (
+            <button
+              type="button"
+              className="product-popup-photo-wrap"
+              aria-label={t("productPhotoPreview")}
+              onClick={() => setPreviewOpen(true)}
+            >
               <ProductPhoto
                 productId={product.id}
-                photoPath={shownPhotoId ? null : product.photoPath}
-                photoId={shownPhotoId}
+                photoPath={product.photoPath}
                 alt={product.name}
                 className="product-popup-photo"
               />
-            ) : (
+            </button>
+          ) : (
+            <div className="product-popup-photo-wrap">
               <div className="product-popup-photo-placeholder">
                 <PackageIcon size={28} />
               </div>
-            )}
-          </div>
-
-          {/* 두 장 이상일 때만 줄이 뜬다. 한 장이면 지금과 똑같이 보인다. */}
-          {photos.length > 1 && (
-            <div className="product-photo-strip">
-              {photos.map((photo) => {
-                const shown = shownPhotoId ? photo.id === shownPhotoId : photo.isPrimary;
-                return (
-                  <button
-                    key={photo.id}
-                    type="button"
-                    className={`product-photo-strip-item ${shown ? "is-shown" : ""}`}
-                    aria-pressed={shown}
-                    onClick={() => setShownPhotoId(photo.id)}
-                  >
-                    <ProductPhoto
-                      productId={product.id}
-                      photoId={photo.id}
-                      alt=""
-                      className="product-preview-img"
-                    />
-                  </button>
-                );
-              })}
             </div>
           )}
 
