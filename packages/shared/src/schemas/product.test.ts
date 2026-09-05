@@ -5,6 +5,7 @@ import {
   kibbleSizeForForm,
   nextPrimaryPhotoPath,
   formatWeightG,
+  weightToInput,
   updateProductSchema,
   WEIGHT_G_MAX,
   weightToGrams,
@@ -157,7 +158,7 @@ describe("weightToGrams / formatWeightG", () => {
     expect(formatWeightG(2000)).toBe("2kg");
     expect(formatWeightG(2500)).toBe("2.5kg");
     expect(formatWeightG(400)).toBe("400g");
-    expect(formatWeightG(1250)).toBe("1250g");
+    expect(formatWeightG(1250)).toBe("1.25kg");
     expect(formatWeightG(null)).toBeNull();
     expect(formatWeightG(0)).toBeNull();
   });
@@ -191,5 +192,22 @@ describe("nextPrimaryPhotoPath", () => {
     ];
     nextPrimaryPhotoPath(rows);
     expect(rows[0].path).toBe("b.webp");
+  });
+});
+
+describe("weightToInput", () => {
+  it("소수점을 잃지 않고 입력 칸으로 되돌린다", () => {
+    expect(weightToInput(2500)).toEqual({ value: "2.5", unit: "kg" });
+    expect(weightToInput(1250)).toEqual({ value: "1.25", unit: "kg" });
+    expect(weightToInput(2000)).toEqual({ value: "2", unit: "kg" });
+    expect(weightToInput(400)).toEqual({ value: "400", unit: "g" });
+    expect(weightToInput(null)).toEqual({ value: "", unit: "kg" });
+  });
+
+  it("입력 → 저장 → 입력이 왕복한다", () => {
+    for (const [raw, unit] of [["2", "kg"], ["2.5", "kg"], ["1.25", "kg"], ["400", "g"]] as const) {
+      const grams = weightToGrams(raw, unit);
+      expect(weightToInput(grams)).toEqual({ value: raw, unit });
+    }
   });
 });

@@ -13,7 +13,7 @@ import type {
 import { hasFormDetails, weightToGrams } from "@kibble/shared";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson, apiFetch } from "../lib/api";
-import { MAX_PRODUCT_PHOTOS } from "@kibble/shared";
+import { MAX_PRODUCT_PHOTOS, weightToInput } from "@kibble/shared";
 import { ProductPhoto } from "./ProductPhoto";
 import { CameraIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "./ProductIcons";
 
@@ -113,17 +113,11 @@ export function ProductEditSheet({
       setOrigin(product.origin ?? "");
       setForm(product.form ?? "");
       setKibbleSize(product.kibbleSize ?? "");
-      if (product.weightG == null) {
-        setWeight("");
-        setWeightUnit("kg");
-      } else if (product.weightG >= 1000 && product.weightG % 100 === 0) {
-        // 2000g은 사람이 "2kg"이라고 산다. 1000으로 안 떨어지는 값만 g으로 보여준다.
-        setWeight(String(product.weightG / 1000));
-        setWeightUnit("kg");
-      } else {
-        setWeight(String(product.weightG));
-        setWeightUnit("g");
-      }
+      // 표시(formatWeightG)와 같은 기준으로 되돌린다 — 1.25kg을 넣고 1250g으로
+      // 돌려받으면 사용자가 적은 소수점이 사라져 보인다.
+      const weightInput = weightToInput(product.weightG);
+      setWeight(weightInput.value);
+      setWeightUnit(weightInput.unit);
       setAdverseReactions(product.adverseReactions ?? []);
       setNotes(product.notes ?? "");
 

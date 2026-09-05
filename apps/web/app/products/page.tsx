@@ -313,10 +313,6 @@ export default function ProductsPage() {
                     {p.brand && <div className="product-card-brand">{p.brand}</div>}
                     <h3 className="product-card-name">{p.name}</h3>
 
-                    {p.mainIngredients && (
-                      <p className="product-card-main-ingredients">{p.mainIngredients}</p>
-                    )}
-
                     {p.dosage && (
                       <p className="product-card-dosage-hint">{p.dosage}</p>
                     )}
@@ -326,11 +322,8 @@ export default function ProductsPage() {
                 {/* Card footer: price, tags, and quick toggle */}
                 <div className="product-card-bottom" onClick={(e) => e.stopPropagation()}>
                   <div className="product-card-meta-left">
-                    {p.costKrw != null && (
-                      <span className="product-card-cost">
-                        {p.costKrw.toLocaleString()}
-                        {t("eventDetailCostUnit")}
-                      </span>
+                    {p.mainIngredients && (
+                      <span className="product-card-main-ingredients">{p.mainIngredients}</span>
                     )}
                     {p.adverseReactions && p.adverseReactions.length > 0 && (
                       <span className="product-warning-badge" title={t("productAdverseReactionsLabel")}>
