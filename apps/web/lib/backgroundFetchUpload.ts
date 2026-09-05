@@ -50,17 +50,14 @@ function bgFetchOf(
     .backgroundFetch;
 }
 
+/**
+ * Chromium은 Background Fetch를 다운로드(GET)에 대해서만 정식 지원합니다.
+ * 본문(Body)이 있는 요청(POST/PUT 업로드)은 Chromium 내부 플래그(BackgroundFetchUploads, crbug/774054)로
+ * 비활성화되어 있어, 호출 시 항상 "Requests with a body are not supported" 예외를 던집니다.
+ * 이로 인한 8초 타임아웃 지연을 방지하기 위해 업로드용 Background Fetch는 false를 반환합니다.
+ */
 export async function canUseBackgroundFetch(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!("serviceWorker" in navigator)) return false;
-  const proto = ServiceWorkerRegistration.prototype as { backgroundFetch?: unknown };
-  if (!("backgroundFetch" in proto) && !("BackgroundFetchManager" in window)) return false;
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    return Boolean(bgFetchOf(registration));
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 function uiCopy(): BfUiCopy {
