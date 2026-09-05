@@ -4853,7 +4853,7 @@ th {
 }
 
 .product-quick-chip {
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 500;
