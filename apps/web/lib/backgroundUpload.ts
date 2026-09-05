@@ -11,6 +11,7 @@ import {
   cancelAllBackgroundFetches,
   hydrateBackgroundFetchJobs,
   retryFailedBackgroundFetches,
+  sweepBackgroundFetchJobs,
   startViaBackgroundFetch,
   subscribeBackgroundFetchMessages,
   type BfClientMessage,
@@ -144,7 +145,10 @@ async function refreshBfFailedCount(): Promise<void> {
 export function bindBackgroundFetchBridge(): () => void {
   if (!unsubBf) {
     unsubBf = subscribeBackgroundFetchMessages(onBfMessage);
-    void refreshBfFailedCount();
+    // 오래된 실패 잡·주인 없는 사본은 여기서만 걷는다 (세션당 한 번).
+    void sweepBackgroundFetchJobs()
+      .catch(() => {})
+      .then(() => refreshBfFailedCount());
   }
   return () => {
     unsubBf?.();

@@ -6,6 +6,7 @@ import {
   BF_MESSAGE_TYPE,
   BF_SW_CANCEL,
   BF_SW_KICK,
+  isStaleFailedJob,
   prepareFailedJobForRetry,
   remainingFileCount,
   type BfJob,
@@ -16,6 +17,7 @@ import { prepareAttachmentForUpload } from "./uploadPrep";
 import { beginUploadGuard, endUploadGuard } from "./uploadGuard";
 import {
   deleteBfJobAndBlobs,
+  deleteOrphanBfBlobs,
   getAllBfJobs,
   persistBfBlobs,
   putBfJob,
@@ -258,10 +260,28 @@ export function bfFailedFileCount(jobs: BfJob[]): number {
     .reduce((n, job) => n + remainingFileCount(job), 0);
 }
 
+/**
+ * 오래된 실패 잡과 주인 없는 파일 사본을 걷는다. 성공·중단 경로에만 삭제가 있으면
+ * 사용자가 다시 올리기도 그만두기도 안 누른 잡이 원본 영상과 Bearer 토큰을 붙든 채
+ * 영원히 남는다. 배너가 붙을 때마다 한 번씩 돈다.
+ */
+export async function sweepBackgroundFetchJobs(now = Date.now()): Promise<BfJob[]> {
+  const jobs = await getAllBfJobs().catch(() => [] as BfJob[]);
+  const stale = jobs.filter((job) => isStaleFailedJob(job, now));
+  for (const job of stale) {
+    await deleteBfJobAndBlobs(job).catch(() => {});
+  }
+  const kept = jobs.filter((job) => !stale.includes(job));
+  await deleteOrphanBfBlobs(new Set(kept.map((job) => job.id))).catch(() => {});
+  return kept;
+}
+
 export async function hydrateBackgroundFetchJobs(): Promise<{
   running: BfJob | undefined;
   failedCount: number;
 }> {
+  // 읽기만 한다 — 메시지마다 불리므로 Cache 전체 순회를 여기 두지 않는다. 정리는
+  // 배너가 붙을 때 sweepBackgroundFetchJobs()가 한 번 돈다.
   const jobs = await getAllBfJobs().catch(() => [] as BfJob[]);
   return {
     running: jobs.find((job) => job.status === "running" || job.status === "pending"),

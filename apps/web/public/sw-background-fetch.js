@@ -6,7 +6,8 @@
  * 영상 청크는 서버가 순서를 강제하므로(409) 한 번에 요청 하나, 성공 이벤트에서 다음을 잇는다.
  */
 const BF_DB_NAME = "kibble-bf";
-const BF_DB_VERSION = 1;
+// lib/backgroundFetchJob.ts BF_DB_VERSION와 같아야 한다. v1 잡에는 chunkSize가 없다.
+const BF_DB_VERSION = 2;
 const BF_STORE = "jobs";
 const BF_CACHE = "kibble-bf-v1";
 const BF_FETCH_PREFIX = "kbf:";
@@ -105,11 +106,15 @@ function applyBfSuccess(job, work, result) {
   return job;
 }
 
+function uploadedBytes(job) {
+  const uploaded = new Set(job.uploadedIndex || []);
+  return job.files.reduce((n, file, i) => (uploaded.has(i) ? n + file.size : n), 0);
+}
+
 function applyChunkDesync(job, receivedBytes, nextChunkIndex) {
-  const prior = job.files.slice(0, job.fileIndex).reduce((n, file) => n + file.size, 0);
   return Object.assign({}, job, {
     chunkIndex: nextChunkIndex,
-    bytesDone: prior + receivedBytes,
+    bytesDone: uploadedBytes(job) + receivedBytes,
   });
 }
 
@@ -157,9 +162,8 @@ function openBfDb() {
     const request = indexedDB.open(BF_DB_NAME, BF_DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(BF_STORE)) {
-        db.createObjectStore(BF_STORE, { keyPath: "id" });
-      }
+      if (db.objectStoreNames.contains(BF_STORE)) db.deleteObjectStore(BF_STORE);
+      db.createObjectStore(BF_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error("IDB_OPEN_FAILED"));

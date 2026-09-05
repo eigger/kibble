@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, setToken, clearToken } from "./api";
 import { clearAppCaches } from "./appCache";
+import { cancelAllBackgroundFetches } from "./backgroundFetchUpload";
 import type { User } from "./types";
 
 interface AuthContextValue {
@@ -93,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function clearLocalSession() {
     clearToken();
     localStorage.removeItem(CACHED_USER_KEY);
+    // Background Fetch 잡은 IndexedDB에 **동작하는 Bearer 토큰**과 원본 파일 사본을
+    // 들고 있다. clearAppCaches()는 Cache만 비우므로 잡은 남는다 — 먼저 끊고 지운다.
+    await cancelAllBackgroundFetches().catch(() => {});
     // 서비스워커 캐시에 로그인 상태로 받은 페이지가 남는다 — 공용 기기에서 다음 사용자가
     // 이전 사용자의 화면을 보지 않도록 함께 비운다.
     await clearAppCaches();

@@ -4,6 +4,7 @@ import {
   BF_DB_VERSION,
   BF_STORE,
   fileCacheUrl,
+  parseFileCacheUrl,
   type BfJob,
 } from "./backgroundFetchJob";
 
@@ -17,9 +18,10 @@ function openDb(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error ?? new Error("IDB_OPEN_FAILED"));
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(BF_STORE)) {
-        db.createObjectStore(BF_STORE, { keyPath: "id" });
-      }
+      // 스키마가 바뀌면 옛 잡은 버린다. 전송 중이던 파일은 사용자 갤러리에 그대로
+      // 있고, 반쯤 읽히는 잡을 남기는 쪽이 더 나쁘다. 남은 사본은 sweep이 걷는다.
+      if (db.objectStoreNames.contains(BF_STORE)) db.deleteObjectStore(BF_STORE);
+      db.createObjectStore(BF_STORE, { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
   });
@@ -88,4 +90,21 @@ export async function deleteBfBlobs(jobId: string, fileCount: number): Promise<v
 export async function deleteBfJobAndBlobs(job: Pick<BfJob, "id" | "files">): Promise<void> {
   await deleteBfBlobs(job.id, job.files.length);
   await deleteBfJob(job.id);
+}
+
+/**
+ * 잡이 사라진 파일 사본을 걷어낸다. DB 업그레이드로 스토어를 버렸거나, 잡 삭제가
+ * 중간에 끊긴 경우에 남는다 — 영상 하나가 수백 MB라 방치하면 티가 난다.
+ */
+export async function deleteOrphanBfBlobs(knownJobIds: Set<string>): Promise<number> {
+  if (typeof caches === "undefined") return 0;
+  const cache = await caches.open(BF_CACHE);
+  const requests = await cache.keys();
+  let removed = 0;
+  for (const request of requests) {
+    const parsed = parseFileCacheUrl(request.url);
+    if (parsed && knownJobIds.has(parsed.jobId)) continue;
+    if (await cache.delete(request)) removed += 1;
+  }
+  return removed;
 }

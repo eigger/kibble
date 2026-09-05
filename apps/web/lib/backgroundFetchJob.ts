@@ -2,7 +2,11 @@ import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 
 /** IndexedDB / Cache 이름. 서비스워커 `sw-background-fetch.js`와 같아야 한다. */
 export const BF_DB_NAME = "kibble-bf";
-export const BF_DB_VERSION = 1;
+/**
+ * v1 잡에는 `chunkSize`가 없다. SW의 `jobChunkSize`는 그때 던지므로, 열자마자
+ * 매 kick마다 죽는 잡이 남는다. 스토어를 통째로 버리는 쪽이 싸다.
+ */
+export const BF_DB_VERSION = 2;
 export const BF_STORE = "jobs";
 export const BF_CACHE = "kibble-bf-v1";
 export const BF_FETCH_PREFIX = "kbf:";
@@ -11,6 +15,12 @@ export const BF_SW_KICK = "kibble-bf-kick";
 export const BF_SW_CANCEL = "kibble-bf-cancel";
 export const BF_MAX_RETRIES = 5;
 export const BF_MAX_BACKOFF_MS = 5000;
+/**
+ * 실패로 남은 잡을 붙들고 있는 기간. 원본은 사용자 갤러리에 그대로 있으므로,
+ * 지나면 "배너에서 다시 올리기"만 잃고 다시 붙이면 된다. 그 대가로 폰 저장소에
+ * 수백 MB짜리 사본이 무기한 남지 않는다.
+ */
+export const BF_JOB_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 export type BfJobStatus = "pending" | "running" | "failed" | "cancelled";
 
@@ -149,16 +159,23 @@ export function applyBfSuccess(
   }
 }
 
+/** 서버에 실제로 붙은 파일들의 바이트 합. 진행률의 기준점이다. */
+export function uploadedBytes(job: BfJob): number {
+  const uploaded = new Set(job.uploadedIndex ?? []);
+  return job.files.reduce((n, file, i) => (uploaded.has(i) ? n + file.size : n), 0);
+}
+
 export function applyChunkDesync(
   job: BfJob,
   receivedBytes: number,
   nextChunkIndex: number,
 ): BfJob {
-  const prior = job.files.slice(0, job.fileIndex).reduce((n, file) => n + file.size, 0);
+  // `fileIndex`까지의 합이 아니라 **실제로 올라간** 파일들의 합이다. 4xx로 건너뛴
+  // 파일이나 재시도로 되감긴 커서가 있으면 두 값이 갈린다.
   return {
     ...job,
     chunkIndex: nextChunkIndex,
-    bytesDone: prior + receivedBytes,
+    bytesDone: uploadedBytes(job) + receivedBytes,
   };
 }
 
@@ -200,7 +217,32 @@ export function prepareFailedJobForRetry(job: BfJob, token: string | null): BfJo
     fileIndex: 0,
     chunkIndex: 0,
     uploadId: null,
+    // 커서를 0으로 되감으므로 진행률도 되감는다. 안 하면 다음 성공분이 옛 누적 위에
+    // 더해져 loaded가 total을 넘고 배너가 100%에 붙박인다.
+    bytesDone: uploadedBytes(job),
   };
+}
+
+/** 되살릴 가망이 없는 실패 잡. 원본 파일 사본을 붙들고 있을 이유가 없다. */
+export function isStaleFailedJob(job: BfJob, now: number, ttlMs = BF_JOB_TTL_MS): boolean {
+  if (job.status !== "failed") return false;
+  const createdAt = typeof job.createdAt === "number" ? job.createdAt : 0;
+  return now - createdAt > ttlMs;
+}
+
+/** Cache 키에서 잡 id를 되뽑는다. 잡이 사라진 사본을 걷어내는 데 쓴다. */
+export function parseFileCacheUrl(url: string): { jobId: string; index: number } | null {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return null;
+  }
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length !== 3 || parts[0] !== "bf") return null;
+  const index = Number(parts[2]);
+  if (!Number.isInteger(index) || index < 0) return null;
+  return { jobId: parts[1], index };
 }
 
 export function bfFetchId(jobId: string, seq: number): string {
