@@ -766,6 +766,7 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 | **오늘 요약 일 경계** | Phase 1은 **KST(UTC+9) 자정** 고정. 타임존 설정 UI는 Phase 2 이후(§7.11) |
 | **ApiToken 발급·폐기** | **가구 OWNER만** — MEMBER/VIEWER는 `POST/GET/DELETE /api/tokens` 불가 (§7.8) |
 | **영상 재인코딩** | 업로드는 원본. 서버가 백그라운드에서 긴 변 1280·H.264로 줄인다. 이미 작으면 건너뜀(≤8MB / ≤2Mbps / 긴 변≤1280이고 ≤2.5Mbps). 폰 선압축 안 함. 변환 중에도 원본 재생, 끝나면 같은 `path`를 바꿔 끼움 |
+| **첨부 전송** | 기록 POST는 즉시 저장. 파일은 Chromium(Android·데스크톱 PWA)이면 Background Fetch로 앱을 닫아도 이어 올리고, iOS 홈화면 PWA처럼 API가 없으면 이 화면에서 올린다. 전 기기 OS 백그라운드를 전제로 두지 않는다 |
 
 ### 7.11 오늘 요약 — Phase 1 일 경계는 KST 고정
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useLocale } from "../lib/i18n/locale-context";
 import {
+  bindBackgroundFetchBridge,
   cancelBackgroundUpload,
   getBackgroundUpload,
   retryBackgroundUpload,
@@ -22,6 +23,8 @@ export function BackgroundUploadBanner() {
     () => null,
   );
 
+  useEffect(() => bindBackgroundFetchBridge(), []);
+
   if (!snapshot) return null;
 
   const current = snapshot.current;
@@ -40,7 +43,7 @@ export function BackgroundUploadBanner() {
       {current && (
         <div className="bg-upload-banner" role="status">
           <span>
-            {t("attachmentUploadingStay")}{" "}
+            {t(current.canLeave ? "attachmentUploadingLeave" : "attachmentUploadingStay")}{" "}
             {t("attachmentUploading", {
               current: String(uploadingIndex),
               total: String(uploadingTotal),

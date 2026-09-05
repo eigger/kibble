@@ -1,4 +1,5 @@
 const CACHE_NAME = "kibble-shell-v4";
+importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로
 // 거기서 배포 프리픽스를 그대로 얻는다 — 루트 배포면 "", /kibble 아래면 "/kibble".
@@ -47,12 +48,13 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  const keep = new Set([CACHE_NAME]);
+  const keep = new Set([CACHE_NAME, BF_CACHE]);
   event.waitUntil(
     caches
       .keys()
       .then((keys) => Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      .then(() => kickIfIdle()),
   );
 });
 
