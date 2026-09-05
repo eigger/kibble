@@ -217,6 +217,21 @@ a {
   color: var(--color-primary);
 }
 
+/**
+ * 모바일 웹킷/크로미움은 탭한 요소 위에 반투명 사각형(기본값이 안드로이드에서 푸른색)을
+ * 덮는다. border-radius를 무시해서 알약 모양 칩 밖으로 네모가 삐져나오고, iOS는 회색·
+ * 안드로이드는 파랑이라 기기마다 다르게 보인다. 마우스 클릭에는 없는 효과라 끈다.
+ * 눌림 피드백은 각 요소의 :active가 맡는다.
+ */
+a,
+button,
+summary,
+label,
+[role="button"],
+[role="tab"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .container {
   max-width: 720px;
   margin: 0 auto;
