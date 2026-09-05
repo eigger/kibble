@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   canUseDirectAttachmentUrl,
   directAttachmentUrl,
@@ -34,9 +34,14 @@ export function EventAttachmentThumb({
   const usePoster = isVideo && !controls && Boolean(posterPath);
   const sourcePath = usePoster && posterPath ? posterPath : path;
   const renderVideo = isVideo && !usePoster;
+  // 서버(window 없음)는 false, 클라 same-origin은 true → 렌더 중 호출하면
+  // SSR은 placeholder <span>, 클라 첫 페인트는 <video>/<img>가 되어 hydration이
+  // 그 서브트리를 버린다. 지금은 목록·상세가 클라 fetch라 SSR 시점에 첨부가
+  // 안 그려져 안전하다. 서버 데이터로 첨부를 그리게 되면 이 호출을 렌더 밖으로.
   const useDirect = canUseDirectAttachmentUrl();
   // same-origin이면 첫 페인트에 src를 둔다. useEffect 뒤에 붙이면 라이트박스
-  // <video>가 클릭 제스처 밖에서 마운트되어 autoplay가 막힌다.
+  // <video>가 클릭 제스처 밖에서 마운트되어 autoplay가 막힌다. 부수 효과로
+  // 목록 썸네일의 placeholder 깜빡임도 없다.
   const [src, setSrc] = useState<string | null>(() =>
     useDirect ? directAttachmentUrl(sourcePath) : null,
   );
@@ -70,24 +75,18 @@ export function EventAttachmentThumb({
     setAutoplayMuted(false);
   }, [src]);
 
-  useEffect(() => {
+  // loadeddata를 기다리면 play()가 네트워크 왕복 뒤로 밀려 탭 제스처가 끝난다 (R86).
+  // useLayoutEffect: flushSync 커밋과 같은 턴에서 호출해 활성화 창 안에 남긴다.
+  useLayoutEffect(() => {
     if (!controls || !src) return;
     const el = videoRef.current;
     if (!el) return;
     let cancelled = false;
-
-    const kick = () => {
-      if (cancelled) return;
-      void startLightboxPlayback(el).then((result) => {
-        if (!cancelled && result === "muted") setAutoplayMuted(true);
-      });
-    };
-
-    if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) kick();
-    else el.addEventListener("loadeddata", kick, { once: true });
+    void startLightboxPlayback(el).then((result) => {
+      if (!cancelled && result === "muted") setAutoplayMuted(true);
+    });
     return () => {
       cancelled = true;
-      el.removeEventListener("loadeddata", kick);
     };
   }, [controls, src]);
 

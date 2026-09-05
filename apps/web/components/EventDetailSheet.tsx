@@ -669,11 +669,11 @@ export function EventDetailSheet({
                   <ul className="event-detail-view-attachments-list">
                     {attachments.map((att) => (
                       <li key={att.id}>
-                          <button
-                            type="button"
-                            className="event-detail-view-att-btn"
-                            onClick={() => flushSync(() => setLightboxAtt(att))}
-                          >
+                        <button
+                          type="button"
+                          className="event-detail-view-att-btn"
+                          onClick={() => flushSync(() => setLightboxAtt(att))}
+                        >
                           <EventAttachmentThumb
                             path={att.path}
                             mime={att.mime}

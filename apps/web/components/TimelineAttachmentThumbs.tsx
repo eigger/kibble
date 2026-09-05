@@ -32,6 +32,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
             e.stopPropagation();
             // 클릭 안에서 라이트박스를 커밋해야 iOS 브라우저·PWA가 그 탭을
             // 재생 제스처로 본다. setState만 하면 커밋이 제스처 밖으로 밀린다.
+            // play()도 그 턴에서 나가야 하므로 loadeddata를 기다리지 않는다 (R86).
             flushSync(() => onOpen(att));
           }}
         >

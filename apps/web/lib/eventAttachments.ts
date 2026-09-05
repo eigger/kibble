@@ -205,7 +205,11 @@ export function attachmentFileUrl(path: string): string {
   return `/api/attachments/file/${path}`;
 }
 
-/** same-origin이면 미디어 쿠키로 <img>/<video src> 직접 사용 가능 */
+/**
+ * same-origin이면 미디어 쿠키로 <img>/<video src> 직접 사용 가능.
+ * `typeof window` 분기라 서버와 클라 값이 다르다 — 렌더 중 호출은 hydration
+ * mismatch. 호출부는 클라 전용 트리에서만 쓰거나, 그 전제를 주석으로 남긴다.
+ */
 export function canUseDirectAttachmentUrl(): boolean {
   if (typeof window === "undefined") return false;
   return API_URL === window.location.origin;

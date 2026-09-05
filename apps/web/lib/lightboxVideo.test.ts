@@ -22,7 +22,21 @@ describe("startLightboxPlayback", () => {
   });
 
   it("무음도 막히면 blocked", async () => {
-    const el = { muted: false, play: vi.fn().mockRejectedValue(new Error("fail")) };
+    const el = {
+      muted: false,
+      play: vi.fn().mockRejectedValue(new DOMException("blocked", "NotAllowedError")),
+    };
     await expect(startLightboxPlayback(el)).resolves.toBe("blocked");
+    expect(el.muted).toBe(true);
+  });
+
+  it("AbortError는 무음 재시도하지 않는다", async () => {
+    const el = {
+      muted: false,
+      play: vi.fn().mockRejectedValue(new DOMException("interrupted", "AbortError")),
+    };
+    await expect(startLightboxPlayback(el)).resolves.toBe("blocked");
+    expect(el.muted).toBe(false);
+    expect(el.play).toHaveBeenCalledTimes(1);
   });
 });
