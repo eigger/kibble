@@ -132,6 +132,13 @@
 
 ## 2. 세션 로그
 
+### 2026-09-05 — v0.12.1 릴리스
+
+PR #67(제품 UI 결 맞춤, SVG 아이콘 교체, 칩 호버, 모바일 터치 간섭 해소, i18n 무결성 강화 및 디자인 시스템 토큰 도입) 머지 후 태그.
+DB 마이그레이션 없음.
+
+---
+
 ### 2026-09-05 — 제품 UI 정돈, i18n 무결성, 내비 안전영역 및 접근성 개선 (PR #67)
 
 **한 일**
@@ -139,15 +146,16 @@
 - **i18n 번역 키 무결성 및 DB 라벨 분리 (R95, R98)**:
   - `productStatusInactiveShort` (ko: "사용 중단", en: "Inactive") 및 `saveError` 누락 키 추가
   - `t()` 함수의 첫 번째 인자 타입을 `TranslationKey | string`에서 `TranslationKey`로 엄격히 좁힘 (R95).
-  - 사전 키 또는 DB 사용자 지정명을 안전하게 렌더링하는 `tLabel(labelOrKey: string)` 도입 (`translateLabel`, `useLocale`).
+  - 사전 키 또는 DB 사용자 지정명을 안전하게 렌더링하는 `tLabel(labelOrKey: string)` 도입 (`translateLabel`, `useLocale`). `locale-context`의 `tLabel`이 `translations.ts`의 `translateLabel`을 호출하도록 단일화하여 중복 로직 제거.
   - 척도 라벨(`Scale3ValueLabelKey`) 및 카테고리 숏라벨(`PresetCategoryShortKey`)을 템플릿 리터럴 서브타입으로 정의하여, 코드베이스 전역의 `as TranslationKey` 캐스트를 0건으로 완전 제거 (R98).
+  - 척도 3 라벨 키(`scale3ValueLabelKey`)에 1~3 이외의 값이 들어오면 임의로 2("보통")를 찍지 않고 `null`을 반환하여 잘못된 건강 상태 표시를 차단 (K-16 준수).
 - **디자인 시스템 치수 토큰 및 시각적 결 일치 (R99)**:
   - `:root`에 치수 토큰 세 벌 도입:
     - 반경: `--radius-sm: 6px`, `--radius-md: 8px`, `--radius-lg: 12px`, `--radius-pill: 999px`
     - 타이포: `--text-xs: 0.75rem`, `--text-sm: 0.82rem`, `--text-md: 0.9rem`, `--text-lg: 1.05rem`
     - 여백: `--space-1: 4px`, `--space-2: 8px`, `--space-3: 12px`, `--space-4: 16px`
-  - 제품 관리 화면의 날카로운 4px 반경을 `--radius-sm`(6px)으로 부드럽게 정돈.
-  - 기존 스케일과 미세하게 어긋나던 폰트 크기(0.74rem -> `--text-xs`, 0.84/0.86rem -> `--text-sm`, 0.92rem -> `--text-md`, 1.15rem -> `--text-lg`) 및 뱃지 패딩(2px 6px)을 표준 토큰으로 일괄 교체.
+  - 제품 관리 화면의 날카로운 4px 반경을 `--radius-sm`(6px)으로 부드럽게 정돈하고, 선언된 치수 토큰 13종을 전원 실사용.
+  - 기존 스케일과 미세하게 어긋나던 폰트 크기(0.74rem -> `--text-xs`, 0.84/0.86rem -> `--text-sm`, 0.92rem -> `--text-md`, 1.15rem -> `--text-lg`, 1.4rem -> 1.25rem 헤딩) 및 뱃지 패딩(2px 6px)을 표준 토큰으로 일괄 교체.
   - 다크 모드에서 보이지 않던 4% 칩 호버 그림자를 테마별 `--shadow-chip-hover`(라이트 0.06, 다크 0.45 + 미세 테두리 강조)로 시인성 확보.
   - 보조 버튼 `.chip-info-btn`(22×22px)에 `::before` 가상 요소를 부여하여 최소 44×44px 터치 타깃 보장.
 - **하단 내비 안전영역 및 전역 오프셋 수정 (R93)**:
