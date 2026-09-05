@@ -434,11 +434,10 @@ a {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: var(--nav-height);
-  padding-bottom: env(safe-area-inset-bottom);
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  z-index: 40;
+  z-index: 60;
   min-height: var(--home-input-bar-height);
 }
 
@@ -1804,13 +1803,14 @@ button:disabled {
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--nav-height);
+  height: calc(var(--nav-height) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: center;
   z-index: 50;
+  box-sizing: border-box;
 }
 
 .bottom-nav-inner {
@@ -1870,6 +1870,7 @@ button:disabled {
 .bottom-nav .scan-tab.active {
   color: var(--color-primary);
   font-weight: 700;
+  pointer-events: none;
 }
 
 .bottom-nav .scan-tab .icon-wrap {
@@ -1884,6 +1885,16 @@ button:disabled {
   color: var(--color-primary-text);
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: margin-top 0.15s ease, width 0.15s ease, height 0.15s ease;
+}
+
+/* /q(빠른 기록) 화면에서는 상단 프리셋 칩 바(영양, 체중 등)와의 터치 영역 간섭을 방지하기 위해
+   아이콘 돌출을 바텀 네비 높이 내로 자연스럽게 정돈 */
+.bottom-nav .scan-tab.active .icon-wrap {
+  margin-top: 0;
+  width: 36px;
+  height: 36px;
+  box-shadow: none;
 }
 
 /* 더보기 바텀시트 */
@@ -2659,6 +2670,8 @@ button:disabled {
 .quick-record-input-bar.home-input-bar {
   min-height: 0;
   padding-bottom: 0;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  z-index: 60;
 }
 
 .quick-record-input-bar {
@@ -2670,7 +2683,7 @@ button:disabled {
 }
 
 .quick-record-input-bar .home-input-bar-inner {
-  padding: 4px 8px 6px;
+  padding: 6px 10px 8px;
   max-width: 720px;
   margin: 0 auto;
 }
