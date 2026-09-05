@@ -127,6 +127,13 @@
 - 폴링 60초. 기존 영상 백필 CPU·uploads 순간 최대를 deploy.md에
 - 사진 XHR 재시도는 멱등이 아님 (R83)
 - 변환 후 path를 `.mp4`로 바꾸던 것은 되돌림 (R84) — 같은 URL을 덮어쓴다
+- PR #58 머지 (`9e00561`). 로컬 검증: api 테스트 202, eslint 클린. ffmpeg 실경로는 배포 후 `[video-transcode]` 로그와 `size` 변화로 확인
+
+**남은 것 (이번 PR이 만든 문제는 아님)**
+
+- R83 — 사진 multipart 재시도 멱등성. 실사용에서 사진이 두 장 들어오면 연다
+- `If-Range` 미처리. ETag가 생긴 지금은 검사 한 줄이면 정확해지지만 `must-revalidate`가 창을 좁혀 실전 위험은 작다
+- `FILE_SIZE_LIMIT_MB`를 2047 넘게 올리면 `Attachment.size`(Int)가 뒤집힌다. 코드가 막지는 않으니 `docs/deploy.md`에 안내만 붙였다
 
 ---
 
