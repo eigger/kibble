@@ -1,10 +1,12 @@
 import { API_URL, getToken } from "./api";
 import { BASE_PATH } from "./base-path";
+import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import {
   BF_FETCH_PREFIX,
   BF_MESSAGE_TYPE,
   BF_SW_CANCEL,
   BF_SW_KICK,
+  prepareFailedJobForRetry,
   remainingFileCount,
   type BfJob,
   type BfUiCopy,
@@ -184,9 +186,7 @@ export async function startViaBackgroundFetch(
     }
 
     const existing = await getAllBfJobs();
-    const busy = existing.some(
-      (job) => job.status === "pending" || job.status === "running" || Boolean(job.fetchId),
-    );
+    const inFlight = existing.some((job) => Boolean(job.fetchId));
 
     const id = newJobId();
     const locale =
@@ -211,15 +211,19 @@ export async function startViaBackgroundFetch(
       uploadId: null,
       fetchId: null,
       uploaded: [],
+      uploadedIndex: [],
+      skipped: [],
       bytesDone: 0,
       status: "pending",
       retries: 0,
       seq: 0,
+      chunkSize: UPLOAD_CHUNK_SIZE_BYTES,
+      createdAt: Date.now(),
     };
     await persistBfBlobs(id, prepared);
     await putBfJob(created);
 
-    const startedWait = busy ? Promise.resolve(true) : waitForStarted(id);
+    const startedWait = inFlight ? Promise.resolve(true) : waitForStarted(id);
     await pokeSw(BF_SW_KICK, { jobId: id });
     const ok = await startedWait;
     if (!ok) {
@@ -242,7 +246,7 @@ export async function retryFailedBackgroundFetches(): Promise<boolean> {
   if (failed.length === 0) return false;
   if (!(await canUseBackgroundFetch())) return false;
   for (const job of failed) {
-    await putBfJob({ ...job, status: "pending", retries: 0, fetchId: null });
+    await putBfJob(prepareFailedJobForRetry(job, getToken()));
   }
   await pokeSw(BF_SW_KICK);
   return true;

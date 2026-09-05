@@ -2,6 +2,7 @@
  * Background Fetch 업로드. sw.js에서 importScripts 한다.
  *
  * 상태기(nextBfWork / applyBfSuccess)는 apps/web/lib/backgroundFetchJob.ts와 맞춰 둔다.
+ * 청크 크기는 잡 레코드 job.chunkSize만 쓴다 — 여기에 8MB를 적지 않는다.
  * 영상 청크는 서버가 순서를 강제하므로(409) 한 번에 요청 하나, 성공 이벤트에서 다음을 잇는다.
  */
 const BF_DB_NAME = "kibble-bf";
@@ -12,27 +13,50 @@ const BF_FETCH_PREFIX = "kbf:";
 const BF_MESSAGE_TYPE = "kibble-bf";
 const BF_SW_KICK = "kibble-bf-kick";
 const BF_SW_CANCEL = "kibble-bf-cancel";
-const BF_CHUNK = 8 * 1024 * 1024;
 const BF_MAX_RETRIES = 5;
+const BF_MAX_BACKOFF_MS = 5000;
 
 function fileCacheUrl(jobId, index) {
   return `https://kibble.invalid/bf/${jobId}/${index}`;
 }
 
-function chunkCount(size) {
+function jobChunkSize(job) {
+  if (typeof job.chunkSize === "number" && job.chunkSize > 0) return job.chunkSize;
+  throw new Error("BF_CHUNK_SIZE_MISSING");
+}
+
+function chunkCount(size, chunkSize) {
   if (size <= 0) return 1;
-  return Math.ceil(size / BF_CHUNK);
+  return Math.ceil(size / chunkSize);
+}
+
+function backoffMs(attempt) {
+  return Math.min(500 * 2 ** (attempt - 1), BF_MAX_BACKOFF_MS);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function currentFileIndex(job) {
+  const uploaded = new Set(job.uploadedIndex || []);
+  for (let i = job.fileIndex; i < job.files.length; i++) {
+    if (!uploaded.has(i)) return i;
+  }
+  return job.files.length;
 }
 
 function nextBfWork(job) {
-  if (job.fileIndex >= job.files.length) return { kind: "done" };
-  const file = job.files[job.fileIndex];
-  if (!file.chunked) return { kind: "multipart", fileIndex: job.fileIndex };
-  if (!job.uploadId) return { kind: "init", fileIndex: job.fileIndex };
-  if (job.chunkIndex >= chunkCount(file.size)) return { kind: "complete", uploadId: job.uploadId };
+  const fileIndex = currentFileIndex(job);
+  if (fileIndex >= job.files.length) return { kind: "done" };
+  const file = job.files[fileIndex];
+  const chunkSize = jobChunkSize(job);
+  if (!file.chunked) return { kind: "multipart", fileIndex };
+  if (!job.uploadId) return { kind: "init", fileIndex };
+  if (job.chunkIndex >= chunkCount(file.size, chunkSize)) return { kind: "complete", uploadId: job.uploadId };
   return {
     kind: "chunk",
-    fileIndex: job.fileIndex,
+    fileIndex,
     chunkIndex: job.chunkIndex,
     uploadId: job.uploadId,
   };
@@ -43,8 +67,9 @@ function applyBfSuccess(job, work, result) {
   if (work.kind === "multipart") {
     const file = job.files[work.fileIndex];
     return Object.assign({}, job, {
-      fileIndex: job.fileIndex + 1,
+      fileIndex: work.fileIndex + 1,
       uploaded: result.attachment ? job.uploaded.concat([result.attachment]) : job.uploaded,
+      uploadedIndex: (job.uploadedIndex || []).concat([work.fileIndex]),
       bytesDone: job.bytesDone + file.size,
       retries: 0,
     });
@@ -58,8 +83,9 @@ function applyBfSuccess(job, work, result) {
   }
   if (work.kind === "chunk") {
     const file = job.files[work.fileIndex];
-    const start = work.chunkIndex * BF_CHUNK;
-    const size = Math.min(BF_CHUNK, Math.max(0, file.size - start));
+    const chunkSize = jobChunkSize(job);
+    const start = work.chunkIndex * chunkSize;
+    const size = Math.min(chunkSize, Math.max(0, file.size - start));
     return Object.assign({}, job, {
       chunkIndex: job.chunkIndex + 1,
       bytesDone: job.bytesDone + size,
@@ -68,10 +94,11 @@ function applyBfSuccess(job, work, result) {
   }
   if (work.kind === "complete") {
     return Object.assign({}, job, {
-      fileIndex: job.fileIndex + 1,
+      fileIndex: work.fileIndex + 1,
       chunkIndex: 0,
       uploadId: null,
       uploaded: result.attachment ? job.uploaded.concat([result.attachment]) : job.uploaded,
+      uploadedIndex: (job.uploadedIndex || []).concat([work.fileIndex]),
       retries: 0,
     });
   }
@@ -87,8 +114,10 @@ function applyChunkDesync(job, receivedBytes, nextChunkIndex) {
 }
 
 function skipCurrentFile(job) {
+  const index = currentFileIndex(job);
   return Object.assign({}, job, {
-    fileIndex: job.fileIndex + 1,
+    skipped: (job.skipped || []).concat([index]),
+    fileIndex: index + 1,
     chunkIndex: 0,
     uploadId: null,
     fetchId: null,
@@ -97,7 +126,12 @@ function skipCurrentFile(job) {
 }
 
 function remainingFileCount(job) {
-  return Math.max(0, job.files.length - job.fileIndex);
+  const uploaded = new Set(job.uploadedIndex || []);
+  let n = 0;
+  for (let i = 0; i < job.files.length; i++) {
+    if (!uploaded.has(i)) n += 1;
+  }
+  return n;
 }
 
 function parseBfFetchId(id) {
@@ -214,14 +248,19 @@ function progressFields(job) {
   };
 }
 
+function headerSafe(value) {
+  return String(value).replace(/[\r\n"]/g, "_");
+}
+
 function multipartRequest(url, blob, fileName, mime, headers) {
   const boundary = `----kibble${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
-  const safe = String(fileName).replace(/[\r\n"]/g, "_");
+  const safe = headerSafe(fileName);
   const encoded = encodeURIComponent(fileName);
+  const safeMime = headerSafe(mime || "application/octet-stream");
   const head =
     `--${boundary}\r\n` +
     `Content-Disposition: form-data; name="file"; filename="${safe}"; filename*=UTF-8''${encoded}\r\n` +
-    `Content-Type: ${mime || "application/octet-stream"}\r\n\r\n`;
+    `Content-Type: ${safeMime}\r\n\r\n`;
   const tail = `\r\n--${boundary}--\r\n`;
   headers.set("Content-Type", `multipart/form-data; boundary=${boundary}`);
   return new Request(url, {
@@ -287,6 +326,7 @@ async function retryOrFail(job) {
   job.retries = (job.retries || 0) + 1;
   if (job.retries < BF_MAX_RETRIES) {
     await putJob(job);
+    await sleep(backoffMs(job.retries));
     await performWork(job);
     return false;
   }
@@ -381,8 +421,9 @@ async function doMultipartBf(job, work) {
 async function doChunkBf(job, work) {
   const file = job.files[work.fileIndex];
   const blob = await getFileBlob(job, work.fileIndex);
-  const start = work.chunkIndex * BF_CHUNK;
-  const chunk = blob.slice(start, start + BF_CHUNK);
+  const chunkSize = jobChunkSize(job);
+  const start = work.chunkIndex * chunkSize;
+  const chunk = blob.slice(start, start + chunkSize);
   const headers = jobHeaders(job);
   headers.set("Content-Type", "application/octet-stream");
   const request = new Request(
@@ -405,12 +446,24 @@ async function doChunkBf(job, work) {
 }
 
 async function finishJob(job) {
-  await notifyClients({
-    action: "done",
-    jobId: job.id,
-    eventId: job.eventId,
-    uploaded: job.uploaded || [],
-  });
+  const leftover = remainingFileCount(job);
+  if ((job.uploaded || []).length > 0) {
+    await notifyClients({
+      action: "done",
+      jobId: job.id,
+      eventId: job.eventId,
+      uploaded: job.uploaded,
+    });
+  }
+  if (leftover > 0) {
+    job.status = "failed";
+    job.fetchId = null;
+    await putJob(job);
+    await notifyClients(
+      Object.assign({ action: "fail", remainingCount: leftover }, progressFields(job)),
+    );
+    return;
+  }
   await deleteJobAndBlobs(job);
 }
 
@@ -468,6 +521,7 @@ async function onBfSettled(registration, kind) {
   if (!parsed) return;
   const job = await getJob(parsed.jobId);
   if (!job) return;
+  if (registration.id !== job.fetchId) return;
   job.fetchId = null;
   if (job.status === "cancelled") {
     await deleteJobAndBlobs(job);
@@ -525,6 +579,7 @@ async function onBfAborted(registration) {
   if (!parsed) return;
   const job = await getJob(parsed.jobId);
   if (!job) return;
+  if (job.fetchId && registration.id !== job.fetchId) return;
   await deleteJobAndBlobs(job);
   await runKick();
 }

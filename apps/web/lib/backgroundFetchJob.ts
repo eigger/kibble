@@ -10,6 +10,7 @@ export const BF_MESSAGE_TYPE = "kibble-bf";
 export const BF_SW_KICK = "kibble-bf-kick";
 export const BF_SW_CANCEL = "kibble-bf-cancel";
 export const BF_MAX_RETRIES = 5;
+export const BF_MAX_BACKOFF_MS = 5000;
 
 export type BfJobStatus = "pending" | "running" | "failed" | "cancelled";
 
@@ -37,11 +38,19 @@ export type BfJob = {
   iconUrl: string;
   ui: BfUiCopy;
   files: BfFileMeta[];
+  /** 서버·페이지와 같은 청크 크기. SW는 상수를 갖지 않고 이 값을 쓴다. */
+  chunkSize: number;
+  /** 잡을 만든 시각. 실패분 GC는 이 값으로 나이를 본다. */
+  createdAt: number;
   fileIndex: number;
   chunkIndex: number;
   uploadId: string | null;
   fetchId: string | null;
   uploaded: unknown[];
+  /** 서버에 붙은 파일 인덱스. 재시도 때 이 인덱스는 건너뛴다. */
+  uploadedIndex: number[];
+  /** 4xx로 건너뛴 인덱스. 성공 잡으로 지우지 않고 실패 배너에 남긴다 (R59). */
+  skipped: number[];
   bytesDone: number;
   status: BfJobStatus;
   retries: number;
@@ -55,22 +64,40 @@ export type BfWork =
   | { kind: "chunk"; fileIndex: number; chunkIndex: number; uploadId: string }
   | { kind: "complete"; uploadId: string };
 
+export function jobChunkSize(job: Pick<BfJob, "chunkSize">): number {
+  return job.chunkSize > 0 ? job.chunkSize : UPLOAD_CHUNK_SIZE_BYTES;
+}
+
 export function chunkCount(size: number, chunkSize = UPLOAD_CHUNK_SIZE_BYTES): number {
   if (size <= 0) return 1;
   return Math.ceil(size / chunkSize);
 }
 
-export function nextBfWork(job: BfJob, chunkSize = UPLOAD_CHUNK_SIZE_BYTES): BfWork {
-  if (job.fileIndex >= job.files.length) return { kind: "done" };
-  const file = job.files[job.fileIndex];
-  if (!file.chunked) return { kind: "multipart", fileIndex: job.fileIndex };
-  if (!job.uploadId) return { kind: "init", fileIndex: job.fileIndex };
+export function backoffMs(attempt: number): number {
+  return Math.min(500 * 2 ** (attempt - 1), BF_MAX_BACKOFF_MS);
+}
+
+/** 아직 서버에 안 붙은 다음 파일. 재시도 때 fileIndex를 0으로 되돌려도 성공분은 건너뛴다. */
+export function currentFileIndex(job: BfJob): number {
+  const uploaded = new Set(job.uploadedIndex ?? []);
+  for (let i = job.fileIndex; i < job.files.length; i++) {
+    if (!uploaded.has(i)) return i;
+  }
+  return job.files.length;
+}
+
+export function nextBfWork(job: BfJob, chunkSize = jobChunkSize(job)): BfWork {
+  const fileIndex = currentFileIndex(job);
+  if (fileIndex >= job.files.length) return { kind: "done" };
+  const file = job.files[fileIndex];
+  if (!file.chunked) return { kind: "multipart", fileIndex };
+  if (!job.uploadId) return { kind: "init", fileIndex };
   if (job.chunkIndex >= chunkCount(file.size, chunkSize)) {
     return { kind: "complete", uploadId: job.uploadId };
   }
   return {
     kind: "chunk",
-    fileIndex: job.fileIndex,
+    fileIndex,
     chunkIndex: job.chunkIndex,
     uploadId: job.uploadId,
   };
@@ -80,7 +107,7 @@ export function applyBfSuccess(
   job: BfJob,
   work: BfWork,
   result: { uploadId?: string; attachment?: unknown } = {},
-  chunkSize = UPLOAD_CHUNK_SIZE_BYTES,
+  chunkSize = jobChunkSize(job),
 ): BfJob {
   switch (work.kind) {
     case "done":
@@ -89,8 +116,9 @@ export function applyBfSuccess(
       const file = job.files[work.fileIndex];
       return {
         ...job,
-        fileIndex: job.fileIndex + 1,
+        fileIndex: work.fileIndex + 1,
         uploaded: result.attachment ? [...job.uploaded, result.attachment] : job.uploaded,
+        uploadedIndex: [...(job.uploadedIndex ?? []), work.fileIndex],
         bytesDone: job.bytesDone + file.size,
         retries: 0,
       };
@@ -111,10 +139,11 @@ export function applyBfSuccess(
     case "complete":
       return {
         ...job,
-        fileIndex: job.fileIndex + 1,
+        fileIndex: work.fileIndex + 1,
         chunkIndex: 0,
         uploadId: null,
         uploaded: result.attachment ? [...job.uploaded, result.attachment] : job.uploaded,
+        uploadedIndex: [...(job.uploadedIndex ?? []), work.fileIndex],
         retries: 0,
       };
   }
@@ -134,9 +163,11 @@ export function applyChunkDesync(
 }
 
 export function skipCurrentFile(job: BfJob): BfJob {
+  const index = currentFileIndex(job);
   return {
     ...job,
-    fileIndex: job.fileIndex + 1,
+    skipped: [...(job.skipped ?? []), index],
+    fileIndex: index + 1,
     chunkIndex: 0,
     uploadId: null,
     fetchId: null,
@@ -144,12 +175,32 @@ export function skipCurrentFile(job: BfJob): BfJob {
   };
 }
 
+/** 서버에 안 붙은 파일 수 — 아직 시도 전 + 4xx 건너뛴 것 + 지금 실패한 것. */
 export function remainingFileCount(job: BfJob): number {
-  return Math.max(0, job.files.length - job.fileIndex);
+  const uploaded = new Set(job.uploadedIndex ?? []);
+  let n = 0;
+  for (let i = 0; i < job.files.length; i++) {
+    if (!uploaded.has(i)) n += 1;
+  }
+  return n;
 }
 
 export function jobTotalBytes(job: BfJob): number {
   return job.files.reduce((n, file) => n + file.size, 0);
+}
+
+export function prepareFailedJobForRetry(job: BfJob, token: string | null): BfJob {
+  return {
+    ...job,
+    token: token || job.token,
+    status: "pending",
+    retries: 0,
+    fetchId: null,
+    skipped: [],
+    fileIndex: 0,
+    chunkIndex: 0,
+    uploadId: null,
+  };
 }
 
 export function bfFetchId(jobId: string, seq: number): string {

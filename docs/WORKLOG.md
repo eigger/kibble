@@ -130,6 +130,7 @@ PR #62 머지 뒤, R89 재검토 조건을 Chromium에서 충족하는 쪽으로
 - 안 되는 곳: iOS 홈화면 PWA / Safari. 기존처럼 이 화면에서 올리고 배너 문구도 그대로다.
 - 한 Background Fetch에 청크를 여러 개 넣으면 UA가 병렬로 보내 깨진다. 서버를 랜덤 액세스로 바꾸는 안은 API 변경이 커서 기각.
 - 페이지가 죽으면 File/content URI는 사라지므로 persist는 `cache.put(Response(file))`로 디스크에 둔다. 영상 RAM 통째 복사는 하지 않는다. HEIC→JPEG는 canvas라 페이지에서 prepare한 뒤에 담는다.
+- PR #63 리뷰: 청크 크기는 잡 레코드로만 흘린다(SW 리터럴 금지). 4xx는 `skipped`에 남겨 실패 배너에 띄운다(R59). 재시도는 `getToken()`으로 Bearer를 갱신한다. 옛 fetch settle은 `fetchId`가 다르면 버린다. 재시도는 페이지 경로와 같은 지수 백오프. pending만으로 "나가도 됩니다"를 말하지 않는다 — 진짜 in-flight(`fetchId`)일 때만. 실패 잡 GC·로그아웃 시 BF 저장소 정리는 이슈로 남긴다.
 
 ### 2026-09-05 — 저장은 즉시, 전송은 이 화면에서 + 그만두기
 
