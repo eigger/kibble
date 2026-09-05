@@ -24,7 +24,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   deleteEventAttachment,
 } from "../../lib/eventAttachments";
-import { startBackgroundUpload } from "../../lib/backgroundUpload";
+import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
 import { fetchTimelinePage } from "../../lib/timeline";
 import type { EventAttachment } from "../../lib/types";
@@ -237,6 +237,7 @@ export default function HistoryPage() {
   async function deleteEvent(eventId: string) {
     if (deletingEventId) return;
     setDeletingEventId(eventId);
+    cancelUploadsForEvent(eventId);
     try {
       await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
       setEvents((prev) => prev.filter((e) => e.id !== eventId));

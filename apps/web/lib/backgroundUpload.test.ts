@@ -6,6 +6,7 @@ vi.mock("./eventAttachments", () => ({
 
 import { uploadEventAttachments } from "./eventAttachments";
 import {
+  cancelBackgroundUpload,
   getBackgroundUpload,
   mergeTimelineAttachments,
   resetBackgroundUploadForTests,
@@ -97,5 +98,22 @@ describe("startBackgroundUpload", () => {
     });
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("cancel stops the job without listing it as failed", async () => {
+    const { UploadCancelledError } = await import("./uploadAbort");
+    uploadMock.mockImplementation((_id, _files, _progress, signal) => {
+      return new Promise((_resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(new UploadCancelledError()));
+      });
+    });
+    startBackgroundUpload("e1", [file("a.jpg")]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()?.current?.eventId).toBe("e1");
+    });
+    cancelBackgroundUpload();
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()).toBeNull();
+    });
   });
 });

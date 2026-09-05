@@ -4,7 +4,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
 import { extractVideoPoster } from "./videoPoster.js";
-import { probeVideo, shouldSkipVideoTranscode, TRANSCODE_STATUS } from "./videoTranscode.js";
+import { TRANSCODE_STATUS } from "./videoTranscode.js";
 import { UPLOAD_DIR, deleteUploadedFile } from "./uploads.js";
 import { prisma } from "./prisma.js";
 import { attachmentSelect } from "./attachmentSelect.js";
@@ -75,7 +75,7 @@ export type SavedEventAttachment = {
  * 영상의 대표 프레임을 저장하고 상대 경로를 돌려준다. 실패는 전부 삼킨다 —
  * 포스터가 없으면 클라이언트가 예전처럼 <video>로 되돌아갈 뿐이다.
  */
-async function savePosterForVideo(eventId: string, videoAbsPath: string): Promise<string | null> {
+export async function savePosterForVideo(eventId: string, videoAbsPath: string): Promise<string | null> {
   try {
     const frame = await extractVideoPoster(videoAbsPath);
     if (!frame) return null;
@@ -86,25 +86,6 @@ async function savePosterForVideo(eventId: string, videoAbsPath: string): Promis
   } catch {
     return null;
   }
-}
-
-async function classifyVideoForTranscode(
-  absPath: string,
-  sizeBytes: number,
-): Promise<{ width: number | null; height: number | null; transcodeStatus: string }> {
-  const probe = await probeVideo(absPath);
-  if (!probe || shouldSkipVideoTranscode({ ...probe, sizeBytes })) {
-    return {
-      width: probe?.width ?? null,
-      height: probe?.height ?? null,
-      transcodeStatus: TRANSCODE_STATUS.SKIPPED,
-    };
-  }
-  return {
-    width: probe.width,
-    height: probe.height,
-    transcodeStatus: TRANSCODE_STATUS.PENDING,
-  };
 }
 
 /** 이벤트 첨부 1건을 디스크에 저장한다. 이미지는 sharp 파이프라인을 탄다. */
@@ -145,22 +126,16 @@ export async function saveEventAttachment(
   const absolutePath = attachmentAbsolutePath(relativePath);
   await writeFile(absolutePath, fileBuffer);
 
-  const videoMeta = ALLOWED_VIDEO_MIME.has(mime)
-    ? await classifyVideoForTranscode(absolutePath, fileBuffer.length)
-    : null;
-
   return {
     path: relativePath,
     mime: outMime,
     size: fileBuffer.length,
-    width: videoMeta?.width ?? width,
-    height: videoMeta?.height ?? height,
-    // 웹은 영상을 항상 청크로 보내지만, API 토큰으로 20MB 이하 영상을 multipart로
-    // 직행시키는 경로가 있다 — 거기서만 포스터가 없으면 목록이 갈라진다.
-    posterPath: ALLOWED_VIDEO_MIME.has(mime)
-      ? await savePosterForVideo(eventId, absolutePath)
-      : null,
-    transcodeStatus: videoMeta?.transcodeStatus ?? null,
+    width,
+    height,
+    // 포스터·probe는 업로드 응답 밖에서 한다. complete를 붙잡으면 폰이 99%에서
+    // 멈추고, 그 사이 ffmpeg가 작은 CT를 OOM으로 죽일 수 있다.
+    posterPath: null,
+    transcodeStatus: ALLOWED_VIDEO_MIME.has(mime) ? TRANSCODE_STATUS.PENDING : null,
   };
 }
 
@@ -188,15 +163,14 @@ export async function finalizeEventAttachmentFromTemp(
   const destPath = attachmentAbsolutePath(relativePath);
   await rename(tempPath, destPath);
   const fileStat = await stat(destPath);
-  const videoMeta = await classifyVideoForTranscode(destPath, fileStat.size);
   return {
     path: relativePath,
     mime,
     size: fileStat.size,
-    width: videoMeta.width,
-    height: videoMeta.height,
-    posterPath: await savePosterForVideo(eventId, destPath),
-    transcodeStatus: videoMeta.transcodeStatus,
+    width: null,
+    height: null,
+    posterPath: null,
+    transcodeStatus: TRANSCODE_STATUS.PENDING,
   };
 }
 

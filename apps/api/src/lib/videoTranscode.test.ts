@@ -152,5 +152,8 @@ describe("transcodeFfmpegArgs", () => {
     expect(pix).toBeGreaterThan(-1);
     expect(args[pix + 1]).toBe("yuv420p");
     expect(args.indexOf("-c:v")).toBeGreaterThan(pix);
+    const threads = args.indexOf("-threads");
+    expect(threads).toBeGreaterThan(-1);
+    expect(args[threads + 1]).toBe("1");
   });
 });

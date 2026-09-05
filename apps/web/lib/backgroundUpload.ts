@@ -2,6 +2,7 @@ import {
   uploadEventAttachments,
   type AttachmentUploadProgress,
 } from "./eventAttachments";
+import { isUploadCancelled } from "./uploadAbort";
 import type { EventAttachment, TimelineEvent } from "./types";
 
 export const ATTACHMENTS_UPLOADED_EVENT = "kibble-attachments-uploaded";
@@ -29,6 +30,7 @@ const failed: Job[] = [];
 let current: BackgroundUploadSnapshot["current"] = null;
 let view: BackgroundUploadSnapshot | null = null;
 let running = false;
+let jobAbort: AbortController | null = null;
 
 function emit(): void {
   for (const listener of listeners) listener();
@@ -62,11 +64,33 @@ export function subscribeBackgroundUpload(listener: Listener): () => void {
   };
 }
 
-/** 기록은 이미 저장된 뒤다. 시트는 닫고, 전송만 이어서 돈다. */
+/** 기록은 이미 저장된 뒤다. 시트는 닫고, 이 탭에서 전송만 이어서 돈다. */
 export function startBackgroundUpload(eventId: string, files: File[]): void {
   if (files.length === 0) return;
   queue.push({ eventId, files: [...files] });
   void drain();
+}
+
+/** 배너의 그만두기 — 큐·진행 중을 모두 끊는다. 기록 행은 그대로 둔다. */
+export function cancelBackgroundUpload(): void {
+  queue.length = 0;
+  jobAbort?.abort();
+  if (!running) {
+    current = null;
+    publish();
+  }
+}
+
+/** 이력 삭제 전에 그 기록으로 가는 전송만 끊는다. */
+export function cancelUploadsForEvent(eventId: string): void {
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].eventId === eventId) queue.splice(i, 1);
+  }
+  for (let i = failed.length - 1; i >= 0; i--) {
+    if (failed[i].eventId === eventId) failed.splice(i, 1);
+  }
+  if (current?.eventId === eventId) jobAbort?.abort();
+  else publish();
 }
 
 export function retryBackgroundUpload(): void {
@@ -114,6 +138,8 @@ async function drain(): Promise<void> {
         progress: null,
       };
       publish();
+      const abort = new AbortController();
+      jobAbort = abort;
       try {
         const { uploaded, remaining } = await uploadEventAttachments(
           job.eventId,
@@ -123,13 +149,19 @@ async function drain(): Promise<void> {
             current = { ...current, progress };
             publish();
           },
+          abort.signal,
         );
         notifyUploaded(job.eventId, uploaded);
-        holdFailed(job.eventId, remaining);
+        if (!abort.signal.aborted) holdFailed(job.eventId, remaining);
       } catch (err) {
-        // 배치가 통째로 던지면 이 작업의 파일을 실패분에 남긴다. uploading으로 굳히지 않는다.
-        console.warn("[kibble] background upload failed", err);
-        holdFailed(job.eventId, job.files);
+        if (isUploadCancelled(err)) {
+          // 그만두기 — 실패 배너에 남기지 않는다
+        } else {
+          console.warn("[kibble] background upload failed", err);
+          holdFailed(job.eventId, job.files);
+        }
+      } finally {
+        if (jobAbort === abort) jobAbort = null;
       }
     }
     current = null;
@@ -147,5 +179,6 @@ export function resetBackgroundUploadForTests(): void {
   queue.length = 0;
   failed.length = 0;
   running = false;
+  jobAbort = null;
   listeners.clear();
 }

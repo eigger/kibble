@@ -2,6 +2,7 @@ import { apiFetch, apiFormUpload, apiJson, API_URL, isPermanentApiRejection } fr
 import { shouldUseChunkedUpload, uploadEventAttachmentInChunks } from "./chunkedUpload";
 import { isLocalFileFailure, prepareAttachmentForUpload } from "./uploadPrep";
 import { withUploadGuard } from "./uploadGuard";
+import { isUploadCancelled, throwIfAborted } from "./uploadAbort";
 import type { EventAttachment } from "./types";
 
 export type UploadAttachmentsResult = {
@@ -61,6 +62,7 @@ async function uploadEventAttachmentMultipart(
   eventId: string,
   file: File,
   onProgress?: (p: FileProgress) => void,
+  signal?: AbortSignal,
 ): Promise<EventAttachment> {
   const formData = new FormData();
   formData.append("file", file);
@@ -68,6 +70,7 @@ async function uploadEventAttachmentMultipart(
     `/api/attachments?eventId=${encodeURIComponent(eventId)}`,
     formData,
     (loaded, total) => reportMultipartProgress(file.size, loaded, total, onProgress),
+    signal,
   );
 }
 
@@ -75,20 +78,24 @@ export async function uploadEventAttachment(
   eventId: string,
   file: File,
   onProgress?: (p: FileProgress) => void,
+  signal?: AbortSignal,
 ): Promise<EventAttachment> {
   // 이탈 경고는 여기서 건다 — 오프라인 큐 재전송을 포함해 모든 업로드 경로가 이 함수를 지난다.
   return withUploadGuard(async () => {
+    throwIfAborted(signal);
     // MIME 보정·이미지 축소는 전송 직전에 한 번만 한다 — 재개 시에도 같은 결과가 나와야
     // pendingUploads의 (filename, size) 매칭이 어긋나지 않는다.
     onProgress?.({ loaded: 0, total: Math.max(file.size, 1), phase: "preparing" });
     const prepared = await prepareAttachmentForUpload(file);
+    throwIfAborted(signal);
     onProgress?.({ loaded: 0, total: Math.max(prepared.size, 1), phase: "uploading" });
     if (shouldUseChunkedUpload(prepared)) {
       return uploadEventAttachmentInChunks(eventId, prepared, (p) =>
         onProgress?.({ loaded: p.loaded, total: p.total, phase: "uploading" }),
+        signal,
       );
     }
-    return uploadEventAttachmentMultipart(eventId, prepared, onProgress);
+    return uploadEventAttachmentMultipart(eventId, prepared, onProgress, signal);
   });
 }
 
@@ -137,16 +144,18 @@ export async function uploadEventAttachments(
   eventId: string,
   files: File[],
   onProgress?: (p: AttachmentUploadProgress) => void,
+  signal?: AbortSignal,
 ): Promise<UploadAttachmentsResult> {
   // 배치 전체를 한 번 더 감싼다 — 파일 사이의 짧은 틈에도 가드가 풀리지 않게.
   // (카운터라 중첩은 안전하다)
-  return withUploadGuard(() => runAttachmentUploads(eventId, files, onProgress));
+  return withUploadGuard(() => runAttachmentUploads(eventId, files, onProgress, signal));
 }
 
 async function runAttachmentUploads(
   eventId: string,
   files: File[],
   onProgress?: (p: AttachmentUploadProgress) => void,
+  signal?: AbortSignal,
 ): Promise<UploadAttachmentsResult> {
   const slots: (EventAttachment | undefined)[] = Array.from({ length: files.length });
   const states = files.map(emptyFileState);
@@ -157,6 +166,7 @@ async function runAttachmentUploads(
     { length: Math.min(ATTACHMENT_UPLOAD_CONCURRENCY, files.length) },
     async () => {
       for (;;) {
+        throwIfAborted(signal);
         const i = cursor++;
         if (i >= files.length) return;
         if (stopNew) continue;
@@ -167,7 +177,7 @@ async function runAttachmentUploads(
           slots[i] = await uploadEventAttachment(eventId, files[i], (p) => {
             states[i] = { ...p, done: false, active: true };
             emitBatchProgress(files, states, onProgress);
-          });
+          }, signal);
           states[i] = {
             ...states[i],
             loaded: states[i].total,
@@ -179,6 +189,7 @@ async function runAttachmentUploads(
         } catch (err) {
           states[i] = { ...states[i], active: false };
           emitBatchProgress(files, states, onProgress);
+          if (isUploadCancelled(err)) throw err;
           if (isPermanentApiRejection(err) || isLocalFileFailure(err)) continue;
           // content URI 만료·NotReadableError는 그 장만의 문제다. HTTP 4xx와 같이
           // 나머지를 계속 올린다. TypeError("Failed to fetch")는 회선 문제로 두고
