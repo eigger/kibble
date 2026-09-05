@@ -172,6 +172,73 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     );
   });
 
+  it("건식이 아닌 제형으로 바꾸면 알갱이 크기를 지운다", async () => {
+    // 건식 소립으로 저장돼 있던 제품을 습식으로 바꾼다. kibbleSize를 안 보냈어도
+    // "습식인데 소립"이 남으면 거짓 정보가 된다.
+    mockPrisma.product.findFirst.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      form: "DRY",
+      kibbleSize: "SMALL",
+    });
+    mockPrisma.product.update.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      name: "n",
+      category: "MEAL",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      pet: null,
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/products/${PRODUCT_ID}`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: { form: "WET" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ form: "WET", kibbleSize: null }),
+      }),
+    );
+  });
+
+  it("건식을 유지하면 저장된 알갱이 크기를 건드리지 않는다", async () => {
+    mockPrisma.product.findFirst.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      form: "DRY",
+      kibbleSize: "LARGE",
+    });
+    mockPrisma.product.update.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      name: "n",
+      category: "MEAL",
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      pet: null,
+    });
+
+    await app.inject({
+      method: "PATCH",
+      url: `/api/products/${PRODUCT_ID}`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: { origin: "캐나다" },
+    });
+
+    // form·kibbleSize를 안 보냈으면 그 짝은 아예 건드리지 않는다
+    const call = mockPrisma.product.update.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> };
+    expect(call.data).toEqual(expect.objectContaining({ origin: "캐나다" }));
+    expect(call.data).not.toHaveProperty("kibbleSize");
+    expect(call.data).not.toHaveProperty("form");
+  });
+
   it("DELETE /api/products/:id는 제품을 보관(soft-delete) 처리한다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, householdId: HH });
     mockPrisma.product.update.mockResolvedValue({});

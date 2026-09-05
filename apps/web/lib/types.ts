@@ -72,6 +72,15 @@ export interface EventAttachment {
 
 export type ProductCategory = "MEAL" | "SUPPLEMENT" | "TREAT" | "HYGIENE" | "DEVICE" | "OTHER";
 export type Palatability = "HIGH" | "MEDIUM" | "LOW";
+export type ProductForm =
+  | "DRY"
+  | "WET"
+  | "SEMI_MOIST"
+  | "POWDER"
+  | "CAPSULE"
+  | "TABLET"
+  | "LIQUID";
+export type KibbleSize = "SMALL" | "MEDIUM" | "LARGE";
 
 export interface ProductSummary {
   id: string;
@@ -92,6 +101,12 @@ export interface Product {
   category: ProductCategory;
   photoPath: string | null;
   purchaseUrl: string | null;
+  origin: string | null;
+  form: ProductForm | null;
+  /** 건식일 때만 값이 있다 */
+  kibbleSize: KibbleSize | null;
+  /** 구매 중량(g). 2kg이면 2000 */
+  weightG: number | null;
   dosage: string | null;
   ingredients: string | null;
   expiryDate: string | null;

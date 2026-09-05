@@ -4887,3 +4887,30 @@ th {
 }
 
 
+
+/* 제품 사양(제형·중량·원산지) — 구매 정보와 같은 2열 리듬 */
+.product-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-3);
+}
+
+.product-spec-val {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+/* 수량 + 단위. 단위 칸은 내용만큼만 */
+.product-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.product-weight-unit {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 64px;
+}
