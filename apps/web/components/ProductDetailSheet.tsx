@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { formatWeightG, kstDayDiff } from "@kibble/shared";
-import type { Product } from "../lib/types";
+import type { Product, ProductPhotoMeta } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
+import { apiJson } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
 import {
   PackageIcon,
@@ -23,12 +24,41 @@ type Props = {
 export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
-  // 사진 미리보기. 상세에서 사진을 누르면 크게 본다.
+  // 사진 미리보기. 대표든 썸네일이든 누르면 크게 본다.
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<ProductPhotoMeta[]>([]);
+
+  const productId = product?.id ?? null;
+  const embeddedPhotos = product?.photos;
 
   useEffect(() => {
-    if (!open) setPreviewOpen(false);
-  }, [open]);
+    setPreviewOpen(false);
+    setPreviewPhotoId(null);
+    if (!open || !productId) {
+      setPhotos([]);
+      return;
+    }
+    if (embeddedPhotos) {
+      setPhotos(embeddedPhotos);
+      return;
+    }
+    // 목록에서 연 경우 product.photos가 없다 — 카드는 대표 한 장만 받기 때문이다.
+    let cancelled = false;
+    void apiJson<ProductPhotoMeta[]>(`/api/products/${productId}/photos`)
+      .then((rows) => {
+        if (!cancelled) setPhotos(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, productId, embeddedPhotos]);
+
+  function openPreview(photoId?: string) {
+    setPreviewPhotoId(photoId ?? photos.find((p) => p.isPrimary)?.id ?? null);
+    setPreviewOpen(true);
+  }
 
   if (!open || !product) return null;
 
@@ -83,6 +113,9 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     DRY: t("productFormDry"),
     WET: t("productFormWet"),
     SEMI_MOIST: t("productFormSemiMoist"),
+    GEL: t("productFormGel"),
+    LICKABLE: t("productFormLickable"),
+    CHEWY: t("productFormChewy"),
     POWDER: t("productFormPowder"),
     CAPSULE: t("productFormCapsule"),
     TABLET: t("productFormTablet"),
@@ -111,7 +144,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   if (weightLabel) specs.push({ label: t("productWeightLabel"), value: weightLabel });
   if (product.origin) specs.push({ label: t("productOriginLabel"), value: product.origin });
 
-  if (previewOpen && product.photoPath) {
+  if (previewOpen && (previewPhotoId || product.photoPath)) {
     // 시트 위에 겹치지 않고 갈아 끼운다 — 배경 두 겹이 쌓이면 닫기 대상이 헷갈린다.
     return (
       <div
@@ -131,7 +164,8 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
         <div className="attachment-lightbox-body" onClick={(e) => e.stopPropagation()}>
           <ProductPhoto
             productId={product.id}
-            photoPath={product.photoPath}
+            photoPath={previewPhotoId ? null : product.photoPath}
+            photoId={previewPhotoId}
             alt={product.name}
             className="attachment-lightbox-media"
           />
@@ -158,7 +192,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
               type="button"
               className="product-popup-photo-wrap"
               aria-label={t("productPhotoPreview")}
-              onClick={() => setPreviewOpen(true)}
+              onClick={() => openPreview()}
             >
               <ProductPhoto
                 productId={product.id}
@@ -199,6 +233,29 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
             <h2 className="product-popup-name">{product.name}</h2>
           </div>
         </div>
+
+        {/* 헤더(flex 행) 밖에 둔다 — 안에 넣으면 사진 수만큼 가로를 먹어 제목이
+            찌그러진다 (R107). 이력 첨부 줄과 같은 모양이고, 누르면 라이트박스다. */}
+        {photos.length > 0 && (
+          <div className="product-photo-thumbs">
+            {photos.map((photo) => (
+              <button
+                key={photo.id}
+                type="button"
+                className={`product-photo-thumb ${photo.isPrimary ? "is-primary" : ""}`}
+                aria-label={t("productPhotoPreview")}
+                onClick={() => openPreview(photo.id)}
+              >
+                <ProductPhoto
+                  productId={product.id}
+                  photoId={photo.id}
+                  alt=""
+                  className="product-preview-img"
+                />
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="product-popup-body">
           {/* Key Dates: Expiration & Opened */}

@@ -768,6 +768,9 @@ export function ProductEditSheet({
                           <option value="DRY">{t("productFormDry")}</option>
                           <option value="WET">{t("productFormWet")}</option>
                           <option value="SEMI_MOIST">{t("productFormSemiMoist")}</option>
+                          <option value="GEL">{t("productFormGel")}</option>
+                          <option value="LICKABLE">{t("productFormLickable")}</option>
+                          <option value="CHEWY">{t("productFormChewy")}</option>
                           <option value="POWDER">{t("productFormPowder")}</option>
                           <option value="CAPSULE">{t("productFormCapsule")}</option>
                           <option value="TABLET">{t("productFormTablet")}</option>

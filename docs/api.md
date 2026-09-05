@@ -254,7 +254,7 @@ curl -sS -X POST "$BASE/api/products" \
 
 **제형과 입자크기**
 
-- `form`: `DRY`(건식) · `WET`(습식) · `SEMI_MOIST`(반습식) · `POWDER` · `CAPSULE` · `TABLET` · `LIQUID`
+- `form`: `DRY`(건식) · `WET`(습식) · `SEMI_MOIST`(반습식) · `GEL`(겔형 — 젤리·양갱) · `LICKABLE`(츄르형) · `CHEWY`(츄잉형) · `POWDER` · `CAPSULE` · `TABLET` · `LIQUID`
 - `kibbleSize`: `SMALL`(소립) · `MEDIUM`(중립) · `LARGE`(대립)
 
 `kibbleSize`는 **`form`이 `DRY`일 때만** 저장됩니다. 그 외의 제형으로 보내면 서버가 `null`로 정리하며, 나중에 `form`만 `WET`으로 바꿔도 저장돼 있던 `kibbleSize`가 함께 지워집니다 — "습식인데 소립"이 남지 않게 하기 위해서입니다.

@@ -211,3 +211,17 @@ describe("weightToInput", () => {
     }
   });
 });
+
+describe("제형 목록", () => {
+  it("겔형·츄르형·츄잉형을 받는다", () => {
+    for (const form of ["GEL", "LICKABLE", "CHEWY"] as const) {
+      expect(createProductSchema.safeParse({ name: "a", form }).success).toBe(true);
+    }
+  });
+
+  it("건식이 아니면 새 제형에서도 알갱이 크기를 남기지 않는다", () => {
+    expect(kibbleSizeForForm("GEL", "SMALL")).toBeNull();
+    expect(kibbleSizeForForm("LICKABLE", "LARGE")).toBeNull();
+    expect(kibbleSizeForForm("CHEWY", "MEDIUM")).toBeNull();
+  });
+});
