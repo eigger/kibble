@@ -16,11 +16,12 @@ const CAT_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
   { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
   { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "vomit", label: "eventType.vomit", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "remedy", label: "eventType.remedy", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "vomit", label: "eventType.vomit", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 12, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.3 */
@@ -32,11 +33,12 @@ const DOG_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
   { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
   { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "walk", label: "eventType.walk", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "remedy", label: "eventType.remedy", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "walk", label: "eventType.walk", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 12, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.4 */
@@ -48,10 +50,11 @@ const OTHER_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "treat", label: "eventType.treat", sortOrder: 4, isStarter: false },
   { eventTypeKey: "supplement", label: "eventType.supplement", sortOrder: 5, isStarter: false },
   { eventTypeKey: "medication", label: "eventType.medication", sortOrder: 6, isStarter: false },
-  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 7, isStarter: false },
-  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 8, isStarter: false },
-  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 9, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "remedy", label: "eventType.remedy", sortOrder: 7, isStarter: false },
+  { eventTypeKey: "dental", label: "eventType.dental", sortOrder: 8, isStarter: false },
+  { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
+  { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
 ];
 
 export function presetTemplatesForSpecies(species: Species): PresetTemplateRow[] {

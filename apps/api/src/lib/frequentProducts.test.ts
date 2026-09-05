@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { eventTypeSupportsProductName } from "./frequentProducts.js";
 
 describe("eventTypeSupportsProductName", () => {
-  it("includes meal, treat, and supplement", () => {
+  it("includes meal, treat, supplement, and remedy", () => {
     expect(eventTypeSupportsProductName("meal")).toBe(true);
     expect(eventTypeSupportsProductName("treat")).toBe(true);
     expect(eventTypeSupportsProductName("supplement")).toBe(true);
+    expect(eventTypeSupportsProductName("remedy")).toBe(true);
   });
 
   it("excludes other types", () => {

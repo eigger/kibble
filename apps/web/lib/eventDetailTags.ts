@@ -13,33 +13,6 @@ export type ParsedProductName = {
 };
 
 export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
-  meal: [
-    { id: "chicken", labelKey: "eventTag.meal.chicken" },
-    { id: "beef", labelKey: "eventTag.meal.beef" },
-    { id: "pork", labelKey: "eventTag.meal.pork" },
-    { id: "duck", labelKey: "eventTag.meal.duck" },
-    { id: "lamb", labelKey: "eventTag.meal.lamb" },
-    { id: "turkey", labelKey: "eventTag.meal.turkey" },
-    { id: "tuna", labelKey: "eventTag.meal.tuna" },
-    { id: "salmon", labelKey: "eventTag.meal.salmon" },
-    { id: "mixed", labelKey: "eventTag.meal.mixed" },
-  ],
-  treat: [
-    { id: "stick", labelKey: "eventTag.treat.stick" },
-    { id: "freeze_dried", labelKey: "eventTag.treat.freeze_dried" },
-    { id: "jerky", labelKey: "eventTag.treat.jerky" },
-    { id: "biscuit", labelKey: "eventTag.treat.biscuit" },
-    { id: "cream", labelKey: "eventTag.treat.cream" },
-    { id: "chew", labelKey: "eventTag.treat.chew" },
-  ],
-  supplement: [
-    { id: "enzyme", labelKey: "eventTag.supplement.enzyme" },
-    { id: "probiotic", labelKey: "eventTag.supplement.probiotic" },
-    { id: "omega", labelKey: "eventTag.supplement.omega" },
-    { id: "vitamin", labelKey: "eventTag.supplement.vitamin" },
-    { id: "joint", labelKey: "eventTag.supplement.joint" },
-    { id: "kidney", labelKey: "eventTag.supplement.kidney" },
-  ],
   vomit: [
     { id: "hairball", labelKey: "eventTag.vomit.hairball" },
     { id: "blood", labelKey: "eventTag.vomit.blood" },
@@ -132,12 +105,6 @@ export function resolveEventTagLabel(
 
 export function productNameFieldLabelKey(eventTypeKey: string | null | undefined): TranslationKey {
   switch (eventTypeKey) {
-    case "meal":
-      return "eventDetailMealIngredient";
-    case "treat":
-      return "eventDetailTreatKind";
-    case "supplement":
-      return "eventDetailSupplementKind";
     case "vomit":
       return "eventDetailVomitKind";
     case "observation":

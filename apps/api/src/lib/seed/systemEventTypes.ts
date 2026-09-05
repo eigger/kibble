@@ -113,6 +113,15 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 115,
   },
   {
+    key: "remedy",
+    label: "eventType.remedy",
+    icon: "pill",
+    color: "violet",
+    category: "MEDICAL",
+    aliases: ["제제", "약제", "외용제", "처방약"],
+    sortOrder: 118,
+  },
+  {
     key: "weight",
     label: "eventType.weight",
     icon: "scale",

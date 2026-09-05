@@ -107,10 +107,10 @@ export function eventDetailFields(
     return { ...NOTE_ONLY, scale3: true };
   }
 
-  if (key === "meal" || key === "treat" || key === "supplement") {
+  if (key === "meal" || key === "treat" || key === "supplement" || key === "remedy") {
     return {
       productName: true,
-      detailTags: true,
+      detailTags: false,
       productCustomInput: true,
       productNameLabelKey: productNameFieldLabelKey(key),
       noteLabelKey: "eventDetailNote",
@@ -125,7 +125,7 @@ export function eventDetailFields(
       note: true,
       quantityLabelKey: "eventDetailQuantityConsumed",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
-      defaultUnit: "g",
+      defaultUnit: key === "remedy" ? null : "g",
     };
   }
 

@@ -16,6 +16,7 @@ describe("eventDetailFields", () => {
   it("meal shows offered and consumed with product name", () => {
     const f = eventDetailFields("meal", null);
     expect(f.productName).toBe(true);
+    expect(f.detailTags).toBe(false);
     expect(f.quantityOffered).toBe(true);
     expect(f.quantity).toBe(true);
     expect(f.showUnitInput).toBe(true);
@@ -61,13 +62,22 @@ describe("eventDetailFields", () => {
     expect(f.scale3).toBe(true);
   });
 
-  it("treat and legacy supplement show product name", () => {
+  it("treat and legacy supplement show product name without detailTags", () => {
     const treat = eventDetailFields("treat", null);
     expect(treat.productName).toBe(true);
+    expect(treat.detailTags).toBe(false);
     expect(treat.quantityOffered).toBe(false);
     const legacy = eventDetailFields("supplement", null);
     expect(legacy.productName).toBe(true);
+    expect(legacy.detailTags).toBe(false);
     expect(legacy.quantityOffered).toBe(false);
+  });
+
+  it("remedy shows product name without detailTags", () => {
+    const remedy = eventDetailFields("remedy", null);
+    expect(remedy.productName).toBe(true);
+    expect(remedy.detailTags).toBe(false);
+    expect(remedy.quantity).toBe(true);
   });
 
   it("vomit shows tag-capable subtype field", () => {
@@ -81,22 +91,22 @@ describe("eventDetailFields", () => {
   it("resolves tag slug in detail line", () => {
     const line = formatEventDetailLine(
       {
-        productName: "chicken,tuna",
+        productName: "hairball,blood",
         quantity: null,
         quantityOffered: null,
         unit: null,
         scaleValue: null,
-        eventType: { key: "meal", scaleType: null },
+        eventType: { key: "vomit", scaleType: null },
       },
       (key) =>
         (
           {
-            "eventTag.meal.chicken": "닭고기",
-            "eventTag.meal.tuna": "참치",
+            "eventTag.vomit.hairball": "헤어볼",
+            "eventTag.vomit.blood": "혈토",
           } as Record<string, string>
         )[key] ?? key,
     );
-    expect(line).toBe("닭고기 · 참치");
+    expect(line).toBe("헤어볼 · 혈토");
   });
 
   it("grooming is note-only", () => {

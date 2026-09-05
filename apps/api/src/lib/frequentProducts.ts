@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { householdWhere } from "./householdScope.js";
 
-export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat", "supplement"]);
+export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat", "supplement", "remedy"]);
 
 export function eventTypeSupportsProductName(key: string): boolean {
   return PRODUCT_NAME_EVENT_KEYS.has(key);
@@ -102,10 +102,11 @@ export async function productSuggestionsForPet(
   }
 
   // Active products matching this event type's category
-  const categoryByKey: Record<string, "MEAL" | "SUPPLEMENT" | "TREAT"> = {
+  const categoryByKey: Record<string, "MEAL" | "SUPPLEMENT" | "TREAT" | "MEDICATION"> = {
     meal: "MEAL",
     supplement: "SUPPLEMENT",
     treat: "TREAT",
+    remedy: "MEDICATION",
   };
   const category = categoryByKey[params.eventTypeKey];
 

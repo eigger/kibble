@@ -819,6 +819,7 @@ const dict = {
   "eventType.vomit": { ko: "구토", en: "Vomit" },
   "eventType.dental": { ko: "양치", en: "Dental" },
   "eventType.medication": { ko: "투약", en: "Medication" },
+  "eventType.remedy": { ko: "제제", en: "Remedy" },
   "eventType.observation": { ko: "관찰", en: "Observation" },
   "eventType.weight": { ko: "체중", en: "Weight" },
   "eventType.symptom": { ko: "증상", en: "Symptom" },
