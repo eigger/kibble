@@ -876,6 +876,7 @@ const dict = {
 
   productStatusActive: { ko: "급여 중", en: "In use" },
   productStatusInactive: { ko: "급여 종료", en: "Finished" },
+  productPhotoPreview: { ko: "사진 크게 보기", en: "View photo" },
   productPhotoSaveFailed: {
     ko: "제품은 저장됐지만 사진 반영에 실패했습니다.",
     en: "Product saved, but the photos could not be updated.",
