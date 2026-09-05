@@ -80,6 +80,18 @@ export function ProductEditSheet({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 닫을 때 미리보기 blob을 놓는다. 열림 상태 effect는 `if (!open) return`으로 시작해
+  // 거기서는 정리할 수 없다 — 9장을 고르고 닫으면 그만큼 물고 있게 된다.
+  const previewsRef = useRef<string[]>([]);
+  useEffect(() => {
+    previewsRef.current = newPreviews;
+  }, [newPreviews]);
+  useEffect(() => {
+    if (open) return;
+    previewsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewsRef.current = [];
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -303,26 +315,36 @@ export function ProductEditSheet({
         return;
       }
 
+      // 제품 자체는 여기서 이미 저장됐다. 사진 단계가 실패해도 "저장 실패"라고
+      // 말하면 거짓말이 된다 — 사진만 따로 알린다.
+      let photoError = false;
       if (savedId) {
-        // 지우기 → 새로 올리기 → 대표 지정 순서. 대표를 마지막에 둬야 삭제로 밀려난
-        // 대표가 사용자가 고른 값을 덮지 않는다.
-        for (const photoId of removedPhotoIds) {
-          await apiFetch(`/api/products/${savedId}/photos/${photoId}`, { method: "DELETE" });
-        }
-        for (const file of newFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          await apiFetch(`/api/products/${savedId}/photos`, { method: "POST", body: formData });
-        }
-        const alreadyPrimary = keptPhotos.find((p) => p.isPrimary)?.id ?? null;
-        if (primaryId && primaryId !== alreadyPrimary) {
-          await apiFetch(`/api/products/${savedId}/photos/${primaryId}/primary`, {
-            method: "POST",
-          });
+        try {
+          // 지우기 → 새로 올리기 → 대표 지정 순서. 대표를 마지막에 둬야 삭제로 밀려난
+          // 대표가 사용자가 고른 값을 덮지 않는다.
+          for (const photoId of removedPhotoIds) {
+            await apiFetch(`/api/products/${savedId}/photos/${photoId}`, { method: "DELETE" });
+          }
+          for (const file of newFiles) {
+            const formData = new FormData();
+            formData.append("file", file);
+            await apiFetch(`/api/products/${savedId}/photos`, { method: "POST", body: formData });
+          }
+          const alreadyPrimary = keptPhotos.find((p) => p.isPrimary)?.id ?? null;
+          if (primaryId && primaryId !== alreadyPrimary) {
+            await apiFetch(`/api/products/${savedId}/photos/${primaryId}/primary`, {
+              method: "POST",
+            });
+          }
+        } catch {
+          photoError = true;
         }
       }
 
-      showToast(t("productSavedToast"), "success");
+      showToast(
+        photoError ? t("productPhotoSaveFailed") : t("productSavedToast"),
+        photoError ? "error" : "success",
+      );
       onSaved();
       onClose();
     } catch {

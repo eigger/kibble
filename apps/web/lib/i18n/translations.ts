@@ -876,6 +876,10 @@ const dict = {
 
   productStatusActive: { ko: "급여 중", en: "In use" },
   productStatusInactive: { ko: "급여 종료", en: "Finished" },
+  productPhotoSaveFailed: {
+    ko: "제품은 저장됐지만 사진 반영에 실패했습니다.",
+    en: "Product saved, but the photos could not be updated.",
+  },
   productPhotoPrimary: { ko: "대표", en: "Primary" },
   productPhotoSetPrimary: { ko: "대표로", en: "Set primary" },
   productPhotoLimit: { ko: "사진은 최대 {max}장까지 올릴 수 있습니다", en: "Up to {max} photos" },
