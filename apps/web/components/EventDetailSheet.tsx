@@ -501,16 +501,19 @@ export function EventDetailSheet({
           role="group"
           aria-label={t(scale3FieldLabelKey(draft!.scaleType))}
         >
-          {SCALE3_VALUES.map((value) => (
-            <EventDetailChip
-              key={value}
-              selected={scaleValue === value}
-              disabled={busy}
-              onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
-            >
-              {t(scale3ValueLabelKey(draft!.scaleType, value))}
-            </EventDetailChip>
-          ))}
+          {SCALE3_VALUES.map((value) => {
+            const labelKey = scale3ValueLabelKey(draft!.scaleType, value);
+            return (
+              <EventDetailChip
+                key={value}
+                selected={scaleValue === value}
+                disabled={busy}
+                onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
+              >
+                {labelKey ? t(labelKey) : value}
+              </EventDetailChip>
+            );
+          })}
         </div>
       </div>
     );

@@ -1,7 +1,12 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { translations, isTranslationKey, type Locale, type TranslationKey } from "./translations";
+import {
+  translate,
+  translateLabel,
+  type Locale,
+  type TranslationKey,
+} from "./translations";
 
 const STORAGE_KEY = "kibble_locale";
 
@@ -18,11 +23,6 @@ interface LocaleContextValue {
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 const INTL_LOCALE: Record<Locale, string> = { ko: "ko-KR", en: "en-US" };
-
-function interpolate(template: string, params?: Record<string, string | number>): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match));
-}
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("ko");
@@ -41,16 +41,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }
 
   function t(key: TranslationKey, params?: Record<string, string | number>): string {
-    const entry = translations[key];
-    if (!entry) return interpolate(key, params);
-    return interpolate(entry[locale] ?? entry.ko, params);
+    return translate(locale, key, params);
   }
 
   function tLabel(labelOrKey: string, params?: Record<string, string | number>): string {
-    if (isTranslationKey(labelOrKey)) {
-      return t(labelOrKey, params);
-    }
-    return interpolate(labelOrKey, params);
+    return translateLabel(locale, labelOrKey, params);
   }
 
   function formatDateTime(iso: string): string {

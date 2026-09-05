@@ -73,12 +73,12 @@ export type Scale3ValueLabelKey =
 export function scale3ValueLabelKey(
   scaleType: string | null | undefined,
   value: number,
-): Scale3ValueLabelKey {
-  const v = (value === 1 || value === 2 || value === 3 ? value : 2) as Scale3Value;
-  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${v}`;
-  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${v}`;
-  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${v}`;
-  return `eventDetailScale.${v}`;
+): Scale3ValueLabelKey | null {
+  if (value !== 1 && value !== 2 && value !== 3) return null;
+  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${value}`;
+  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${value}`;
+  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${value}`;
+  return `eventDetailScale.${value}`;
 }
 
 export function eventDetailFields(
@@ -253,7 +253,10 @@ export function formatScaleValuePart(
 ): string | null {
   if (scaleValue == null) return null;
   if (scaleType === "FECAL_7") return `${scaleValue}/7`;
-  if (isScale3Type(scaleType)) return t(scale3ValueLabelKey(scaleType, scaleValue));
+  if (isScale3Type(scaleType)) {
+    const key = scale3ValueLabelKey(scaleType, scaleValue);
+    return key ? t(key) : null;
+  }
   return null;
 }
 
@@ -315,15 +318,13 @@ export function formatEventDetailLine(
   }
 
   if (flags.fecalScale && event.scaleValue != null) {
-    parts.push(t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t)! : `${event.scaleValue}/7`);
+    const part = t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t) : `${event.scaleValue}/7`;
+    if (part) parts.push(part);
   }
 
   if (flags.scale3 && event.scaleValue != null) {
-    parts.push(
-      t
-        ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t)!
-        : String(event.scaleValue),
-    );
+    const part = t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t) : String(event.scaleValue);
+    if (part) parts.push(part);
   }
 
   // 메모는 목록 요약에 넣지 않는다. 한 줄로 이어 붙이면 수량·척도가 밀리고,
