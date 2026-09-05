@@ -8,10 +8,12 @@ import type {
   Palatability,
   ProductForm,
   KibbleSize,
+  ProductPhotoMeta,
 } from "../lib/types";
 import { hasFormDetails, weightToGrams } from "@kibble/shared";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson, apiFetch } from "../lib/api";
+import { MAX_PRODUCT_PHOTOS } from "@kibble/shared";
 import { ProductPhoto } from "./ProductPhoto";
 import { CameraIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "./ProductIcons";
 
@@ -62,8 +64,13 @@ export function ProductEditSheet({
   const [newTagInput, setNewTagInput] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // 이미 올라간 사진 / 지울 것 / 대표 변경 / 새로 붙일 파일. 서버 반영은 저장할 때
+  // 한 번에 한다 — 이벤트 첨부의 removedAttachmentIds와 같은 방식이다.
+  const [photos, setPhotos] = useState<ProductPhotoMeta[]>([]);
+  const [removedPhotoIds, setRemovedPhotoIds] = useState<string[]>([]);
+  const [pendingPrimaryId, setPendingPrimaryId] = useState<string | null>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [newPreviews, setNewPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Collapsible section states
@@ -158,9 +165,28 @@ export function ProductEditSheet({
       setShowDates(false);
       setShowPurchase(false);
     }
-    setPhotoFile(null);
-    setPhotoPreview(null);
+    setRemovedPhotoIds([]);
+    setPendingPrimaryId(null);
+    setNewFiles([]);
+    setNewPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setPhotos(mode === "edit" && product?.photos ? product.photos : []);
     setNewTagInput("");
+
+    // 목록에서 연 경우 product.photos가 없다. 상세를 한 번 더 읽어 채운다.
+    if (mode === "edit" && product && !product.photos) {
+      let cancelled = false;
+      void apiJson<ProductPhotoMeta[]>(`/api/products/${product.id}/photos`)
+        .then((rows) => {
+          if (!cancelled) setPhotos(rows);
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }
   }, [open, mode, product]);
 
   // 기기·위생용품에 "알갱이 크기"를 묻지 않는다. 사료·영양제·간식만.
@@ -181,12 +207,39 @@ export function ProductEditSheet({
     setAdverseReactions((prev) => prev.filter((t) => t !== tag));
   }
 
+  const keptPhotos = photos.filter((p) => !removedPhotoIds.includes(p.id));
+  const primaryId =
+    pendingPrimaryId ?? keptPhotos.find((p) => p.isPrimary)?.id ?? keptPhotos[0]?.id ?? null;
+  const photoCount = keptPhotos.length + newFiles.length;
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+    const room = MAX_PRODUCT_PHOTOS - photoCount;
+    if (room <= 0) {
+      showToast(t("productPhotoLimit", { max: String(MAX_PRODUCT_PHOTOS) }), "error");
+      e.target.value = "";
+      return;
+    }
+    const accepted = picked.slice(0, room);
+    if (accepted.length < picked.length) {
+      showToast(t("productPhotoLimit", { max: String(MAX_PRODUCT_PHOTOS) }), "error");
+    }
+    setNewFiles((prev) => [...prev, ...accepted]);
+    setNewPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+    // 같은 파일을 다시 고를 수 있게 비운다
+    e.target.value = "";
+  }
+
+  function handleRemoveExistingPhoto(photoId: string) {
+    setRemovedPhotoIds((prev) => [...prev, photoId]);
+    if (pendingPrimaryId === photoId) setPendingPrimaryId(null);
+  }
+
+  function handleRemoveNewPhoto(index: number) {
+    URL.revokeObjectURL(newPreviews[index]);
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewPreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
   function handleMarkOpenedToday() {
@@ -250,14 +303,23 @@ export function ProductEditSheet({
         return;
       }
 
-      // Upload photo if selected
-      if (photoFile && savedId) {
-        const formData = new FormData();
-        formData.append("file", photoFile);
-        await apiFetch(`/api/products/${savedId}/photo`, {
-          method: "POST",
-          body: formData,
-        });
+      if (savedId) {
+        // 지우기 → 새로 올리기 → 대표 지정 순서. 대표를 마지막에 둬야 삭제로 밀려난
+        // 대표가 사용자가 고른 값을 덮지 않는다.
+        for (const photoId of removedPhotoIds) {
+          await apiFetch(`/api/products/${savedId}/photos/${photoId}`, { method: "DELETE" });
+        }
+        for (const file of newFiles) {
+          const formData = new FormData();
+          formData.append("file", file);
+          await apiFetch(`/api/products/${savedId}/photos`, { method: "POST", body: formData });
+        }
+        const alreadyPrimary = keptPhotos.find((p) => p.isPrimary)?.id ?? null;
+        if (primaryId && primaryId !== alreadyPrimary) {
+          await apiFetch(`/api/products/${savedId}/photos/${primaryId}/primary`, {
+            method: "POST",
+          });
+        }
       }
 
       showToast(t("productSavedToast"), "success");
@@ -393,57 +455,83 @@ export function ProductEditSheet({
 
           {/* 2. Collapsible: Photo */}
           <div className="product-form-section">
-            <div className="product-photo-upload-row">
-              <input
-                type="file"
-                ref={fileInputRef}
-                style={{ display: "none" }}
-                accept="image/*"
-                onChange={handlePhotoChange}
-              />
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: "none" }}
+              accept="image/*"
+              multiple
+              onChange={handlePhotoChange}
+            />
 
-              <div className="product-photo-thumb-preview">
-                {photoPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoPreview} alt="Preview" className="product-preview-img" />
-                ) : product?.photoPath ? (
+            <div className="product-photo-grid">
+              {keptPhotos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className={`product-photo-cell ${photo.id === primaryId ? "is-primary" : ""}`}
+                >
                   <ProductPhoto
-                    productId={product.id}
-                    photoPath={product.photoPath}
-                    alt={product.name}
+                    productId={product?.id ?? ""}
+                    photoId={photo.id}
+                    alt=""
                     className="product-preview-img"
                   />
-                ) : (
-                  <div className="product-photo-placeholder">
-                    <CameraIcon size={24} />
-                  </div>
-                )}
-              </div>
+                  {photo.id === primaryId ? (
+                    <span className="product-photo-primary-badge">{t("productPhotoPrimary")}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="product-photo-primary-btn"
+                      onClick={() => setPendingPrimaryId(photo.id)}
+                      disabled={saving}
+                    >
+                      {t("productPhotoSetPrimary")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="product-photo-remove"
+                    aria-label={t("removeAttachment")}
+                    onClick={() => handleRemoveExistingPhoto(photo.id)}
+                    disabled={saving}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
 
-              <div className="product-photo-btn-group">
+              {newPreviews.map((preview, i) => (
+                <div key={preview} className="product-photo-cell">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={preview} alt="" className="product-preview-img" />
+                  <button
+                    type="button"
+                    className="product-photo-remove"
+                    aria-label={t("removeAttachment")}
+                    onClick={() => handleRemoveNewPhoto(i)}
+                    disabled={saving}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+
+              {photoCount < MAX_PRODUCT_PHOTOS && (
                 <button
                   type="button"
-                  className="secondary small"
+                  className="product-photo-add"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={saving}
                 >
-                  {photoPreview || product?.photoPath ? t("productPhotoChange") : t("productPhotoUpload")}
+                  <CameraIcon size={20} />
+                  <span>{t("productPhotoUpload")}</span>
                 </button>
-                {(photoPreview || product?.photoPath) && (
-                  <button
-                    type="button"
-                    className="secondary small text-muted"
-                    onClick={() => {
-                      setPhotoFile(null);
-                      setPhotoPreview(null);
-                    }}
-                    disabled={saving}
-                  >
-                    {t("cancel")}
-                  </button>
-                )}
-              </div>
+              )}
             </div>
+
+            <p className="product-photo-hint meta">
+              {t("productPhotoHint", { count: String(photoCount), max: String(MAX_PRODUCT_PHOTOS) })}
+            </p>
           </div>
 
           {/* 3. Collapsible: Feeding & Ingredients */}
