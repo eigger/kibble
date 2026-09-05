@@ -19,7 +19,9 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import { ProductDetailSheet } from "./ProductDetailSheet";
+import { InfoIcon, LightbulbIcon } from "./ProductIcons";
 import type { EventAttachment, Product, ProductSummary } from "../lib/types";
+import type { TranslationKey } from "../lib/i18n/translations";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
@@ -97,7 +99,7 @@ interface EventDetailSheetProps {
   onSave: (draft: EventDetailDraft, meta: EventDetailSaveMeta) => void;
   onValidationError: (message: string) => void;
   saveError?: string | null;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   locale?: "ko" | "en";
 }
 
@@ -499,16 +501,19 @@ export function EventDetailSheet({
           role="group"
           aria-label={t(scale3FieldLabelKey(draft!.scaleType))}
         >
-          {SCALE3_VALUES.map((value) => (
-            <EventDetailChip
-              key={value}
-              selected={scaleValue === value}
-              disabled={busy}
-              onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
-            >
-              {t(scale3ValueLabelKey(draft!.scaleType, value))}
-            </EventDetailChip>
-          ))}
+          {SCALE3_VALUES.map((value) => {
+            const labelKey = scale3ValueLabelKey(draft!.scaleType, value);
+            return (
+              <EventDetailChip
+                key={value}
+                selected={scaleValue === value}
+                disabled={busy}
+                onClick={() => setScaleValue((prev) => (prev === value ? null : value))}
+              >
+                {labelKey ? t(labelKey) : value}
+              </EventDetailChip>
+            );
+          })}
         </div>
       </div>
     );
@@ -709,7 +714,8 @@ export function EventDetailSheet({
                           onClick={() => handleOpenProductPopup(draft.productId ?? draft.product?.id)}
                           title={t("productDetailTitle")}
                         >
-                          ℹ️ {t("productViewDetail")}
+                          <InfoIcon size={13} />
+                          <span>{t("productViewDetail")}</span>
                         </button>
                       </span>
                     ) : (
@@ -877,33 +883,36 @@ export function EventDetailSheet({
                         {activeProducts.map((p) => {
                           const isSelected = productId === p.id;
                           return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              className={`product-quick-chip ${isSelected ? "selected" : ""}`}
-                              disabled={busy}
-                              onClick={() => selectActiveProduct(p)}
-                            >
-                              <span className="chip-name">{p.name}</span>
+                            <div key={p.id} className="product-quick-chip-wrap">
+                              <button
+                                type="button"
+                                className={`product-quick-chip ${isSelected ? "selected" : ""}`}
+                                disabled={busy}
+                                onClick={() => selectActiveProduct(p)}
+                              >
+                                <span className="chip-name">{p.name}</span>
+                              </button>
                               {isSelected && (
-                                <span
+                                <button
+                                  type="button"
                                   className="chip-info-btn"
                                   title={t("productDetailTitle")}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenProductPopup(p.id);
-                                  }}
+                                  aria-label={`${p.name} ${t("productDetailTitle")}`}
+                                  disabled={busy}
+                                  onClick={() => handleOpenProductPopup(p.id)}
                                 >
-                                  ℹ️
-                                </span>
+                                  <InfoIcon size={12} />
+                                </button>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
                       {productDosage && (
                         <div className="product-dosage-hint">
-                          <span className="dosage-icon">💡</span>
+                          <span className="dosage-icon">
+                            <LightbulbIcon size={13} />
+                          </span>
                           <span className="dosage-text">{t("productDetailDosageHint", { dosage: productDosage })}</span>
                         </div>
                       )}

@@ -9,10 +9,20 @@ import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
 import { fetchPushStatus, generateVapidKeys, type PushStatus } from "../../lib/pushNotifications";
 
+import type { TranslationKey } from "../../lib/i18n/translations";
+
 // 새 연동을 추가할 때는 shared의 settingKeySchema와 여기 매핑만 늘리면 된다.
-const SETTING_META: Record<
-  string,
-  { labelKey: string; helpKey: string; signupUrl?: string; signupLabelKey?: string; placeholderKey?: string }
+const SETTING_META: Partial<
+  Record<
+    string,
+    {
+      labelKey: TranslationKey;
+      helpKey: TranslationKey;
+      signupUrl?: string;
+      signupLabelKey?: TranslationKey;
+      placeholderKey?: TranslationKey;
+    }
+  >
 > = {
   KAKAO_MAP_APP_KEY: {
     labelKey: "kakaoMapAppKeyLabel",
@@ -33,7 +43,7 @@ const SETTING_META: Record<
   },
 };
 
-const GROUPS: { key: string; titleKey: string; keys: SettingKey[] }[] = [
+const GROUPS: { key: string; titleKey: TranslationKey; keys: SettingKey[] }[] = [
   { key: "map", titleKey: "integrationGroupMap", keys: ["KAKAO_MAP_APP_KEY"] },
   { key: "notification", titleKey: "integrationGroupNotification", keys: ["VAPID_PUBLIC_KEY", "VAPID_SUBJECT"] },
   { key: "server", titleKey: "integrationGroupServer", keys: ["APP_PUBLIC_URL"] },
@@ -122,7 +132,8 @@ function SettingCard({ entry, onChanged }: { entry: SettingEntry; onChanged: () 
   }
 
   async function handleRemove() {
-    if (!confirm(t("integrationRemoveConfirm", { name: t(meta?.labelKey ?? entry.key) }))) return;
+    const label = meta?.labelKey ? t(meta.labelKey) : entry.key;
+    if (!confirm(t("integrationRemoveConfirm", { name: label }))) return;
     setSaving(true);
     try {
       await apiJson(`/api/settings/${entry.key}`, { method: "DELETE" });
@@ -138,7 +149,7 @@ function SettingCard({ entry, onChanged }: { entry: SettingEntry; onChanged: () 
   return (
     <div className="card integration-card">
       <div className="integration-card-head">
-        <strong>{t(meta?.labelKey ?? entry.key)}</strong>
+        <strong>{meta?.labelKey ? t(meta.labelKey) : entry.key}</strong>
         <SourceBadge entry={entry} />
       </div>
       {meta?.helpKey && <p className="meta integration-help">{t(meta.helpKey)}</p>}
@@ -183,7 +194,7 @@ function SettingCard({ entry, onChanged }: { entry: SettingEntry; onChanged: () 
 
       {meta?.signupUrl && (
         <a className="integration-link" href={meta.signupUrl} target="_blank" rel="noopener noreferrer">
-          {t(meta.signupLabelKey ?? "integrationLinkGeneric")}
+          {meta.signupLabelKey ? t(meta.signupLabelKey) : t("integrationLinkGeneric")}
         </a>
       )}
     </div>

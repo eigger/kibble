@@ -1,12 +1,14 @@
 "use client";
 
+import type { TranslationKey } from "../lib/i18n/translations";
+
 interface ChipActionSheetProps {
   open: boolean;
   label: string;
   onClose: () => void;
   onDetail: () => void;
   onHide: () => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 }
 
 export function ChipActionSheet({ open, label, onClose, onDetail, onHide, t }: ChipActionSheetProps) {

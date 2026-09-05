@@ -1,5 +1,7 @@
 "use client";
 
+import type { TranslationKey } from "../lib/i18n/translations";
+
 type CourseOption = { id: string; name: string };
 
 type Props = {
@@ -7,7 +9,7 @@ type Props = {
   courses: CourseOption[];
   onClose: () => void;
   onPick: (courseId: string) => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 };
 
 export function MedicationCoursePickSheet({ open, courses, onClose, onPick, t }: Props) {

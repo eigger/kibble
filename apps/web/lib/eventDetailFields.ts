@@ -1,12 +1,13 @@
 import { formatProductNameDisplay, productNameFieldLabelKey } from "./eventDetailTags";
+import type { TranslationKey } from "./i18n/translations";
 export type EventDetailFieldFlags = {
   productName: boolean;
   /** 사료 원재료·구토 종류·관찰 항목 등 태그 칩 */
   detailTags: boolean;
   /** 태그 외 직접 입력란 (관찰은 메모로 대체) */
   productCustomInput: boolean;
-  productNameLabelKey: string;
-  noteLabelKey: string;
+  productNameLabelKey: TranslationKey;
+  noteLabelKey: TranslationKey;
   clinicName: boolean;
   clinicAddress: boolean;
   cost: boolean;
@@ -55,14 +56,25 @@ export function isScale3Type(scaleType: string | null | undefined): boolean {
   return scaleType != null && SCALE3_TYPES.has(scaleType);
 }
 
-export function scale3FieldLabelKey(scaleType: string | null | undefined): string {
+export function scale3FieldLabelKey(scaleType: string | null | undefined): TranslationKey {
   if (scaleType === "URINE_AMOUNT_3") return "eventDetailUrineAmountLabel";
   if (scaleType === "ENERGY_3") return "eventDetailEnergyLabel";
   if (scaleType === "APPETITE_3") return "eventDetailAppetiteLabel";
   return "eventDetailScaleLabel";
 }
 
-export function scale3ValueLabelKey(scaleType: string | null | undefined, value: number): string {
+type Scale3Value = 1 | 2 | 3;
+export type Scale3ValueLabelKey =
+  | `eventDetailUrineAmount.${Scale3Value}`
+  | `eventDetailEnergy.${Scale3Value}`
+  | `eventDetailAppetite.${Scale3Value}`
+  | `eventDetailScale.${Scale3Value}`;
+
+export function scale3ValueLabelKey(
+  scaleType: string | null | undefined,
+  value: number,
+): Scale3ValueLabelKey | null {
+  if (value !== 1 && value !== 2 && value !== 3) return null;
   if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${value}`;
   if (scaleType === "ENERGY_3") return `eventDetailEnergy.${value}`;
   if (scaleType === "APPETITE_3") return `eventDetailAppetite.${value}`;
@@ -237,11 +249,14 @@ export function quantityPlaceholder(
 export function formatScaleValuePart(
   scaleType: string | null | undefined,
   scaleValue: number | null,
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string | null {
   if (scaleValue == null) return null;
   if (scaleType === "FECAL_7") return `${scaleValue}/7`;
-  if (isScale3Type(scaleType)) return t(scale3ValueLabelKey(scaleType, scaleValue));
+  if (isScale3Type(scaleType)) {
+    const key = scale3ValueLabelKey(scaleType, scaleValue);
+    return key ? t(key) : null;
+  }
   return null;
 }
 
@@ -259,7 +274,7 @@ export function formatEventDetailLine(
     scaleValue: number | null;
     eventType: { key: string; scaleType?: string | null };
   },
-  t?: (key: string) => string,
+  t?: (key: TranslationKey) => string,
 ): string | null {
   const flags = eventDetailFields(event.eventType.key, event.eventType.scaleType);
   const unit = event.unit ?? flags.defaultUnit ?? "";
@@ -303,15 +318,13 @@ export function formatEventDetailLine(
   }
 
   if (flags.fecalScale && event.scaleValue != null) {
-    parts.push(t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t)! : `${event.scaleValue}/7`);
+    const part = t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t) : `${event.scaleValue}/7`;
+    if (part) parts.push(part);
   }
 
   if (flags.scale3 && event.scaleValue != null) {
-    parts.push(
-      t
-        ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t)!
-        : String(event.scaleValue),
-    );
+    const part = t ? formatScaleValuePart(event.eventType.scaleType, event.scaleValue, t) : String(event.scaleValue);
+    if (part) parts.push(part);
   }
 
   // 메모는 목록 요약에 넣지 않는다. 한 줄로 이어 붙이면 수량·척도가 밀리고,

@@ -19,6 +19,8 @@ function iconProps(): SVGProps<SVGSVGElement> {
     strokeWidth: 1.8,
     strokeLinecap: "round",
     strokeLinejoin: "round",
+    "aria-hidden": true,
+    focusable: "false",
   };
 }
 
@@ -187,9 +189,13 @@ const NAV_TABS_LEFT: {
   { href: "/care", labelKey: "navCare", Icon: CareIcon },
 ];
 
-const NAV_TAB_CENTER = {
+const NAV_TAB_CENTER: {
+  href: string;
+  labelKey: TranslationKey;
+  Icon: () => ReactElement;
+} = {
   href: "/q",
-  labelKey: "navQuickRecord" as TranslationKey,
+  labelKey: "navQuickRecord",
   Icon: RecordIcon,
 };
 
@@ -269,6 +275,7 @@ export function BottomNav() {
           <Link
             href={NAV_TAB_CENTER.href}
             className={`scan-tab ${pathname === NAV_TAB_CENTER.href ? "active" : ""}`}
+            aria-current={pathname === NAV_TAB_CENTER.href ? "page" : undefined}
           >
             <span className="icon-wrap">
               <span className="icon">

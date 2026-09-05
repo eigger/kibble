@@ -120,10 +120,51 @@
 | R90 | 영구 거부(415)된 파일을 재시도 대상에서 빼기 | **기각** | 빼면 그 파일이 `remainingFileCount`에 계속 잡혀 **걷히지 않는 실패 배너**가 된다. 지금은 다시 시도했다가 또 건너뛰므로 사용자가 같은 버튼을 반복할 수 있지만, 페이지 경로도 같은 모양이다(R59). 제대로 된 답은 "형식이 안 맞아 올릴 수 없습니다"를 파일 단위로 말하는 것이고, 그건 새 UI다 | 첨부 실패 사유를 파일별로 보여주게 될 때 |
 | R91 | `ProductCategory`를 동적 문자열/사용자 정의 테이블로 확장 (K-8과 동일 취급) | **기각** | 사료·영양제·간식·위생·기기는 단순 라벨이 아니라 **도메인 동작의 분기 기준**(급여 입력 자동 채움, 개봉일·소비기한 D-Day 계산, 1회 투약 힌트 등 고유 수명주기)이다. 동적 카테고리는 가구마다 오타·분편화(`영양제` vs `보충제`)를 낳고 공통 비즈니스 로직 적용을 방해한다. 세부 분류는 `brand`와 `name`, `adverseReactions` 태그로 충분히 흡수된다 | — |
 | R92 | `Event.productName` 컬럼을 제거하고 `productId` 외래키로 완전 통합 | **기각** | K-12(입력 마찰 최소화 — 미등록 사료도 빠른 텍스트 입력 가능) 보장 및 과거 기록의 불변성 유지 (K-13). 제품이 수정되거나 보관·삭제되어도 과거 이벤트의 텍스트 스냅샷(`productName`)은 온전히 보존되어야 한다. `productId`와 `productName`은 동기화 규칙을 통해 상호 보완한다 | — |
+| R93 | 내비 높이를 고정 64px로 두고 `padding-bottom`만 safe-area로 | **기각** | `* { box-sizing: border-box }`로 인해 노치 기기에서 콘텐츠 높이가 64 - 34 = 30px로 축소되고, 앱 전역 오프셋 `calc(nav + safe)`가 34px씩 과하게 띄워짐. `height: calc(var(--nav-height) + env(safe-area-inset-bottom))`으로 내비 실제 콘텐츠 높이(64px)와 전역 오프셋 일치 | — |
+| R94 | 제품 및 내비 UI에 시스템/컬러 이모지 사용 | **기각** | 플랫폼·OS별 렌더링 파편화, 과도한 시각적 산만함, 스크린리더 이중 낭독 유발. 모노크롬 라인아트 SVG로 전면 통일하고 `iconProps`에 `aria-hidden: true`, `focusable: false` 강제 | — |
+| R95 | `t()` 함수 시그니처에 `key: TranslationKey \| string` 탈출구 허용 | **기각** | 오타나 미정의 번역 키(`productStatusInactiveShort` 등)가 tsc·lint·테스트를 모두 통과하여 런타임에 키 문자열이 그대로 노출됨. `TranslationKey`로 타입을 좁혀 누락을 컴파일 타임에 원천 차단하고 K-9를 타입으로 강제 | — |
+| R96 | 하단 칩 터치 간섭을 입력 바 `z-index: 60` 승격이나 `.scan-tab.active` 마진 평탄화로 해결 | **기각** | 입력 바 z-index를 내비(50)보다 올리면 홈 화면에서 18px 돌출된 플로팅 스캔 버튼 윗부분이 잘림. `.bottom-nav` 50, `.home-input-bar` 40 계층을 엄수하고, `.home-input-bar-inner`에 `padding-bottom: 20px`을 주어 칩과 버튼의 물리적 겹침을 원천 해소. CSS 전환도 `transform: scale(0.94)`로 변경하여 레이아웃 재계산 방지 | — |
+| R97 | 칩 버튼 내부에 대화형 `<span onClick>`으로 상세 정보 버튼 얹기 | **기각** | R56·R82와 동일 원칙 — `<button>` 안에 대화형 요소 중첩 금지. 키보드 접근 불가 및 스크린리더 누락. `.product-quick-chip-wrap` 컨테이너 아래 형제 `<button>`으로 분리하고 명시적 `aria-label` 부여 | — |
+| R98 | 사용자 지정 DB 라벨 및 동적 키에 `as TranslationKey` 캐스트 사용 | **기각** | 의도적 통과(DB 리터럴)와 실수(미정의 키 오타)가 코드상에서 같은 모양이 되어 R95의 타입 안전성 장치를 무력화함. 사전 키이거나 DB 이름인 경우 `tLabel(labelOrKey: string)`을 사용하고, 템플릿 리터럴은 구체적 서브타입으로 선언하여 코드베이스 내 `as TranslationKey` 캐스트를 0건으로 완전 제거 | — |
+| R99 | 신규 화면마다 4px 반경, 임의 폰트(0.74/0.84/0.92rem), 임의 여백을 직접 선언 | **기각** | 앱 전체의 주력 스케일(8/10/12px 반경, 0.75/0.82/0.9/1.05rem 폰트)과 어긋나 화면 간 위계와 결이 파편화됨. `:root`에 치수 토큰(`--radius-*`, `--text-*`, `--space-*`, `--shadow-chip-hover`)을 도입하고 신규 화면의 4px 반경을 6px(`--radius-sm`)로 일괄 정돈 | — |
 
 ---
 
 ## 2. 세션 로그
+
+### 2026-09-05 — 제품 UI 정돈, i18n 무결성, 내비 안전영역 및 접근성 개선 (PR #67)
+
+**한 일**
+
+- **i18n 번역 키 무결성 및 DB 라벨 분리 (R95, R98)**:
+  - `productStatusInactiveShort` (ko: "사용 중단", en: "Inactive") 및 `saveError` 누락 키 추가
+  - `t()` 함수의 첫 번째 인자 타입을 `TranslationKey | string`에서 `TranslationKey`로 엄격히 좁힘 (R95).
+  - 사전 키 또는 DB 사용자 지정명을 안전하게 렌더링하는 `tLabel(labelOrKey: string)` 도입 (`translateLabel`, `useLocale`).
+  - 척도 라벨(`Scale3ValueLabelKey`) 및 카테고리 숏라벨(`PresetCategoryShortKey`)을 템플릿 리터럴 서브타입으로 정의하여, 코드베이스 전역의 `as TranslationKey` 캐스트를 0건으로 완전 제거 (R98).
+- **디자인 시스템 치수 토큰 및 시각적 결 일치 (R99)**:
+  - `:root`에 치수 토큰 세 벌 도입:
+    - 반경: `--radius-sm: 6px`, `--radius-md: 8px`, `--radius-lg: 12px`, `--radius-pill: 999px`
+    - 타이포: `--text-xs: 0.75rem`, `--text-sm: 0.82rem`, `--text-md: 0.9rem`, `--text-lg: 1.05rem`
+    - 여백: `--space-1: 4px`, `--space-2: 8px`, `--space-3: 12px`, `--space-4: 16px`
+  - 제품 관리 화면의 날카로운 4px 반경을 `--radius-sm`(6px)으로 부드럽게 정돈.
+  - 기존 스케일과 미세하게 어긋나던 폰트 크기(0.74rem -> `--text-xs`, 0.84/0.86rem -> `--text-sm`, 0.92rem -> `--text-md`, 1.15rem -> `--text-lg`) 및 뱃지 패딩(2px 6px)을 표준 토큰으로 일괄 교체.
+  - 다크 모드에서 보이지 않던 4% 칩 호버 그림자를 테마별 `--shadow-chip-hover`(라이트 0.06, 다크 0.45 + 미세 테두리 강조)로 시인성 확보.
+  - 보조 버튼 `.chip-info-btn`(22×22px)에 `::before` 가상 요소를 부여하여 최소 44×44px 터치 타깃 보장.
+- **하단 내비 안전영역 및 전역 오프셋 수정 (R93)**:
+  - `* { box-sizing: border-box }` 환경에서 내비 높이를 `calc(var(--nav-height) + env(safe-area-inset-bottom))`으로 정돈. 노치 기기에서 내비 행이 30px로 찌그러지던 것과 전역 여백(10여 곳) 34px 과잉 오프셋을 동시 해결.
+- **홈 플로팅 스캔 버튼 시각적 잘림 및 터치 간섭 해소 (R96)**:
+  - `.home-input-bar` z-index를 60에서 40으로 복원하여, 내비(50) 상단으로 18px 돌출하는 시그니처 플로팅 버튼이 잘리지 않도록 정돈.
+  - `.bottom-nav .scan-tab.active`에 걸려 있던 불필요한 `pointer-events: none` 및 마진 평탄화 제거.
+  - 모바일에서 영양/체중 칩이 버튼과 겹치는 문제는 `.quick-record-input-bar .home-input-bar-inner`에 `padding-bottom: 20px`을 주어 물리적 간섭을 원천 해소.
+  - 탭 transition을 `margin-top/width/height`(레이아웃 리플로우)에서 GPU 가속 `transform: scale(0.94)`로 최적화.
+- **접근성 (A11y) 강화 (R94, R97)**:
+  - `ProductIcons.tsx` 및 `BottomNav.tsx`의 모든 SVG `iconProps`에 `aria-hidden: true`, `focusable: false` 기본 부여 (텍스트 라벨 인접 아이콘의 스크린리더 이중 낭독 제거).
+  - `EventDetailSheet`의 빠른 제품 칩 내 중첩 클릭 span을 제거하고, `.product-quick-chip-wrap` 아래 독립된 형제 `<button>`으로 분리. 명시적 `aria-label` 및 `title` 부여로 키보드 포커스 및 스크린리더 접근성 확보 (R97).
+  - `BottomNav`의 활성 탭에서 키보드 포커스를 가로막던 `tabIndex={-1}` 제거 (`aria-current="page"`는 유지).
+- **디자인 시스템 통일**:
+  - 컬러 이모지를 모노크롬 라인아트 SVG로 전면 대체 및 칩 마우스 호버 효과(`:hover`, `:active`) 추가.
+
+---
 
 ### 2026-09-05 — v0.12.0 릴리스
 

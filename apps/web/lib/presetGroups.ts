@@ -12,6 +12,12 @@ export const PRESET_CATEGORY_ORDER = [
 
 export type PresetCategory = (typeof PRESET_CATEGORY_ORDER)[number];
 
+export type PresetCategoryShortKey = `presetCategoryShort.${PresetCategory}`;
+
+export function presetCategoryShortKey(category: PresetCategory): PresetCategoryShortKey {
+  return `presetCategoryShort.${category}`;
+}
+
 export interface PresetCategoryGroup {
   category: PresetCategory;
   presets: Preset[];

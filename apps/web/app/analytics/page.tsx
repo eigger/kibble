@@ -20,6 +20,7 @@ import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { fetchAnalyticsEvents } from "../../lib/fetchAnalyticsEvents";
 import { useLocale } from "../../lib/i18n/locale-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import {
   avgDailyQuantity,
   filterEventsByPeriod,
@@ -40,7 +41,7 @@ interface HomePetsPayload {
   activePet: Pet | null;
 }
 
-const PERIODS: { value: AnalyticsPeriod; labelKey: string }[] = [
+const PERIODS: { value: AnalyticsPeriod; labelKey: TranslationKey }[] = [
   { value: "1w", labelKey: "analyticsPeriod1w" },
   { value: "1m", labelKey: "analyticsPeriod1m" },
   { value: "6m", labelKey: "analyticsPeriod6m" },
@@ -105,7 +106,7 @@ function ChartEmpty({
   title: string;
   desc?: string;
   inPeriod: boolean;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 }) {
   return (
     <div className="analytics-chart-empty">

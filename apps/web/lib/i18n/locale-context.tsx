@@ -1,26 +1,28 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { translations, type Locale, type TranslationKey } from "./translations";
+import {
+  translate,
+  translateLabel,
+  type Locale,
+  type TranslationKey,
+} from "./translations";
 
 const STORAGE_KEY = "kibble_locale";
 
 interface LocaleContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  /** i18n 키 또는 DB 리터럴(프리셋 사용자 지정명). 미지 키는 그대로 반환한다. */
-  t: (key: TranslationKey | string, params?: Record<string, string | number>) => string;
+  /** i18n 번역 함수. 사전 키만 허용하여 미정의 키 컴파일 차단 */
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  /** 사전 키이거나 사용자가 지은 DB 리터럴 이름. 사전에 없으면 그대로 보여준다. */
+  tLabel: (labelOrKey: string, params?: Record<string, string | number>) => string;
   formatDateTime: (iso: string) => string;
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
 const INTL_LOCALE: Record<Locale, string> = { ko: "ko-KR", en: "en-US" };
-
-function interpolate(template: string, params?: Record<string, string | number>): string {
-  if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match));
-}
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("ko");
@@ -38,17 +40,23 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = next;
   }
 
-  function t(key: TranslationKey | string, params?: Record<string, string | number>): string {
-    const entry = translations[key as TranslationKey];
-    if (!entry) return interpolate(key, params);
-    return interpolate(entry[locale] ?? entry.ko, params);
+  function t(key: TranslationKey, params?: Record<string, string | number>): string {
+    return translate(locale, key, params);
+  }
+
+  function tLabel(labelOrKey: string, params?: Record<string, string | number>): string {
+    return translateLabel(locale, labelOrKey, params);
   }
 
   function formatDateTime(iso: string): string {
     return new Date(iso).toLocaleString(INTL_LOCALE[locale]);
   }
 
-  return <LocaleContext.Provider value={{ locale, setLocale, t, formatDateTime }}>{children}</LocaleContext.Provider>;
+  return (
+    <LocaleContext.Provider value={{ locale, setLocale, t, tLabel, formatDateTime }}>
+      {children}
+    </LocaleContext.Provider>
+  );
 }
 
 export function useLocale(): LocaleContextValue {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { TranslationKey } from "../lib/i18n/translations";
 import { eventDetailTagsFor } from "../lib/eventDetailTags";
 import { EventDetailChip } from "./EventDetailChip";
 
@@ -7,7 +8,7 @@ interface EventDetailTagPickerProps {
   eventTypeKey: string | null | undefined;
   selectedIds: string[];
   disabled?: boolean;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
   onToggle: (tagId: string) => void;
 }
 

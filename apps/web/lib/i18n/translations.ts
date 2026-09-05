@@ -6,6 +6,7 @@ const dict = {
   loading: { ko: "불러오는 중...", en: "Loading..." },
   save: { ko: "저장", en: "Save" },
   saving: { ko: "저장 중...", en: "Saving..." },
+  saveError: { ko: "저장에 실패했습니다.", en: "Could not save." },
   cancel: { ko: "취소", en: "Cancel" },
   close: { ko: "닫기", en: "Close" },
   edit: { ko: "수정", en: "Edit" },
@@ -422,6 +423,14 @@ const dict = {
   "eventDetailEnergy.1": { ko: "불편함", en: "Uncomfortable" },
   "eventDetailEnergy.2": { ko: "보통", en: "Normal" },
   "eventDetailEnergy.3": { ko: "활발", en: "Active" },
+  eventDetailAppetiteLabel: { ko: "식욕", en: "Appetite" },
+  "eventDetailAppetite.1": { ko: "부진", en: "Poor" },
+  "eventDetailAppetite.2": { ko: "보통", en: "Normal" },
+  "eventDetailAppetite.3": { ko: "왕성", en: "Good" },
+  eventDetailScaleLabel: { ko: "척도", en: "Scale" },
+  "eventDetailScale.1": { ko: "나쁨", en: "Poor" },
+  "eventDetailScale.2": { ko: "보통", en: "Normal" },
+  "eventDetailScale.3": { ko: "좋음", en: "Good" },
 
   quickRecordTitle: { ko: "빠른 기록", en: "Quick log" },
   quickRecordRecentTitle: { ko: "최근 기록", en: "Recent logs" },
@@ -868,6 +877,7 @@ const dict = {
   productStatusActive: { ko: "급여 중", en: "In use" },
   productStatusInactive: { ko: "급여 종료", en: "Finished" },
   productStatusActiveShort: { ko: "사용 중", en: "Active" },
+  productStatusInactiveShort: { ko: "사용 중단", en: "Inactive" },
   productStatusArchived: { ko: "보관됨", en: "Archived" },
   productTabActive: { ko: "급여/사용 중", en: "In use" },
   productTabArchived: { ko: "보관된 제품", en: "Archived" },
@@ -931,20 +941,43 @@ const dict = {
   productSectionPhoto: { ko: "제품 사진", en: "Product Photo" },
   productOptionalSectionHint: { ko: "(필요한 경우만 입력)", en: "(optional)" },
   productRecentLogs: { ko: "최근 기록", en: "Recent logs" },
-  productQuickAdd: { ko: "+ 새 제품 등록", en: "+ New product" },
+  productQuickAdd: { ko: "+ 제품 등록", en: "+ Add product" },
+  productExpiryImminent: { ko: "기한 임박", en: "Expiring soon" },
+  productTotalCostSum: { ko: "총 구매액", en: "Total spend" },
 } as const;
 
 export const translations = dict;
 
 export type TranslationKey = keyof typeof dict;
 
+export function isTranslationKey(key: string): key is TranslationKey {
+  return key in dict;
+}
+
 export function translate(
   locale: Locale,
-  key: TranslationKey | string,
+  key: TranslationKey,
   params?: Record<string, string | number>,
 ): string {
-  const entry = dict[key as TranslationKey];
+  const entry = dict[key];
   const template = entry ? (entry[locale] ?? entry.ko) : key;
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
 }
+
+/**
+ * 사전 키이거나 사용자가 지은 DB 리터럴 이름.
+ * 사전에 등록된 키이면 번역하고, 없으면 labelOrKey를 그대로 반환한다.
+ */
+export function translateLabel(
+  locale: Locale,
+  labelOrKey: string,
+  params?: Record<string, string | number>,
+): string {
+  if (isTranslationKey(labelOrKey)) {
+    return translate(locale, labelOrKey, params);
+  }
+  if (!params) return labelOrKey;
+  return labelOrKey.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
+}
+

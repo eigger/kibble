@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDoseTime } from "@kibble/shared";
+import type { TranslationKey } from "../lib/i18n/translations";
 import type { DoseSlotToday } from "../lib/types";
 
 type SlotOption = {
@@ -14,7 +15,7 @@ type Props = {
   slots: SlotOption[];
   onClose: () => void;
   onPick: (slotIndex: number) => void;
-  t: (key: string, params?: Record<string, string>) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   locale: "ko" | "en";
 };
 

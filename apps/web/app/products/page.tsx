@@ -11,6 +11,11 @@ import type { Pet, Product } from "../../lib/types";
 import { ProductPhoto } from "../../components/ProductPhoto";
 import { ProductDetailSheet } from "../../components/ProductDetailSheet";
 import { ProductEditSheet } from "../../components/ProductEditSheet";
+import {
+  PackageIcon,
+  RotateCcwIcon,
+  AlertCircleIcon,
+} from "../../components/ProductIcons";
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -125,17 +130,11 @@ export default function ProductsPage() {
     if (diffDays === 0) return { label: t("productDdayToday"), cls: "dday-imminent" };
     return {
       label: t("productDdayDays", { days: String(diffDays) }),
-      cls: diffDays <= 30 ? "dday-imminent" : "dday-ok",
+      cls: diffDays <= 30 ? "dday-imminent" : "dday-normal",
     };
   }
 
-  function getOpenedDays(openedIso: string | null, baseDate = nowDate): number | null {
-    if (!openedIso) return null;
-    const diffDays = kstDayDiff(baseDate, new Date(openedIso));
-    return Math.max(0, diffDays);
-  }
-
-  // Summary stats (computed inside useMemo using nowDate state)
+  // Summary stats
   const { activeCount, imminentCount, totalCost } = useMemo(() => {
     let active = 0;
     let imminent = 0;
@@ -152,69 +151,77 @@ export default function ProductsPage() {
   }, [products, nowDate]);
 
   return (
-    <main className="container products-page">
-      {/* Header & stats */}
+    <main className="container sub-page products-page">
       <header className="products-header">
         <div className="products-header-row">
           <div>
-            <h1>📦 {t("productCategoryAll")}</h1>
+            <h1>{t("navProducts")}</h1>
             <p className="meta">{t("productEmptyDesc")}</p>
           </div>
           <button
             type="button"
-            className="primary product-add-btn"
+            className="btn-action primary product-add-btn"
             onClick={() => setEditSheet({ mode: "add" })}
           >
-            {t("productQuickAdd")}
+            + {t("productAddBtn")}
           </button>
         </div>
 
-        {/* Summary Stat Cards */}
-        <div className="product-summary-grid">
-          <div className="product-summary-card">
-            <span className="summary-label">{t("productStatusActiveShort")}</span>
-            <span className="summary-value">{activeCount}</span>
-          </div>
-          <div className="product-summary-card">
-            <span className="summary-label">{t("productExpiryDateLabel")} ⚠️</span>
-            <span className="summary-value">{imminentCount}</span>
-          </div>
-          <div className="product-summary-card">
-            <span className="summary-label">{t("productCostLabel")}</span>
-            <span className="summary-value">
-              {totalCost > 0 ? `${totalCost.toLocaleString()}${t("eventDetailCostUnit")}` : "—"}
-            </span>
-          </div>
+        {/* Summary Bar */}
+        <div className="product-summary-bar meta">
+          <span className="product-summary-item">
+            {t("productStatusActiveShort")} <strong>{activeCount}</strong>
+          </span>
+          {imminentCount > 0 && (
+            <>
+              <span className="product-summary-dot">·</span>
+              <span className="product-summary-item product-summary-imminent">
+                {t("productExpiryImminent")} <strong>{imminentCount}</strong>
+              </span>
+            </>
+          )}
+          {totalCost > 0 && (
+            <>
+              <span className="product-summary-dot">·</span>
+              <span className="product-summary-item">
+                {t("productTotalCostSum")}{" "}
+                <strong>
+                  {totalCost.toLocaleString()}
+                  {t("eventDetailCostUnit")}
+                </strong>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Tab switcher: active vs inactive vs archived */}
-        <div className="analytics-period-bar" role="tablist" style={{ marginTop: 16 }}>
+        <div className="product-tabs" role="tablist" aria-label="Product lifecycle">
           <button
             type="button"
             role="tab"
             aria-selected={tab === "active"}
-            className={`analytics-period-btn ${tab === "active" ? "analytics-period-btn-active" : ""}`}
+            className={`product-tab${tab === "active" ? " product-tab-active" : ""}`}
             onClick={() => setTab("active")}
           >
-            🟢 {t("productTabActive")}
+            {t("productTabActive")}
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={tab === "inactive"}
-            className={`analytics-period-btn ${tab === "inactive" ? "analytics-period-btn-active" : ""}`}
+            className={`product-tab${tab === "inactive" ? " product-tab-active" : ""}`}
             onClick={() => setTab("inactive")}
           >
-            ⚪ {t("productStatusInactive")}
+            {t("productStatusInactive")}
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={tab === "archived"}
-            className={`analytics-period-btn ${tab === "archived" ? "analytics-period-btn-active" : ""}`}
+            className={`product-tab${tab === "archived" ? " product-tab-active" : ""}`}
             onClick={() => setTab("archived")}
           >
-            📦 {t("productTabArchived")}
+            {t("productTabArchived")}
           </button>
         </div>
 
@@ -224,7 +231,7 @@ export default function ProductsPage() {
             <button
               key={c.key}
               type="button"
-              className={`product-cat-chip ${categoryFilter === c.key ? "product-cat-chip-active" : ""}`}
+              className={`product-cat-chip${categoryFilter === c.key ? " product-cat-chip-active" : ""}`}
               onClick={() => setCategoryFilter(c.key)}
             >
               {c.label}
@@ -235,16 +242,19 @@ export default function ProductsPage() {
 
       {/* Product List */}
       {dataLoading ? (
-        <div className="loading-state">{t("loading")}</div>
+        <div className="loading-state meta">{t("loading")}</div>
       ) : filteredProducts.length === 0 ? (
         <div className="card empty-state product-empty-card">
-          <p className="empty-title">📦 {t("productEmptyTitle")}</p>
-          <p className="empty-desc">{t("productEmptyDesc")}</p>
+          <div className="product-empty-icon">
+            <PackageIcon size={32} />
+          </div>
+          <p className="empty-title">{t("productEmptyTitle")}</p>
+          <p className="empty-desc meta">{t("productEmptyDesc")}</p>
           <button
             type="button"
-            className="primary"
+            className="btn-action primary"
             onClick={() => setEditSheet({ mode: "add" })}
-            style={{ marginTop: 12 }}
+            style={{ marginTop: 8 }}
           >
             + {t("productAddBtn")}
           </button>
@@ -282,16 +292,8 @@ export default function ProductsPage() {
                       />
                     </div>
                   ) : (
-                    <div className="product-card-thumb product-card-thumb-placeholder">
-                      {p.category === "MEAL"
-                        ? "🥣"
-                        : p.category === "SUPPLEMENT"
-                          ? "💊"
-                          : p.category === "TREAT"
-                            ? "🍖"
-                            : p.category === "DEVICE"
-                              ? "⚙️"
-                              : "📦"}
+                    <div className="product-card-thumb">
+                      <PackageIcon size={24} />
                     </div>
                   )}
 
@@ -312,7 +314,7 @@ export default function ProductsPage() {
                     <h3 className="product-card-name">{p.name}</h3>
 
                     {p.dosage && (
-                      <p className="product-card-dosage-hint">💡 {p.dosage}</p>
+                      <p className="product-card-dosage-hint">{p.dosage}</p>
                     )}
                   </div>
                 </div>
@@ -327,8 +329,8 @@ export default function ProductsPage() {
                       </span>
                     )}
                     {p.adverseReactions && p.adverseReactions.length > 0 && (
-                      <span className="product-warning-dot" title="Adverse reactions recorded">
-                        ⚠️
+                      <span className="product-warning-badge" title={t("productAdverseReactionsLabel")}>
+                        <AlertCircleIcon size={12} />
                       </span>
                     )}
                   </div>
@@ -337,23 +339,25 @@ export default function ProductsPage() {
                     {tab === "archived" ? (
                       <button
                         type="button"
-                        className="small button secondary"
+                        className="btn-action small"
                         onClick={(e) => void handleRestore(e, p)}
                       >
-                        🔄 {t("productRestoreBtn")}
+                        <RotateCcwIcon size={12} />
+                        <span>{t("productRestoreBtn")}</span>
                       </button>
                     ) : (
                       <button
                         type="button"
-                        className={`small button toggle-btn ${p.isActive ? "active" : "inactive"}`}
+                        className={`toggle-btn ${p.isActive ? "active" : "inactive"}`}
                         onClick={(e) => void handleToggleActive(e, p)}
                       >
-                        {p.isActive ? `🟢 ${t("productStatusActive")}` : `⚪ ${t("productStatusInactive")}`}
+                        <span className={`status-dot ${p.isActive ? "" : "status-dot-inactive"}`} />
+                        <span>{p.isActive ? t("productStatusActiveShort") : t("productStatusInactiveShort")}</span>
                       </button>
                     )}
                     <button
                       type="button"
-                      className="small button secondary"
+                      className="btn-action small"
                       onClick={() => setEditSheet({ mode: "edit", product: p })}
                     >
                       {t("edit")}
@@ -368,27 +372,25 @@ export default function ProductsPage() {
 
       {/* Popups */}
       <ProductDetailSheet
-        open={detailOpen}
         product={selectedProduct}
+        open={detailOpen}
         onClose={() => {
           setDetailOpen(false);
           setSelectedProduct(null);
         }}
-        onEdit={(prod) => setEditSheet({ mode: "edit", product: prod })}
+        onEdit={(p) => setEditSheet({ mode: "edit", product: p })}
       />
 
-      {editSheet && (
-        <ProductEditSheet
-          open={Boolean(editSheet)}
-          mode={editSheet.mode}
-          product={editSheet.mode === "edit" ? editSheet.product : null}
-          pets={pets}
-          onClose={() => setEditSheet(null)}
-          onSaved={() => void loadData()}
-          onArchived={() => void loadData()}
-          showToast={show}
-        />
-      )}
+      <ProductEditSheet
+        open={editSheet !== null}
+        mode={editSheet?.mode ?? "add"}
+        product={editSheet?.mode === "edit" ? editSheet.product : null}
+        pets={pets}
+        onClose={() => setEditSheet(null)}
+        onSaved={() => void loadData()}
+        onArchived={() => void loadData()}
+        showToast={show}
+      />
     </main>
   );
 }

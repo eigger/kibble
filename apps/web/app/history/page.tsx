@@ -38,7 +38,7 @@ export default function HistoryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
-  const { t, locale } = useLocale();
+  const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
 
   const [pets, setPets] = useState<Pet[]>([]);
@@ -215,7 +215,7 @@ export default function HistoryPage() {
       petId: activePet.id,
       presetId: event.preset?.id ?? null,
       eventTypeKey: event.eventType.key,
-      label: eventDisplayLabel(event, t),
+      label: eventDisplayLabel(event, tLabel),
       occurredAt: event.occurredAt,
       quantity: event.quantity,
       quantityOffered: event.quantityOffered,

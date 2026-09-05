@@ -11,6 +11,7 @@ import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import { useToast } from "../../lib/toast-context";
 import {
   clinicFieldsFromContact,
@@ -34,7 +35,7 @@ import {
 } from "../../lib/eventAttachments";
 import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
-import { groupPresetsByCategory } from "../../lib/presetGroups";
+import { groupPresetsByCategory, presetCategoryShortKey } from "../../lib/presetGroups";
 import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
 
 interface ActiveMedicationCourse {
@@ -92,7 +93,7 @@ export default function QuickRecordPage() {
   const pathname = routePath(usePathname());
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
-  const { t, locale } = useLocale();
+  const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
   const localeTag = locale === "ko" ? "ko-KR" : "en-US";
   const [pet, setPet] = useState<Pet | null>(null);
@@ -172,7 +173,7 @@ export default function QuickRecordPage() {
       petId: pet.id,
       presetId: event.preset?.id ?? null,
       eventTypeKey: event.eventType.key,
-      label: eventDisplayLabel(event, t),
+      label: eventDisplayLabel(event, tLabel),
       occurredAt: event.occurredAt,
       quantity: event.quantity,
       quantityOffered: event.quantityOffered,
@@ -211,7 +212,7 @@ export default function QuickRecordPage() {
           ]
         : null;
     const slotLabel = slotTime ? formatDoseTime(slotTime, localeTag) : null;
-    const labelParts = [t(preset.label)];
+    const labelParts = [tLabel(preset.label)];
     if (courseName) labelParts.push(courseName);
     if (slotLabel) labelParts.push(slotLabel);
     const label = labelParts.join(" · ");
@@ -539,7 +540,7 @@ export default function QuickRecordPage() {
                     <span className="quick-chip-row-label">
                       <EventCategoryTag
                         category={group.category}
-                        label={t(`presetCategoryShort.${group.category}`)}
+                        label={t(presetCategoryShortKey(group.category))}
                       />
                     </span>
                     <div className="quick-chip-row-chips">
@@ -547,7 +548,7 @@ export default function QuickRecordPage() {
                         <PresetChip
                           key={preset.id}
                           preset={preset}
-                          label={t(preset.label)}
+                          label={tLabel(preset.label)}
                           disabled={detailSaving || !pet}
                           tapOnly
                           compact

@@ -7,12 +7,13 @@ import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
+import type { TranslationKey } from "../../lib/i18n/translations";
 import type { EventTypeAliasesRow, Pet, PresetDetail } from "../../lib/types";
 
 export default function PresetsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { t } = useLocale();
+  const { t, tLabel } = useLocale();
   const { show } = useToast();
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState<string>("");
@@ -129,14 +130,14 @@ export default function PresetsPage() {
           <li key={preset.id} className="preset-manage-item card">
             <div className="preset-manage-row">
               <label className="field-label" htmlFor={`preset-label-${preset.id}`}>
-                {t(preset.eventType.label)}
+                {tLabel(preset.eventType.label)}
                 {preset.hiddenAt && (
                   <span className="preset-hidden-badge">{t("presetsHiddenBadge")}</span>
                 )}
               </label>
               <input
                 id={`preset-label-${preset.id}`}
-                value={preset.label.startsWith("eventType.") ? t(preset.label) : preset.label}
+                value={tLabel(preset.label)}
                 onChange={(e) =>
                   setPresets((rows) =>
                     rows.map((r) => (r.id === preset.id ? { ...r, label: e.target.value } : r)),
@@ -190,7 +191,7 @@ export default function PresetsPage() {
         <p className="meta">{t("presetsAliasesHint")}</p>
         <ul className="preset-alias-list">
           {eventTypes.map((row) => (
-            <PresetAliasRow key={row.key} row={row} t={t} onSave={saveAliases} />
+            <PresetAliasRow key={row.key} row={row} t={t} tLabel={tLabel} onSave={saveAliases} />
           ))}
         </ul>
       </section>
@@ -201,10 +202,12 @@ export default function PresetsPage() {
 function PresetAliasRow({
   row,
   t,
+  tLabel,
   onSave,
 }: {
   row: EventTypeAliasesRow;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
+  tLabel: (labelOrKey: string) => string;
   onSave: (row: EventTypeAliasesRow, raw: string) => Promise<void>;
 }) {
   const [value, setValue] = useState(row.aliases.join(", "));
@@ -216,7 +219,7 @@ function PresetAliasRow({
   return (
     <li className="preset-alias-item">
       <label className="field-label" htmlFor={`alias-${row.key}`}>
-        {t(row.label)}
+        {tLabel(row.label)}
       </label>
       <input
         id={`alias-${row.key}`}

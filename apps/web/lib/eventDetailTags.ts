@@ -1,8 +1,10 @@
+import type { TranslationKey } from "./i18n/translations";
+
 /** 이벤트 상세 — 태그 칩으로 고르는 값. `productName`에 slug를 `,`로 이어 저장한다. */
 
 export type EventDetailTag = {
   id: string;
-  labelKey: string;
+  labelKey: TranslationKey;
 };
 
 export type ParsedProductName = {
@@ -108,7 +110,7 @@ export function encodeProductNameValue(
 export function formatProductNameDisplay(
   eventTypeKey: string | null | undefined,
   value: string | null | undefined,
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string | null {
   const { tagIds, custom } = parseProductNameValue(eventTypeKey, value);
   const labels = tagIds.map((id) => {
@@ -123,12 +125,12 @@ export function formatProductNameDisplay(
 export function resolveEventTagLabel(
   eventTypeKey: string | null | undefined,
   value: string | null | undefined,
-  t: (key: string) => string,
+  t: (key: TranslationKey) => string,
 ): string | null {
   return formatProductNameDisplay(eventTypeKey, value, t);
 }
 
-export function productNameFieldLabelKey(eventTypeKey: string | null | undefined): string {
+export function productNameFieldLabelKey(eventTypeKey: string | null | undefined): TranslationKey {
   switch (eventTypeKey) {
     case "meal":
       return "eventDetailMealIngredient";
