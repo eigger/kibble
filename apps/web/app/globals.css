@@ -4769,6 +4769,10 @@ th {
   justify-content: center;
   width: 22px;
   height: 22px;
+  /* 전역 `button`의 min-height: 44px를 끈다. 사용 높이는 clamp(min-height, height, ...)라
+     min-height가 height를 이겨서, 22px 원이 22x44 세로 타원이 된다. 44px 터치 타깃은
+     아래 ::before가 따로 확보하므로 여기서는 끄는 게 맞다. */
+  min-height: 0;
   border-radius: 50%;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
