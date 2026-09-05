@@ -86,7 +86,6 @@ describe("eventDetailFields", () => {
         quantityOffered: null,
         unit: null,
         scaleValue: null,
-        note: null,
         eventType: { key: "meal", scaleType: null },
       },
       (key) =>
@@ -130,7 +129,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: 100,
       unit: "g",
       scaleValue: 4,
-      note: null,
       eventType: { key: "poop", scaleType: "FECAL_7" },
     });
     expect(line).toBe("4/7");
@@ -150,7 +148,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: 100,
       unit: "g",
       scaleValue: null,
-      note: null,
       eventType: { key: "meal", scaleType: null },
     });
     expect(line).toBe("로얄캐닌 · 100g / 30g");
@@ -162,7 +159,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: null,
       unit: null,
       scaleValue: null,
-      note: null,
       eventType: { key: "weight", scaleType: null },
     });
     expect(line).toBe("4.2kg");
@@ -177,7 +173,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: null,
       unit: null,
       scaleValue: null,
-      note: null,
       eventType: { key: "vet_visit", scaleType: null },
     });
     expect(line).toBe("행복동물병원");
@@ -191,7 +186,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: null,
       unit: null,
       scaleValue: null,
-      note: null,
       eventType: { key: "vet_visit", scaleType: null },
     });
     expect(line).toBe("행복동물병원 · 35,000원");
@@ -204,7 +198,6 @@ describe("formatEventDetailLine", () => {
       quantityOffered: null,
       unit: null,
       scaleValue: null,
-      note: null,
       eventType: { key: "medication", scaleType: null },
     });
     expect(line).toBe("○○ 캡슐");
@@ -219,7 +212,6 @@ describe("formatEventDetailLine", () => {
         quantityOffered: null,
         unit: null,
         scaleValue: 3,
-        note: null,
         eventType: { key: "pee", scaleType: "URINE_AMOUNT_3" },
       },
       t,
@@ -242,11 +234,21 @@ describe("formatEventDetailLine", () => {
         quantityOffered: null,
         unit: null,
         scaleValue: 2,
-        note: "왼쪽만",
         eventType: { key: "observation", scaleType: "ENERGY_3" },
       },
       t,
     );
-    expect(line).toBe("눈꼽 · 보통 · 왼쪽만");
+    expect(line).toBe("눈꼽 · 보통");
+  });
+
+  it("summary line is quantities without a note field", () => {
+    const line = formatEventDetailLine({
+      quantity: 30,
+      quantityOffered: 100,
+      unit: "g",
+      scaleValue: null,
+      eventType: { key: "meal", scaleType: null },
+    });
+    expect(line).toBe("100g / 30g");
   });
 });

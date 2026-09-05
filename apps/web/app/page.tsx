@@ -9,14 +9,8 @@ import { useLocale } from "../lib/i18n/locale-context";
 import type { Pet, TodaySummaryRow, TimelineEvent } from "../lib/types";
 import type { JournalStats } from "@kibble/shared";
 import { journalInsightMessage } from "@kibble/shared";
-import { EventCategoryTag } from "../components/EventCategoryTag";
-import {
-  eventCategory,
-  eventCategoryLabel,
-  eventDetailLine,
-  eventDisplayLabel,
-  formatEventTime,
-} from "../lib/eventDisplay";
+import { TimelineEventBody } from "../components/TimelineEventBody";
+import { formatEventTime } from "../lib/eventDisplay";
 
 interface HomePayload {
   pets: Pet[];
@@ -223,23 +217,13 @@ export default function HomePage() {
             ) : (
               <ul className="timeline-list timeline-list-compact">
                 {previewEvents.map((event) => {
-                  const detail = eventDetailLine(event, t);
                   return (
                     <li key={event.id}>
                       <Link href="/history" className="timeline-item timeline-item-link">
                         <time className="timeline-time" dateTime={event.occurredAt}>
                           {formatEventTime(event.occurredAt, locale)}
                         </time>
-                        <div className="timeline-body">
-                          <div className="timeline-label-row">
-                            <EventCategoryTag
-                              category={eventCategory(event)}
-                              label={eventCategoryLabel(event, t)}
-                            />
-                            <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
-                          </div>
-                          {detail && <span className="timeline-detail">{detail}</span>}
-                        </div>
+                        <TimelineEventBody event={event} />
                       </Link>
                     </li>
                   );

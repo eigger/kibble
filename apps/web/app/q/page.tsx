@@ -13,14 +13,12 @@ import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
 import {
-  eventCategory,
-  eventCategoryLabel,
   clinicFieldsFromContact,
-  eventDetailLine,
   eventDisplayLabel,
   formatEventTime,
 } from "../../lib/eventDisplay";
 import { EventCategoryTag } from "../../components/EventCategoryTag";
+import { TimelineEventBody } from "../../components/TimelineEventBody";
 import { MedicationCoursePickSheet } from "../../components/MedicationCoursePickSheet";
 import {
   MedicationDoseSlotPickSheet,
@@ -518,7 +516,6 @@ export default function QuickRecordPage() {
         ) : (
           <ul className="timeline-list">
             {previewEvents.map((event) => {
-              const detail = eventDetailLine(event, t);
               return (
                 <li key={event.id} className="timeline-row">
                   <div
@@ -535,22 +532,14 @@ export default function QuickRecordPage() {
                     <time className="timeline-time" dateTime={event.occurredAt}>
                       {formatEventTime(event.occurredAt, locale)}
                     </time>
-                    <div className="timeline-body">
-                      <div className="timeline-label-row">
-                        <EventCategoryTag
-                          category={eventCategory(event)}
-                          label={eventCategoryLabel(event, t)}
-                        />
-                        <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
-                      </div>
-                      {detail && <span className="timeline-detail">{detail}</span>}
+                    <TimelineEventBody event={event}>
                       {(event.attachments?.length ?? 0) > 0 && (
                         <TimelineAttachmentThumbs
                           attachments={event.attachments ?? []}
                           onOpen={setRowLightboxAtt}
                         />
                       )}
-                    </div>
+                    </TimelineEventBody>
                   </div>
                   <div className="timeline-row-actions">
                     <button

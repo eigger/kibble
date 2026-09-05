@@ -10,16 +10,13 @@ import type { Pet, TimelineEvent } from "../../lib/types";
 import type { JournalStats } from "@kibble/shared";
 import { appendTimelinePage, kstDayKey, timelineHasMore } from "@kibble/shared";
 import {
-  eventCategory,
-  eventCategoryLabel,
   clinicFieldsFromContact,
-  eventDetailLine,
   eventDisplayLabel,
   formatEventTime,
 } from "../../lib/eventDisplay";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
-import { EventCategoryTag } from "../../components/EventCategoryTag";
 import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
+import { TimelineEventBody } from "../../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
@@ -408,7 +405,6 @@ export default function HistoryPage() {
                 <h2 className="history-day-heading">{group.label}</h2>
                 <ul className="timeline-list">
                   {group.items.map((event) => {
-                    const detail = eventDetailLine(event, t);
                     return (
                       <li key={event.id} className="timeline-row">
                         <div
@@ -425,22 +421,14 @@ export default function HistoryPage() {
                           <time className="timeline-time" dateTime={event.occurredAt}>
                             {formatEventTime(event.occurredAt, locale)}
                           </time>
-                          <div className="timeline-body">
-                            <div className="timeline-label-row">
-                              <EventCategoryTag
-                                category={eventCategory(event)}
-                                label={eventCategoryLabel(event, t)}
-                              />
-                              <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
-                            </div>
-                            {detail && <span className="timeline-detail">{detail}</span>}
+                          <TimelineEventBody event={event}>
                             {(event.attachments?.length ?? 0) > 0 && (
                               <TimelineAttachmentThumbs
                                 attachments={event.attachments ?? []}
                                 onOpen={setRowLightboxAtt}
                               />
                             )}
-                          </div>
+                          </TimelineEventBody>
                         </div>
                         <div className="timeline-row-actions">
                           <button
