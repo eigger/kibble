@@ -381,6 +381,10 @@ const dict = {
     ko: "기록은 저장됐습니다. 이 화면에서 올리는 중이에요.",
     en: "Saved. Uploading on this screen.",
   },
+  attachmentUploadingLeave: {
+    ko: "기록은 저장됐습니다. 앱을 나가도 올라갑니다.",
+    en: "Saved. You can leave — upload continues.",
+  },
   attachmentUploadCancel: { ko: "그만두기", en: "Stop" },
   attachmentUploadRetry: { ko: "다시 올리기", en: "Retry upload" },
   qtyDecreaseField: { ko: "{field} 줄이기", en: "Decrease {field}" },

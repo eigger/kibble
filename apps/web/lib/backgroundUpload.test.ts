@@ -13,6 +13,7 @@ import {
   retryBackgroundUpload,
   startBackgroundUpload,
 } from "./backgroundUpload";
+import * as backgroundFetchUpload from "./backgroundFetchUpload";
 import type { EventAttachment, TimelineEvent } from "./types";
 
 const uploadMock = vi.mocked(uploadEventAttachments);
@@ -115,5 +116,18 @@ describe("startBackgroundUpload", () => {
     await vi.waitFor(() => {
       expect(getBackgroundUpload()).toBeNull();
     });
+  });
+
+  it("hands off to Background Fetch and does not upload in the page", async () => {
+    const canUse = vi.spyOn(backgroundFetchUpload, "canUseBackgroundFetch").mockResolvedValue(true);
+    const startVia = vi.spyOn(backgroundFetchUpload, "startViaBackgroundFetch").mockResolvedValue(true);
+    startBackgroundUpload("e1", [file("a.jpg")]);
+    await vi.waitFor(() => {
+      expect(startVia).toHaveBeenCalledWith("e1", expect.any(Array), expect.any(Function));
+    });
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(getBackgroundUpload()?.current?.canLeave).toBe(true);
+    canUse.mockRestore();
+    startVia.mockRestore();
   });
 });
