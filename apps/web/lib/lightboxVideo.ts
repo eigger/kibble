@@ -21,8 +21,7 @@ export async function startLightboxPlayback(
     try {
       await el.play();
       return "muted";
-    } catch (retryErr) {
-      if (isAbortError(retryErr)) return "blocked";
+    } catch {
       return "blocked";
     }
   }
