@@ -53,7 +53,7 @@ function nextBfWork(job) {
   const chunkSize = jobChunkSize(job);
   if (!file.chunked) return { kind: "multipart", fileIndex };
   if (!job.uploadId) return { kind: "init", fileIndex };
-  if (job.chunkIndex >= chunkCount(file.size, chunkSize)) return { kind: "complete", uploadId: job.uploadId };
+  if (job.chunkIndex >= chunkCount(file.size, chunkSize)) return { kind: "complete", fileIndex, uploadId: job.uploadId };
   return {
     kind: "chunk",
     fileIndex,

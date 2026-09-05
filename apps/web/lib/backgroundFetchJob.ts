@@ -62,7 +62,7 @@ export type BfWork =
   | { kind: "multipart"; fileIndex: number }
   | { kind: "init"; fileIndex: number }
   | { kind: "chunk"; fileIndex: number; chunkIndex: number; uploadId: string }
-  | { kind: "complete"; uploadId: string };
+  | { kind: "complete"; fileIndex: number; uploadId: string };
 
 export function jobChunkSize(job: Pick<BfJob, "chunkSize">): number {
   return job.chunkSize > 0 ? job.chunkSize : UPLOAD_CHUNK_SIZE_BYTES;
@@ -93,7 +93,7 @@ export function nextBfWork(job: BfJob, chunkSize = jobChunkSize(job)): BfWork {
   if (!file.chunked) return { kind: "multipart", fileIndex };
   if (!job.uploadId) return { kind: "init", fileIndex };
   if (job.chunkIndex >= chunkCount(file.size, chunkSize)) {
-    return { kind: "complete", uploadId: job.uploadId };
+    return { kind: "complete", fileIndex, uploadId: job.uploadId };
   }
   return {
     kind: "chunk",

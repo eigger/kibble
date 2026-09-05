@@ -67,7 +67,7 @@ describe("chunk size contract", () => {
     cur = applyBfSuccess(cur, nextBfWork(cur));
     expect(nextBfWork(cur)).toEqual({ kind: "chunk", fileIndex: 0, chunkIndex: 2, uploadId: "u1" });
     cur = applyBfSuccess(cur, nextBfWork(cur));
-    expect(nextBfWork(cur)).toEqual({ kind: "complete", uploadId: "u1" });
+    expect(nextBfWork(cur)).toEqual({ kind: "complete", fileIndex: 0, uploadId: "u1" });
   });
 });
 
@@ -100,7 +100,7 @@ describe("nextBfWork", () => {
     const afterFirst = applyBfSuccess(j, nextBfWork(j));
     expect(nextBfWork(afterFirst)).toEqual({ kind: "chunk", fileIndex: 0, chunkIndex: 1, uploadId: "u1" });
     const afterSecond = applyBfSuccess(afterFirst, nextBfWork(afterFirst));
-    expect(nextBfWork(afterSecond)).toEqual({ kind: "complete", uploadId: "u1" });
+    expect(nextBfWork(afterSecond)).toEqual({ kind: "complete", fileIndex: 0, uploadId: "u1" });
   });
 });
 
