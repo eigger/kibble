@@ -51,13 +51,21 @@ function bgFetchOf(
 }
 
 /**
- * Chromium은 Background Fetch를 다운로드(GET)에 대해서만 정식 지원합니다.
- * 본문(Body)이 있는 요청(POST/PUT 업로드)은 Chromium 내부 플래그(BackgroundFetchUploads, crbug/774054)로
- * 비활성화되어 있어, 호출 시 항상 "Requests with a body are not supported" 예외를 던집니다.
- * 이로 인한 8초 타임아웃 지연을 방지하기 위해 업로드용 Background Fetch는 false를 반환합니다.
+ * Service Worker 백그라운드 업로드 지원 여부를 확인합니다.
+ * Service Worker, Cache API, IndexedDB가 준비되어 있으면 true를 반환하여
+ * 앱 화면을 내리거나 다른 앱으로 전환하더라도 Service Worker가 백그라운드에서
+ * 업로드와 상단바 알림 갱신을 계속 진행하도록 합니다.
  */
 export async function canUseBackgroundFetch(): Promise<boolean> {
-  return false;
+  if (typeof window === "undefined") return false;
+  if (!("serviceWorker" in navigator)) return false;
+  if (!("caches" in window) || !("indexedDB" in window)) return false;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    return Boolean(registration.active);
+  } catch {
+    return false;
+  }
 }
 
 function uiCopy(): BfUiCopy {

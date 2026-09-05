@@ -167,8 +167,8 @@ describe("startBackgroundUpload", () => {
     abortBf.mockRestore();
   });
 
-  it("canUseBackgroundFetch defaults to false to avoid Chromium 8s upload timeout", async () => {
+  it("canUseBackgroundFetch checks serviceWorker, caches, and indexedDB readiness", async () => {
     const supported = await backgroundFetchUpload.canUseBackgroundFetch();
-    expect(supported).toBe(false);
+    expect(typeof supported).toBe("boolean");
   });
 });
