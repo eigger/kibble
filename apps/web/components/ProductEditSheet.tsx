@@ -5,6 +5,7 @@ import type { Pet, Product, ProductCategory, Palatability } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson, apiFetch } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
+import { CameraIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "./ProductIcons";
 
 type Props = {
   open: boolean;
@@ -326,7 +327,8 @@ export function ProductEditSheet({
                 onClick={() => setIsActive((prev) => !prev)}
                 disabled={saving}
               >
-                {isActive ? `🟢 ${t("productStatusActive")}` : `⚪ ${t("productStatusInactive")}`}
+                <span className={`status-dot ${isActive ? "" : "status-dot-inactive"}`} />
+                <span>{isActive ? t("productStatusActive") : t("productStatusInactive")}</span>
               </button>
             </div>
           </div>
@@ -354,7 +356,9 @@ export function ProductEditSheet({
                     className="product-preview-img"
                   />
                 ) : (
-                  <div className="product-photo-placeholder">📷</div>
+                  <div className="product-photo-placeholder">
+                    <CameraIcon size={24} />
+                  </div>
                 )}
               </div>
 
@@ -391,8 +395,10 @@ export function ProductEditSheet({
               className="product-section-toggle"
               onClick={() => setShowFeeding((prev) => !prev)}
             >
-              <span>💊 {t("productSectionFeeding")}</span>
-              <span className="section-arrow">{showFeeding ? "▲" : "▼"}</span>
+              <span>{t("productSectionFeeding")}</span>
+              <span className="section-arrow">
+                {showFeeding ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+              </span>
             </button>
 
             {showFeeding && (
@@ -500,8 +506,10 @@ export function ProductEditSheet({
               className="product-section-toggle"
               onClick={() => setShowDates((prev) => !prev)}
             >
-              <span>⏳ {t("productSectionDates")}</span>
-              <span className="section-arrow">{showDates ? "▲" : "▼"}</span>
+              <span>{t("productSectionDates")}</span>
+              <span className="section-arrow">
+                {showDates ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+              </span>
             </button>
 
             {showDates && (
@@ -527,11 +535,12 @@ export function ProductEditSheet({
                     </label>
                     <button
                       type="button"
-                      className="text-btn small"
+                      className="text-btn small product-opened-today-btn"
                       onClick={handleMarkOpenedToday}
                       disabled={saving}
                     >
-                      📅 {t("productOpenedToday")}
+                      <CalendarIcon size={13} />
+                      <span>{t("productOpenedToday")}</span>
                     </button>
                   </div>
                   <input
@@ -554,8 +563,10 @@ export function ProductEditSheet({
               className="product-section-toggle"
               onClick={() => setShowPurchase((prev) => !prev)}
             >
-              <span>💰 {t("productSectionPurchase")}</span>
-              <span className="section-arrow">{showPurchase ? "▲" : "▼"}</span>
+              <span>{t("productSectionPurchase")}</span>
+              <span className="section-arrow">
+                {showPurchase ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+              </span>
             </button>
 
             {showPurchase && (

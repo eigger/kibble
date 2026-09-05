@@ -931,7 +931,9 @@ const dict = {
   productSectionPhoto: { ko: "제품 사진", en: "Product Photo" },
   productOptionalSectionHint: { ko: "(필요한 경우만 입력)", en: "(optional)" },
   productRecentLogs: { ko: "최근 기록", en: "Recent logs" },
-  productQuickAdd: { ko: "+ 새 제품 등록", en: "+ New product" },
+  productQuickAdd: { ko: "+ 제품 등록", en: "+ Add product" },
+  productExpiryImminent: { ko: "기한 임박", en: "Expiring soon" },
+  productTotalCostSum: { ko: "총 구매액", en: "Total spend" },
 } as const;
 
 export const translations = dict;

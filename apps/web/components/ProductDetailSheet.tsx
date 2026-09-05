@@ -5,6 +5,13 @@ import { kstDayDiff } from "@kibble/shared";
 import type { Product } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { ProductPhoto } from "./ProductPhoto";
+import {
+  PackageIcon,
+  ExternalLinkIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  AlertCircleIcon,
+} from "./ProductIcons";
 
 type Props = {
   product: Product | null;
@@ -79,20 +86,24 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
 
         {/* Header with Photo & Name */}
         <div className="product-popup-header">
-          {product.photoPath ? (
-            <div className="product-popup-photo-wrap">
+          <div className="product-popup-photo-wrap">
+            {product.photoPath ? (
               <ProductPhoto
                 productId={product.id}
                 photoPath={product.photoPath}
                 alt={product.name}
                 className="product-popup-photo"
               />
-            </div>
-          ) : null}
+            ) : (
+              <div className="product-popup-photo-placeholder">
+                <PackageIcon size={28} />
+              </div>
+            )}
+          </div>
 
           <div className="product-popup-titles">
             <div className="product-popup-badge-row">
-              <span className="product-category-badge">
+              <span className="product-category-badge small">
                 {categoryLabelMap[product.category] ?? product.category}
               </span>
               <span
@@ -100,12 +111,13 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                   product.isActive ? "product-status-active" : "product-status-inactive"
                 }`}
               >
-                {product.isActive ? t("productStatusActive") : t("productStatusInactive")}
+                <span className={`status-dot ${product.isActive ? "" : "status-dot-inactive"}`} />
+                <span>{product.isActive ? t("productStatusActiveShort") : t("productStatusInactiveShort")}</span>
               </span>
               {product.pet ? (
-                <span className="product-pet-badge">{product.pet.name}</span>
+                <span className="product-pet-badge small">{product.pet.name}</span>
               ) : (
-                <span className="product-pet-badge product-pet-shared">{t("productPetShared")}</span>
+                <span className="product-pet-badge small product-pet-shared">{t("productPetShared")}</span>
               )}
             </div>
 
@@ -159,10 +171,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
           {/* Dosage / Feeding Guide */}
           {product.dosage && (
             <div className="product-info-card product-dosage-card">
-              <div className="product-card-title-row">
-                <span className="product-card-icon">💊</span>
-                <span className="product-info-label">{t("productDosageLabel")}</span>
-              </div>
+              <span className="product-info-label">{t("productDosageLabel")}</span>
               <p className="product-dosage-text">{product.dosage}</p>
             </div>
           )}
@@ -182,7 +191,8 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
               {product.adverseReactions && product.adverseReactions.length > 0 && (
                 <div className="product-adverse-section">
                   <span className="product-info-label product-adverse-label">
-                    ⚠️ {t("productAdverseReactionsLabel")}
+                    <AlertCircleIcon size={13} />
+                    <span>{t("productAdverseReactionsLabel")}</span>
                   </span>
                   <div className="product-adverse-chips">
                     {product.adverseReactions.map((tag) => (
@@ -226,7 +236,8 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                   rel="noopener noreferrer"
                   className="button primary product-buy-link-btn"
                 >
-                  🛒 {t("productPurchaseUrlButton")} ↗
+                  <span>{t("productPurchaseUrlButton")}</span>
+                  <ExternalLinkIcon size={14} />
                 </a>
               )}
             </div>
@@ -241,8 +252,8 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                 onClick={() => setIngredientsOpen((prev) => !prev)}
                 aria-expanded={ingredientsOpen}
               >
-                <span>🧪 {t("productIngredientsLabel")}</span>
-                <span>{ingredientsOpen ? "▲" : "▼"}</span>
+                <span>{t("productIngredientsLabel")}</span>
+                <span>{ingredientsOpen ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}</span>
               </button>
               {ingredientsOpen && (
                 <div className="product-ingredients-content">

@@ -19,6 +19,7 @@ import {
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
 import { ProductDetailSheet } from "./ProductDetailSheet";
+import { InfoIcon, LightbulbIcon } from "./ProductIcons";
 import type { EventAttachment, Product, ProductSummary } from "../lib/types";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
@@ -709,7 +710,8 @@ export function EventDetailSheet({
                           onClick={() => handleOpenProductPopup(draft.productId ?? draft.product?.id)}
                           title={t("productDetailTitle")}
                         >
-                          ℹ️ {t("productViewDetail")}
+                          <InfoIcon size={13} />
+                          <span>{t("productViewDetail")}</span>
                         </button>
                       </span>
                     ) : (
@@ -894,7 +896,7 @@ export function EventDetailSheet({
                                     handleOpenProductPopup(p.id);
                                   }}
                                 >
-                                  ℹ️
+                                  <InfoIcon size={12} />
                                 </span>
                               )}
                             </button>
@@ -903,7 +905,9 @@ export function EventDetailSheet({
                       </div>
                       {productDosage && (
                         <div className="product-dosage-hint">
-                          <span className="dosage-icon">💡</span>
+                          <span className="dosage-icon">
+                            <LightbulbIcon size={13} />
+                          </span>
                           <span className="dosage-text">{t("productDetailDosageHint", { dosage: productDosage })}</span>
                         </div>
                       )}
