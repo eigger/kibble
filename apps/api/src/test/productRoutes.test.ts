@@ -6,7 +6,6 @@ import { invalidateTokenVersionCache } from "../lib/tokenVersion.js";
 
 const HH = "household_a";
 const USER = "user_a";
-const PET = "pet_1";
 const PRODUCT_ID = "product_1";
 
 const mockPrisma = vi.hoisted(() => ({
@@ -188,6 +187,43 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
       expect.objectContaining({
         where: { id: PRODUCT_ID },
         data: expect.objectContaining({ isActive: false }),
+      }),
+    );
+  });
+
+  it("POST /api/products/:id/restore는 보관된 제품을 복원한다", async () => {
+    const now = new Date();
+    mockPrisma.product.findFirst.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      name: "보관된 사료",
+      archivedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      pet: null,
+    });
+    mockPrisma.product.update.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      name: "보관된 사료",
+      archivedAt: null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+      pet: null,
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/products/${PRODUCT_ID}/restore`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: PRODUCT_ID },
+        data: { archivedAt: null, isActive: true },
       }),
     );
   });

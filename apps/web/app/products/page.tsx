@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { kstDayDiff } from "@kibble/shared";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
-import type { Pet, Product, ProductCategory } from "../../lib/types";
+import type { Pet, Product } from "../../lib/types";
 import { ProductPhoto } from "../../components/ProductPhoto";
 import { ProductDetailSheet } from "../../components/ProductDetailSheet";
 import { ProductEditSheet } from "../../components/ProductEditSheet";
@@ -78,6 +79,17 @@ export default function ProductsPage() {
     }
   }
 
+  async function handleRestore(e: React.MouseEvent, product: Product) {
+    e.stopPropagation();
+    try {
+      await apiJson(`/api/products/${product.id}/restore`, { method: "POST" });
+      show(t("productRestoredToast"), "success");
+      void loadData();
+    } catch {
+      show(t("saveError"), "error");
+    }
+  }
+
   // Filter products by category & tab
   const filteredProducts = products.filter((p) => {
     if (categoryFilter !== "ALL" && p.category !== categoryFilter) return false;
@@ -96,11 +108,7 @@ export default function ProductsPage() {
 
   function getDdayBadge(expiryIso: string | null) {
     if (!expiryIso) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const exp = new Date(expiryIso);
-    exp.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = kstDayDiff(new Date(expiryIso));
     if (diffDays < 0) return { label: t("productDdayExpired"), cls: "dday-expired" };
     if (diffDays === 0) return { label: t("productDdayToday"), cls: "dday-imminent" };
     return {
@@ -111,22 +119,25 @@ export default function ProductsPage() {
 
   function getOpenedDays(openedIso: string | null): number | null {
     if (!openedIso) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const opened = new Date(openedIso);
-    opened.setHours(0, 0, 0, 0);
-    return Math.max(0, Math.round((now.getTime() - opened.getTime()) / (1000 * 60 * 60 * 24)));
+    const diffDays = kstDayDiff(new Date(), new Date(openedIso));
+    return Math.max(0, diffDays);
   }
 
-  // Summary stats
-  const activeCount = products.filter((p) => p.isActive).length;
-  const imminentCount = products.filter((p) => {
-    if (!p.expiryDate) return false;
-    const exp = new Date(p.expiryDate).getTime();
-    const now = Date.now();
-    return (exp - now) / (1000 * 60 * 60 * 24) <= 30;
-  }).length;
-  const totalCost = products.reduce((sum, p) => sum + (p.costKrw ?? 0), 0);
+  // Summary stats (computed inside useMemo without calling Date.now() during render)
+  const { activeCount, imminentCount, totalCost } = useMemo(() => {
+    let active = 0;
+    let imminent = 0;
+    let cost = 0;
+    for (const p of products) {
+      if (p.isActive) active++;
+      if (p.costKrw != null) cost += p.costKrw;
+      if (p.expiryDate) {
+        const diff = kstDayDiff(new Date(p.expiryDate));
+        if (diff >= 0 && diff <= 30) imminent++;
+      }
+    }
+    return { activeCount: active, imminentCount: imminent, totalCost: cost };
+  }, [products]);
 
   return (
     <main className="container products-page">
@@ -311,13 +322,23 @@ export default function ProductsPage() {
                   </div>
 
                   <div className="product-card-actions">
-                    <button
-                      type="button"
-                      className={`small button toggle-btn ${p.isActive ? "active" : "inactive"}`}
-                      onClick={(e) => void handleToggleActive(e, p)}
-                    >
-                      {p.isActive ? `🟢 ${t("productStatusActive")}` : `⚪ ${t("productStatusInactive")}`}
-                    </button>
+                    {tab === "archived" ? (
+                      <button
+                        type="button"
+                        className="small button secondary"
+                        onClick={(e) => void handleRestore(e, p)}
+                      >
+                        🔄 {t("productRestoreBtn")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className={`small button toggle-btn ${p.isActive ? "active" : "inactive"}`}
+                        onClick={(e) => void handleToggleActive(e, p)}
+                      >
+                        {p.isActive ? `🟢 ${t("productStatusActive")}` : `⚪ ${t("productStatusInactive")}`}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="small button secondary"

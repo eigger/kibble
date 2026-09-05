@@ -169,7 +169,7 @@ curl -sS -X POST "$BASE/api/events" \
   -d '{"dedupeKey":"auto:001"}'
 ```
 
-선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시).
+선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시), `productId`(제품 연결), `productName`(자유 텍스트 제품명).
 
 ### 단건 읽기
 
@@ -193,7 +193,7 @@ curl -sS "$BASE/api/events?petId=<pet-id>&limit=30" -H "$AUTH"
 curl -sS -X PATCH "$BASE/api/events/<event-id>" \
   -H "Content-Type: application/json" \
   -H "$AUTH" \
-  -d '{"note":"잘 먹음","quantity":40,"unit":"g"}'
+  -d '{"note":"잘 먹음","quantity":40,"unit":"g","productId":"<product-id>"}'
 ```
 
 ### 소프트 삭제 / 복구
@@ -203,6 +203,99 @@ curl -sS -X DELETE "$BASE/api/events/<event-id>" -H "$AUTH"
 # 204
 
 curl -sS -X POST "$BASE/api/events/<event-id>/restore" -H "$AUTH"
+```
+
+---
+
+## 제품 (사료·영양제·용품)
+
+반려동물이 급여·복용하는 사료, 영양제, 간식, 위생/기기 용품을 관리합니다. 이벤트에 연결(`productId`)하여 어떤 제품을 급여했는지 추적하고, 개봉 경과일 및 소비기한 D-Day를 확인합니다.
+
+카테고리(`ProductCategory`): `MEAL`(사료), `SUPPLEMENT`(영양제), `TREAT`(간식), `HYGIENE`(위생), `DEVICE`(기기), `OTHER`(기타).
+
+### 목록
+
+```bash
+# 기본 활성 제품 목록
+curl -sS "$BASE/api/products" -H "$AUTH"
+
+# 필터 옵션 (카테고리, 펫, 활성 여부, 보관 여부)
+curl -sS "$BASE/api/products?category=SUPPLEMENT&petId=<pet-id>&isActive=true&archived=false" -H "$AUTH"
+```
+
+### 등록
+
+```bash
+curl -sS -X POST "$BASE/api/products" \
+  -H "Content-Type: application/json" \
+  -H "$AUTH" \
+  -d '{
+    "name": "오메가3 오일",
+    "category": "SUPPLEMENT",
+    "brand": "닥터벳",
+    "petId": "<pet-id>",
+    "dosage": "1일 1회 1펌프",
+    "dosageAmount": 1.0,
+    "dosageUnit": "펌프",
+    "dosageFrequency": "1일 1회",
+    "expiryDate": "2027-12-31",
+    "openedAt": "2026-09-01T00:00:00Z",
+    "purchasePriceKrw": 35000,
+    "purchaseUrl": "https://example.com/product/omega3",
+    "ingredients": "정제어유, 비타민E",
+    "notes": "냉장 보관 필수"
+  }'
+```
+
+선택 필드: `brand`, `petId`, `dosage`, `dosageAmount`, `dosageUnit`, `dosageFrequency`, `expiryDate`(YYYY-MM-DD), `openedAt`(ISO), `purchaseDate`(YYYY-MM-DD), `purchasePriceKrw`(정수), `purchaseUrl`(http/https URL), `ingredients`, `notes`, `adverseReactions`(string[]).
+
+### 상세 단건 조회
+
+제품 기본 정보와 함께 연결된 반려동물(`pet`) 및 최근 급여 기록 5건(`recentEvents`)을 반환합니다.
+
+```bash
+curl -sS "$BASE/api/products/<product-id>" -H "$AUTH"
+```
+
+### 수정
+
+```bash
+curl -sS -X PATCH "$BASE/api/products/<product-id>" \
+  -H "Content-Type: application/json" \
+  -H "$AUTH" \
+  -d '{
+    "dosage": "1일 2회로 증량",
+    "isActive": true
+  }'
+```
+
+### 보관 (소프트 삭제) 및 복원
+
+```bash
+# 보관 처리 (204 No Content)
+curl -sS -X DELETE "$BASE/api/products/<product-id>" -H "$AUTH"
+
+# 보관 해제 / 복원 (복원된 Product 객체 반환)
+curl -sS -X POST "$BASE/api/products/<product-id>/restore" -H "$AUTH"
+```
+
+### 사진 업로드 / 조회 / 삭제
+
+사진 업로드는 1600px WebP로 자동 변환되며 분당 30회 rate limit이 적용됩니다.
+
+```bash
+# 업로드 (multipart/form-data)
+curl -sS -X POST "$BASE/api/products/<product-id>/photo" \
+  -H "$AUTH" \
+  -F "file=@omega3.jpg"
+# → {"photoPath":"…"}
+
+# 조회
+curl -sS "$BASE/api/products/<product-id>/photo" -H "$AUTH" -o product.webp
+
+# 삭제
+curl -sS -X DELETE "$BASE/api/products/<product-id>/photo" -H "$AUTH"
+# 204
 ```
 
 ---

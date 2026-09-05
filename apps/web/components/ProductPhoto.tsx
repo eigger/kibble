@@ -24,6 +24,7 @@ export function ProductPhoto({ productId, photoPath, alt, className }: Props) {
       const res = await apiFetch(`/api/products/${productId}/photo`);
       if (!res.ok || cancelled) return;
       const blob = await res.blob();
+      if (cancelled) return;
       objectUrl = URL.createObjectURL(blob);
       if (!cancelled) setSrc(objectUrl);
     })();

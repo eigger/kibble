@@ -45,3 +45,12 @@ export function kstDayKey(base: Date, offsetMinutes = PHASE1_TODAY_UTC_OFFSET_MI
   const date = String(p.date).padStart(2, "0");
   return `${p.year}-${month}-${date}`;
 }
+
+/** KST 달력 날짜 기준 두 날짜 간의 일수 차이 (target - base) */
+export function kstDayDiff(target: Date, base = new Date()): number {
+  const targetKey = kstDayKey(target);
+  const baseKey = kstDayKey(base);
+  const targetMidnight = new Date(`${targetKey}T00:00:00.000Z`).getTime();
+  const baseMidnight = new Date(`${baseKey}T00:00:00.000Z`).getTime();
+  return Math.round((targetMidnight - baseMidnight) / 86_400_000);
+}

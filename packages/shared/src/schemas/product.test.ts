@@ -48,16 +48,36 @@ describe("createProductSchema", () => {
     expect(
       createProductSchema.safeParse({
         name: "Test",
-        purchaseUrl: "data:text/html,<script>alert(1)</script>",
+        purchaseUrl: "java\nscript:alert(1)",
       }).success,
     ).toBe(false);
 
     expect(
       createProductSchema.safeParse({
         name: "Test",
-        purchaseUrl: "https://coupang.com/vp/123",
+        purchaseUrl: "blob:https://example.com/uuid",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
+
+    expect(
+      createProductSchema.safeParse({
+        name: "Test",
+        purchaseUrl: "data:text/html,<script>alert(1)</script>",
+      }).success,
+    ).toBe(false);
+
+    const valid = createProductSchema.safeParse({
+      name: "Test",
+      purchaseUrl: "https://coupang.com/vp/123",
+    });
+    expect(valid.success).toBe(true);
+
+    const empty = createProductSchema.safeParse({
+      name: "Test",
+      purchaseUrl: "",
+    });
+    expect(empty.success).toBe(true);
+    if (empty.success) expect(empty.data.purchaseUrl).toBeNull();
   });
 });
 

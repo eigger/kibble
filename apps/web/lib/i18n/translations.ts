@@ -917,6 +917,8 @@ const dict = {
   productSavedToast: { ko: "제품이 저장되었습니다", en: "Product saved" },
   productDeletedToast: { ko: "제품이 보관되었습니다", en: "Product archived" },
   productDeleteConfirm: { ko: "이 제품을 보관 처리하시겠습니까? 과거 기록의 정보는 계속 유지됩니다.", en: "Archive this product? Past log references will remain intact." },
+  productRestoreBtn: { ko: "보관 해제", en: "Restore" },
+  productRestoredToast: { ko: "제품이 다시 활성화되었습니다", en: "Product restored" },
   productDetailDosageHint: { ko: "복용법: {dosage}", en: "Dosage: {dosage}" },
   productDetailViewInfo: { ko: "제품 상세 정보", en: "Product details" },
   productDetailTitle: { ko: "제품 정보", en: "Product info" },

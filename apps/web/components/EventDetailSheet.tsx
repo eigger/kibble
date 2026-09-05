@@ -317,9 +317,10 @@ export function EventDetailSheet({
     const targetId = pId ?? productId ?? draft?.productId;
     if (!targetId) return;
     try {
-      const res = await apiJson<{ product: Product }>(`/api/products/${targetId}`);
-      if (res?.product) {
-        setPopupProduct(res.product);
+      const res = await apiJson<Product & { product?: Product }>(`/api/products/${targetId}`);
+      const resolved = res?.id ? res : res?.product ?? null;
+      if (resolved) {
+        setPopupProduct(resolved);
       }
     } catch {
       // fallback

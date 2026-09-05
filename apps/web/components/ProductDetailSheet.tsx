@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { kstDayDiff } from "@kibble/shared";
 import type { Product } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { ProductPhoto } from "./ProductPhoto";
@@ -13,19 +14,15 @@ type Props = {
 };
 
 export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
 
   if (!open || !product) return null;
 
-  // D-Day calculation
+  // D-Day calculation (KST)
   let ddayInfo: { label: string; isExpired: boolean; isImminent: boolean } | null = null;
   if (product.expiryDate) {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const exp = new Date(product.expiryDate);
-    exp.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = kstDayDiff(new Date(product.expiryDate));
     if (diffDays < 0) {
       ddayInfo = { label: t("productDdayExpired"), isExpired: true, isImminent: false };
     } else if (diffDays === 0) {
@@ -39,14 +36,19 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     }
   }
 
-  // Opened days calculation
+  // Opened days calculation (KST)
   let openedDays: number | null = null;
   if (product.openedAt) {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const opened = new Date(product.openedAt);
-    opened.setHours(0, 0, 0, 0);
-    openedDays = Math.max(0, Math.round((now.getTime() - opened.getTime()) / (1000 * 60 * 60 * 24)));
+    openedDays = Math.max(0, kstDayDiff(new Date(), new Date(product.openedAt)));
+  }
+
+  function formatKstDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   }
 
   const categoryLabelMap: Record<string, string> = {
@@ -132,7 +134,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                       {ddayInfo.label}
                     </span>
                     <span className="product-date-sub">
-                      {new Date(product.expiryDate!).toLocaleDateString()}
+                      {formatKstDate(product.expiryDate!)}
                     </span>
                   </div>
                 </div>
@@ -146,7 +148,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                       {t("productOpenedDaysAgo", { days: String(openedDays) })}
                     </span>
                     <span className="product-date-sub">
-                      {new Date(product.openedAt!).toLocaleDateString()}
+                      {formatKstDate(product.openedAt!)}
                     </span>
                   </div>
                 </div>
@@ -211,7 +213,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                   <div>
                     <span className="product-info-label">{t("productPurchaseDateLabel")}</span>
                     <div className="product-purchase-date-val">
-                      {new Date(product.purchaseDate).toLocaleDateString()}
+                      {formatKstDate(product.purchaseDate)}
                     </div>
                   </div>
                 )}

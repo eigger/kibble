@@ -18,13 +18,23 @@ export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 
-const safeUrlSchema = z
+function isValidHttpUrl(val: string): boolean {
+  try {
+    const parsed = new URL(val);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export const safeUrlSchema = z
   .string()
   .trim()
   .max(1000)
-  .refine((val) => !val || !/^(javascript|data|vbscript):/i.test(val), {
-    message: "Invalid URL scheme",
+  .refine((val) => !val || isValidHttpUrl(val), {
+    message: "Must be a valid http or https URL",
   })
+  .transform((val) => val || null)
   .nullable()
   .optional();
 

@@ -258,8 +258,40 @@ export async function productRoutes(app: FastifyInstance) {
     return reply.code(204).send();
   });
 
+  // POST /api/products/:id/restore
+  app.post("/:id/restore", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdWrite(request, reply);
+    if (!householdId) return;
+
+    const { id } = request.params as { id: string };
+    const existing = await prisma.product.findFirst({
+      where: { id, ...householdWhere(householdId), archivedAt: { not: null } },
+      include: { pet: { select: { id: true, name: true } } },
+    });
+    if (!existing) {
+      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    }
+
+    const restored = await prisma.product.update({
+      where: { id },
+      data: { archivedAt: null, isActive: true },
+      include: { pet: { select: { id: true, name: true } } },
+    });
+
+    return {
+      ...serializeProduct(restored),
+      pet: restored.pet,
+    };
+  });
+
   // POST /api/products/:id/photo
-  app.post("/:id/photo", { preHandler: [app.authenticate] }, async (request, reply) => {
+  app.post(
+    "/:id/photo",
+    {
+      preHandler: [app.authenticate],
+      config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
+    },
+    async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 
