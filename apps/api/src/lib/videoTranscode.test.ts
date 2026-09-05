@@ -4,7 +4,6 @@ import {
   shouldSkipVideoTranscode,
   transcodeFfmpegArgs,
   transcodeTimeoutMs,
-  transcodedRelativePath,
 } from "./videoTranscode.js";
 
 describe("shouldSkipVideoTranscode", () => {
@@ -153,13 +152,5 @@ describe("transcodeFfmpegArgs", () => {
     expect(pix).toBeGreaterThan(-1);
     expect(args[pix + 1]).toBe("yuv420p");
     expect(args.indexOf("-c:v")).toBeGreaterThan(pix);
-  });
-});
-
-describe("transcodedRelativePath", () => {
-  it("keeps .mp4 in place and rewrites other containers", () => {
-    expect(transcodedRelativePath("events/a.mp4")).toBe("events/a.mp4");
-    expect(transcodedRelativePath("events/a.MOV")).toBe("events/a.mp4");
-    expect(transcodedRelativePath("events/a.webm")).toBe("events/a.mp4");
   });
 });

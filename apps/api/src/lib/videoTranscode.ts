@@ -1,6 +1,5 @@
 import { spawn, execFile } from "node:child_process";
 import { setPriority } from "node:os";
-import path from "node:path";
 import { promisify } from "node:util";
 import { unlink } from "node:fs/promises";
 
@@ -221,14 +220,6 @@ export async function transcodeVideoTo720p(
   timeoutMs: number,
 ): Promise<void> {
   await spawnWithTimeout("ffmpeg", transcodeFfmpegArgs(inputPath, outputPath), timeoutMs);
-}
-
-/** 변환본은 항상 mp4. .mov/.webm을 그대로 두면 백업을 풀었을 때 확장자가 거짓이다. */
-export function transcodedRelativePath(originalRel: string): string {
-  const ext = path.extname(originalRel);
-  if (ext.toLowerCase() === ".mp4") return originalRel;
-  if (!ext) return `${originalRel}.mp4`;
-  return `${originalRel.slice(0, originalRel.length - ext.length)}.mp4`;
 }
 
 export async function unlinkQuiet(filePath: string): Promise<void> {

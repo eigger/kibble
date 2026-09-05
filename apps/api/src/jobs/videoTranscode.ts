@@ -10,7 +10,6 @@ import {
   shouldSkipVideoTranscode,
   transcodeTimeoutMs,
   transcodeVideoTo720p,
-  transcodedRelativePath,
   unlinkQuiet,
 } from "../lib/videoTranscode.js";
 
@@ -109,8 +108,8 @@ async function claimNextPending(): Promise<Claimed | null> {
 }
 
 /**
- * 업로드 응답 밖에서 돈다. 변환본은 mp4라 원본이 .mov면 path도 바꾼다.
- * .mp4는 같은 경로를 덮어 클라이언트가 들고 있는 URL로 다음 재생이 변환본을 받는다.
+ * 업로드 응답 밖에서 돈다. 같은 path를 덮어쓴다 — 목록이 들고 있는 URL로
+ * 다음 재생이 변환본을 받게. 변환 중에도 원본 Range 재생은 된다.
  */
 export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
   let absPath: string;
@@ -146,13 +145,10 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
     }
 
     const outProbe = await probeVideo(outPath);
-    const destRel = transcodedRelativePath(row.path);
-    const destAbs = attachmentAbsolutePath(destRel);
-    await rename(outPath, destAbs);
+    await rename(outPath, absPath);
     const replaced = await prisma.attachment.updateMany({
       where: { id: row.id, transcodeStatus: TRANSCODE_STATUS.PROCESSING },
       data: {
-        path: destRel,
         mime: "video/mp4",
         size: outStat.size,
         width: outProbe?.width ?? probe.width ?? undefined,
@@ -161,19 +157,11 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
       },
     });
     if (replaced.count === 0) {
-      // processing이 아니면 롤링 배포의 recover가 상태를 되돌린 경우일 수 있다.
-      // 행이 남아 있으면 방금 쓴 실파일을 지우지 않는다. 행이 없을 때만 고아 정리.
       const stillThere = await prisma.attachment.findUnique({
         where: { id: row.id },
         select: { id: true },
       });
-      if (!stillThere) {
-        await unlinkQuiet(destAbs);
-      } else if (destRel !== row.path) {
-        await unlinkQuiet(destAbs);
-      }
-    } else if (destRel !== row.path) {
-      await unlinkQuiet(absPath);
+      if (!stillThere) await unlinkQuiet(absPath);
     }
   } catch (err) {
     await unlinkQuiet(outPath);
