@@ -214,6 +214,25 @@ export async function insertEventAttachment(
     if (locked.length === 0) {
       throw new WritableEventMissingError();
     }
+
+    // 동일 이벤트에 대해 최근(120초 이내) 동일한 파일(MIME, 크기, 해상도)이 이미 등록된 경우
+    // 네트워크 재시도나 SW/화면 이중 전송에 따른 중복 생성으로 보고 기존 첨부를 반환한다.
+    const recentDuplicate = await tx.attachment.findFirst({
+      where: {
+        eventId,
+        mime: saved.mime,
+        size: saved.size,
+        width: saved.width ?? null,
+        height: saved.height ?? null,
+        createdAt: { gte: new Date(Date.now() - 120_000) },
+      },
+      select: attachmentSelect,
+    });
+    if (recentDuplicate) {
+      await removeEventAttachmentFile(saved.path, saved.posterPath).catch(() => {});
+      return recentDuplicate;
+    }
+
     const count = await tx.attachment.count({ where: { eventId } });
     if (count >= MAX_ATTACHMENTS_PER_EVENT) {
       throw new AttachmentLimitError();

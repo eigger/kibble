@@ -4,6 +4,7 @@ import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import {
   BF_FETCH_PREFIX,
   BF_MESSAGE_TYPE,
+  BF_SW_ABORT_JOB,
   BF_SW_CANCEL,
   BF_SW_KICK,
   isStaleFailedJob,
@@ -87,7 +88,7 @@ function isBfMessage(data: unknown): data is BfClientMessage {
   return msg.type === BF_MESSAGE_TYPE && typeof msg.action === "string";
 }
 
-function waitForStarted(jobId: string, ms = 3_000): Promise<boolean> {
+function waitForStarted(jobId: string, ms = 8_000): Promise<boolean> {
   if (!("serviceWorker" in navigator)) return Promise.resolve(false);
   return new Promise((resolve) => {
     const timer = window.setTimeout(() => {
@@ -150,6 +151,9 @@ export async function abortBackgroundFetchesFor(
   const jobs = await getAllBfJobs().catch(() => [] as BfJob[]);
   const targets = jobs.filter(predicate);
   if (targets.length === 0) return;
+  for (const job of targets) {
+    await pokeSw(BF_SW_ABORT_JOB, { jobId: job.id });
+  }
   await abortFetches(targets.map((job) => job.fetchId).filter((id): id is string => Boolean(id)));
   await Promise.all(targets.map((job) => deleteBfJobAndBlobs(job)));
   await pokeSw(BF_SW_KICK);
@@ -225,10 +229,12 @@ export async function startViaBackgroundFetch(
     await persistBfBlobs(id, prepared);
     await putBfJob(created);
 
-    const startedWait = inFlight ? Promise.resolve(true) : waitForStarted(id);
+    const startedWait = inFlight ? Promise.resolve(true) : waitForStarted(id, 8_000);
     await pokeSw(BF_SW_KICK, { jobId: id });
     const ok = await startedWait;
     if (!ok) {
+      await pokeSw(BF_SW_ABORT_JOB, { jobId: id });
+      await abortBackgroundFetchesFor((job) => job.id === id);
       await deleteBfJobAndBlobs(created);
       return false;
     }

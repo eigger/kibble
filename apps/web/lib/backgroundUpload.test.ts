@@ -45,6 +45,23 @@ describe("mergeTimelineAttachments", () => {
     expect(next[0].attachments).toEqual([uploaded]);
     expect(next[1].attachments).toEqual([]);
   });
+
+  it("deduplicates attachments by id when merged", () => {
+    const uploaded: EventAttachment = {
+      id: "a1",
+      path: "e/a.jpg",
+      mime: "image/jpeg",
+      size: 1,
+      width: null,
+      height: null,
+    };
+    const events = [
+      { id: "e1", attachments: [uploaded] },
+    ] as unknown as TimelineEvent[];
+    const next = mergeTimelineAttachments(events, "e1", [uploaded]);
+    expect(next[0].attachments).toHaveLength(1);
+    expect(next[0].attachments).toEqual([uploaded]);
+  });
 });
 
 describe("startBackgroundUpload", () => {

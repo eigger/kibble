@@ -229,11 +229,14 @@ export function mergeTimelineAttachments(
   uploaded: EventAttachment[],
 ): TimelineEvent[] {
   if (uploaded.length === 0) return events;
-  return events.map((event) =>
-    event.id === eventId
-      ? { ...event, attachments: [...(event.attachments ?? []), ...uploaded] }
-      : event,
-  );
+  return events.map((event) => {
+    if (event.id !== eventId) return event;
+    const existing = event.attachments ?? [];
+    const existingIds = new Set(existing.map((a) => a.id));
+    const fresh = uploaded.filter((a) => !existingIds.has(a.id));
+    if (fresh.length === 0) return event;
+    return { ...event, attachments: [...existing, ...fresh] };
+  });
 }
 
 function notifyUploaded(eventId: string, uploaded: EventAttachment[]): void {
