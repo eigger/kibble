@@ -14,6 +14,7 @@ const BF_FETCH_PREFIX = "kbf:";
 const BF_MESSAGE_TYPE = "kibble-bf";
 const BF_SW_KICK = "kibble-bf-kick";
 const BF_SW_CANCEL = "kibble-bf-cancel";
+const BF_SW_ABORT_JOB = "kibble-bf-abort-job";
 const BF_MAX_RETRIES = 2;
 const BF_MAX_BACKOFF_MS = 5000;
 
@@ -311,7 +312,7 @@ async function abortAllBf() {
   );
 }
 
-async function startBgFetch(job, request, uploadSize) {
+async function startBgFetch(job, request) {
   if (!self.registration.backgroundFetch) throw new Error("NO_BACKGROUND_FETCH");
   job.seq = (job.seq || 0) + 1;
   const id = `${BF_FETCH_PREFIX}${job.id}:${job.seq}`;
@@ -321,10 +322,11 @@ async function startBgFetch(job, request, uploadSize) {
   const options = {
     title: (job.ui && job.ui.uploading) || "Kibble",
     icons,
+    // Blink WebIDL은 downloadTotal 기본값이 0이다. 서버의 201 Created JSON 응답 등
+    // 응답 바이트가 0을 초과하면 Blink가 'download-total-exceeded'로 즉시 페치 실패 처리한다.
+    // JSON 응답을 넉넉히 수용할 수 있도록 10MB 상한을 지정한다.
+    downloadTotal: 10 * 1024 * 1024,
   };
-  if (typeof uploadSize === "number" && uploadSize > 0) {
-    options.uploadTotal = uploadSize;
-  }
   await self.registration.backgroundFetch.fetch(id, [request], options);
 }
 
@@ -416,7 +418,7 @@ async function doMultipartBf(job, work) {
     jobHeaders(job),
   );
   try {
-    await startBgFetch(job, request, blob.size);
+    await startBgFetch(job, request);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
   } catch (err) {
     console.warn("[kibble] bf multipart", err);
@@ -443,7 +445,7 @@ async function doChunkBf(job, work) {
     },
   );
   try {
-    await startBgFetch(job, request, chunk.size);
+    await startBgFetch(job, request);
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
   } catch (err) {
     console.warn("[kibble] bf chunk", err);
@@ -535,17 +537,45 @@ async function onBfSettled(registration, kind) {
     await runKick();
     return;
   }
-  if (kind === "fail") {
-    await retryOrFail(job);
-    return;
-  }
 
   let res;
   try {
     const records = await registration.matchAll();
-    res = await records[0].responseReady;
+    if (records && records.length > 0 && records[0].responseReady) {
+      res = await records[0].responseReady;
+    }
   } catch (err) {
-    console.warn("[kibble] bf response", err);
+    console.warn("[kibble] bf response inspect", err);
+  }
+
+  // 브라우저가 fail로 통지했더라도(예: 다운로드 할당량 초과 판정 또는 네트워크 일시 단절)
+  // 서버가 이미 2xx(201 Created 등)를 정상 응답했다면 이미 저장된 것이므로 성공으로 처리한다.
+  // 이를 통해 재시도에 따른 파일 중복 업로드를 원천 방지한다.
+  if (res && res.ok) {
+    const work = nextBfWork(job);
+    const result = {};
+    if (work.kind === "multipart") {
+      try {
+        result.attachment = await res.json();
+      } catch {
+        await retryOrFail(job);
+        return;
+      }
+    }
+    Object.assign(job, applyBfSuccess(job, work, result));
+    await putJob(job);
+    await notifyClients(Object.assign({ action: "progress" }, progressFields(job)));
+    await performWork(job);
+    return;
+  }
+
+  if (kind === "fail") {
+    console.warn("[kibble] bf failed, reason:", registration.failureReason);
+    await retryOrFail(job);
+    return;
+  }
+
+  if (!res) {
     await retryOrFail(job);
     return;
   }
@@ -600,11 +630,29 @@ async function openApp() {
   if (self.clients.openWindow) return self.clients.openWindow(target);
 }
 
+async function abortJob(jobId) {
+  if (!jobId) return;
+  const job = await getJob(jobId);
+  if (job) {
+    job.status = "cancelled";
+    if (job.fetchId && self.registration.backgroundFetch) {
+      try {
+        const active = await self.registration.backgroundFetch.get(job.fetchId);
+        if (active) await active.abort();
+      } catch {}
+    }
+    await deleteJobAndBlobs(job);
+  }
+}
+
 self.addEventListener("message", (event) => {
   const data = event.data;
   if (!data || typeof data !== "object") return;
   if (data.type === BF_SW_KICK) {
     event.waitUntil(kickIfIdle());
+  }
+  if (data.type === BF_SW_ABORT_JOB && data.jobId) {
+    event.waitUntil(abortJob(data.jobId));
   }
   if (data.type === BF_SW_CANCEL) {
     cancelling = true;

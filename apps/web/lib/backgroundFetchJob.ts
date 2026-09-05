@@ -13,6 +13,7 @@ export const BF_FETCH_PREFIX = "kbf:";
 export const BF_MESSAGE_TYPE = "kibble-bf";
 export const BF_SW_KICK = "kibble-bf-kick";
 export const BF_SW_CANCEL = "kibble-bf-cancel";
+export const BF_SW_ABORT_JOB = "kibble-bf-abort-job";
 export const BF_MAX_RETRIES = 2;
 export const BF_MAX_BACKOFF_MS = 5000;
 /**
