@@ -22,7 +22,8 @@ export async function saveProductPhoto(
   const dir = path.join(UPLOAD_DIR, PRODUCT_PHOTO_SUBDIR);
   await mkdir(dir, { recursive: true });
 
-  const filename = `${productId}-${randomUUID()}.webp`;
+  const safeId = productId.replace(/[^a-zA-Z0-9_-]/g, "");
+  const filename = `${safeId ? `${safeId}-` : ""}${randomUUID()}.webp`;
   const relativePath = `${PRODUCT_PHOTO_SUBDIR}/${filename}`;
   const outPath = path.join(UPLOAD_DIR, relativePath);
 

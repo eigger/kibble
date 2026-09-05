@@ -20,7 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
   },
-  event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+  event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
 }));
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
@@ -188,6 +188,26 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
       expect.objectContaining({
         where: { id: PRODUCT_ID },
         data: expect.objectContaining({ isActive: false }),
+      }),
+    );
+  });
+
+  it("PATCH /api/events/:id는 타 가구의 productId를 전달할 경우 격리하여 null 처리한다", async () => {
+    mockPrisma.event.findFirst.mockResolvedValue({ id: "evt_1", householdId: HH });
+    // Product not found in this household
+    mockPrisma.product.findFirst.mockResolvedValue(null);
+    mockPrisma.event.updateMany.mockResolvedValue({ count: 1 });
+
+    await app.inject({
+      method: "PATCH",
+      url: "/api/events/evt_1",
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: { productId: "foreign_product_id" },
+    });
+
+    expect(mockPrisma.event.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ productId: null }),
       }),
     );
   });

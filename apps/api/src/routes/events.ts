@@ -299,6 +299,7 @@ export async function eventRoutes(app: FastifyInstance) {
       select: {
         ...eventSelect,
         eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true } },
+        product: eventWithRelationsSelect.product,
         preset: { select: { id: true, label: true } },
         contact: {
           select: {
@@ -353,8 +354,30 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.quantityOffered !== undefined) updateData.quantityOffered = data.quantityOffered;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.scaleValue !== undefined) updateData.scaleValue = data.scaleValue;
-    if (data.productId !== undefined) updateData.productId = data.productId?.trim() || null;
-    if (data.productName !== undefined) updateData.productName = data.productName?.trim() || null;
+    if (data.productId !== undefined) {
+      const pid = data.productId?.trim() || null;
+      if (pid) {
+        const prod = await prisma.product.findFirst({
+          where: { id: pid, ...householdWhere(householdId) },
+          select: { id: true, name: true },
+        });
+        if (prod) {
+          updateData.productId = prod.id;
+          if (data.productName === undefined || !data.productName?.trim()) {
+            updateData.productName = prod.name;
+          }
+        } else {
+          updateData.productId = null;
+        }
+      } else {
+        updateData.productId = null;
+      }
+    }
+    if (data.productName !== undefined && (data.productId === undefined || !updateData.productId)) {
+      updateData.productName = data.productName?.trim() || null;
+    } else if (data.productName !== undefined && data.productName?.trim()) {
+      updateData.productName = data.productName.trim();
+    }
     const clinicDetailsChanged =
       data.clinicAddress !== undefined ||
       data.clinicLatitude !== undefined ||

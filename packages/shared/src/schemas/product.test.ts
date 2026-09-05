@@ -36,6 +36,29 @@ describe("createProductSchema", () => {
     });
     expect(res.success).toBe(true);
   });
+
+  it("rejects dangerous URL schemes for purchaseUrl", () => {
+    expect(
+      createProductSchema.safeParse({
+        name: "Test",
+        purchaseUrl: "javascript:alert(1)",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createProductSchema.safeParse({
+        name: "Test",
+        purchaseUrl: "data:text/html,<script>alert(1)</script>",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createProductSchema.safeParse({
+        name: "Test",
+        purchaseUrl: "https://coupang.com/vp/123",
+      }).success,
+    ).toBe(true);
+  });
 });
 
 describe("updateProductSchema", () => {

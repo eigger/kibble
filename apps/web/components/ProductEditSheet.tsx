@@ -131,6 +131,7 @@ export function ProductEditSheet({
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   }
@@ -149,6 +150,12 @@ export function ProductEditSheet({
 
     setSaving(true);
     try {
+      const rawUrl = purchaseUrl.trim();
+      let normalizedUrl: string | null = null;
+      if (rawUrl && !/^(javascript|data|vbscript):/i.test(rawUrl)) {
+        normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+      }
+
       const payload = {
         name: name.trim(),
         brand: brand.trim() || null,
@@ -160,7 +167,7 @@ export function ProductEditSheet({
         openedAt: openedAt ? new Date(`${openedAt}T00:00:00.000Z`).toISOString() : null,
         purchaseDate: purchaseDate ? new Date(`${purchaseDate}T00:00:00.000Z`).toISOString() : null,
         costKrw: costKrw ? Number(costKrw) : null,
-        purchaseUrl: purchaseUrl.trim() || null,
+        purchaseUrl: normalizedUrl,
         isActive,
         palatability: palatability || null,
         adverseReactions,

@@ -217,7 +217,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                 )}
               </div>
 
-              {product.purchaseUrl && (
+              {product.purchaseUrl && /^https?:\/\//i.test(product.purchaseUrl) && (
                 <a
                   href={product.purchaseUrl}
                   target="_blank"

@@ -18,12 +18,22 @@ export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 
+const safeUrlSchema = z
+  .string()
+  .trim()
+  .max(1000)
+  .refine((val) => !val || !/^(javascript|data|vbscript):/i.test(val), {
+    message: "Invalid URL scheme",
+  })
+  .nullable()
+  .optional();
+
 export const createProductSchema = z.object({
   name: z.string().trim().min(1, "Product name is required").max(120),
   brand: z.string().trim().max(120).nullable().optional(),
   category: productCategorySchema.default("MEAL"),
   petId: z.string().trim().min(1).nullable().optional(),
-  purchaseUrl: z.string().trim().max(1000).nullable().optional(),
+  purchaseUrl: safeUrlSchema,
   dosage: z.string().trim().max(500).nullable().optional(),
   ingredients: z.string().trim().max(4000).nullable().optional(),
   expiryDate: z.string().datetime().nullable().optional(),
@@ -44,7 +54,7 @@ export const updateProductSchema = z
     brand: z.string().trim().max(120).nullable().optional(),
     category: productCategorySchema.optional(),
     petId: z.string().trim().min(1).nullable().optional(),
-    purchaseUrl: z.string().trim().max(1000).nullable().optional(),
+    purchaseUrl: safeUrlSchema,
     dosage: z.string().trim().max(500).nullable().optional(),
     ingredients: z.string().trim().max(4000).nullable().optional(),
     expiryDate: z.string().datetime().nullable().optional(),

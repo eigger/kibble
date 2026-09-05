@@ -23,7 +23,7 @@ export default function ProductsPage() {
 
   // Filters
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-  const [tab, setTab] = useState<"active" | "archived">("active");
+  const [tab, setTab] = useState<"active" | "inactive" | "archived">("active");
 
   // Modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -39,7 +39,14 @@ export default function ProductsPage() {
   const loadData = useCallback(async () => {
     setDataLoading(true);
     try {
-      const qs = tab === "archived" ? "?archived=true" : "";
+      let qs = "";
+      if (tab === "archived") {
+        qs = "?archived=true";
+      } else if (tab === "inactive") {
+        qs = "?isActive=false";
+      } else {
+        qs = "?isActive=true";
+      }
       const [prods, petRows] = await Promise.all([
         apiJson<Product[]>(`/api/products${qs}`),
         apiJson<Pet[]>("/api/pets"),
@@ -73,7 +80,6 @@ export default function ProductsPage() {
 
   // Filter products by category & tab
   const filteredProducts = products.filter((p) => {
-    if (tab === "active" && !p.isActive) return false;
     if (categoryFilter !== "ALL" && p.category !== categoryFilter) return false;
     return true;
   });
@@ -99,27 +105,67 @@ export default function ProductsPage() {
     if (diffDays === 0) return { label: t("productDdayToday"), cls: "dday-imminent" };
     return {
       label: t("productDdayDays", { days: String(diffDays) }),
-      cls: diffDays <= 30 ? "dday-imminent" : "dday-normal",
+      cls: diffDays <= 30 ? "dday-imminent" : "dday-ok",
     };
   }
 
+  function getOpenedDays(openedIso: string | null): number | null {
+    if (!openedIso) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const opened = new Date(openedIso);
+    opened.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.round((now.getTime() - opened.getTime()) / (1000 * 60 * 60 * 24)));
+  }
+
+  // Summary stats
+  const activeCount = products.filter((p) => p.isActive).length;
+  const imminentCount = products.filter((p) => {
+    if (!p.expiryDate) return false;
+    const exp = new Date(p.expiryDate).getTime();
+    const now = Date.now();
+    return (exp - now) / (1000 * 60 * 60 * 24) <= 30;
+  }).length;
+  const totalCost = products.reduce((sum, p) => sum + (p.costKrw ?? 0), 0);
+
   return (
     <main className="container products-page">
-      {/* Header */}
-      <header className="care-header products-page-header">
-        <div className="header-title-row">
-          <h1>{t("navProducts")}</h1>
+      {/* Header & stats */}
+      <header className="products-header">
+        <div className="products-header-row">
+          <div>
+            <h1>📦 {t("productCategoryAll")}</h1>
+            <p className="meta">{t("productEmptyDesc")}</p>
+          </div>
           <button
             type="button"
-            className="primary small add-product-btn"
+            className="primary product-add-btn"
             onClick={() => setEditSheet({ mode: "add" })}
           >
-            + {t("productAddBtn")}
+            {t("productQuickAdd")}
           </button>
         </div>
 
-        {/* Tab switch: Active vs Archived */}
-        <div className="analytics-period-row" role="tablist">
+        {/* Summary Stat Cards */}
+        <div className="product-summary-grid">
+          <div className="product-summary-card">
+            <span className="summary-label">{t("productStatusActiveShort")}</span>
+            <span className="summary-value">{activeCount}</span>
+          </div>
+          <div className="product-summary-card">
+            <span className="summary-label">{t("productExpiryDateLabel")} ⚠️</span>
+            <span className="summary-value">{imminentCount}</span>
+          </div>
+          <div className="product-summary-card">
+            <span className="summary-label">{t("productCostLabel")}</span>
+            <span className="summary-value">
+              {totalCost > 0 ? `${totalCost.toLocaleString()}${t("eventDetailCostUnit")}` : "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* Tab switcher: active vs inactive vs archived */}
+        <div className="analytics-period-bar" role="tablist" style={{ marginTop: 16 }}>
           <button
             type="button"
             role="tab"
@@ -128,6 +174,15 @@ export default function ProductsPage() {
             onClick={() => setTab("active")}
           >
             🟢 {t("productTabActive")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "inactive"}
+            className={`analytics-period-btn ${tab === "inactive" ? "analytics-period-btn-active" : ""}`}
+            onClick={() => setTab("inactive")}
+          >
+            ⚪ {t("productStatusInactive")}
           </button>
           <button
             type="button"
