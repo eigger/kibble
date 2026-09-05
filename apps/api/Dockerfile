@@ -1,8 +1,8 @@
 FROM node:24-alpine AS base
 WORKDIR /app
 # openssl: Prisma의 쿼리 엔진 바이너리가 Alpine 런타임에서 필요로 함 (없으면 libssl.so 관련 오류)
-# ffmpeg: 영상 첨부의 대표 프레임 한 장을 뽑는 데만 쓴다 — 재인코딩은 하지 않는다.
-#         없어도 앱은 동작한다 (포스터가 null이 되고 목록이 <video>로 되돌아간다).
+# ffmpeg: 대표 프레임 추출 + 백그라운드 720p 재인코딩.
+#         없어도 앱은 동작한다 (포스터 null, 변환 skipped, 원본 재생).
 RUN apk add --no-cache openssl ffmpeg
 
 FROM base AS deps

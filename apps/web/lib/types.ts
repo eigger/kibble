@@ -66,6 +66,8 @@ export interface EventAttachment {
   height: number | null;
   /** 영상 대표 프레임. 없으면(구 첨부·ffmpeg 없는 서버) 목록이 <video>로 되돌아간다 */
   posterPath?: string | null;
+  /** 영상 백그라운드 변환. pending이면 원본을 재생하고, 다음 조회 때 변환본일 수 있다 */
+  transcodeStatus?: string | null;
 }
 
 export interface CreatedEvent {

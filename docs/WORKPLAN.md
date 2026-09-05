@@ -621,7 +621,7 @@ UI:
 | P1-13 | `POST /api/events` + 목록 / 수정 / 소프트삭제. **세션·토큰 양쪽 인증 + `dedupeKey` + 빈 본문 처리** (§3.6) | **완료** — GET/PATCH/DELETE/restore 포함. 단건 `GET /api/events/:id`는 세션 전용(토큰은 개체 스코프라 임의 id 읽기를 열지 않는다). `api.md`는 P1-18 |
 | P1-14 | **`Preset` CRUD + 숨기기/순서 + `aliases`** | **완료** — API POST/PATCH/DELETE·`EventTypeAlias`·부분 유니크·`/presets` UI(이름·순서·숨김·별칭)·칩 길게 누르기 메뉴. 생성·삭제 UI는 미포함 |
 | P1-15 | **한국어 파싱 서비스 (규칙 기반 최소판)** — 시각·수량·타입/별칭, 줄 단위 분해 | **완료** — `lib/parseEntry.ts` + `parseEntry.benchmark.test.ts`(공개 벤치마크 100%). KST 시각(§7.11). 실패 → NOTE |
-| P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 + **청크 업로드**(drop 이식) | **완료** — multipart(≤20MB)·청크(8MB·영상/대용량), sharp JPEG, `FILE_SIZE_LIMIT_MB` |
+| P1-16 | 다중 첨부 (`Attachment` 여러 장) + 이미지 파이프라인 + **청크 업로드**(drop 이식) | **완료** — multipart(≤20MB)·청크(8MB·영상/대용량), sharp JPEG, `FILE_SIZE_LIMIT_MB`, 영상은 업로드 후 서버 백그라운드 720p (이미 작으면 건너뜀) |
 | P1-17 | 소프트삭제 퍼지 잡 (`trashPurge` 이식) | **완료** — 30일 경과 `Event` 하드삭제 + 첨부 디스크 정리, 매일 04:00 크론 |
 | P1-18 | `api.md` — 엔드포인트 + curl 예제 | **완료**. 관리자 화면 `/api-explorer`(garage 이식)가 읽기 20종을 실제로 눌러 볼 수 있게 보완한다 — 쓰기는 curl 예시만 |
 
@@ -765,6 +765,7 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 | 가구 UI 노출 | **가족 초대 전까지 숨김** (§3.3) |
 | **오늘 요약 일 경계** | Phase 1은 **KST(UTC+9) 자정** 고정. 타임존 설정 UI는 Phase 2 이후(§7.11) |
 | **ApiToken 발급·폐기** | **가구 OWNER만** — MEMBER/VIEWER는 `POST/GET/DELETE /api/tokens` 불가 (§7.8) |
+| **영상 재인코딩** | 업로드는 원본. 서버가 백그라운드에서 긴 변 1280·H.264로 줄인다. 이미 작으면 건너뜀(≤8MB / ≤2Mbps / 긴 변≤1280이고 ≤2.5Mbps). 폰 선압축 안 함. 변환 중에도 원본 재생, 끝나면 같은 `path`를 바꿔 끼움 |
 
 ### 7.11 오늘 요약 — Phase 1 일 경계는 KST 고정
 
