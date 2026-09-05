@@ -209,6 +209,7 @@ export async function startViaBackgroundFetch(
       apiBase: API_URL,
       locale,
       iconUrl: `${window.location.origin}${BASE_PATH}/icons/icon-192.png`,
+      badgeUrl: `${window.location.origin}${BASE_PATH}/icons/badge-96.png`,
       ui: uiCopy(),
       files: prepared.map((file, index) => ({
         index,

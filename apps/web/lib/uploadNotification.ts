@@ -93,12 +93,13 @@ export async function showUploadProgressNotification({
         : `사진 올리는 중...${percentText}`;
 
     const icon = withBasePath("/icons/icon-192.png");
+    const badge = withBasePath("/icons/badge-96.png");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: true,
       data: { url: "/" },
     });
@@ -131,12 +132,13 @@ export async function showUploadCompleteNotification(fileCount: number): Promise
         : "사진 업로드 완료";
 
     const icon = withBasePath("/icons/icon-192.png");
+    const badge = withBasePath("/icons/badge-96.png");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: true,
       data: { url: "/" },
     });
@@ -170,12 +172,13 @@ export async function showUploadFailedNotification(failedCount: number): Promise
       : `사진 ${failedCount}장 업로드 실패. 다시 시도해 주세요.`;
 
     const icon = withBasePath("/icons/icon-192.png");
+    const badge = withBasePath("/icons/badge-96.png");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
       body,
       icon,
-      badge: icon,
+      badge,
       silent: false,
       data: { url: "/" },
     });
