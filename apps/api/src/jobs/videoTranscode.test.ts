@@ -4,6 +4,7 @@ const mockPrisma = vi.hoisted(() => ({
   attachment: {
     updateMany: vi.fn(),
     update: vi.fn(),
+    findUnique: vi.fn(),
   },
   $transaction: vi.fn(),
   $queryRaw: vi.fn(),

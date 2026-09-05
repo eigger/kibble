@@ -10,10 +10,12 @@ import {
   shouldSkipVideoTranscode,
   transcodeTimeoutMs,
   transcodeVideoTo720p,
+  transcodedRelativePath,
   unlinkQuiet,
 } from "../lib/videoTranscode.js";
 
-const TICK_MS = 5_000;
+/** kick가 업로드 완료에서 불리므로 폴링은 유휴 재개용이다. 5초는 DB를 과하게 두드린다. */
+const TICK_MS = 60_000;
 /** 출력이 원본의 이 비율 이상이면 바꿔 끼우지 않는다 — 디스크만 두 배가 된다 */
 const MIN_SHRINK_RATIO = 0.95;
 
@@ -25,13 +27,15 @@ export function kickVideoTranscode(): void {
     rerun = true;
     return;
   }
-  drain = drainQueue().finally(() => {
-    drain = null;
-    if (rerun) {
-      rerun = false;
-      kickVideoTranscode();
-    }
-  });
+  drain = drainQueue()
+    .catch((err) => console.error("[video-transcode] drain failed", err))
+    .finally(() => {
+      drain = null;
+      if (rerun) {
+        rerun = false;
+        kickVideoTranscode();
+      }
+    });
 }
 
 export function startVideoTranscodeJob(): void {
@@ -57,7 +61,13 @@ async function drainQueue(): Promise<void> {
 }
 
 async function processNext(): Promise<boolean> {
-  const claimed = await claimNextPending();
+  let claimed: Claimed | null;
+  try {
+    claimed = await claimNextPending();
+  } catch (err) {
+    console.error("[video-transcode] claim failed", err);
+    return false;
+  }
   if (!claimed) return false;
   try {
     await transcodeClaimedAttachment(claimed);
@@ -79,12 +89,14 @@ type Claimed = { id: string; path: string; size: number };
 async function claimNextPending(): Promise<Claimed | null> {
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Claimed[]>`
-      SELECT id, path, size
-      FROM "Attachment"
-      WHERE "transcodeStatus" = ${TRANSCODE_STATUS.PENDING}
-      ORDER BY "createdAt" ASC
+      SELECT a.id, a.path, a.size
+      FROM "Attachment" a
+      INNER JOIN "Event" e ON e.id = a."eventId"
+      WHERE a."transcodeStatus" = ${TRANSCODE_STATUS.PENDING}
+        AND e."deletedAt" IS NULL
+      ORDER BY a."createdAt" ASC
       LIMIT 1
-      FOR UPDATE SKIP LOCKED
+      FOR UPDATE OF a SKIP LOCKED
     `;
     const row = rows[0];
     if (!row) return null;
@@ -97,8 +109,8 @@ async function claimNextPending(): Promise<Claimed | null> {
 }
 
 /**
- * 업로드 응답 밖에서 돈다. 경로는 그대로 두고 파일만 바꿔 끼운다 — 클라이언트가
- * 들고 있는 path로 다음 재생이 변환본을 받게. 변환 중에도 원본 Range 재생은 된다.
+ * 업로드 응답 밖에서 돈다. 변환본은 mp4라 원본이 .mov면 path도 바꾼다.
+ * .mp4는 같은 경로를 덮어 클라이언트가 들고 있는 URL로 다음 재생이 변환본을 받는다.
  */
 export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
   let absPath: string;
@@ -134,10 +146,13 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
     }
 
     const outProbe = await probeVideo(outPath);
-    await rename(outPath, absPath);
+    const destRel = transcodedRelativePath(row.path);
+    const destAbs = attachmentAbsolutePath(destRel);
+    await rename(outPath, destAbs);
     const replaced = await prisma.attachment.updateMany({
       where: { id: row.id, transcodeStatus: TRANSCODE_STATUS.PROCESSING },
       data: {
+        path: destRel,
         mime: "video/mp4",
         size: outStat.size,
         width: outProbe?.width ?? probe.width ?? undefined,
@@ -146,7 +161,18 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
       },
     });
     if (replaced.count === 0) {
-      // 변환 중에 첨부가 지워진 경우 — 바꿔 끼운 파일을 고아로 남기지 않는다
+      // processing이 아니면 롤링 배포의 recover가 상태를 되돌린 경우일 수 있다.
+      // 행이 남아 있으면 방금 쓴 실파일을 지우지 않는다. 행이 없을 때만 고아 정리.
+      const stillThere = await prisma.attachment.findUnique({
+        where: { id: row.id },
+        select: { id: true },
+      });
+      if (!stillThere) {
+        await unlinkQuiet(destAbs);
+      } else if (destRel !== row.path) {
+        await unlinkQuiet(destAbs);
+      }
+    } else if (destRel !== row.path) {
       await unlinkQuiet(absPath);
     }
   } catch (err) {

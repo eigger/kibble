@@ -56,13 +56,16 @@ describe("첨부 파일 서빙 — Range", () => {
     if (uploadDir) await rm(uploadDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  async function getFile(range?: string) {
+  async function getFile(range?: string, extraHeaders?: Record<string, string>) {
     const { MEDIA_COOKIE_NAME } = await import("../lib/mediaAuth.js");
     return app.inject({
       method: "GET",
       url: `/api/attachments/file/${REL_PATH}`,
       cookies: { [MEDIA_COOKIE_NAME]: cookie },
-      ...(range ? { headers: { range } } : {}),
+      headers: {
+        ...(range ? { range } : {}),
+        ...extraHeaders,
+      },
     });
   }
 
@@ -74,7 +77,23 @@ describe("첨부 파일 서빙 — Range", () => {
     expect(res.headers["content-length"]).toBe(String(BODY.length));
     expect(res.headers["content-type"]).toContain("video/mp4");
     expect(res.headers["cache-control"]).toBe("private, max-age=0, must-revalidate");
+    expect(res.headers.etag).toMatch(/^"[0-9a-f]+-[0-9a-f]+"$/);
+    expect(res.headers["last-modified"]).toBeTruthy();
     expect(res.body).toBe(BODY);
+  });
+
+  it("304s when If-None-Match matches and there is no Range", async () => {
+    const first = await getFile();
+    const res = await getFile(undefined, { "if-none-match": String(first.headers.etag) });
+    expect(res.statusCode).toBe(304);
+    expect(res.body).toBe("");
+  });
+
+  it("still 206s a Range even with a matching ETag", async () => {
+    const first = await getFile();
+    const res = await getFile("bytes=10-14", { "if-none-match": String(first.headers.etag) });
+    expect(res.statusCode).toBe(206);
+    expect(res.body).toBe("01234");
   });
 
   it("returns 206 with only the requested bytes", async () => {

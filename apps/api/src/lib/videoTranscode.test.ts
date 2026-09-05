@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   parseFfprobeJson,
   shouldSkipVideoTranscode,
+  transcodeFfmpegArgs,
   transcodeTimeoutMs,
+  transcodedRelativePath,
 } from "./videoTranscode.js";
 
 describe("shouldSkipVideoTranscode", () => {
@@ -141,5 +143,23 @@ describe("transcodeTimeoutMs", () => {
     expect(transcodeTimeoutMs(60)).toBe(480_000);
     expect(transcodeTimeoutMs(10_000)).toBe(15 * 60_000);
     expect(transcodeTimeoutMs(null)).toBe(480_000);
+  });
+});
+
+describe("transcodeFfmpegArgs", () => {
+  it("forces 8-bit yuv420p so iPhone HDR does not become High 10", () => {
+    const args = transcodeFfmpegArgs("/in.mov", "/out.mp4");
+    const pix = args.indexOf("-pix_fmt");
+    expect(pix).toBeGreaterThan(-1);
+    expect(args[pix + 1]).toBe("yuv420p");
+    expect(args.indexOf("-c:v")).toBeGreaterThan(pix);
+  });
+});
+
+describe("transcodedRelativePath", () => {
+  it("keeps .mp4 in place and rewrites other containers", () => {
+    expect(transcodedRelativePath("events/a.mp4")).toBe("events/a.mp4");
+    expect(transcodedRelativePath("events/a.MOV")).toBe("events/a.mp4");
+    expect(transcodedRelativePath("events/a.webm")).toBe("events/a.mp4");
   });
 });

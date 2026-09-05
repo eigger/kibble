@@ -1,5 +1,6 @@
 import { spawn, execFile } from "node:child_process";
 import { setPriority } from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 import { unlink } from "node:fs/promises";
 
@@ -173,15 +174,14 @@ function spawnWithTimeout(command: string, args: string[], timeoutMs: number): P
 /**
  * 긴 변 1280 이하 H.264 + AAC. 출력은 mp4(+faststart).
  *
+ * `-pix_fmt yuv420p`는 아이폰 HEVC 10-bit HDR 입력이 High 10으로 나가지 않게 한다.
+ * 그 프로필은 브라우저가 못 여는 경우가 많고, 결과는 원본을 덮어쓰므로 되돌릴 수 없다.
+ *
  * 요청 스레드에서 부르지 말 것 — 자식 프로세스라 이벤트 루프는 안 막히지만
  * 작은 CT CPU는 동시 1개로 제한해야 한다.
  */
-export async function transcodeVideoTo720p(
-  inputPath: string,
-  outputPath: string,
-  timeoutMs: number,
-): Promise<void> {
-  const args = [
+export function transcodeFfmpegArgs(inputPath: string, outputPath: string): string[] {
+  return [
     "-nostdin",
     "-hide_banner",
     "-loglevel",
@@ -195,6 +195,8 @@ export async function transcodeVideoTo720p(
     "0:a?",
     "-vf",
     "scale=w='min(1280,iw)':h='min(1280,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
+    "-pix_fmt",
+    "yuv420p",
     "-c:v",
     "libx264",
     "-preset",
@@ -211,7 +213,22 @@ export async function transcodeVideoTo720p(
     "+faststart",
     outputPath,
   ];
-  await spawnWithTimeout("ffmpeg", args, timeoutMs);
+}
+
+export async function transcodeVideoTo720p(
+  inputPath: string,
+  outputPath: string,
+  timeoutMs: number,
+): Promise<void> {
+  await spawnWithTimeout("ffmpeg", transcodeFfmpegArgs(inputPath, outputPath), timeoutMs);
+}
+
+/** 변환본은 항상 mp4. .mov/.webm을 그대로 두면 백업을 풀었을 때 확장자가 거짓이다. */
+export function transcodedRelativePath(originalRel: string): string {
+  const ext = path.extname(originalRel);
+  if (ext.toLowerCase() === ".mp4") return originalRel;
+  if (!ext) return `${originalRel}.mp4`;
+  return `${originalRel.slice(0, originalRel.length - ext.length)}.mp4`;
 }
 
 export async function unlinkQuiet(filePath: string): Promise<void> {
