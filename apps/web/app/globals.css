@@ -1016,21 +1016,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-.qty-stepper {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.qty-stepper button {
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  min-height: 40px;
-  font-size: 1.2rem;
-  line-height: 1;
-}
-
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -2391,9 +2376,91 @@ button:disabled {
 
 .event-detail-qty-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   align-items: end;
+}
+
+.qty-stepper {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  container-type: inline-size;
+}
+
+.qty-stepper-btn {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qty-stepper-labeled .qty-stepper-btn {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 44px;
+  padding: 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.qty-stepper-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.qty-stepper-input {
+  flex: 1;
+  min-width: 0;
+}
+
+@container (max-width: 300px) {
+  .qty-stepper-btn-extra {
+    display: none;
+  }
+}
+
+.bg-upload-banner {
+  position: sticky;
+  top: 0;
+  z-index: 61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bg-upload-banner-error {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.bg-upload-retry {
+  width: auto;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 .event-detail-qty-input,

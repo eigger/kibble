@@ -377,6 +377,15 @@ const dict = {
   removeAttachment: { ko: "첨부 제거", en: "Remove attachment" },
   attachmentPreparing: { ko: "준비 중", en: "Preparing" },
   attachmentUploading: { ko: "{current}/{total} 업로드 중", en: "Uploading {current}/{total}" },
+  attachmentUploadingStay: {
+    ko: "올리는 중 — 앱을 나가지 마세요.",
+    en: "Uploading — stay in the app.",
+  },
+  attachmentUploadRetry: { ko: "다시 올리기", en: "Retry upload" },
+  qtyDecreaseField: { ko: "{field} 줄이기", en: "Decrease {field}" },
+  qtyIncreaseField: { ko: "{field} 늘리기", en: "Increase {field}" },
+  qtyStep1000: { ko: "1천", en: "1k" },
+  qtyStep10000: { ko: "1만", en: "10k" },
   attachmentUploadError: {
     ko: "첨부 업로드에 실패했습니다.",
     en: "Could not upload attachment.",
@@ -384,6 +393,10 @@ const dict = {
   attachmentUploadPartial: {
     ko: "일부 첨부만 올라갔습니다. 남은 파일을 다시 시도해 주세요.",
     en: "Some attachments failed. Retry the remaining files.",
+  },
+  attachmentUploadFailedCount: {
+    ko: "첨부 {count}개를 못 올렸습니다. 다시 시도해 주세요.",
+    en: "{count} attachment(s) failed. Retry the remaining files.",
   },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: {

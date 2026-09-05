@@ -32,6 +32,13 @@ import { EventDetailChip } from "./EventDetailChip";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { EventDetailTagPicker } from "./EventDetailTagPicker";
 import { PendingAttachments } from "./PendingAttachments";
+import { QuantityStepper } from "./QuantityStepper";
+import {
+  COST_KRW_STEP_LARGE,
+  costStepperSteps,
+  quantityExtraStep,
+  quantityStepperSteps,
+} from "../lib/quantityStep";
 
 export interface EventDetailSaveMeta {
   removedAttachmentIds: string[];
@@ -235,6 +242,16 @@ export function EventDetailSheet({
     () => eventDetailFields(draft?.eventTypeKey, draft?.scaleType),
     [draft?.eventTypeKey, draft?.scaleType],
   );
+  const qtyUnit = unit || fields.defaultUnit;
+  const qtySteps = quantityStepperSteps(qtyUnit, draft?.eventTypeKey);
+  const qtyExtraStep = quantityExtraStep(qtyUnit, draft?.eventTypeKey);
+
+  function formatQtyStep(step: number, steps: number[]): string {
+    if (step === 10000) return t("qtyStep10000");
+    if (step === 1000) return t("qtyStep1000");
+    if (step === 1 && steps.includes(0.1)) return "1.0";
+    return String(step);
+  }
 
   function resolvedProductName(): string {
     if (fields.detailTags) {
@@ -874,15 +891,18 @@ export function EventDetailSheet({
                   <label className="field-label" htmlFor="event-cost">
                     {t("eventDetailCost")}
                   </label>
-                  <input
+                  <QuantityStepper
                     id="event-cost"
-                    type="text"
-                    inputMode="numeric"
-                    className="event-detail-qty-input"
-                    placeholder={t("eventDetailCostPlaceholder")}
                     value={costKrw}
+                    onChange={setCostKrw}
+                    steps={costStepperSteps()}
+                    extraStep={COST_KRW_STEP_LARGE}
                     disabled={busy}
-                    onChange={(e) => setCostKrw(e.target.value)}
+                    placeholder={t("eventDetailCostPlaceholder")}
+                    inputMode="numeric"
+                    decreaseLabel={t("qtyDecreaseField", { field: t("eventDetailCost") })}
+                    increaseLabel={t("qtyIncreaseField", { field: t("eventDetailCost") })}
+                    formatStep={formatQtyStep}
                   />
                 </div>
               )}
@@ -894,15 +914,17 @@ export function EventDetailSheet({
                       <label className="field-label" htmlFor="event-qty-offered">
                         {t(fields.quantityOfferedLabelKey)}
                       </label>
-                      <input
+                      <QuantityStepper
                         id="event-qty-offered"
-                        type="text"
-                        inputMode="decimal"
-                        className="event-detail-qty-input"
-                        placeholder="100"
                         value={quantityOffered}
+                        onChange={setQuantityOffered}
+                        steps={qtySteps}
+                        extraStep={qtyExtraStep}
                         disabled={busy}
-                        onChange={(e) => setQuantityOffered(e.target.value)}
+                        placeholder="100"
+                        decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                        increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                        formatStep={formatQtyStep}
                       />
                     </div>
                   )}
@@ -911,15 +933,17 @@ export function EventDetailSheet({
                       <label className="field-label" htmlFor="event-qty-consumed">
                         {t(fields.quantityLabelKey)}
                       </label>
-                      <input
+                      <QuantityStepper
                         id="event-qty-consumed"
-                        type="text"
-                        inputMode="decimal"
-                        className="event-detail-qty-input"
-                        placeholder={quantityPlaceholder(draft.eventTypeKey, fields.quantityOffered)}
                         value={quantity}
+                        onChange={setQuantity}
+                        steps={qtySteps}
+                        extraStep={qtyExtraStep}
                         disabled={busy}
-                        onChange={(e) => setQuantity(e.target.value)}
+                        placeholder={quantityPlaceholder(draft.eventTypeKey, fields.quantityOffered)}
+                        decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityLabelKey) })}
+                        increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityLabelKey) })}
+                        formatStep={formatQtyStep}
                       />
                     </div>
                   )}
