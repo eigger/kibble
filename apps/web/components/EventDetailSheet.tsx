@@ -18,7 +18,8 @@ import {
   parseProductNameValue,
   toggleProductNameTag,
 } from "../lib/eventDetailTags";
-import type { EventAttachment } from "../lib/types";
+import { ProductDetailSheet } from "./ProductDetailSheet";
+import type { EventAttachment, Product, ProductSummary } from "../lib/types";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
@@ -57,6 +58,8 @@ export interface EventDetailDraft {
   quantity: number | null;
   quantityOffered: number | null;
   unit: string | null;
+  productId?: string | null;
+  product?: ProductSummary | null;
   productName: string | null;
   clinicName: string | null;
   clinicAddress: string | null;
@@ -102,8 +105,20 @@ const QUICK_TIME_KEYS: QuickTimeKey[] = ["now", "oneHourAgo", "yesterdayEvening"
 const FECAL_SCORES = [1, 2, 3, 4, 5, 6, 7] as const;
 const SCALE3_VALUES = [1, 2, 3] as const;
 
+export type ActiveProductSuggestion = {
+  id: string;
+  name: string;
+  brand: string | null;
+  category: string;
+  dosage: string | null;
+  isActive: boolean;
+};
+
 type ProductSuggestions = {
   lastProduct: string | null;
+  lastProductId: string | null;
+  lastProductDosage?: string | null;
+  activeProducts: ActiveProductSuggestion[];
   frequent: { productName: string; count: number }[];
 };
 
@@ -152,6 +167,8 @@ function resetFormFromDraft(
   draft: EventDetailDraft,
   setters: {
     setOccurredLocal: (v: string) => void;
+    setProductId: (v: string | null) => void;
+    setProductDosage: (v: string | null) => void;
     setProductName: (v: string) => void;
     setSelectedTagIds: (v: string[]) => void;
     setCustomProductName: (v: string) => void;
@@ -169,6 +186,8 @@ function resetFormFromDraft(
   detailTags: boolean,
 ) {
   setters.setOccurredLocal(toDatetimeLocalValue(draft.occurredAt));
+  setters.setProductId(draft.productId ?? draft.product?.id ?? null);
+  setters.setProductDosage(draft.product?.dosage ?? null);
   if (detailTags) {
     const parsed = parseProductNameValue(draft.eventTypeKey, draft.productName);
     setters.setSelectedTagIds(parsed.tagIds);
@@ -213,6 +232,10 @@ export function EventDetailSheet({
   locale = "ko",
 }: EventDetailSheetProps) {
   const [occurredLocal, setOccurredLocal] = useState("");
+  const [productId, setProductId] = useState<string | null>(null);
+  const [productDosage, setProductDosage] = useState<string | null>(null);
+  const [activeProducts, setActiveProducts] = useState<ActiveProductSuggestion[]>([]);
+  const [popupProduct, setPopupProduct] = useState<Product | null>(null);
   const [productName, setProductName] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [customProductName, setCustomProductName] = useState("");
@@ -270,12 +293,43 @@ export function EventDetailSheet({
     setProductName(value);
   }
 
+  function selectActiveProduct(item: ActiveProductSuggestion) {
+    if (productId === item.id) {
+      setProductId(null);
+      setProductDosage(null);
+      if (fields.detailTags) {
+        setCustomProductName("");
+      } else {
+        setProductName("");
+      }
+    } else {
+      setProductId(item.id);
+      setProductDosage(item.dosage ?? null);
+      applyStoredProductName(item.name);
+    }
+  }
+
+  async function handleOpenProductPopup(targetIdInput?: string | null) {
+    const targetId = targetIdInput ?? productId ?? draft?.productId ?? draft?.product?.id;
+    if (!targetId) return;
+    try {
+      const res = await apiJson<Product>(`/api/products/${targetId}`);
+      if (res?.id) {
+        setPopupProduct(res);
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   useEffect(() => {
     if (!open || !draft) return;
     resetFormFromDraft(
       draft,
       {
         setOccurredLocal,
+        setProductId,
+        setProductDosage,
         setProductName,
         setSelectedTagIds,
         setCustomProductName,
@@ -324,15 +378,27 @@ export function EventDetailSheet({
       .then((data) => {
         if (cancelled) return;
         setFrequentProducts(data.frequent);
-        if (draft.mode === "create" && !draft.productName?.trim()) {
+        if (data.activeProducts) {
+          setActiveProducts(data.activeProducts);
+        }
+        if (draft.mode === "create" && !draft.productName?.trim() && !draft.productId) {
           const prefs = loadEventDetailPrefs(draft.petId, eventTypeKey);
-          if (!prefs?.productName && data.lastProduct) {
-            applyStoredProductName(data.lastProduct);
+          if (!prefs?.productName) {
+            if (data.lastProductId) {
+              setProductId(data.lastProductId);
+              if (data.lastProduct) applyStoredProductName(data.lastProduct);
+              if (data.lastProductDosage) setProductDosage(data.lastProductDosage);
+            } else if (data.lastProduct) {
+              applyStoredProductName(data.lastProduct);
+            }
           }
         }
       })
       .catch(() => {
-        if (!cancelled) setFrequentProducts([]);
+        if (!cancelled) {
+          setFrequentProducts([]);
+          setActiveProducts([]);
+        }
       });
 
     return () => {
@@ -462,6 +528,8 @@ export function EventDetailSheet({
       draft!,
       {
         setOccurredLocal,
+        setProductId,
+        setProductDosage,
         setProductName,
         setSelectedTagIds,
         setCustomProductName,
@@ -557,6 +625,7 @@ export function EventDetailSheet({
         quantityOffered: fields.quantityOffered ? offered : null,
         quantity: fields.quantity ? consumed : null,
         unit: resolveEventUnit(fields, unit),
+        productId: fields.productName ? productId : null,
         productName: savedProductName,
         clinicName: fields.clinicName ? clinicName.trim() || null : null,
         clinicAddress: fields.clinicAddress ? clinicAddress.trim() || null : null,
@@ -581,8 +650,8 @@ export function EventDetailSheet({
     }
   }
 
-  function renderViewValue(label: string, value: string | null | undefined) {
-    if (!value) return null;
+  function renderViewValue(label: string, value: React.ReactNode) {
+    if (value === null || value === undefined || value === "") return null;
     return (
       <div className="event-detail-view-row">
         <dt className="event-detail-view-label">{label}</dt>
@@ -628,7 +697,24 @@ export function EventDetailSheet({
                 {fields.productName &&
                   renderViewValue(
                     t(fields.productNameLabelKey),
-                    formatProductNameDisplay(draft.eventTypeKey, draft.productName, t),
+                    draft.product || draft.productId ? (
+                      <span className="event-detail-product-value">
+                        <span>
+                          {draft.product?.name ??
+                            formatProductNameDisplay(draft.eventTypeKey, draft.productName, t)}
+                        </span>
+                        <button
+                          type="button"
+                          className="product-info-trigger-btn"
+                          onClick={() => handleOpenProductPopup(draft.productId ?? draft.product?.id)}
+                          title={t("productDetailTitle")}
+                        >
+                          ℹ️ {t("productViewDetail")}
+                        </button>
+                      </span>
+                    ) : (
+                      formatProductNameDisplay(draft.eventTypeKey, draft.productName, t)
+                    ),
                   )}
                 {fields.clinicName && renderViewValue(t("eventDetailClinicName"), draft.clinicName)}
                 {fields.clinicAddress && renderViewValue(t("eventDetailClinicAddress"), draft.clinicAddress)}
@@ -784,20 +870,63 @@ export function EventDetailSheet({
                       }
                     />
                   )}
+                  {activeProducts.length > 0 && (
+                    <div className="product-registered-section">
+                      <span className="event-detail-chip-hint">{t("productSelectRegistered")}</span>
+                      <div className="product-quick-chips-row">
+                        {activeProducts.map((p) => {
+                          const isSelected = productId === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className={`product-quick-chip ${isSelected ? "selected" : ""}`}
+                              disabled={busy}
+                              onClick={() => selectActiveProduct(p)}
+                            >
+                              <span className="chip-name">{p.name}</span>
+                              {isSelected && (
+                                <span
+                                  className="chip-info-btn"
+                                  title={t("productDetailTitle")}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenProductPopup(p.id);
+                                  }}
+                                >
+                                  ℹ️
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {productDosage && (
+                        <div className="product-dosage-hint">
+                          <span className="dosage-icon">💡</span>
+                          <span className="dosage-text">{t("productDetailDosageHint", { dosage: productDosage })}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {fields.productCustomInput && (
                     <input
                       id="event-product"
                       type="text"
                       className="event-detail-product-input"
-                      placeholder={t("eventDetailProductNameCustomPlaceholder")}
+                      placeholder={productId ? t("productOrDirectInput") : t("eventDetailProductNameCustomPlaceholder")}
                       maxLength={120}
                       value={fields.detailTags ? customProductName : productName}
                       disabled={busy}
-                      onChange={(e) =>
-                        fields.detailTags
-                          ? setCustomProductName(e.target.value)
-                          : setProductName(e.target.value)
-                      }
+                      onChange={(e) => {
+                        setProductId(null);
+                        setProductDosage(null);
+                        if (fields.detailTags) {
+                          setCustomProductName(e.target.value);
+                        } else {
+                          setProductName(e.target.value);
+                        }
+                      }}
                     />
                   )}
                   {frequentProducts.length > 0 && (
@@ -808,7 +937,11 @@ export function EventDetailSheet({
                           <EventDetailChip
                             key={item.productName}
                             disabled={busy}
-                            onClick={() => applyStoredProductName(item.productName)}
+                            onClick={() => {
+                              setProductId(null);
+                              setProductDosage(null);
+                              applyStoredProductName(item.productName);
+                            }}
                           >
                             {formatProductNameDisplay(draft.eventTypeKey, item.productName, t) ??
                               item.productName}
@@ -1112,6 +1245,14 @@ export function EventDetailSheet({
           onClose={() => setLightboxAtt(null)}
           closeLabel={t("close")}
           resetLabel={t("lightboxResetZoom")}
+        />
+      )}
+
+      {popupProduct && (
+        <ProductDetailSheet
+          open={Boolean(popupProduct)}
+          product={popupProduct}
+          onClose={() => setPopupProduct(null)}
         />
       )}
     </>

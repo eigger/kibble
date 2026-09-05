@@ -118,10 +118,27 @@
 | R87 | 부분 실패 remaining을 현재 업로드 스냅샷에만 두기 | **기각** | 다음 기록이 사진을 들고 저장되면 snapshot이 통째로 덮여 실패 파일 참조가 사라진다. 시트는 이미 닫혀 있어 사용자는 첨부가 사라진 줄도 모른다. 실패분은 모듈 레벨 `failed`에 누적하고, 전송 큐는 그대로 흘린다 | — |
 | R89 | 첨부를 **모든 기기에서** OS 백그라운드로 올리기 | **부분 구현** | iOS 홈화면 PWA·Safari는 Background Fetch가 없다. Chromium(Android·데스크톱)은 파일을 Cache에 담은 뒤 청크를 **직렬** Background Fetch로 잇는다. 안 되는 기기는 이 화면에서 올리며 "앱을 나가지 마세요"가 그 한계의 안내 | iOS가 홈화면 PWA에서 전송을 이어서 돌릴 때 전 기기 통일 |
 | R90 | 영구 거부(415)된 파일을 재시도 대상에서 빼기 | **기각** | 빼면 그 파일이 `remainingFileCount`에 계속 잡혀 **걷히지 않는 실패 배너**가 된다. 지금은 다시 시도했다가 또 건너뛰므로 사용자가 같은 버튼을 반복할 수 있지만, 페이지 경로도 같은 모양이다(R59). 제대로 된 답은 "형식이 안 맞아 올릴 수 없습니다"를 파일 단위로 말하는 것이고, 그건 새 UI다 | 첨부 실패 사유를 파일별로 보여주게 될 때 |
+| R91 | `ProductCategory`를 동적 문자열/사용자 정의 테이블로 확장 (K-8과 동일 취급) | **기각** | 사료·영양제·간식·위생·기기는 단순 라벨이 아니라 **도메인 동작의 분기 기준**(급여 입력 자동 채움, 개봉일·소비기한 D-Day 계산, 1회 투약 힌트 등 고유 수명주기)이다. 동적 카테고리는 가구마다 오타·분편화(`영양제` vs `보충제`)를 낳고 공통 비즈니스 로직 적용을 방해한다. 세부 분류는 `brand`와 `name`, `adverseReactions` 태그로 충분히 흡수된다 | — |
+| R92 | `Event.productName` 컬럼을 제거하고 `productId` 외래키로 완전 통합 | **기각** | K-12(입력 마찰 최소화 — 미등록 사료도 빠른 텍스트 입력 가능) 보장 및 과거 기록의 불변성 유지 (K-13). 제품이 수정되거나 보관·삭제되어도 과거 이벤트의 텍스트 스냅샷(`productName`)은 온전히 보존되어야 한다. `productId`와 `productName`은 동기화 규칙을 통해 상호 보완한다 | — |
 
 ---
 
 ## 2. 세션 로그
+
+### 2026-09-05 — 제품(사료·영양제·용품) 관리 및 기록 연동 (PR #66)
+
+**한 일**
+
+- DB/Schema: `Product` 테이블, `ProductCategory` enum, `Event.productId` 외래키 추가
+- API: `/api/products` CRUD, `/api/products/:id/restore` 보관 복원, `/api/products/:id/photo` 사진 업로드(WebP 1000px, rateLimit 30/분)
+- 기록 연동: `createEvent()` 단일 진입점 유지(K-4), `resolveEventProductFields` 순수 함수로 `productId`/`productName` 동기화 및 테이블 기반 테스트 작성
+- 타임라인 최적화: `eventWithRelationsSelect.product` 페이로드를 필수 필드(`id, name, brand, category, photoPath, dosage, isActive`)로 경량화
+- 웹: `/products` 관리 페이지(탭별 필터, KST 기반 D-Day/개봉일 계산, 보관/복원), `ProductDetailSheet`, `ProductEditSheet`, `EventDetailSheet` 상세 팝업 및 빠른 제품 칩 연동
+- 안정성 & 검증: `safeUrlSchema` new URL 기반 http/https 엄격 화이트리스트 적용, KST 타임존 통일(WORKPLAN §7.11), Web unmount 시 ObjectURL 누수 방지
+
+**규칙**:
+- **R91**: `ProductCategory` enum 유지 — 고유 도메인 동작(급여 연동, 유통기한 D-Day 등)을 분기하는 고정 축.
+- **R92**: `Event.productName` 보존 — 제로 마찰 입력(K-12) 및 과거 기록 불변성(K-13).
 
 ### 2026-09-05 — 저장 후 앱을 닫아도 올리기 (Background Fetch)
 

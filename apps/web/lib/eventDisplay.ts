@@ -125,7 +125,7 @@ export function eventDetailLine(
     event.eventType.key === "medication" && event.course?.name ? false : true;
   return formatEventDetailLine(
     {
-      productName: event.productName,
+      productName: event.product?.name ?? event.productName,
       clinicName: clinic.clinicName,
       clinicAddress: clinic.clinicAddress,
       costKrw: event.costKrw,

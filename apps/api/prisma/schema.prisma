@@ -43,6 +43,7 @@ model Household {
   tokens      ApiToken[]
   events      Event[]
   eventTypeAliases EventTypeAlias[]
+  products    Product[]
 }
 
 model HouseholdMember {
@@ -87,6 +88,7 @@ model Pet {
   reminders Reminder[]
   courses   MedicationCourse[]
   apiTokens ApiToken[]
+  products  Product[]
 
   @@index([householdId, archivedAt])
 }
@@ -217,6 +219,53 @@ enum CodeSource {
   PRODUCT
 }
 
+// ---------- 제품 (사료, 영양제, 간식, 용품 등) ----------
+model Product {
+  id               String          @id @default(cuid())
+  householdId      String
+  petId            String?
+  name             String
+  brand            String?
+  category         ProductCategory @default(MEAL)
+  photoPath        String?
+  purchaseUrl      String?
+  dosage           String?
+  ingredients      String?
+  expiryDate       DateTime?
+  openedAt         DateTime?
+  purchaseDate     DateTime?
+  costKrw          Int?
+  isActive         Boolean         @default(true)
+  palatability     Palatability?
+  adverseReactions String[]        @default([])
+  notes            String?
+  archivedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet?      @relation(fields: [petId], references: [id], onDelete: SetNull)
+  events    Event[]
+
+  @@index([householdId, category, archivedAt])
+  @@index([householdId, isActive, archivedAt])
+}
+
+enum ProductCategory {
+  MEAL
+  SUPPLEMENT
+  TREAT
+  HYGIENE
+  DEVICE
+  OTHER
+}
+
+enum Palatability {
+  HIGH
+  MEDIUM
+  LOW
+}
+
 // ---------- 이벤트 ----------
 model Event {
   id                 String      @id @default(cuid())
@@ -224,6 +273,7 @@ model Event {
   petId              String
   eventTypeId        String
   presetId           String?
+  productId          String?
   occurredAt         DateTime
   quantity           Decimal?    @db.Decimal(10, 2)
   quantityOffered    Decimal?    @db.Decimal(10, 2)
@@ -251,6 +301,7 @@ model Event {
   pet         Pet                 @relation(fields: [petId], references: [id], onDelete: Cascade)
   eventType   EventType           @relation(fields: [eventTypeId], references: [id])
   preset      Preset?             @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  product     Product?            @relation(fields: [productId], references: [id], onDelete: SetNull)
   contact     Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
   course      MedicationCourse?   @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
   createdBy   User?               @relation("EventCreator", fields: [createdById], references: [id])
@@ -264,6 +315,7 @@ model Event {
   @@index([petId, eventTypeId, occurredAt(sort: Desc)])
   @@index([medicationCourseId])
   @@index([entryId])
+  @@index([productId])
   @@index([deletedAt])
 }
 

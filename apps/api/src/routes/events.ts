@@ -8,6 +8,7 @@ import { assertPetInHousehold, listEventHistoryPeriods } from "../lib/historyPer
 import { productSuggestionsForPet } from "../lib/frequentProducts.js";
 import { clinicSuggestionsForPet } from "../lib/frequentClinics.js";
 import { upsertVetContact, type VetContactDetails } from "../lib/upsertVetContact.js";
+import { resolveEventProductFields } from "../lib/eventProduct.js";
 import {
   requireEventCreateAccess,
   resolveTokenScopedField,
@@ -128,6 +129,7 @@ export async function eventRoutes(app: FastifyInstance) {
           quantityOffered: body.quantityOffered,
           unit: body.unit,
           scaleValue: body.scaleValue,
+          productId: body.productId,
           productName: body.productName,
           contactId,
           costKrw: body.costKrw,
@@ -298,6 +300,7 @@ export async function eventRoutes(app: FastifyInstance) {
       select: {
         ...eventSelect,
         eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true } },
+        product: eventWithRelationsSelect.product,
         preset: { select: { id: true, label: true } },
         contact: {
           select: {
@@ -352,7 +355,23 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.quantityOffered !== undefined) updateData.quantityOffered = data.quantityOffered;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.scaleValue !== undefined) updateData.scaleValue = data.scaleValue;
-    if (data.productName !== undefined) updateData.productName = data.productName?.trim() || null;
+    if (data.productId !== undefined || data.productName !== undefined) {
+      let householdProduct: { id: string; name: string } | null = null;
+      const pid = data.productId?.trim() || null;
+      if (pid) {
+        householdProduct = await prisma.product.findFirst({
+          where: { id: pid, ...householdWhere(householdId) },
+          select: { id: true, name: true },
+        });
+      }
+      const resolved = resolveEventProductFields({
+        productId: data.productId,
+        productName: data.productName,
+        householdProduct,
+      });
+      if (resolved.productId !== undefined) updateData.productId = resolved.productId;
+      if (resolved.productName !== undefined) updateData.productName = resolved.productName;
+    }
     const clinicDetailsChanged =
       data.clinicAddress !== undefined ||
       data.clinicLatitude !== undefined ||
