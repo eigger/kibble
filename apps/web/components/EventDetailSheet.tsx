@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { QuickTimeKey } from "@kibble/shared";
 import { resolveQuickTime } from "@kibble/shared";
 import {
@@ -668,11 +669,11 @@ export function EventDetailSheet({
                   <ul className="event-detail-view-attachments-list">
                     {attachments.map((att) => (
                       <li key={att.id}>
-                        <button
-                          type="button"
-                          className="event-detail-view-att-btn"
-                          onClick={() => setLightboxAtt(att)}
-                        >
+                          <button
+                            type="button"
+                            className="event-detail-view-att-btn"
+                            onClick={() => flushSync(() => setLightboxAtt(att))}
+                          >
                           <EventAttachmentThumb
                             path={att.path}
                             mime={att.mime}
@@ -997,7 +998,7 @@ export function EventDetailSheet({
                           <button
                             type="button"
                             className="event-detail-view-att-btn"
-                            onClick={() => setLightboxAtt(att)}
+                            onClick={() => flushSync(() => setLightboxAtt(att))}
                           >
                             <EventAttachmentThumb
                               path={att.path}

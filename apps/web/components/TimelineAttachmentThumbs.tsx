@@ -1,5 +1,6 @@
 "use client";
 
+import { flushSync } from "react-dom";
 import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 
@@ -29,7 +30,9 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
           className="timeline-attachment-btn"
           onClick={(e) => {
             e.stopPropagation();
-            onOpen(att);
+            // 클릭 안에서 라이트박스를 커밋해야 iOS 브라우저·PWA가 그 탭을
+            // 재생 제스처로 본다. setState만 하면 커밋이 제스처 밖으로 밀린다.
+            flushSync(() => onOpen(att));
           }}
         >
           <EventAttachmentThumb
