@@ -134,6 +134,17 @@ describe("snapshotFile", () => {
     errorSpy.mockRestore();
   });
 
+  it("does not copy video bytes into RAM", async () => {
+    const file = new File(["huge-clip"], "clip.mp4", { type: "video/mp4" });
+    Object.defineProperty(file, "arrayBuffer", {
+      configurable: true,
+      value: () => {
+        throw new Error("video snapshot should not read the whole file");
+      },
+    });
+    await expect(snapshotFile(file)).resolves.toBe(file);
+  });
+
   it("throws LocalFileError when arrayBuffer never settles", async () => {
     vi.useFakeTimers();
     const file = new File(["x"], "a.jpg", { type: "image/jpeg" });

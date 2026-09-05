@@ -378,9 +378,10 @@ const dict = {
   attachmentPreparing: { ko: "준비 중", en: "Preparing" },
   attachmentUploading: { ko: "{current}/{total} 업로드 중", en: "Uploading {current}/{total}" },
   attachmentUploadingStay: {
-    ko: "올리는 중 — 앱을 나가지 마세요.",
-    en: "Uploading — stay in the app.",
+    ko: "기록은 저장됐습니다. 이 화면에서 올리는 중이에요.",
+    en: "Saved. Uploading on this screen.",
   },
+  attachmentUploadCancel: { ko: "그만두기", en: "Stop" },
   attachmentUploadRetry: { ko: "다시 올리기", en: "Retry upload" },
   qtyDecreaseField: { ko: "{field} 줄이기", en: "Decrease {field}" },
   qtyIncreaseField: { ko: "{field} 늘리기", en: "Increase {field}" },

@@ -157,8 +157,15 @@ const snapshotMemo = new WeakMap<File, Promise<File>>();
  * 미리보기·디코드·FormData가 같은 URI를 늦게 다시 읽으면 NotReadableError가 난다.
  * 선택 직후 바이트를 복사해 두면 이후 단계는 메모리만 본다.
  * 이미 복사된 File·진행 중인 복사는 그대로 돌려준다 — 저장을 눌러도 같은 URI를 두 번 읽지 않게.
+ *
+ * 영상은 복사하지 않는다. 수백 MB를 arrayBuffer로 올리면 탭이 멈추고, 8초 타임아웃에
+ * 걸려 전송이 실패한다. 청크 업로드는 `file.slice`로 원본을 읽는다.
+ * 대신 안드로이드 content URI가 긴 업로드 중간에 만료되면(NotReadableError) 그 영상은
+ * 실패하고, 같은 File로 다시 올려도 URI는 이미 죽었다.
  */
 export async function snapshotFile(file: File): Promise<File> {
+  if (normalizeAttachmentType(file).startsWith("video/")) return file;
+
   const memo = snapshotMemo.get(file);
   if (memo) return memo;
 
@@ -361,6 +368,9 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
 }
 
 export async function prepareAttachmentForUpload(file: File): Promise<File> {
+  const typeHint = normalizeAttachmentType(file);
+  if (typeHint.startsWith("video/")) return withType(file, typeHint);
+
   const local = await snapshotFile(file);
   const type = normalizeAttachmentType(local);
   const typed = withType(local, type);

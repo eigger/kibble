@@ -32,7 +32,7 @@ import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
   deleteEventAttachment,
 } from "../../lib/eventAttachments";
-import { startBackgroundUpload } from "../../lib/backgroundUpload";
+import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
 import { groupPresetsByCategory } from "../../lib/presetGroups";
 import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
@@ -392,6 +392,7 @@ export default function QuickRecordPage() {
   async function deleteEvent(eventId: string) {
     if (deletingEventId) return;
     setDeletingEventId(eventId);
+    cancelUploadsForEvent(eventId);
     try {
       await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
       setRecentEvents((prev) => prev.filter((e) => e.id !== eventId));

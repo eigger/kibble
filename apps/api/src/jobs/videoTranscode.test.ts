@@ -18,6 +18,7 @@ const mockProbe = vi.hoisted(() => ({
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
 vi.mock("../lib/eventAttachment.js", () => ({
   attachmentAbsolutePath: (rel: string) => `/abs/${rel}`,
+  savePosterForVideo: vi.fn(async () => null),
 }));
 vi.mock("../lib/uploads.js", () => ({
   TEMP_DIR: "/tmp/kibble-transcode-test",
@@ -63,6 +64,7 @@ describe("videoTranscode job", () => {
       id: "att1",
       path: "events/clip.mp4",
       size: 10 * 1024 * 1024,
+      eventId: "evt1",
     });
 
     expect(mockProbe.transcodeVideoTo720p).not.toHaveBeenCalled();
@@ -84,6 +86,7 @@ describe("videoTranscode job", () => {
       id: "att2",
       path: "events/clip.mp4",
       size: 50 * 1024 * 1024,
+      eventId: "evt1",
     });
 
     expect(mockProbe.transcodeVideoTo720p).not.toHaveBeenCalled();
@@ -91,8 +94,6 @@ describe("videoTranscode job", () => {
       where: { id: "att2", transcodeStatus: TRANSCODE_STATUS.PROCESSING },
       data: {
         transcodeStatus: TRANSCODE_STATUS.SKIPPED,
-        width: undefined,
-        height: undefined,
       },
     });
   });

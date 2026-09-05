@@ -1,6 +1,7 @@
 import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import { apiFetch, ApiError, isRetriableUploadStatus, UPLOAD_RETRY_ATTEMPTS } from "./api";
 import { findPendingUploadFor, removePendingUpload, savePendingUpload } from "./pendingUploads";
+import { isUploadCancelled, throwIfAborted } from "./uploadAbort";
 import type { EventAttachment } from "./types";
 
 export interface UploadProgress {
@@ -40,10 +41,12 @@ function backoffMs(attempt: number): number {
  */
 async function fetchWithRetry(path: string, init: RequestInit): Promise<Response> {
   for (let attempt = 1; ; attempt++) {
+    throwIfAborted(init.signal ?? undefined);
     let res: Response;
     try {
       res = await apiFetch(path, init);
     } catch (err) {
+      if (isUploadCancelled(err)) throw err;
       if (attempt >= UPLOAD_RETRY_ATTEMPTS) throw err;
       await sleep(backoffMs(attempt));
       continue;
@@ -56,7 +59,7 @@ async function fetchWithRetry(path: string, init: RequestInit): Promise<Response
   }
 }
 
-async function initUpload(eventId: string, file: File): Promise<string> {
+async function initUpload(eventId: string, file: File, signal?: AbortSignal): Promise<string> {
   const initRes = await fetchWithRetry("/api/attachments/uploads", {
     method: "POST",
     body: JSON.stringify({
@@ -65,6 +68,7 @@ async function initUpload(eventId: string, file: File): Promise<string> {
       mimeType: file.type || "application/octet-stream",
       totalSize: file.size,
     }),
+    signal,
   });
   const { uploadId } = (await initRes.json()) as { uploadId: string };
   return uploadId;
@@ -85,6 +89,7 @@ async function fetchServerProgress(uploadId: string): Promise<ServerProgress | n
 async function resolveStartingPoint(
   eventId: string,
   file: File,
+  signal?: AbortSignal,
 ): Promise<{ uploadId: string; offset: number; index: number }> {
   const pending = findPendingUploadFor(eventId, file);
   if (pending) {
@@ -98,7 +103,7 @@ async function resolveStartingPoint(
     }
     removePendingUpload(pending.uploadId);
   }
-  return { uploadId: await initUpload(eventId, file), offset: 0, index: 0 };
+  return { uploadId: await initUpload(eventId, file, signal), offset: 0, index: 0 };
 }
 
 type ChunkOutcome =
@@ -109,15 +114,23 @@ type ChunkOutcome =
   | { kind: "retry" }
   | { kind: "fatal"; error: ApiError };
 
-async function putChunk(uploadId: string, index: number, chunk: Blob): Promise<ChunkOutcome> {
+async function putChunk(
+  uploadId: string,
+  index: number,
+  chunk: Blob,
+  signal?: AbortSignal,
+): Promise<ChunkOutcome> {
   let res: Response;
   try {
+    throwIfAborted(signal);
     res = await apiFetch(`/api/attachments/uploads/${uploadId}/chunks/${index}`, {
       method: "PUT",
       headers: { "Content-Type": "application/octet-stream" },
       body: chunk,
+      signal,
     });
-  } catch {
+  } catch (err) {
+    if (isUploadCancelled(err)) throw err;
     // fetch 자체가 던졌다 = 연결이 끊겼다. 서버가 이미 받았는지는 알 수 없으므로
     // 재동기화 없이 그냥 다시 보내면 409가 오고, 그때 위치를 맞춘다.
     return { kind: "retry" };
@@ -131,9 +144,10 @@ async function putChunk(uploadId: string, index: number, chunk: Blob): Promise<C
   return { kind: "fatal", error: await errorFromResponse(res) };
 }
 
-async function completeUpload(uploadId: string): Promise<EventAttachment> {
+async function completeUpload(uploadId: string, signal?: AbortSignal): Promise<EventAttachment> {
   const res = await fetchWithRetry(`/api/attachments/uploads/${uploadId}/complete`, {
     method: "POST",
+    signal,
   });
   return (await res.json()) as EventAttachment;
 }
@@ -142,10 +156,12 @@ export async function uploadEventAttachmentInChunks(
   eventId: string,
   file: File,
   onProgress?: (p: UploadProgress) => void,
+  signal?: AbortSignal,
 ): Promise<EventAttachment> {
   const { uploadId, offset: startOffset, index: startIndex } = await resolveStartingPoint(
     eventId,
     file,
+    signal,
   );
 
   const pendingEntry = {
@@ -163,8 +179,9 @@ export async function uploadEventAttachmentInChunks(
   let attempt = 0;
 
   while (offset < file.size) {
+    throwIfAborted(signal);
     const chunk = file.slice(offset, offset + UPLOAD_CHUNK_SIZE_BYTES);
-    const outcome = await putChunk(uploadId, index, chunk);
+    const outcome = await putChunk(uploadId, index, chunk, signal);
 
     if (outcome.kind === "ok") {
       offset += chunk.size;
@@ -206,7 +223,7 @@ export async function uploadEventAttachmentInChunks(
     await sleep(backoffMs(attempt));
   }
 
-  const attachment = await completeUpload(uploadId);
+  const attachment = await completeUpload(uploadId, signal);
   removePendingUpload(uploadId);
   return attachment;
 }

@@ -153,4 +153,25 @@ describe("transcodeFfmpegArgs", () => {
     expect(args[pix + 1]).toBe("yuv420p");
     expect(args.indexOf("-c:v")).toBeGreaterThan(pix);
   });
+
+  it("pins decoder and encoder each to one thread — -i 앞만 두면 x264가 코어 수만큼 연다", () => {
+    const args = transcodeFfmpegArgs("/in.mov", "/out.mp4");
+    const input = args.indexOf("-i");
+    const codec = args.indexOf("-c:v");
+    expect(input).toBeGreaterThan(-1);
+    expect(args[codec + 1]).toBe("libx264");
+
+    const decoderThreads = args.indexOf("-threads");
+    expect(decoderThreads).toBeGreaterThan(-1);
+    expect(decoderThreads).toBeLessThan(input);
+    expect(args[decoderThreads + 1]).toBe("1");
+
+    const encoderThreads = args.indexOf("-threads", codec);
+    expect(encoderThreads).toBeGreaterThan(codec);
+    expect(args[encoderThreads + 1]).toBe("1");
+
+    const x264 = args.indexOf("-x264-params", codec);
+    expect(x264).toBeGreaterThan(codec);
+    expect(args[x264 + 1]).toBe("threads=1:lookahead_threads=1");
+  });
 });

@@ -695,6 +695,7 @@ export function EventDetailSheet({
                             path={att.path}
                             mime={att.mime}
                             posterPath={att.posterPath}
+                            transcodeStatus={att.transcodeStatus}
                             alt=""
                             className="attachment-thumb attachment-thumb-large"
                           />
@@ -1028,6 +1029,7 @@ export function EventDetailSheet({
                               path={att.path}
                               mime={att.mime}
                               posterPath={att.posterPath}
+                              transcodeStatus={att.transcodeStatus}
                               alt=""
                               className="attachment-thumb attachment-thumb-large"
                             />

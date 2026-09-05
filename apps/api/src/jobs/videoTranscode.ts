@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rename, stat } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../lib/prisma.js";
-import { attachmentAbsolutePath } from "../lib/eventAttachment.js";
+import { attachmentAbsolutePath, savePosterForVideo } from "../lib/eventAttachment.js";
 import { TEMP_DIR } from "../lib/uploads.js";
 import {
   TRANSCODE_STATUS,
@@ -83,12 +83,12 @@ async function processNext(): Promise<boolean> {
   return true;
 }
 
-type Claimed = { id: string; path: string; size: number };
+type Claimed = { id: string; path: string; size: number; eventId: string };
 
 async function claimNextPending(): Promise<Claimed | null> {
   return prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Claimed[]>`
-      SELECT a.id, a.path, a.size
+      SELECT a.id, a.path, a.size, a."eventId"
       FROM "Attachment" a
       INNER JOIN "Event" e ON e.id = a."eventId"
       WHERE a."transcodeStatus" = ${TRANSCODE_STATUS.PENDING}
@@ -122,14 +122,7 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
 
   const probe = await probeVideo(absPath);
   if (!probe || shouldSkipVideoTranscode({ ...probe, sizeBytes: row.size })) {
-    await prisma.attachment.updateMany({
-      where: { id: row.id, transcodeStatus: TRANSCODE_STATUS.PROCESSING },
-      data: {
-        transcodeStatus: TRANSCODE_STATUS.SKIPPED,
-        width: probe?.width ?? undefined,
-        height: probe?.height ?? undefined,
-      },
-    });
+    await markDone(row, absPath, TRANSCODE_STATUS.SKIPPED, probe?.width, probe?.height);
     return;
   }
 
@@ -140,12 +133,13 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
     const outStat = await stat(outPath);
     if (outStat.size >= row.size * MIN_SHRINK_RATIO) {
       await unlinkQuiet(outPath);
-      await mark(row.id, TRANSCODE_STATUS.SKIPPED, probe.width, probe.height);
+      await markDone(row, absPath, TRANSCODE_STATUS.SKIPPED, probe.width, probe.height);
       return;
     }
 
     const outProbe = await probeVideo(outPath);
     await rename(outPath, absPath);
+    const posterPath = await savePosterForVideo(row.eventId, absPath);
     const replaced = await prisma.attachment.updateMany({
       where: { id: row.id, transcodeStatus: TRANSCODE_STATUS.PROCESSING },
       data: {
@@ -154,6 +148,7 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
         width: outProbe?.width ?? probe.width ?? undefined,
         height: outProbe?.height ?? probe.height ?? undefined,
         transcodeStatus: TRANSCODE_STATUS.READY,
+        ...(posterPath ? { posterPath } : {}),
       },
     });
     if (replaced.count === 0) {
@@ -167,6 +162,25 @@ export async function transcodeClaimedAttachment(row: Claimed): Promise<void> {
     await unlinkQuiet(outPath);
     throw err;
   }
+}
+
+async function markDone(
+  row: Claimed,
+  absPath: string,
+  status: string,
+  width?: number | null,
+  height?: number | null,
+): Promise<void> {
+  const posterPath = await savePosterForVideo(row.eventId, absPath);
+  await prisma.attachment.updateMany({
+    where: { id: row.id, transcodeStatus: TRANSCODE_STATUS.PROCESSING },
+    data: {
+      transcodeStatus: status,
+      ...(width != null ? { width } : {}),
+      ...(height != null ? { height } : {}),
+      ...(posterPath ? { posterPath } : {}),
+    },
+  });
 }
 
 async function mark(

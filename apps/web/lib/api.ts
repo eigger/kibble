@@ -1,6 +1,7 @@
 import { recordFailedRequest } from "./bugReport";
 import { BASE_PATH } from "./base-path";
 import { isLocalFileFailure } from "./uploadPrep";
+import { isUploadCancelled, throwIfAborted, UploadCancelledError } from "./uploadAbort";
 
 function resolveApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
@@ -92,6 +93,7 @@ function uploadRetryBackoffMs(attempt: number): number {
 }
 
 function isRetriableFormUploadError(err: unknown): boolean {
+  if (isUploadCancelled(err)) return false;
   if (isLocalFileFailure(err)) return false;
   if (isApiError(err)) return isRetriableUploadStatus(err.status);
   return err instanceof TypeError;
@@ -109,10 +111,12 @@ export async function apiFormUpload<T>(
   path: string,
   formData: FormData,
   onUploadProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<T> {
+  throwIfAborted(signal);
   for (let attempt = 1; ; attempt++) {
     try {
-      return await sendFormUploadOnce(path, formData, onUploadProgress);
+      return await sendFormUploadOnce(path, formData, onUploadProgress, signal);
     } catch (err) {
       if (!isRetriableFormUploadError(err) || attempt >= UPLOAD_RETRY_ATTEMPTS) throw err;
       await new Promise((resolve) => setTimeout(resolve, uploadRetryBackoffMs(attempt)));
@@ -124,8 +128,10 @@ function sendFormUploadOnce<T>(
   path: string,
   formData: FormData,
   onUploadProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
+    throwIfAborted(signal);
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}${path}`);
     xhr.withCredentials = true;
@@ -133,6 +139,11 @@ function sendFormUploadOnce<T>(
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
     if (locale) xhr.setRequestHeader("X-Locale", locale);
+
+    const onAbort = () => {
+      xhr.abort();
+    };
+    signal?.addEventListener("abort", onAbort);
 
     xhr.upload.onprogress = (event) => {
       const total = event.lengthComputable && event.total > 0 ? event.total : 0;
@@ -145,6 +156,7 @@ function sendFormUploadOnce<T>(
     };
 
     xhr.onload = () => {
+      signal?.removeEventListener("abort", onAbort);
       let body: { error?: unknown } | null = null;
       try {
         body = xhr.responseText ? (JSON.parse(xhr.responseText) as { error?: unknown }) : null;
@@ -165,10 +177,12 @@ function sendFormUploadOnce<T>(
       reject(new ApiError(message, xhr.status));
     };
     xhr.onerror = () => {
+      signal?.removeEventListener("abort", onAbort);
       reject(new TypeError("Failed to fetch"));
     };
     xhr.onabort = () => {
-      reject(new ApiError("", 0));
+      signal?.removeEventListener("abort", onAbort);
+      reject(new UploadCancelledError());
     };
     xhr.send(formData);
   });

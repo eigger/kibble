@@ -177,7 +177,8 @@ function spawnWithTimeout(command: string, args: string[], timeoutMs: number): P
  * 그 프로필은 브라우저가 못 여는 경우가 많고, 결과는 원본을 덮어쓰므로 되돌릴 수 없다.
  *
  * 요청 스레드에서 부르지 말 것 — 자식 프로세스라 이벤트 루프는 안 막히지만
- * 작은 CT CPU는 동시 1개로 제한해야 한다.
+ * 작은 CT CPU·RAM은 동시 1개·스레드 1개로 제한해야 한다. 기본 ffmpeg는
+ * 코어 수만큼 스레드를 열어 2GB LXC를 OOM으로 죽일 수 있다.
  */
 export function transcodeFfmpegArgs(inputPath: string, outputPath: string): string[] {
   return [
@@ -186,6 +187,12 @@ export function transcodeFfmpegArgs(inputPath: string, outputPath: string): stri
     "-loglevel",
     "error",
     "-y",
+    // -threads는 코덱 AVOption이라 위치가 디코더/인코더를 가른다. -i 앞은
+    // HEVC 디코더, -c:v 뒤는 libx264. OOM의 큰 쪽은 인코더 프레임 버퍼다.
+    "-threads",
+    "1",
+    "-filter_threads",
+    "1",
     "-i",
     inputPath,
     "-map",
@@ -198,6 +205,10 @@ export function transcodeFfmpegArgs(inputPath: string, outputPath: string): stri
     "yuv420p",
     "-c:v",
     "libx264",
+    "-threads",
+    "1",
+    "-x264-params",
+    "threads=1:lookahead_threads=1",
     "-preset",
     "veryfast",
     "-crf",

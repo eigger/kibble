@@ -27,7 +27,7 @@ describe("finalizeEventAttachmentFromTemp", () => {
     const saved = await finalizeEventAttachmentFromTemp("evt1", tempPath, "video/mp4");
     expect(saved.mime).toBe("video/mp4");
     expect(saved.size).toBe(10);
-    expect(saved.transcodeStatus).toBe("skipped");
+    expect(saved.transcodeStatus).toBe("pending");
     const abs = path.join(uploadDir, saved.path);
     expect(await readFile(abs)).toEqual(Buffer.from("fake-video"));
   });

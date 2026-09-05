@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { useLocale } from "../lib/i18n/locale-context";
 import {
+  cancelBackgroundUpload,
   getBackgroundUpload,
   retryBackgroundUpload,
   subscribeBackgroundUpload,
@@ -47,6 +48,9 @@ export function BackgroundUploadBanner() {
             {preparing ? ` · ${t("attachmentPreparing")}` : null}
             {pct ? <span aria-hidden>{` · ${pct}`}</span> : null}
           </span>
+          <button type="button" className="bg-upload-retry" onClick={() => cancelBackgroundUpload()}>
+            {t("attachmentUploadCancel")}
+          </button>
         </div>
       )}
       {snapshot.failedCount > 0 && (
