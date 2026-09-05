@@ -4026,14 +4026,16 @@ th {
 /* Grid & Empty State */
 .products-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* `1fr`은 minmax(auto, 1fr)이라 안쪽의 안 접히는 글자가 트랙을 밀어낸다 —
+     모바일에서 가로 스크롤이 생기고 PC에서 두 칸 폭이 어긋난다. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   margin-top: 10px;
 }
 
 @media (min-width: 640px) {
   .products-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 }
@@ -4263,11 +4265,6 @@ th {
   min-width: 0;
 }
 
-.product-card-cost {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
 
 .product-warning-badge {
   display: inline-flex;
@@ -4919,9 +4916,10 @@ th {
   min-width: 64px;
 }
 
-/* 목록 카드의 주성분 한 줄. 카드가 길어지지 않게 한 줄에서 자른다 */
+/* 목록 카드 푸터의 주성분. 한 줄에서 자른다 — 카드가 길어지면 훑는 의미가 없다 */
 .product-card-main-ingredients {
-  margin: 2px 0 0;
+  margin: 0;
+  min-width: 0;
   font-size: var(--text-xs);
   color: var(--color-text-secondary);
   white-space: nowrap;

@@ -80,15 +80,33 @@ export function weightToGrams(raw: string, unit: "kg" | "g"): number | null {
   return Math.min(grams, WEIGHT_G_MAX);
 }
 
-/** 저장된 g을 사람이 읽는 문자열로. 1kg 이상이고 딱 떨어지면 kg으로 보여준다. */
+/** 소수점 뒤 남는 0을 떼고 문자열로. 2.50 → "2.5", 2.00 → "2" */
+function trimNumber(value: number): string {
+  return String(Number(value.toFixed(3)));
+}
+
+/**
+ * 저장된 g → 사람이 읽는 문자열. 1kg 이상이면 kg으로 쓴다.
+ *
+ * 예전에는 100g 단위로 떨어질 때만 kg으로 썼는데, 그러면 1.25kg짜리를 넣고
+ * "1250g"으로 돌려받는다 — 사용자가 적은 소수점이 사라져 보인다.
+ */
 export function formatWeightG(grams: number | null | undefined): string | null {
   if (grams == null || grams <= 0) return null;
-  if (grams >= 1000 && grams % 100 === 0) {
-    const kg = grams / 1000;
-    return `${Number.isInteger(kg) ? kg : kg.toFixed(1)}kg`;
-  }
+  if (grams >= 1000) return `${trimNumber(grams / 1000)}kg`;
   return `${grams}g`;
 }
+
+/** 저장된 g → 입력 칸에 되돌릴 값과 단위. formatWeightG와 같은 기준을 쓴다. */
+export function weightToInput(grams: number | null | undefined): {
+  value: string;
+  unit: "kg" | "g";
+} {
+  if (grams == null || grams <= 0) return { value: "", unit: "kg" };
+  if (grams >= 1000) return { value: trimNumber(grams / 1000), unit: "kg" };
+  return { value: String(grams), unit: "g" };
+}
+
 
 /** 경량화된 이벤트 관계용 제품 요약 타입 (전성분·메모 등 대형 필드 제외) */
 export interface ProductSummary {
