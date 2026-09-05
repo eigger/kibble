@@ -319,6 +319,43 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     expect(mockPrisma.product.update).not.toHaveBeenCalled();
   });
 
+  /**
+   * 라우트가 조용히 사라지는 걸 잡는다. v0.13.0에서 사진 라우트를 복수형으로 바꾸다가
+   * 대표 사진 입구(GET /:id/photo)가 통째로 지워졌는데, 타입 검사도 린트도 못 봤고
+   * 목록 카드 썸네일이 전부 404가 됐다. 문서에 적힌 입구는 등록돼 있어야 한다.
+   */
+  it("문서에 있는 제품 라우트가 전부 등록돼 있다", () => {
+    const expected: { method: "GET" | "POST" | "PATCH" | "DELETE"; url: string }[] = [
+      { method: "GET", url: "/api/products" },
+      { method: "POST", url: "/api/products" },
+      { method: "GET", url: "/api/products/:id" },
+      { method: "PATCH", url: "/api/products/:id" },
+      { method: "DELETE", url: "/api/products/:id" },
+      { method: "POST", url: "/api/products/:id/restore" },
+      // 대표 사진 — ProductPhoto.tsx가 photoPath만 들고 이 경로로 온다
+      { method: "GET", url: "/api/products/:id/photo" },
+      { method: "GET", url: "/api/products/:id/photos" },
+      { method: "POST", url: "/api/products/:id/photos" },
+      { method: "GET", url: "/api/products/:id/photos/:photoId" },
+      { method: "DELETE", url: "/api/products/:id/photos/:photoId" },
+      { method: "POST", url: "/api/products/:id/photos/:photoId/primary" },
+    ];
+    const missing = expected.filter((route) => !app.hasRoute(route));
+    expect(missing).toEqual([]);
+  });
+
+  it("대표 사진이 없으면 GET /:id/photo는 404다", async () => {
+    mockPrisma.product.findFirst.mockResolvedValue({ photoPath: null });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/products/${PRODUCT_ID}/photo`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+
+    expect(res.statusCode).toBe(404);
+  });
+
   it("DELETE /api/products/:id는 제품을 보관(soft-delete) 처리한다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, householdId: HH });
     mockPrisma.product.update.mockResolvedValue({});
