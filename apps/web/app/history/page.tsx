@@ -20,6 +20,7 @@ import { TimelineEventBody } from "../../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
+import { HistoryTypeFilter } from "../../components/HistoryTypeFilter";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   deleteEventAttachment,
@@ -44,6 +45,7 @@ export default function HistoryPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
   const [periodFilter, setPeriodFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -66,6 +68,7 @@ export default function HistoryPage() {
   const eventsRef = useRef<TimelineEvent[]>([]);
   const petIdRef = useRef<string | null>(null);
   const periodRef = useRef("");
+  const typeRef = useRef("");
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
@@ -91,7 +94,7 @@ export default function HistoryPage() {
   }, []);
 
   const loadEvents = useCallback(
-    async (petId: string, period: string, reset: boolean) => {
+    async (petId: string, period: string, eventTypeKey: string, reset: boolean) => {
       const seq = ++loadSeq.current;
       if (reset) {
         loadMoreSeq.current += 1;
@@ -100,10 +103,17 @@ export default function HistoryPage() {
       }
 
       try {
-        const page = await fetchTimelinePage(petId, undefined, undefined, period || undefined);
+        const page = await fetchTimelinePage(
+          petId,
+          undefined,
+          undefined,
+          period || undefined,
+          eventTypeKey || undefined,
+        );
         if (seq !== loadSeq.current) return;
         petIdRef.current = petId;
         periodRef.current = period;
+        typeRef.current = eventTypeKey;
         setEvents(page);
         setHasMore(timelineHasMore(page.length));
       } catch (err) {
@@ -129,7 +139,7 @@ export default function HistoryPage() {
       try {
         const pet = await loadBootstrap();
         if (cancelled || !pet) return;
-        await loadEvents(pet.id, periodFilter, true);
+        await loadEvents(pet.id, periodFilter, typeFilter, true);
       } catch {
         if (!cancelled) setLoadError(t("historyLoadError"));
       }
@@ -144,13 +154,13 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!activePet) return;
-    void loadEvents(activePet.id, periodFilter, true);
-  }, [periodFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadEvents(activePet.id, periodFilter, typeFilter, true);
+  }, [periodFilter, typeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
     setActivePet(pet);
-    await loadEvents(pet.id, periodFilter, true);
+    await loadEvents(pet.id, periodFilter, typeFilter, true);
   }
 
   const loadMore = useCallback(async () => {
@@ -168,6 +178,7 @@ export default function HistoryPage() {
         { occurredAt: last.occurredAt, id: last.id },
         undefined,
         periodRef.current || undefined,
+        typeRef.current || undefined,
       );
       if (seq !== loadMoreSeq.current || petId !== petIdRef.current) return;
       setEvents((prev) => appendTimelinePage(prev, page).events);
@@ -311,7 +322,7 @@ export default function HistoryPage() {
       for (const attachmentId of meta.removedAttachmentIds) {
         await deleteEventAttachment(attachmentId);
       }
-      if (activePet) await loadEvents(activePet.id, periodFilter, true);
+      if (activePet) await loadEvents(activePet.id, periodFilter, typeFilter, true);
       setDetailOpen(false);
       setDetailDraft(null);
       setDetailPendingFiles([]);
@@ -360,12 +371,22 @@ export default function HistoryPage() {
       </header>
 
       {activePet && (
-        <HistoryPeriodFilter
-          value={periodFilter}
-          onChange={setPeriodFilter}
-          t={t}
-          petId={activePet.id}
-        />
+        <>
+          <HistoryPeriodFilter
+            value={periodFilter}
+            onChange={setPeriodFilter}
+            t={t}
+            petId={activePet.id}
+          />
+          <div className="history-type-filter">
+            <HistoryTypeFilter
+              value={typeFilter}
+              onChange={setTypeFilter}
+              t={t}
+              tLabel={tLabel}
+            />
+          </div>
+        </>
       )}
 
       <section

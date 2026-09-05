@@ -20,3 +20,28 @@ describe("timelineEventsPath", () => {
     expect(path).toContain("period=2026-09");
   });
 });
+
+describe("timelineEventsPath — 종류 필터", () => {
+  it("종류를 고르면 eventTypeKey를 싣는다", () => {
+    const path = timelineEventsPath("pet1", undefined, 30, undefined, "meal");
+    expect(path).toContain("eventTypeKey=meal");
+  });
+
+  it("안 고르면 파라미터를 안 붙인다", () => {
+    expect(timelineEventsPath("pet1")).not.toContain("eventTypeKey");
+    expect(timelineEventsPath("pet1", undefined, 30, undefined, "")).not.toContain("eventTypeKey");
+  });
+
+  it("더 보기(커서)에서도 종류가 유지된다 — 안 그러면 2페이지부터 필터가 풀린다", () => {
+    const path = timelineEventsPath(
+      "pet1",
+      { occurredAt: "2026-09-05T00:00:00.000Z", id: "e1" },
+      30,
+      "2026-09",
+      "poop",
+    );
+    expect(path).toContain("eventTypeKey=poop");
+    expect(path).toContain("period=2026-09");
+    expect(path).toContain("beforeId=e1");
+  });
+});
