@@ -49,7 +49,7 @@ describe("startBackgroundUpload", () => {
   it("uploads then clears snapshot", async () => {
     uploadMock.mockResolvedValue({ uploaded: [], remaining: [] });
     startBackgroundUpload("e1", [file("a.jpg")]);
-    expect(getBackgroundUpload()?.status).toBe("uploading");
+    expect(getBackgroundUpload()?.current?.eventId).toBe("e1");
     await vi.waitFor(() => {
       expect(getBackgroundUpload()).toBeNull();
     });
@@ -62,12 +62,37 @@ describe("startBackgroundUpload", () => {
     uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [] });
     startBackgroundUpload("e1", [file("a.jpg"), leftover]);
     await vi.waitFor(() => {
-      expect(getBackgroundUpload()?.status).toBe("partial");
+      expect(getBackgroundUpload()?.failedCount).toBe(1);
+      expect(getBackgroundUpload()?.current).toBeNull();
     });
     retryBackgroundUpload();
     await vi.waitFor(() => {
       expect(getBackgroundUpload()).toBeNull();
     });
     expect(uploadMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not drop leftover files when another upload starts", async () => {
+    const leftover = file("b.jpg");
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [leftover] });
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [] });
+    startBackgroundUpload("e1", [file("a.jpg"), leftover]);
+    startBackgroundUpload("e2", [file("c.jpg")]);
+    await vi.waitFor(() => {
+      expect(uploadMock).toHaveBeenCalledTimes(2);
+    });
+    expect(uploadMock.mock.calls[0][0]).toBe("e1");
+    expect(uploadMock.mock.calls[1][0]).toBe("e2");
+    expect(getBackgroundUpload()?.failedCount).toBe(1);
+    expect(getBackgroundUpload()?.current).toBeNull();
+  });
+
+  it("holds files and clears uploading when the batch throws", async () => {
+    uploadMock.mockRejectedValueOnce(new Error("boom"));
+    startBackgroundUpload("e1", [file("a.jpg")]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()?.failedCount).toBe(1);
+      expect(getBackgroundUpload()?.current).toBeNull();
+    });
   });
 });

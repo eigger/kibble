@@ -23,34 +23,40 @@ export function BackgroundUploadBanner() {
 
   if (!snapshot) return null;
 
-  if (snapshot.status === "partial") {
-    return (
-      <div className="bg-upload-banner bg-upload-banner-error" role="status">
-        <span>{t("attachmentUploadPartial")}</span>
-        <button type="button" className="bg-upload-retry" onClick={() => retryBackgroundUpload()}>
-          {t("attachmentUploadRetry")}
-        </button>
-      </div>
-    );
-  }
-
-  const progress = snapshot.progress;
-  const current = progress ? Math.min(snapshot.fileCount, progress.fileIndex + 1) : 1;
-  const total = progress?.fileCount ?? snapshot.fileCount;
+  const current = snapshot.current;
+  const progress = current?.progress ?? null;
+  const fileCount = current?.fileCount ?? 0;
+  const uploadingIndex = progress ? Math.min(fileCount, progress.fileIndex + 1) : 1;
+  const uploadingTotal = progress?.fileCount ?? fileCount;
   const pct =
     progress && progress.phase === "uploading"
       ? percentLabel(progress.loaded, progress.total)
-      : progress?.phase === "preparing"
-        ? t("attachmentPreparing")
-        : null;
+      : null;
+  const preparing = progress?.phase === "preparing";
 
   return (
-    <div className="bg-upload-banner" role="status">
-      <span>
-        {t("attachmentUploadingStay")}{" "}
-        {t("attachmentUploading", { current: String(current), total: String(total) })}
-        {pct ? ` · ${pct}` : ""}
-      </span>
-    </div>
+    <>
+      {current && (
+        <div className="bg-upload-banner" role="status">
+          <span>
+            {t("attachmentUploadingStay")}{" "}
+            {t("attachmentUploading", {
+              current: String(uploadingIndex),
+              total: String(uploadingTotal),
+            })}
+            {preparing ? ` · ${t("attachmentPreparing")}` : null}
+            {pct ? <span aria-hidden>{` · ${pct}`}</span> : null}
+          </span>
+        </div>
+      )}
+      {snapshot.failedCount > 0 && (
+        <div className="bg-upload-banner bg-upload-banner-error" role="status">
+          <span>{t("attachmentUploadPartial")}</span>
+          <button type="button" className="bg-upload-retry" onClick={() => retryBackgroundUpload()}>
+            {t("attachmentUploadRetry")}
+          </button>
+        </div>
+      )}
+    </>
   );
 }

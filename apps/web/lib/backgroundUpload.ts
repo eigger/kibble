@@ -12,26 +12,47 @@ export type AttachmentsUploadedDetail = {
 };
 
 export type BackgroundUploadSnapshot = {
-  eventId: string;
-  fileCount: number;
-  progress: AttachmentUploadProgress | null;
-  remaining: File[];
-  status: "uploading" | "partial";
+  current: {
+    eventId: string;
+    fileCount: number;
+    progress: AttachmentUploadProgress | null;
+  } | null;
+  failedCount: number;
 };
 
+type Job = { eventId: string; files: File[] };
 type Listener = () => void;
 
-let snapshot: BackgroundUploadSnapshot | null = null;
 const listeners = new Set<Listener>();
-const queue: { eventId: string; files: File[] }[] = [];
+const queue: Job[] = [];
+const failed: Job[] = [];
+let current: BackgroundUploadSnapshot["current"] = null;
+let view: BackgroundUploadSnapshot | null = null;
 let running = false;
 
 function emit(): void {
   for (const listener of listeners) listener();
 }
 
+function publish(): void {
+  const failedCount = failed.reduce((n, job) => n + job.files.length, 0);
+  if (!current && failedCount === 0) {
+    view = null;
+  } else {
+    view = { current, failedCount };
+  }
+  emit();
+}
+
+function holdFailed(eventId: string, files: File[]): void {
+  if (files.length === 0) return;
+  const existing = failed.find((job) => job.eventId === eventId);
+  if (existing) existing.files.push(...files);
+  else failed.push({ eventId, files: [...files] });
+}
+
 export function getBackgroundUpload(): BackgroundUploadSnapshot | null {
-  return snapshot;
+  return view;
 }
 
 export function subscribeBackgroundUpload(listener: Listener): () => void {
@@ -49,15 +70,12 @@ export function startBackgroundUpload(eventId: string, files: File[]): void {
 }
 
 export function retryBackgroundUpload(): void {
-  if (!snapshot || snapshot.status !== "partial" || snapshot.remaining.length === 0) return;
-  queue.unshift({ eventId: snapshot.eventId, files: snapshot.remaining });
-  snapshot = {
-    ...snapshot,
-    status: "uploading",
-    remaining: [],
-    progress: null,
-  };
-  emit();
+  if (failed.length === 0) return;
+  const toRetry = failed.splice(0, failed.length);
+  for (let i = toRetry.length - 1; i >= 0; i--) {
+    queue.unshift(toRetry[i]);
+  }
+  publish();
   void drain();
 }
 
@@ -90,48 +108,43 @@ async function drain(): Promise<void> {
     while (queue.length > 0) {
       const job = queue.shift();
       if (!job) break;
-      snapshot = {
+      current = {
         eventId: job.eventId,
         fileCount: job.files.length,
         progress: null,
-        remaining: [],
-        status: "uploading",
       };
-      emit();
-      const { uploaded, remaining } = await uploadEventAttachments(
-        job.eventId,
-        job.files,
-        (progress) => {
-          if (snapshot?.eventId !== job.eventId) return;
-          snapshot = { ...snapshot, progress };
-          emit();
-        },
-      );
-      notifyUploaded(job.eventId, uploaded);
-      if (remaining.length > 0) {
-        snapshot = {
-          eventId: job.eventId,
-          fileCount: remaining.length,
-          progress: null,
-          remaining,
-          status: "partial",
-        };
-        emit();
-        return;
+      publish();
+      try {
+        const { uploaded, remaining } = await uploadEventAttachments(
+          job.eventId,
+          job.files,
+          (progress) => {
+            if (current?.eventId !== job.eventId) return;
+            current = { ...current, progress };
+            publish();
+          },
+        );
+        notifyUploaded(job.eventId, uploaded);
+        holdFailed(job.eventId, remaining);
+      } catch {
+        // 배치가 통째로 던지면 이 작업의 파일을 실패분에 남긴다. uploading으로 굳히지 않는다.
+        holdFailed(job.eventId, job.files);
       }
     }
-    snapshot = null;
-    emit();
+    current = null;
+    publish();
   } finally {
     running = false;
-    if (queue.length > 0 && snapshot?.status !== "partial") void drain();
+    if (queue.length > 0) void drain();
   }
 }
 
 /** 테스트 전용 */
 export function resetBackgroundUploadForTests(): void {
-  snapshot = null;
+  current = null;
+  view = null;
   queue.length = 0;
+  failed.length = 0;
   running = false;
   listeners.clear();
 }

@@ -32,7 +32,12 @@ import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { EventDetailTagPicker } from "./EventDetailTagPicker";
 import { PendingAttachments } from "./PendingAttachments";
 import { QuantityStepper } from "./QuantityStepper";
-import { COST_KRW_STEP, quantityStep } from "../lib/quantityStep";
+import {
+  COST_KRW_STEP_LARGE,
+  costStepperSteps,
+  quantityExtraStep,
+  quantityStepperSteps,
+} from "../lib/quantityStep";
 
 export interface EventDetailSaveMeta {
   removedAttachmentIds: string[];
@@ -236,7 +241,16 @@ export function EventDetailSheet({
     () => eventDetailFields(draft?.eventTypeKey, draft?.scaleType),
     [draft?.eventTypeKey, draft?.scaleType],
   );
-  const qtyStep = quantityStep(unit || fields.defaultUnit, draft?.eventTypeKey);
+  const qtyUnit = unit || fields.defaultUnit;
+  const qtySteps = quantityStepperSteps(qtyUnit, draft?.eventTypeKey);
+  const qtyExtraStep = quantityExtraStep(qtyUnit, draft?.eventTypeKey);
+
+  function formatQtyStep(step: number): string {
+    if (step === 10000) return t("qtyStep10000");
+    if (step === 1000) return t("qtyStep1000");
+    if (step === 1 && qtySteps.includes(0.1)) return "1.0";
+    return String(step);
+  }
 
   function resolvedProductName(): string {
     if (fields.detailTags) {
@@ -880,12 +894,14 @@ export function EventDetailSheet({
                     id="event-cost"
                     value={costKrw}
                     onChange={setCostKrw}
-                    step={COST_KRW_STEP}
+                    steps={costStepperSteps()}
+                    extraStep={COST_KRW_STEP_LARGE}
                     disabled={busy}
                     placeholder={t("eventDetailCostPlaceholder")}
                     inputMode="numeric"
-                    decreaseLabel={t("qtyDecrease")}
-                    increaseLabel={t("qtyIncrease")}
+                    decreaseLabel={t("qtyDecreaseField", { field: t("eventDetailCost") })}
+                    increaseLabel={t("qtyIncreaseField", { field: t("eventDetailCost") })}
+                    formatStep={formatQtyStep}
                   />
                 </div>
               )}
@@ -901,11 +917,13 @@ export function EventDetailSheet({
                         id="event-qty-offered"
                         value={quantityOffered}
                         onChange={setQuantityOffered}
-                        step={qtyStep}
+                        steps={qtySteps}
+                        extraStep={qtyExtraStep}
                         disabled={busy}
                         placeholder="100"
-                        decreaseLabel={t("qtyDecrease")}
-                        increaseLabel={t("qtyIncrease")}
+                        decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                        increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                        formatStep={formatQtyStep}
                       />
                     </div>
                   )}
@@ -918,11 +936,13 @@ export function EventDetailSheet({
                         id="event-qty-consumed"
                         value={quantity}
                         onChange={setQuantity}
-                        step={qtyStep}
+                        steps={qtySteps}
+                        extraStep={qtyExtraStep}
                         disabled={busy}
                         placeholder={quantityPlaceholder(draft.eventTypeKey, fields.quantityOffered)}
-                        decreaseLabel={t("qtyDecrease")}
-                        increaseLabel={t("qtyIncrease")}
+                        decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityLabelKey) })}
+                        increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityLabelKey) })}
+                        formatStep={formatQtyStep}
                       />
                     </div>
                   )}

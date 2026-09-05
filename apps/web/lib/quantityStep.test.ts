@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { COST_KRW_STEP, quantityStep, stepQuantityValue } from "./quantityStep";
+import {
+  COST_KRW_STEP,
+  COST_KRW_STEP_LARGE,
+  costStepperSteps,
+  quantityExtraStep,
+  quantityStepperSteps,
+  quantityStep,
+  stepQuantityValue,
+} from "./quantityStep";
 
 describe("quantityStep", () => {
   it("g and ml move by 10", () => {
@@ -23,6 +31,36 @@ describe("quantityStep", () => {
     expect(quantityStep("개")).toBe(1);
     expect(quantityStep(null, "note")).toBe(1);
   });
+
+  it("unknown written units do not inherit the type default", () => {
+    expect(quantityStep("컵", "meal")).toBe(1);
+    expect(quantityStep("cup", "water")).toBe(1);
+    expect(quantityStepperSteps("컵", "meal")).toEqual([1]);
+  });
+});
+
+describe("quantityStepperSteps", () => {
+  it("meal and water get 1 and 10", () => {
+    expect(quantityStepperSteps("g", "meal")).toEqual([1, 10]);
+    expect(quantityStepperSteps(null, "water")).toEqual([1, 10]);
+  });
+
+  it("weight gets 0.1 and 1", () => {
+    expect(quantityStepperSteps(null, "weight")).toEqual([0.1, 1]);
+  });
+
+  it("walk gets 1 and 5", () => {
+    expect(quantityStepperSteps(null, "walk")).toEqual([1, 5]);
+  });
+
+  it("count stays a single 1", () => {
+    expect(quantityStepperSteps("개")).toEqual([1]);
+    expect(quantityExtraStep("개")).toBeNull();
+  });
+
+  it("cost gets 1000 and 10000", () => {
+    expect(costStepperSteps()).toEqual([COST_KRW_STEP, COST_KRW_STEP_LARGE]);
+  });
 });
 
 describe("stepQuantityValue", () => {
@@ -36,10 +74,5 @@ describe("stepQuantityValue", () => {
 
   it("keeps typed values and just adds", () => {
     expect(stepQuantityValue("35", 10)).toBe("45");
-  });
-
-  it("cost step is 1000", () => {
-    expect(COST_KRW_STEP).toBe(1000);
-    expect(stepQuantityValue("0", COST_KRW_STEP)).toBe("1000");
   });
 });

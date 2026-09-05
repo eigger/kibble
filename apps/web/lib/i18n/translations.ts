@@ -382,8 +382,10 @@ const dict = {
     en: "Uploading — stay in the app.",
   },
   attachmentUploadRetry: { ko: "다시 올리기", en: "Retry upload" },
-  qtyDecrease: { ko: "줄이기", en: "Decrease" },
-  qtyIncrease: { ko: "늘리기", en: "Increase" },
+  qtyDecreaseField: { ko: "{field} 줄이기", en: "Decrease {field}" },
+  qtyIncreaseField: { ko: "{field} 늘리기", en: "Increase {field}" },
+  qtyStep1000: { ko: "1천", en: "1k" },
+  qtyStep10000: { ko: "1만", en: "10k" },
   attachmentUploadError: {
     ko: "첨부 업로드에 실패했습니다.",
     en: "Could not upload attachment.",
