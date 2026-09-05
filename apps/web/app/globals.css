@@ -5014,3 +5014,38 @@ th {
   margin: var(--space-2) 0 0;
 }
 
+
+/* 상세의 사진 줄. 헤더 flex 행 밖의 독립 블록이라 사진이 늘어도 제목을 안 민다 (R107).
+   이력 첨부 줄(.timeline-attachments)과 같은 모양. */
+.product-photo-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: 14px;
+}
+
+.product-photo-thumb {
+  width: 52px;
+  height: 52px;
+  /* 전역 button의 min-height·padding이 정사각형을 늘리지 않게 (R101) */
+  min-height: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.product-photo-thumb.is-primary {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.product-photo-thumb .product-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

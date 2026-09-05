@@ -299,6 +299,12 @@ enum ProductForm {
   DRY
   WET
   SEMI_MOIST
+  /// 겔형 — 젤리·양갱
+  GEL
+  /// 츄르형 — 짜서 핥아 먹이는 퓨레
+  LICKABLE
+  /// 츄잉형 — 씹는 스틱·져키
+  CHEWY
   POWDER
   CAPSULE
   TABLET
