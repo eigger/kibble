@@ -189,9 +189,13 @@ const NAV_TABS_LEFT: {
   { href: "/care", labelKey: "navCare", Icon: CareIcon },
 ];
 
-const NAV_TAB_CENTER = {
+const NAV_TAB_CENTER: {
+  href: string;
+  labelKey: TranslationKey;
+  Icon: () => ReactElement;
+} = {
   href: "/q",
-  labelKey: "navQuickRecord" as TranslationKey,
+  labelKey: "navQuickRecord",
   Icon: RecordIcon,
 };
 

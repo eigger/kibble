@@ -1,6 +1,6 @@
 import type { TranslationKey } from "./i18n/translations";
 import type { PresetCategory } from "./presetGroups";
-import { PRESET_CATEGORY_ORDER } from "./presetGroups";
+import { PRESET_CATEGORY_ORDER, presetCategoryShortKey } from "./presetGroups";
 import { formatEventDetailLine } from "./eventDetailFields";
 import type { TimelineEvent } from "./types";
 
@@ -18,7 +18,7 @@ export function eventCategoryLabel(
   event: { eventType: { key: string; category?: string | null } },
   t: (key: TranslationKey) => string,
 ): string {
-  return t(`presetCategoryShort.${eventCategory(event)}` as TranslationKey);
+  return t(presetCategoryShortKey(eventCategory(event)));
 }
 
 export function clinicFieldsFromContact(event: {
@@ -109,12 +109,15 @@ export function eventAuditParts(
   return parts;
 }
 
-export function eventDisplayLabel(event: TimelineEvent, t: (key: TranslationKey) => string): string {
+export function eventDisplayLabel(
+  event: TimelineEvent,
+  translateLabel: (labelOrKey: string) => string,
+): string {
   if (event.eventType.key === "medication" && event.course?.name) {
     return event.course.name;
   }
-  if (event.preset?.label) return t(event.preset.label as TranslationKey);
-  return t(event.eventType.label as TranslationKey);
+  if (event.preset?.label) return translateLabel(event.preset.label);
+  return translateLabel(event.eventType.label);
 }
 
 export function eventDetailLine(

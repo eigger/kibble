@@ -28,7 +28,7 @@ export default function HomePage() {
   const { user, loading } = useAuth();
   const userId = user?.id;
   const needsPet = user?.needsPet;
-  const { t, locale } = useLocale();
+  const { t, tLabel, locale } = useLocale();
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
@@ -107,8 +107,8 @@ export default function HomePage() {
   }
 
   const journalInsight = useMemo(
-    () => journalInsightMessage(journalStats, (key, vars) => t(key as TranslationKey, vars)),
-    [journalStats, t],
+    () => journalInsightMessage(journalStats, tLabel),
+    [journalStats, tLabel],
   );
 
   const todayTotal = useMemo(
@@ -178,7 +178,7 @@ export default function HomePage() {
                   {todaySummary.map((row) => (
                     <li key={row.eventTypeKey} className="summary-card">
                       <span className="summary-card-count">{row.count}</span>
-                      <span className="summary-card-label">{t(row.label as TranslationKey)}</span>
+                      <span className="summary-card-label">{tLabel(row.label)}</span>
                     </li>
                   ))}
                 </ul>

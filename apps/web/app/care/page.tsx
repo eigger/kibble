@@ -51,7 +51,7 @@ export default function CarePage() {
   const pathname = routePath(usePathname());
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
-  const { t, locale } = useLocale();
+  const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
   const localeTag = locale === "ko" ? "ko-KR" : "en-US";
 
@@ -303,7 +303,7 @@ export default function CarePage() {
                   >
                     <span className="care-reminder-label">{reminder.label}</span>
                     <span className="care-reminder-meta meta">
-                      {t(reminder.eventTypeLabel as TranslationKey)} · {formatDueDate(reminder.nextDueAt, locale)}
+                      {tLabel(reminder.eventTypeLabel)} · {formatDueDate(reminder.nextDueAt, locale)}
                     </span>
                   </li>
                 ))}

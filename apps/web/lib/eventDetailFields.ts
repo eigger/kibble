@@ -63,11 +63,22 @@ export function scale3FieldLabelKey(scaleType: string | null | undefined): Trans
   return "eventDetailScaleLabel";
 }
 
-export function scale3ValueLabelKey(scaleType: string | null | undefined, value: number): TranslationKey {
-  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${value}` as TranslationKey;
-  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${value}` as TranslationKey;
-  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${value}` as TranslationKey;
-  return `eventDetailScale.${value}` as TranslationKey;
+type Scale3Value = 1 | 2 | 3;
+export type Scale3ValueLabelKey =
+  | `eventDetailUrineAmount.${Scale3Value}`
+  | `eventDetailEnergy.${Scale3Value}`
+  | `eventDetailAppetite.${Scale3Value}`
+  | `eventDetailScale.${Scale3Value}`;
+
+export function scale3ValueLabelKey(
+  scaleType: string | null | undefined,
+  value: number,
+): Scale3ValueLabelKey {
+  const v = (value === 1 || value === 2 || value === 3 ? value : 2) as Scale3Value;
+  if (scaleType === "URINE_AMOUNT_3") return `eventDetailUrineAmount.${v}`;
+  if (scaleType === "ENERGY_3") return `eventDetailEnergy.${v}`;
+  if (scaleType === "APPETITE_3") return `eventDetailAppetite.${v}`;
+  return `eventDetailScale.${v}`;
 }
 
 export function eventDetailFields(

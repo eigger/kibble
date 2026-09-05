@@ -825,6 +825,8 @@ stash는 보안 강화로 90일 → 7일로 줄였지만, 그대로 쓰면 **게
 | **플로팅 버튼 레이어 및 터치 영역 분리** | `.bottom-nav`(`z-index: 50`), `.home-input-bar`(`z-index: 40`) 계층 엄수. 18px 돌출 플로팅 버튼이 잘리지 않도록 유지하고, 칩과의 간섭은 `.home-input-bar-inner`에 `padding-bottom: 20px`을 주어 물리적으로 해결. CSS transition은 `transform: scale(0.94)`를 적용해 리플로우 방지 (R96) |
 | **접근성 있는 독립 버튼 분리** | 칩 내부 `<span onClick>` 중첩을 배제하고, `.product-quick-chip-wrap` 컨테이너 아래 형제 `<button>`으로 분리하여 `aria-label` 및 키보드 접근성 보장 (R97) |
 | **`t()` 번역 키 타입 엄격화** | `t(key: TranslationKey)`로 `| string` 탈출구 제거. 누락/오타 i18n 키를 컴파일 타임에 원천 차단하고 K-9(ko/en 동시 작성) 강제 (R95) |
+| **DB 라벨 분리 (`tLabel`) 및 캐스트 제로** | 사용자가 지은 프리셋 등 DB 리터럴은 `tLabel(labelOrKey: string)`으로 명시적 분리. 템플릿 리터럴 타입(`Scale3ValueLabelKey`, `PresetCategoryShortKey`)을 도입하여 코드베이스 전역의 `as TranslationKey` 캐스트 0건 달성 (R98) |
+| **디자인 토큰(치수 체계) 도입** | `:root`에 `--radius-*`(6/8/12/999px), `--text-*`(0.75/0.82/0.9/1.05rem), `--space-*`(4/8/12/16px), `--shadow-chip-hover` 정의. 제품 화면 4px 반경을 `--radius-sm`(6px)으로 정돈, 임의 폰트 크기(0.74/0.84/0.92rem) 및 뱃지 여백을 기존 스케일에 일치. 다크 모드 칩 호버 시인성 확보 및 보조 버튼 44px 터치 타깃(`::before`) 보장 (R99) |
 
 ### 7.10 지금 결정하지 않는 것
 

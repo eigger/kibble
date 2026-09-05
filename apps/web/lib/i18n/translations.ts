@@ -950,13 +950,34 @@ export const translations = dict;
 
 export type TranslationKey = keyof typeof dict;
 
+export function isTranslationKey(key: string): key is TranslationKey {
+  return key in dict;
+}
+
 export function translate(
   locale: Locale,
   key: TranslationKey,
   params?: Record<string, string | number>,
 ): string {
-  const entry = dict[key as TranslationKey];
+  const entry = dict[key];
   const template = entry ? (entry[locale] ?? entry.ko) : key;
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
 }
+
+/**
+ * 사전 키이거나 사용자가 지은 DB 리터럴 이름.
+ * 사전에 등록된 키이면 번역하고, 없으면 labelOrKey를 그대로 반환한다.
+ */
+export function translateLabel(
+  locale: Locale,
+  labelOrKey: string,
+  params?: Record<string, string | number>,
+): string {
+  if (isTranslationKey(labelOrKey)) {
+    return translate(locale, labelOrKey, params);
+  }
+  if (!params) return labelOrKey;
+  return labelOrKey.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
+}
+

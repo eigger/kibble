@@ -22,7 +22,7 @@ export function TimelineEventBody({
   event: TimelineEvent;
   children?: ReactNode;
 }) {
-  const { t } = useLocale();
+  const { t, tLabel } = useLocale();
   const facts = eventDetailLine(event, t);
   const note = event.note?.trim().replace(/\s+/g, " ") ?? "";
 
@@ -30,7 +30,7 @@ export function TimelineEventBody({
     <div className="timeline-body">
       <div className="timeline-label-row">
         <EventCategoryTag category={eventCategory(event)} label={eventCategoryLabel(event, t)} />
-        <span className="timeline-label">{eventDisplayLabel(event, t)}</span>
+        <span className="timeline-label">{eventDisplayLabel(event, tLabel)}</span>
       </div>
       {facts ? <p className="timeline-detail">{facts}</p> : null}
       {note ? <p className="timeline-note">{note}</p> : null}
