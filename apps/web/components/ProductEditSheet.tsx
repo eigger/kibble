@@ -47,6 +47,13 @@ export function ProductEditSheet({
   const [dosage, setDosage] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [mainIngredients, setMainIngredients] = useState("");
+  const [flavor, setFlavor] = useState("");
+  const [registrationNo, setRegistrationNo] = useState("");
+  const [registeredIngredients, setRegisteredIngredients] = useState("");
+  const [importer, setImporter] = useState("");
+  const [manufacturedAt, setManufacturedAt] = useState("");
+  const [storage, setStorage] = useState("");
+  const [usage, setUsage] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [openedAt, setOpenedAt] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
@@ -77,6 +84,7 @@ export function ProductEditSheet({
   const [showFeeding, setShowFeeding] = useState(false);
   const [showDates, setShowDates] = useState(false);
   const [showPurchase, setShowPurchase] = useState(false);
+  const [showLabelInfo, setShowLabelInfo] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -103,6 +111,22 @@ export function ProductEditSheet({
       setDosage(product.dosage ?? "");
       setIngredients(product.ingredients ?? "");
       setMainIngredients(product.mainIngredients ?? "");
+      setFlavor(product.flavor ?? "");
+      setRegistrationNo(product.ingredientRegistrationNo ?? "");
+      setRegisteredIngredients(product.registeredIngredients ?? "");
+      setImporter(product.importer ?? "");
+      setManufacturedAt(product.manufacturedAt ? product.manufacturedAt.slice(0, 10) : "");
+      setStorage(product.storage ?? "");
+      setUsage(product.usage ?? "");
+      if (
+        product.ingredientRegistrationNo ||
+        product.registeredIngredients ||
+        product.importer ||
+        product.storage ||
+        product.usage
+      ) {
+        setShowLabelInfo(true);
+      }
       setExpiryDate(product.expiryDate ? product.expiryDate.slice(0, 10) : "");
       setOpenedAt(product.openedAt ? product.openedAt.slice(0, 10) : "");
       setPurchaseDate(product.purchaseDate ? product.purchaseDate.slice(0, 10) : "");
@@ -131,7 +155,7 @@ export function ProductEditSheet({
       ) {
         setShowFeeding(true);
       }
-      if (product.expiryDate || product.openedAt) {
+      if (product.expiryDate || product.openedAt || product.manufacturedAt) {
         setShowDates(true);
       }
       if (
@@ -153,6 +177,14 @@ export function ProductEditSheet({
       setDosage("");
       setIngredients("");
       setMainIngredients("");
+      setFlavor("");
+      setRegistrationNo("");
+      setRegisteredIngredients("");
+      setImporter("");
+      setManufacturedAt("");
+      setStorage("");
+      setUsage("");
+      setShowLabelInfo(false);
       setExpiryDate("");
       setOpenedAt("");
       setPurchaseDate("");
@@ -275,6 +307,15 @@ export function ProductEditSheet({
         petId: petId || null,
         dosage: dosage.trim() || null,
         mainIngredients: showFormDetails ? mainIngredients.trim() || null : null,
+        flavor: showFormDetails ? flavor.trim() || null : null,
+        ingredientRegistrationNo: registrationNo.trim() || null,
+        registeredIngredients: registeredIngredients.trim() || null,
+        importer: importer.trim() || null,
+        manufacturedAt: manufacturedAt
+          ? new Date(`${manufacturedAt}T00:00:00.000Z`).toISOString()
+          : null,
+        storage: storage.trim() || null,
+        usage: usage.trim() || null,
         ingredients: ingredients.trim() || null,
         expiryDate: expiryDate ? new Date(`${expiryDate}T00:00:00.000Z`).toISOString() : null,
         openedAt: openedAt ? new Date(`${openedAt}T00:00:00.000Z`).toISOString() : null,
@@ -612,6 +653,23 @@ export function ProductEditSheet({
                   />
                 </div>
 
+                {showFormDetails && (
+                  <div className="field-group">
+                    <label className="field-label" htmlFor="prod-flavor">
+                      {t("productFlavorLabel")}
+                    </label>
+                    <input
+                      id="prod-flavor"
+                      type="text"
+                      className="text-input"
+                      placeholder={t("productFlavorPlaceholder")}
+                      value={flavor}
+                      onChange={(e) => setFlavor(e.target.value)}
+                      disabled={saving}
+                    />
+                  </div>
+                )}
+
                 <div className="field-group">
                   <label className="field-label" htmlFor="prod-palatability">
                     {t("productPalatabilityLabel")}
@@ -693,6 +751,21 @@ export function ProductEditSheet({
 
             {showDates && (
               <div className="product-section-content">
+                {/* 제조 → 유통기한 → 개봉. 시간 순서대로 읽힌다 */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-manufactured-at">
+                    {t("productManufacturedAtLabel")}
+                  </label>
+                  <input
+                    id="prod-manufactured-at"
+                    type="date"
+                    className="text-input"
+                    value={manufacturedAt}
+                    onChange={(e) => setManufacturedAt(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+
                 <div className="field-group">
                   <label className="field-label" htmlFor="prod-expiry">
                     {t("productExpiryDateLabel")}
@@ -728,6 +801,99 @@ export function ProductEditSheet({
                     className="text-input"
                     value={openedAt}
                     onChange={(e) => setOpenedAt(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 표기사항 — 사료관리법이 요구하는 라벨 항목들. 카메라로 찍어 두는 대신
+              찾아볼 수 있게 받는다. 전부 선택 입력이다. */}
+          <div className="product-form-section">
+            <button
+              type="button"
+              className="product-section-toggle"
+              onClick={() => setShowLabelInfo((prev) => !prev)}
+            >
+              <span>{t("productSectionLabelInfo")}</span>
+              <span className="product-section-chevron">
+                {showLabelInfo ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+              </span>
+            </button>
+
+            {showLabelInfo && (
+              <div className="product-section-content">
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-usage">
+                    {t("productUsageLabel")}
+                  </label>
+                  <input
+                    id="prod-usage"
+                    type="text"
+                    className="text-input"
+                    placeholder={t("productUsagePlaceholder")}
+                    value={usage}
+                    onChange={(e) => setUsage(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-registered-ingredients">
+                    {t("productRegisteredIngredientsLabel")}
+                  </label>
+                  <textarea
+                    id="prod-registered-ingredients"
+                    className="text-input textarea"
+                    rows={2}
+                    placeholder={t("productRegisteredIngredientsPlaceholder")}
+                    value={registeredIngredients}
+                    onChange={(e) => setRegisteredIngredients(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+
+                {/* 등록성분의 공식 번호다 — 바로 아래에 둔다 */}
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-registration-no">
+                    {t("productRegistrationNoLabel")}
+                  </label>
+                  <input
+                    id="prod-registration-no"
+                    type="text"
+                    className="text-input"
+                    value={registrationNo}
+                    onChange={(e) => setRegistrationNo(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-importer">
+                    {t("productImporterLabel")}
+                  </label>
+                  <input
+                    id="prod-importer"
+                    type="text"
+                    className="text-input"
+                    value={importer}
+                    onChange={(e) => setImporter(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className="field-group">
+                  <label className="field-label" htmlFor="prod-storage">
+                    {t("productStorageLabel")}
+                  </label>
+                  <input
+                    id="prod-storage"
+                    type="text"
+                    className="text-input"
+                    placeholder={t("productStoragePlaceholder")}
+                    value={storage}
+                    onChange={(e) => setStorage(e.target.value)}
                     disabled={saving}
                   />
                 </div>

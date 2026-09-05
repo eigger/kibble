@@ -70,7 +70,14 @@ export interface EventAttachment {
   transcodeStatus?: string | null;
 }
 
-export type ProductCategory = "MEAL" | "SUPPLEMENT" | "TREAT" | "HYGIENE" | "DEVICE" | "OTHER";
+export type ProductCategory =
+  | "MEAL"
+  | "SUPPLEMENT"
+  | "MEDICATION"
+  | "TREAT"
+  | "HYGIENE"
+  | "DEVICE"
+  | "OTHER";
 export type Palatability = "HIGH" | "MEDIUM" | "LOW";
 export type ProductForm =
   | "DRY"
@@ -122,6 +129,15 @@ export interface Product {
   dosage: string | null;
   /** 주성분 한 줄. 전성분(ingredients)과 다르다 */
   mainIngredients: string | null;
+  /** 맛. 기호성이 "잘 먹나"라면 이건 "무슨 맛인가"다 */
+  flavor: string | null;
+  ingredientRegistrationNo: string | null;
+  /** 등록성분(보장분석치). 원재료 나열인 ingredients와 다르다 */
+  registeredIngredients: string | null;
+  importer: string | null;
+  manufacturedAt: string | null;
+  storage: string | null;
+  usage: string | null;
   ingredients: string | null;
   expiryDate: string | null;
   openedAt: string | null;

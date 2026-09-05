@@ -248,9 +248,9 @@ curl -sS -X POST "$BASE/api/products" \
   }'
 ```
 
-선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
+선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `flavor`, `usage`, `registeredIngredients`, `ingredientRegistrationNo`, `importer`, `manufacturedAt`, `storage`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
 
-날짜 3종(`expiryDate`·`openedAt`·`purchaseDate`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
+날짜 4종(`expiryDate`·`openedAt`·`purchaseDate`·`manufacturedAt`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
 
 **제형과 입자크기**
 
@@ -259,7 +259,15 @@ curl -sS -X POST "$BASE/api/products" \
 
 `kibbleSize`는 **`form`이 `DRY`일 때만** 저장됩니다. 그 외의 제형으로 보내면 서버가 `null`로 정리하며, 나중에 `form`만 `WET`으로 바꿔도 저장돼 있던 `kibbleSize`가 함께 지워집니다 — "습식인데 소립"이 남지 않게 하기 위해서입니다.
 
-**주성분과 전성분**
+**카테고리**
+
+`MEAL`(사료) · `SUPPLEMENT`(영양제) · `MEDICATION`(약·제제) · `TREAT`(간식) · `HYGIENE`(위생용품) · `DEVICE`(기기) · `OTHER`(기타).
+
+`MEDICATION`은 지사제·억제제처럼 투약(`MedicationCourse`) 축과 짝이 맞는 물건입니다. "급성/만성"은 **상태**라 카테고리가 아니라 `usage`(용도)에 적습니다 (R111).
+
+**성분 세 칸**
+
+사료 라벨에서 실제로 다른 것들이라 나눠 받습니다 — `mainIngredients`(주성분, 목록 카드용 한 줄) · `registeredIngredients`(등록성분, 보장분석치) · `ingredients`(전성분, 원재료 나열).
 
 `mainIngredients`는 목록 카드에 한 줄로 뜨는 **주성분**(200자)이고, `ingredients`는 상세에서 접었다 펴는 **전성분**(4000자)입니다. 목록에 4000자를 띄울 수 없어 컬럼을 나눴습니다.
 

@@ -105,6 +105,7 @@ export default function ProductsPage() {
     { key: "ALL", label: t("productCategoryAll") },
     { key: "MEAL", label: t("productCategoryMeal") },
     { key: "SUPPLEMENT", label: t("productCategorySupplement") },
+    { key: "MEDICATION", label: t("productCategoryMedication") },
     { key: "TREAT", label: t("productCategoryTreat") },
     { key: "HYGIENE", label: t("productCategoryHygiene") },
     { key: "DEVICE", label: t("productCategoryDevice") },
