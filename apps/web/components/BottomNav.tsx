@@ -95,6 +95,16 @@ function PresetMenuIcon() {
   );
 }
 
+function ProductMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 12v10" />
+    </svg>
+  );
+}
+
 function AnalyticsMenuIcon() {
   return (
     <svg {...iconProps()}>
@@ -195,6 +205,7 @@ const MORE_ROUTES = [
   "/backup",
   "/pets",
   "/presets",
+  "/products",
   "/users",
   "/analytics",
   "/integrations",
@@ -328,6 +339,12 @@ export function BottomNav() {
                   <PresetMenuIcon />
                 </span>
                 {t("presetsManageLink")}
+              </button>
+              <button type="button" className="sheet-item" onClick={() => go("/products")}>
+                <span className="sheet-item-icon">
+                  <ProductMenuIcon />
+                </span>
+                {t("navProducts")}
               </button>
             </div>
 

@@ -128,6 +128,7 @@ export async function eventRoutes(app: FastifyInstance) {
           quantityOffered: body.quantityOffered,
           unit: body.unit,
           scaleValue: body.scaleValue,
+          productId: body.productId,
           productName: body.productName,
           contactId,
           costKrw: body.costKrw,
@@ -352,6 +353,7 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.quantityOffered !== undefined) updateData.quantityOffered = data.quantityOffered;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.scaleValue !== undefined) updateData.scaleValue = data.scaleValue;
+    if (data.productId !== undefined) updateData.productId = data.productId?.trim() || null;
     if (data.productName !== undefined) updateData.productName = data.productName?.trim() || null;
     const clinicDetailsChanged =
       data.clinicAddress !== undefined ||

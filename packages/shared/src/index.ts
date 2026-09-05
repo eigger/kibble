@@ -6,6 +6,7 @@ export * from "./schemas/preset.js";
 export * from "./schemas/event.js";
 export * from "./schemas/apiToken.js";
 export * from "./schemas/care.js";
+export * from "./schemas/product.js";
 export * from "./schemas/parse.js";
 export * from "./i18n/index.js";
 export * from "./kstClock.js";

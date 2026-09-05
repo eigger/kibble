@@ -70,10 +70,40 @@ export interface EventAttachment {
   transcodeStatus?: string | null;
 }
 
+export type ProductCategory = "MEAL" | "SUPPLEMENT" | "TREAT" | "HYGIENE" | "DEVICE" | "OTHER";
+export type Palatability = "HIGH" | "MEDIUM" | "LOW";
+
+export interface Product {
+  id: string;
+  householdId: string;
+  petId: string | null;
+  name: string;
+  brand: string | null;
+  category: ProductCategory;
+  photoPath: string | null;
+  purchaseUrl: string | null;
+  dosage: string | null;
+  ingredients: string | null;
+  expiryDate: string | null;
+  openedAt: string | null;
+  purchaseDate: string | null;
+  costKrw: number | null;
+  isActive: boolean;
+  palatability: Palatability | null;
+  adverseReactions: string[];
+  notes: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  pet?: { id: string; name: string } | null;
+}
+
 export interface CreatedEvent {
   id: string;
   petId: string;
   presetId: string | null;
+  productId?: string | null;
+  product?: Product | null;
   occurredAt: string;
   createdAt?: string;
   updatedAt?: string;
@@ -166,6 +196,8 @@ export interface TimelineEvent {
   quantityOffered: number | null;
   unit: string | null;
   scaleValue: number | null;
+  productId?: string | null;
+  product?: Product | null;
   productName: string | null;
   costKrw: number | null;
   note: string | null;

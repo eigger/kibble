@@ -116,6 +116,7 @@ const MESSAGES = {
   },
   eventTypeNotFound: { ko: "이벤트 유형을 찾을 수 없습니다", en: "Event type not found" },
   eventNotFound: { ko: "기록을 찾을 수 없습니다", en: "Event not found" },
+  productNotFound: { ko: "제품을 찾을 수 없습니다", en: "Product not found" },
   petRequiredForEvent: {
     ko: "기록할 반려동물이 필요합니다",
     en: "A pet is required to create an event",

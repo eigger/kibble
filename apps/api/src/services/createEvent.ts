@@ -34,6 +34,7 @@ export type CreateEventParams = {
   quantityOffered?: number | null;
   unit?: string | null;
   scaleValue?: number | null;
+  productId?: string | null;
   productName?: string | null;
   contactId?: string | null;
   costKrw?: number | null;
@@ -56,6 +57,7 @@ const eventSelect = {
   petId: true,
   eventTypeId: true,
   presetId: true,
+  productId: true,
   occurredAt: true,
   quantity: true,
   quantityOffered: true,
@@ -238,6 +240,23 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     throw new CreateEventValidationError("DOSE_SLOT_WITHOUT_COURSE");
   }
 
+  let productId = params.productId?.trim() || null;
+  let productName = params.productName?.trim() || null;
+  if (productId) {
+    const product = await db.product.findFirst({
+      where: {
+        id: productId,
+        ...householdWhere(params.householdId),
+      },
+      select: { id: true, name: true },
+    });
+    if (!product) {
+      productId = null;
+    } else if (!productName) {
+      productName = product.name;
+    }
+  }
+
   try {
     return await db.event.create({
       data: {
@@ -245,12 +264,13 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         petId: params.petId,
         eventTypeId,
         presetId,
+        productId: productId ?? undefined,
         occurredAt,
         quantity: quantity ?? undefined,
         quantityOffered: quantityOffered ?? undefined,
         unit: unit ?? undefined,
         scaleValue: params.scaleValue ?? undefined,
-        productName: params.productName?.trim() || undefined,
+        productName: productName || undefined,
         contactId: params.contactId ?? undefined,
         costKrw: params.costKrw ?? undefined,
         note: params.note ?? undefined,
@@ -281,6 +301,26 @@ export const eventWithRelationsSelect = {
   ...eventSelect,
   eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
   preset: { select: { id: true, label: true } },
+  product: {
+    select: {
+      id: true,
+      name: true,
+      brand: true,
+      category: true,
+      photoPath: true,
+      purchaseUrl: true,
+      dosage: true,
+      ingredients: true,
+      expiryDate: true,
+      openedAt: true,
+      purchaseDate: true,
+      costKrw: true,
+      isActive: true,
+      palatability: true,
+      adverseReactions: true,
+      notes: true,
+    },
+  },
   contact: {
     select: { id: true, name: true, address: true, latitude: true, longitude: true, placeUrl: true },
   },
