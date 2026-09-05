@@ -40,6 +40,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
             path={att.path}
             mime={att.mime}
             posterPath={att.posterPath}
+            transcodeStatus={att.transcodeStatus}
             alt=""
             className="attachment-thumb attachment-thumb-inline"
           />

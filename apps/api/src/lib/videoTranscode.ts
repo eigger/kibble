@@ -187,6 +187,8 @@ export function transcodeFfmpegArgs(inputPath: string, outputPath: string): stri
     "-loglevel",
     "error",
     "-y",
+    // -threads는 코덱 AVOption이라 위치가 디코더/인코더를 가른다. -i 앞은
+    // HEVC 디코더, -c:v 뒤는 libx264. OOM의 큰 쪽은 인코더 프레임 버퍼다.
     "-threads",
     "1",
     "-filter_threads",
@@ -203,6 +205,10 @@ export function transcodeFfmpegArgs(inputPath: string, outputPath: string): stri
     "yuv420p",
     "-c:v",
     "libx264",
+    "-threads",
+    "1",
+    "-x264-params",
+    "threads=1:lookahead_threads=1",
     "-preset",
     "veryfast",
     "-crf",

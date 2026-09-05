@@ -7,6 +7,7 @@ import {
   fetchAttachmentBlob,
 } from "../lib/eventAttachments";
 import { startLightboxPlayback } from "../lib/lightboxVideo";
+import { holdVideoThumbPlaceholder } from "../lib/attachmentThumb";
 
 type Props = {
   path: string;
@@ -16,6 +17,7 @@ type Props = {
   controls?: boolean;
   /** 영상 대표 프레임. 목록에서는 이것만 받는다 */
   posterPath?: string | null;
+  transcodeStatus?: string | null;
 };
 
 export function EventAttachmentThumb({
@@ -25,15 +27,22 @@ export function EventAttachmentThumb({
   className,
   controls = false,
   posterPath,
+  transcodeStatus,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = mime.startsWith("video/");
   // 목록·썸네일에 <video>를 걸면 브라우저가 영상 전송을 열고 버퍼링한다(cross-origin
   // 폴백에서는 아예 통째로 받는다). 포스터가 있으면 사진 한 장만 받고 끝낸다.
   // 재생(controls)일 때만 진짜 영상을 가리킨다.
+  const awaitingPoster = holdVideoThumbPlaceholder({
+    mime,
+    controls,
+    posterPath,
+    transcodeStatus,
+  });
   const usePoster = isVideo && !controls && Boolean(posterPath);
   const sourcePath = usePoster && posterPath ? posterPath : path;
-  const renderVideo = isVideo && !usePoster;
+  const renderVideo = isVideo && !usePoster && !awaitingPoster;
   // 서버(window 없음)는 false, 클라 same-origin은 true → 렌더 중 호출하면
   // SSR은 placeholder <span>, 클라 첫 페인트는 <video>/<img>가 되어 hydration이
   // 그 서브트리를 버린다. 지금은 목록·상세가 클라 fetch라 SSR 시점에 첨부가
@@ -43,11 +52,15 @@ export function EventAttachmentThumb({
   // <video>가 클릭 제스처 밖에서 마운트되어 autoplay가 막힌다. 부수 효과로
   // 목록 썸네일의 placeholder 깜빡임도 없다.
   const [src, setSrc] = useState<string | null>(() =>
-    useDirect ? directAttachmentUrl(sourcePath) : null,
+    awaitingPoster ? null : useDirect ? directAttachmentUrl(sourcePath) : null,
   );
   const [autoplayMuted, setAutoplayMuted] = useState(false);
 
   useEffect(() => {
+    if (awaitingPoster) {
+      setSrc(null);
+      return;
+    }
     if (useDirect) {
       setSrc(directAttachmentUrl(sourcePath));
       return;
@@ -69,7 +82,7 @@ export function EventAttachmentThumb({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [sourcePath, useDirect]);
+  }, [sourcePath, useDirect, awaitingPoster]);
 
   useEffect(() => {
     setAutoplayMuted(false);
