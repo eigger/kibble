@@ -31,9 +31,9 @@ import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThu
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
   deleteEventAttachment,
-  uploadEventAttachments,
-  type AttachmentUploadProgress,
 } from "../../lib/eventAttachments";
+import { startBackgroundUpload } from "../../lib/backgroundUpload";
+import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
 import { groupPresetsByCategory } from "../../lib/presetGroups";
 import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
 
@@ -114,7 +114,6 @@ export default function QuickRecordPage() {
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<AttachmentUploadProgress | null>(null);
   const [medPickOpen, setMedPickOpen] = useState(false);
   const [medSlotPickOpen, setMedSlotPickOpen] = useState(false);
   const [pendingMedPreset, setPendingMedPreset] = useState<Preset | null>(null);
@@ -160,37 +159,7 @@ export default function QuickRecordPage() {
     void loadQuickData();
   }, [user, needsPet, pathname, loadQuickData]);
 
-  function mergeEventAttachments(eventId: string, uploaded: EventAttachment[]) {
-    if (uploaded.length === 0) return;
-    setRecentEvents((prev) =>
-      prev.map((e) =>
-        e.id === eventId
-          ? { ...e, attachments: [...(e.attachments ?? []), ...uploaded] }
-          : e,
-      ),
-    );
-    setDetailAttachments((prev) => [...prev, ...uploaded]);
-  }
-
-  async function uploadFilesToEvent(
-    eventId: string,
-    files: File[],
-    onRemaining: (remaining: File[]) => void,
-  ): Promise<boolean> {
-    if (files.length === 0) return true;
-    const { uploaded, remaining } = await uploadEventAttachments(
-      eventId,
-      files,
-      setUploadProgress,
-    );
-    if (uploaded.length > 0) mergeEventAttachments(eventId, uploaded);
-    if (remaining.length > 0) {
-      onRemaining(remaining);
-      show(t("attachmentUploadPartial"), "error");
-      return false;
-    }
-    return true;
-  }
+  useMergeUploadedAttachments(setRecentEvents);
 
   function openDetailFromEvent(event: TimelineEvent, edit = false) {
     if (!pet) return;
@@ -319,6 +288,7 @@ export default function QuickRecordPage() {
         const outcome = await createEventWithOfflineFallback({
           userId: user.id,
           labelKey: preset?.label ?? draft.label,
+          attachments: filesToUpload,
           body: {
             petId: draft.petId,
             presetId: draft.presetId ?? undefined,
@@ -352,30 +322,15 @@ export default function QuickRecordPage() {
         }
 
         const event = outcome.event;
-        // 첨부보다 먼저 타임라인에 넣는다 — mergeEventAttachments()는 목록에서 이벤트를
-        // 찾아 썸네일을 붙이므로, 순서가 뒤집히면 새 기록에 사진이 안 보인다.
+        // 첨부보다 먼저 타임라인에 넣는다 — 업로드는 뒤에서 돌고, 끝나면
+        // kibble-attachments-uploaded로 썸네일을 붙인다.
         setRecentEvents((prev) => insertTimelineEvent(prev, createdEventToTimeline(event)));
-
-        if (filesToUpload.length > 0) {
-          // 생성은 이미 끝났다. 첨부가 실패해 시트를 열어둔 채 다시 저장할 때 같은
-          // dedupeKey로 재POST되면 유니크 제약에 걸리므로 여기서 편집 모드로 넘긴다.
-          setDetailDraft((prev) =>
-            prev ? { ...prev, mode: "edit", eventId: event.id } : prev,
-          );
-          const attachmentsOk = await uploadFilesToEvent(
-            event.id,
-            filesToUpload,
-            setDetailPendingFiles,
-          );
-          // 실패한 파일은 시트에 남겨 다시 시도할 수 있게 한다
-          if (!attachmentsOk) return;
-          setDetailPendingFiles([]);
-        }
-
         setDetailOpen(false);
         setDetailDraft(null);
         setDetailAttachments([]);
+        setDetailPendingFiles([]);
         show(t("eventDetailCreated"), "success");
+        startBackgroundUpload(event.id, filesToUpload);
         return;
       }
 
@@ -399,13 +354,6 @@ export default function QuickRecordPage() {
           needsReview: false,
         }),
       });
-      let attachmentsOk = true;
-      if (filesToUpload.length > 0) {
-        attachmentsOk = await uploadFilesToEvent(draft.eventId, filesToUpload, setDetailPendingFiles);
-        if (attachmentsOk) setDetailPendingFiles([]);
-      }
-      if (!attachmentsOk) return;
-
       for (const attachmentId of meta.removedAttachmentIds) {
         await deleteEventAttachment(attachmentId);
       }
@@ -429,14 +377,15 @@ export default function QuickRecordPage() {
       setDetailOpen(false);
       setDetailDraft(null);
       setDetailAttachments([]);
+      setDetailPendingFiles([]);
       show(t("eventDetailSaved"), "success");
+      startBackgroundUpload(draft.eventId, filesToUpload);
     } catch (err) {
       const message = formatApiErrorMessage(err, t("recordError"), locale);
       setDetailSaveError(message);
       show(message, "error");
     } finally {
       setDetailSaving(false);
-      setUploadProgress(null);
     }
   }
 
@@ -673,7 +622,6 @@ export default function QuickRecordPage() {
         attachments={detailAttachments}
         pendingFiles={detailPendingFiles}
         onPendingFilesChange={setDetailPendingFiles}
-        uploadProgress={uploadProgress}
         onDeleteEvent={detailDraft?.eventId ? handleDeleteEvent : undefined}
         onClose={() => {
           if (detailSaving) return;

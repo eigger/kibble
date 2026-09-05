@@ -9,6 +9,7 @@ import { LocaleProvider } from "../lib/i18n/locale-context";
 import { BottomNav } from "../components/BottomNav";
 import { OfflineBanner } from "../components/OfflineBanner";
 import { OfflineSync } from "../components/OfflineSync";
+import { BackgroundUploadBanner } from "../components/BackgroundUploadBanner";
 import { withBasePath } from "../lib/base-path";
 
 // 첫 페인트 전에 저장된 테마를 적용해서, React가 붙기 전까지 잠깐 시스템 테마로
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <ToastProvider>
               <AuthProvider>
                 <OfflineBanner />
+                <BackgroundUploadBanner />
                 <OfflineSync />
                 {children}
                 <BottomNav />

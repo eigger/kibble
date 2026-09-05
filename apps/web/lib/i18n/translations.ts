@@ -377,6 +377,13 @@ const dict = {
   removeAttachment: { ko: "첨부 제거", en: "Remove attachment" },
   attachmentPreparing: { ko: "준비 중", en: "Preparing" },
   attachmentUploading: { ko: "{current}/{total} 업로드 중", en: "Uploading {current}/{total}" },
+  attachmentUploadingStay: {
+    ko: "올리는 중 — 앱을 나가지 마세요.",
+    en: "Uploading — stay in the app.",
+  },
+  attachmentUploadRetry: { ko: "다시 올리기", en: "Retry upload" },
+  qtyDecrease: { ko: "줄이기", en: "Decrease" },
+  qtyIncrease: { ko: "늘리기", en: "Increase" },
   attachmentUploadError: {
     ko: "첨부 업로드에 실패했습니다.",
     en: "Could not upload attachment.",
