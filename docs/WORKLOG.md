@@ -144,10 +144,35 @@
 | R114 | `.container`를 flex 열의 자식으로 두고 폭은 stretch에 맡기기 | **기각** | `.container`에는 `margin: 0 auto`가 있고, flexbox는 **교차축 마진이 `auto`인 아이템을 stretch하지 않는다** — fit-content로 줄인 뒤 가운데 정렬한다. 그래서 빠른 기록만 본문 폭이 **내용 폭을 따라갔다**. 다른 11개 페이지는 `<main class="container">`라 블록이어서 이 함정에 안 걸린다. flex 자식으로 쓸 때는 `width: 100%`로 교차 크기를 못 박는다 | — |
 | R115 | 기록 태그의 원재료·종류 입력 칸을 유지하면서 제품 선택도 받기 | **기각** | 제품 상세에 이미 전성분·주성분·카테고리가 들어가는데 기록 태그에서 원재료나 종류를 따로 받으면 데이터가 중복되고 입력 마찰이 생긴다. 사료의 '원재료', 간식·영양의 '종류'를 걷어내고 제품 선택으로 일원화한다. 병원 태그에도 제제 칩을 추가해 처방 약·보조제를 제품 카탈로그에서 바로 연결한다 | — |
 | R116 | Background Fetch 업로드 옵션에 `downloadTotal: 0` 명시 | **기각** | 업로드 요청이라도 서버가 201 Created와 JSON 본문(수백 B)을 반환한다. `downloadTotal: 0`은 브라우저에 "다운로드 바이트가 0을 초과하면 안 됨"을 의미하므로 응답을 받자마자 `download-total-exceeded`로 abort된다. `downloadTotal`을 제거하고 `uploadTotal`을 지정해야 정상 완료된다 | — |
+| R117 | Background Fetch 업로드 옵션에서 `downloadTotal` 생략하기 | **기각** | W3C/Blink WebIDL 명세상 `downloadTotal`의 기본값은 0이다. 생략하더라도 0으로 간주되므로, 서버의 201 Created JSON 응답 바이트(수백 B) 수신 즉시 'download-total-exceeded'로 취소된다. 업로드 요청이라도 서버 응답 본문을 수용할 수 있도록 10MB 이상의 `downloadTotal` 헤드룸을 명시해야 한다 | — |
+| R118 | Background Fetch 실패 시 즉시 화면 폴백 업로드로 전환하기 | **기각** | SW가 백그라운드 fetch를 아직 시도 중인 상태에서 화면 폴백을 시작하면, SW 전송과 화면 전송이 동시 실행되어 동일 파일이 DB에 2번 중복 업로드된다. 타임아웃/실패 시 SW에 작업을 명시적으로 취소(Abort)하고, 서버에서도 최근 동일 파일 업로드에 대해 멱등성을 보장해야 한다 | — |
 
 ---
 
 ## 2. 세션 로그
+
+### 2026-09-06 — v0.16.1 릴리스
+
+PR #82(기록 칩 및 태그 칩 가로 사이즈와 패딩 축소) + PR #83(PWA Background Fetch 알림창 표시 실패 및 중복 업로드 오류 수정) 머지 후 태그.
+DB 마이그레이션 없음.
+
+---
+
+### 2026-09-06 — 기록 칩 및 태그 칩 가로 사이즈와 패딩 축소
+
+- 빠른 기록 칩(`.chip-quick-3`, `.chip-quick-5`, `.chip-quick-wide` 등)의 가로 최소/최대 폭과 패딩을 약 2~4px 축소하여 한 줄에 더 많은 칩이 안정적으로 보이도록 조정했다.
+- 기록 상세 시트의 태그 칩(`.event-detail-chip`) 좌우 패딩을 10px에서 8px로 축소했다. (자주 쓰는 제품 빠른 선택 칩 `.product-quick-chip`은 10px 유지)
+
+---
+
+### 2026-09-06 — PWA Background Fetch 알림창 표시 실패 및 중복 업로드 오류 수정
+
+- **Chromium `downloadTotal` 0 기본값 대응**: `startBgFetch` 옵션에 `downloadTotal: 10 * 1024 * 1024` (10MB)를 명시하여 서버의 201 Created JSON 응답으로 인해 `download-total-exceeded`로 강제 취소되던 문제를 해결했다 (R117).
+- **SW 실패 이벤트 선검사**: fail 이벤트가 발생하더라도 `responseReady`를 검사하여 서버가 이미 2xx를 반환했다면 성공으로 승격 처리하여 불필요한 재시도 및 중복 전송을 원천 차단했다.
+- **타임아웃(8초) 현실화 및 명시적 Abort 신호**: 모바일 기기의 SW 기동 지연을 고려해 타임아웃을 8초로 조정하고, 실패 시 `BF_SW_ABORT_JOB` 신호로 SW 백그라운드 작업을 취소하여 화면 폴백과의 동시 실행(이중 업로드)을 방지했다 (R118).
+- **화면 및 서버 양방향 중복 가드**: `mergeTimelineAttachments`에서 동일 첨부파일 ID를 deduplicate하고, 서버 `insertEventAttachment` 트랜잭션 내에서 120초 이내의 동일 파일 중복 업로드 시 기존 레코드를 반환하도록 멱등성을 보장했다.
+
+---
 
 ### 2026-09-05 — v0.16.0 릴리스
 
