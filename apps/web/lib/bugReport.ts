@@ -3,7 +3,7 @@
 // 모아뒀다가 제보 시 자동으로 붙여준다. 공개 저장소이므로 반려동물 이름·이메일 같은
 // 개인정보는 자동 수집하지 않고, 경로·상태코드·에러 메시지 같은 기술 정보만 담는다.
 // 자동 제출하지 않고 GitHub 이슈 작성 화면을 새 탭으로 열어 제보자가 검토 후 직접 제출한다.
-import type { Locale } from "./i18n/translations";
+import { translate, type Locale } from "./i18n/translations";
 
 const RING_BUFFER_SIZE = 5;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
@@ -65,25 +65,14 @@ function truncate(s: string, max: number): string {
 }
 
 function diagLabels(locale: Locale) {
-  if (locale === "en") {
-    return {
-      noDesc: "(no description)",
-      version: "App version",
-      screen: "Screen",
-      time: "Time",
-      browser: "Browser",
-      failedApi: "Recent failed API requests",
-      consoleErrors: "Recent console errors",
-    };
-  }
   return {
-    noDesc: "(설명 없음)",
-    version: "앱 버전",
-    screen: "발생 화면",
-    time: "시각",
-    browser: "브라우저",
-    failedApi: "최근 실패한 API 요청",
-    consoleErrors: "최근 콘솔 에러",
+    noDesc: translate(locale, "bugReportNoDesc"),
+    version: translate(locale, "bugReportAppVersion"),
+    screen: translate(locale, "bugReportScreen"),
+    time: translate(locale, "bugReportTime"),
+    browser: translate(locale, "bugReportBrowser"),
+    failedApi: translate(locale, "bugReportFailedApi"),
+    consoleErrors: translate(locale, "bugReportConsoleErrors"),
   };
 }
 

@@ -324,11 +324,47 @@ async function registerSyncIfSupported() {
   }
 }
 
+const SW_DICT = {
+  uploadingSingle: {
+    ko: "사진 올리는 중...{percent}",
+    en: "Uploading...{percent}",
+  },
+  uploadingMultiple: {
+    ko: "사진 {current}/{total}장 올리는 중...{percent}",
+    en: "Uploading {current}/{total}...{percent}",
+  },
+  completeSingle: {
+    ko: "사진 업로드 완료",
+    en: "Photo uploaded",
+  },
+  completeMultiple: {
+    ko: "사진 {count}장 업로드 완료",
+    en: "{count} photos uploaded",
+  },
+  failed: {
+    ko: "사진 {count}장 업로드 실패. 다시 시도해 주세요.",
+    en: "Upload failed ({count} files). Please try again.",
+  },
+  cancel: {
+    ko: "취소",
+    en: "Cancel",
+  },
+};
+
+function swTranslate(locale, key, params) {
+  const loc = locale === "en" ? "en" : "ko";
+  const entry = SW_DICT[key];
+  if (!entry) return key;
+  let text = entry[loc] || entry.ko;
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
+}
+
 async function showSwProgressNotification(job) {
   if (!self.registration || !self.registration.showNotification) return;
   const currentNum = Math.min((job.fileIndex || 0) + 1, job.files.length);
   const total = job.files.length;
-  const isEn = job.locale === "en";
+  const locale = job.locale === "en" ? "en" : "ko";
 
   let percentText = "";
   const bytesTotal = (job.files || []).reduce((n, f) => n + (f.size || 0), 0);
@@ -337,13 +373,15 @@ async function showSwProgressNotification(job) {
     percentText = ` (${pct}%)`;
   }
 
-  const body = isEn
-    ? total > 1
-      ? `Uploading ${currentNum}/${total}...${percentText}`
-      : `Uploading...${percentText}`
-    : total > 1
-      ? `사진 ${currentNum}/${total}장 올리는 중...${percentText}`
-      : `사진 올리는 중...${percentText}`;
+  const body = total > 1
+    ? swTranslate(locale, "uploadingMultiple", {
+        current: currentNum,
+        total,
+        percent: percentText,
+      })
+    : swTranslate(locale, "uploadingSingle", {
+        percent: percentText,
+      });
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
   const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
@@ -356,7 +394,7 @@ async function showSwProgressNotification(job) {
       badge,
       silent: true,
       data: { url: targetUrl, jobId: job.id, eventId: job.eventId },
-      actions: [{ action: "cancel", title: isEn ? "Cancel" : "취소" }],
+      actions: [{ action: "cancel", title: swTranslate(locale, "cancel") }],
     });
   } catch {}
 }
@@ -364,14 +402,10 @@ async function showSwProgressNotification(job) {
 async function showSwCompleteNotification(job) {
   if (!self.registration || !self.registration.showNotification) return;
   const total = (job.uploaded || []).length || job.files.length;
-  const isEn = job.locale === "en";
-  const body = isEn
-    ? total > 1
-      ? `${total} photos uploaded`
-      : "Photo uploaded"
-    : total > 1
-      ? `사진 ${total}장 업로드 완료`
-      : "사진 업로드 완료";
+  const locale = job.locale === "en" ? "en" : "ko";
+  const body = total > 1
+    ? swTranslate(locale, "completeMultiple", { count: total })
+    : swTranslate(locale, "completeSingle");
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
   const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
@@ -395,10 +429,8 @@ async function showSwCompleteNotification(job) {
 
 async function showSwFailedNotification(job, leftover) {
   if (!self.registration || !self.registration.showNotification) return;
-  const isEn = job.locale === "en";
-  const body = isEn
-    ? `Upload failed (${leftover} files). Please try again.`
-    : `사진 ${leftover}장 업로드 실패. 다시 시도해 주세요.`;
+  const locale = job.locale === "en" ? "en" : "ko";
+  const body = swTranslate(locale, "failed", { count: leftover });
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
   const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");

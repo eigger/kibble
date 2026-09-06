@@ -1,5 +1,6 @@
 import { API_URL, getToken } from "./api";
 import { BASE_PATH } from "./base-path";
+import { getStoredLocale, translate } from "./i18n/translations";
 import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import {
   BF_FETCH_PREFIX,
@@ -69,11 +70,13 @@ export async function canUseBackgroundFetch(): Promise<boolean> {
 }
 
 function uiCopy(): BfUiCopy {
-  const locale = typeof localStorage !== "undefined" ? localStorage.getItem("kibble_locale") : null;
-  if (locale === "en") {
-    return { title: "Kibble", uploading: "Uploading", done: "Uploaded", failed: "Upload failed" };
-  }
-  return { title: "Kibble", uploading: "올리는 중", done: "올렸습니다", failed: "업로드 실패" };
+  const locale = getStoredLocale();
+  return {
+    title: "Kibble",
+    uploading: translate(locale, "bgFetchUploading"),
+    done: translate(locale, "bgFetchDone"),
+    failed: translate(locale, "bgFetchFailed"),
+  };
 }
 
 function newJobId(): string {
@@ -200,8 +203,7 @@ export async function startViaBackgroundFetch(
     const inFlight = existing.some((job) => Boolean(job.fetchId));
 
     const id = newJobId();
-    const locale =
-      typeof localStorage !== "undefined" ? localStorage.getItem("kibble_locale") : null;
+    const locale = getStoredLocale();
     created = {
       id,
       eventId,
