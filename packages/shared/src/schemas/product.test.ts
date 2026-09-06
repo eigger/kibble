@@ -226,14 +226,14 @@ describe("제형 목록", () => {
   });
 });
 
-describe("약·제제 카테고리와 표기사항", () => {
+describe("상비약(MEDICATION) 카테고리와 표기사항", () => {
   it("MEDICATION을 카테고리로 받는다", () => {
     expect(createProductSchema.safeParse({ name: "지사제", category: "MEDICATION" }).success).toBe(
       true,
     );
   });
 
-  it("약·제제도 제형·중량 칸을 쓴다 — 캡슐·정제·액상이 여기 몰린다", () => {
+  it("상비약도 제형·중량 칸을 쓴다 — 캡슐·정제·액상이 여기 몰린다", () => {
     expect(hasFormDetails("MEDICATION")).toBe(true);
   });
 

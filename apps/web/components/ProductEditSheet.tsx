@@ -452,6 +452,7 @@ export function ProductEditSheet({
               >
                 <option value="MEAL">{t("productCategoryMeal")}</option>
                 <option value="SUPPLEMENT">{t("productCategorySupplement")}</option>
+                <option value="MEDICATION">{t("productCategoryMedication")}</option>
                 <option value="TREAT">{t("productCategoryTreat")}</option>
                 <option value="HYGIENE">{t("productCategoryHygiene")}</option>
                 <option value="DEVICE">{t("productCategoryDevice")}</option>
