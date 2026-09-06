@@ -1,4 +1,5 @@
 import { withBasePath } from "./base-path";
+import { translate, type Locale } from "./i18n/translations";
 
 const UPLOAD_NOTIFICATION_TAG = "kibble-upload";
 const THROTTLE_INTERVAL_MS = 500;
@@ -7,7 +8,7 @@ let lastProgressNotifyTime = 0;
 let lastFileIndex = -1;
 let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
-function getLocale(): "ko" | "en" {
+function getLocale(): Locale {
   if (typeof localStorage !== "undefined") {
     const locale = localStorage.getItem("kibble_locale");
     if (locale === "en") return "en";
@@ -91,14 +92,16 @@ export async function showUploadProgressNotification({
       percentText = ` (${pct}%)`;
     }
 
-    const isEn = getLocale() === "en";
-    const body = isEn
-      ? fileCount > 1
-        ? `Uploading ${currentNum}/${fileCount}...${percentText}`
-        : `Uploading...${percentText}`
-      : fileCount > 1
-        ? `사진 ${currentNum}/${fileCount}장 올리는 중...${percentText}`
-        : `사진 올리는 중...${percentText}`;
+    const locale = getLocale();
+    const body = fileCount > 1
+      ? translate(locale, "uploadNotificationUploadingMultiple", {
+          current: currentNum,
+          total: fileCount,
+          percent: percentText,
+        })
+      : translate(locale, "uploadNotificationUploadingSingle", {
+          percent: percentText,
+        });
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
@@ -111,7 +114,7 @@ export async function showUploadProgressNotification({
       badge,
       silent: true,
       data: { url: targetUrl, eventId, jobId },
-      actions: [{ action: "cancel", title: isEn ? "Cancel" : "취소" }],
+      actions: [{ action: "cancel", title: translate(locale, "cancel") }],
     } as ExtendedNotificationOptions);
   } catch (err) {
     console.warn("[uploadNotification] show progress failed", err);
@@ -132,14 +135,10 @@ export async function showUploadCompleteNotification(fileCount: number, eventId?
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    const isEn = getLocale() === "en";
-    const body = isEn
-      ? fileCount > 1
-        ? `${fileCount} photos uploaded`
-        : "Photo uploaded"
-      : fileCount > 1
-        ? `사진 ${fileCount}장 업로드 완료`
-        : "사진 업로드 완료";
+    const locale = getLocale();
+    const body = fileCount > 1
+      ? translate(locale, "uploadNotificationCompleteMultiple", { count: fileCount })
+      : translate(locale, "uploadNotificationCompleteSingle");
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
@@ -177,10 +176,8 @@ export async function showUploadFailedNotification(failedCount: number, eventId?
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    const isEn = getLocale() === "en";
-    const body = isEn
-      ? `Upload failed (${failedCount} files). Please try again.`
-      : `사진 ${failedCount}장 업로드 실패. 다시 시도해 주세요.`;
+    const locale = getLocale();
+    const body = translate(locale, "uploadNotificationFailed", { count: failedCount });
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
