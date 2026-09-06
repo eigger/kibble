@@ -784,6 +784,14 @@ const dict = {
     ko: "비밀번호 해시와 푸시 서명키는 아카이브에 담기지 않습니다. 복원하면 계정마다 임시 비밀번호가 새로 발급됩니다.",
     en: "Password hashes and push signing keys are not included. Restoring issues a new temporary password for each account.",
   },
+  backupPreflightFailed: {
+    ko: "백업을 시작할 수 없습니다 — {detail}",
+    en: "Cannot start the backup — {detail}",
+  },
+  backupPreparingToast: {
+    ko: "백업을 만드는 중입니다 (원본 {size}). 새 탭이 받아 갈 때까지 시간이 걸립니다.",
+    en: "Building the backup ({size} of source files). The new tab stays blank until it is ready.",
+  },
   exportButton: { ko: "백업 보내기", en: "Export backup" },
   exportingLabel: { ko: "보내는 중...", en: "Exporting..." },
   restoreLabel: { ko: "백업 복원", en: "Restore backup" },

@@ -179,8 +179,12 @@ describe("backup export/restore round trip", () => {
     });
     expect(exportRes.statusCode).toBe(200);
     expect(exportRes.headers["content-type"]).toBe("application/gzip");
+    // 길이가 없으면 chunked로 나가 브라우저가 진행률을 못 그리고, 길이 없는 응답을
+    // 통째로 버퍼링하는 프록시에 걸린다.
+    expect(exportRes.headers["content-length"]).toBeDefined();
     const archive = exportRes.rawPayload;
     expect(archive.length).toBeGreaterThan(0);
+    expect(Number(exportRes.headers["content-length"])).toBe(archive.length);
 
     // 첨부는 uploads/events/ 아래에 있다 — 최상위 파일만 복사하던 시절 통째로 빠졌고,
     // 이 잡이 그걸 놓쳤다. 아카이브 목록과 복원 결과 양쪽으로 못박는다.
@@ -245,6 +249,73 @@ describe("backup export/restore round trip", () => {
     expect(JSON.stringify(dbJson)).not.toContain(vapidPrivateValue);
     const survivingVapid = await prisma.setting.findUnique({ where: { key: "VAPID_PRIVATE_KEY" } });
     expect(survivingVapid?.value).toBe(vapidPrivateValue);
+  });
+
+  // 지금까지 이 라우트는 정상 경로만 검사했다. 실기에서 터진 건 401 쪽이었고,
+  // 세 가지 원인이 전부 같은 문구로 나가 어느 쪽인지 가릴 수 없었다.
+  it("names why an export ticket was rejected instead of one opaque unauthorized", async () => {
+    const noTicket = await app.inject({ method: "GET", url: "/api/backup/export" });
+    expect(noTicket.statusCode).toBe(401);
+    expect(noTicket.json()).toMatchObject({ reason: "missing_ticket" });
+
+    const garbage = await app.inject({
+      method: "GET",
+      url: "/api/backup/export?ticket=not-a-jwt",
+    });
+    expect(garbage.statusCode).toBe(401);
+    expect(garbage.json()).toMatchObject({ reason: "invalid_ticket" });
+
+    // 로그인 토큰을 그대로 붙이면 서명은 맞지만 용도가 다르다
+    const loginToken = app.jwt.sign({ sub: adminId, role: "ADMIN", tv: 0 });
+    const wrongPurpose = await app.inject({
+      method: "GET",
+      url: `/api/backup/export?ticket=${encodeURIComponent(loginToken)}`,
+    });
+    expect(wrongPurpose.statusCode).toBe(401);
+    expect(wrongPurpose.json()).toMatchObject({ reason: "wrong_purpose" });
+  });
+
+  it("marks a replayed ticket as already used — a download re-request lands here", async () => {
+    const ticketRes = await app.inject({
+      method: "POST",
+      url: "/api/backup/export-ticket",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const { ticket } = ticketRes.json() as { ticket: string };
+
+    const first = await app.inject({
+      method: "GET",
+      url: `/api/backup/export?ticket=${encodeURIComponent(ticket)}`,
+    });
+    expect(first.statusCode).toBe(200);
+
+    const replay = await app.inject({
+      method: "GET",
+      url: `/api/backup/export?ticket=${encodeURIComponent(ticket)}`,
+    });
+    expect(replay.statusCode).toBe(401);
+    expect(replay.json()).toMatchObject({ reason: "ticket_already_used" });
+  });
+
+  it("reports export preflight so the app can explain a failure it cannot see", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/backup/export/preflight",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      ok: boolean;
+      checks: { name: string; ok: boolean }[];
+      sourceBytes: number;
+    };
+    expect(body.ok).toBe(true);
+    expect(body.checks.map((c) => c.name).sort()).toEqual(["diskSpace", "tar", "uploadDir"]);
+  });
+
+  it("requires admin auth for preflight", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/backup/export/preflight" });
+    expect(res.statusCode).toBe(401);
   });
 
   it("rejects a restore request with no file part", async () => {
