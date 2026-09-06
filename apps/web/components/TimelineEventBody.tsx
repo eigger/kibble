@@ -11,6 +11,8 @@ import {
 import type { TimelineEvent } from "../lib/types";
 import { EventCategoryTag } from "./EventCategoryTag";
 
+import { TimelineUploadStatus } from "./TimelineUploadStatus";
+
 /**
  * 목록용 요약. 수량·척도·제품은 한 블록, 메모는 최대 두 줄이다.
  * 전문은 행을 눌러 상세 시트에서 본다 — 행 안에 더보기를 두면 버튼이 중첩된다.
@@ -34,6 +36,7 @@ export function TimelineEventBody({
       </div>
       {facts ? <p className="timeline-detail">{facts}</p> : null}
       {note ? <p className="timeline-note">{note}</p> : null}
+      <TimelineUploadStatus eventId={event.id} />
       {children}
     </div>
   );

@@ -2688,8 +2688,27 @@ button:disabled {
   gap: 6px;
 }
 
-.event-detail-failed-icon {
-  font-size: 1.2rem;
+.event-detail-failed-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+.event-detail-failed-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.event-detail-failed-svg {
+  flex-shrink: 0;
 }
 
 .event-detail-failed-info {
@@ -2721,9 +2740,61 @@ button:disabled {
   margin-top: 4px;
 }
 
-.event-detail-failed-btn {
+.event-detail-failed-actions .btn-action {
   font-size: 0.7rem;
-  padding: 2px 6px;
+  padding: 0 6px;
+  height: 22px;
+  min-height: 22px;
+}
+
+@keyframes kibble-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.timeline-upload-row {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.timeline-upload-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  width: fit-content;
+}
+
+.timeline-upload-badge-uploading {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  color: var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+.timeline-upload-badge-failed {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 24%, transparent);
+}
+
+.timeline-upload-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: kibble-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.timeline-upload-icon {
+  flex-shrink: 0;
 }
 
 .event-detail-qty-input,

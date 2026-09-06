@@ -6,6 +6,7 @@ import type { QuickTimeKey } from "@kibble/shared";
 import { resolveQuickTime } from "@kibble/shared";
 import {
   cancelUploadsForEvent,
+  dismissFailedUploadFile,
   getBackgroundUpload,
   retryBackgroundUpload,
   subscribeBackgroundUpload,
@@ -220,6 +221,50 @@ function resetFormFromDraft(
   setters.setNote(draft.note ?? "");
   setters.setScaleValue(draft.scaleValue ?? null);
   setters.setRemovedAttachmentIds([]);
+}
+
+function FailedFileThumb({ file, name }: { file?: File; name: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || !file.type.startsWith("image/")) {
+      setUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={name}
+        className="event-detail-failed-thumb"
+      />
+    );
+  }
+
+  return (
+    <span className="event-detail-failed-icon-wrap" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="event-detail-failed-svg"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    </span>
+  );
 }
 
 export function EventDetailSheet({
@@ -819,7 +864,7 @@ export function EventDetailSheet({
                     {failedUploadFiles.map((f, fi) => (
                       <li key={`failed-${fi}`} className="event-detail-failed-attachment-item">
                         <div className="event-detail-failed-box">
-                          <span className="event-detail-failed-icon" aria-hidden>⚠️</span>
+                          <FailedFileThumb file={f.file} name={f.name} />
                           <div className="event-detail-failed-info">
                             <span className="event-detail-failed-name" title={f.name}>
                               {f.name}
@@ -829,17 +874,17 @@ export function EventDetailSheet({
                           <div className="event-detail-failed-actions">
                             <button
                               type="button"
-                              className="btn-sm btn-primary event-detail-failed-btn"
-                              onClick={() => currentEventId && retryBackgroundUpload(currentEventId)}
+                              className="btn-action"
+                              onClick={() => currentEventId && dismissFailedUploadFile(currentEventId, f.name)}
                             >
-                              {t("attachmentUploadRetry")}
+                              {t("attachmentUploadExclude")}
                             </button>
                             <button
                               type="button"
-                              className="btn-sm btn-secondary event-detail-failed-btn"
-                              onClick={() => currentEventId && cancelUploadsForEvent(currentEventId)}
+                              className="btn-action"
+                              onClick={() => currentEventId && retryBackgroundUpload(currentEventId)}
                             >
-                              {t("attachmentUploadCancel")}
+                              {t("attachmentUploadRetry")}
                             </button>
                           </div>
                         </div>
