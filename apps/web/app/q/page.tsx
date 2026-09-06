@@ -35,6 +35,7 @@ import {
 } from "../../lib/eventAttachments";
 import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
+import { useVideoPosterRefresh } from "../../lib/useVideoPosterRefresh";
 import { groupPresetsByCategory, presetCategoryShortKey } from "../../lib/presetGroups";
 import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
 
@@ -161,6 +162,7 @@ export default function QuickRecordPage() {
   }, [user, needsPet, pathname, loadQuickData]);
 
   useMergeUploadedAttachments(setRecentEvents);
+  useVideoPosterRefresh(recentEvents, setRecentEvents);
 
   function openDetailFromEvent(event: TimelineEvent, edit = false) {
     if (!pet) return;
