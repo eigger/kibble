@@ -318,12 +318,28 @@ function jobBadgeUrl(job) {
   if (job && job.iconUrl && job.iconUrl.indexOf("/icons/icon-192.png") !== -1) {
     return job.iconUrl.replace(/\/icons\/icon-192\.png$/, "/icons/badge-96.png");
   }
-  return toAppUrl("/icons/badge-96.png");
+  return toAssetUrl("/icons/badge-96.png");
+}
+
+function jobIconUrl(job) {
+  if (job && job.iconUrl) return job.iconUrl;
+  return toAssetUrl("/icons/icon-192.png");
+}
+
+function toAssetUrl(path) {
+  if (!path) return path;
+  if (typeof url === "function") return url(path);
+  return path;
+}
+
+function toPageUrl(path) {
+  if (!path) return path;
+  if (typeof pageUrl === "function") return pageUrl(path);
+  return path;
 }
 
 function toAppUrl(path) {
-  if (typeof pageUrl === "function") return pageUrl(path);
-  return path;
+  return toPageUrl(path);
 }
 
 async function registerSyncIfSupported() {
@@ -394,10 +410,10 @@ async function showSwProgressNotification(job) {
     : swTranslate(locale, "uploadingSingle", {
         percent: percentText,
       });
-  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
-  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const icon = new URL(toAssetUrl(jobIconUrl(job)), self.location.origin).href;
+  const badge = new URL(toAssetUrl(jobBadgeUrl(job)), self.location.origin).href;
   const targetUrl = new URL(
-    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    toPageUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
     self.location.origin,
   ).href;
 
@@ -421,10 +437,10 @@ async function showSwCompleteNotification(job) {
   const body = total > 1
     ? swTranslate(locale, "completeMultiple", { count: total })
     : swTranslate(locale, "completeSingle");
-  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
-  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const icon = new URL(toAssetUrl(jobIconUrl(job)), self.location.origin).href;
+  const badge = new URL(toAssetUrl(jobBadgeUrl(job)), self.location.origin).href;
   const targetUrl = new URL(
-    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    toPageUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
     self.location.origin,
   ).href;
   try {
@@ -449,10 +465,10 @@ async function showSwFailedNotification(job, leftover) {
   if (!self.registration || !self.registration.showNotification) return;
   const locale = job.locale === "en" ? "en" : "ko";
   const body = swTranslate(locale, "failed", { count: leftover });
-  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
-  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const icon = new URL(toAssetUrl(jobIconUrl(job)), self.location.origin).href;
+  const badge = new URL(toAssetUrl(jobBadgeUrl(job)), self.location.origin).href;
   const targetUrl = new URL(
-    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    toPageUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
     self.location.origin,
   ).href;
   try {
@@ -924,23 +940,38 @@ async function onBfAborted(registration) {
 }
 
 async function openApp(targetUrl) {
-  const target = targetUrl || toAppUrl("/");
-  const fullUrl = new URL(toAppUrl(target), self.location.origin).href;
+  const target = targetUrl || toPageUrl("/");
+  const fullUrl = new URL(toPageUrl(target), self.location.origin).href;
   const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const visibleClient = clients.find((c) => c.visibilityState === "visible");
+  if (visibleClient && "focus" in visibleClient) {
+    try {
+      if ("navigate" in visibleClient && visibleClient.url !== fullUrl) {
+        await visibleClient.navigate(fullUrl);
+      }
+      await visibleClient.focus();
+      return;
+    } catch {}
+  }
+  if (self.clients.openWindow) {
+    try {
+      const win = await self.clients.openWindow(fullUrl);
+      if (win) return;
+    } catch {}
+  }
   for (const client of clients) {
     if ("focus" in client) {
       try {
-        await client.focus();
-        if ("navigate" in client) {
+        if ("navigate" in client && client.url !== fullUrl) {
           await client.navigate(fullUrl);
         }
+        await client.focus();
         return;
       } catch (err) {
         console.warn("[kibble] sw openApp focus/navigate failed", err);
       }
     }
   }
-  if (self.clients.openWindow) return self.clients.openWindow(fullUrl);
 }
 
 async function abortJob(jobId) {
@@ -1001,11 +1032,11 @@ self.addEventListener("backgroundfetchclick", (event) => {
   const parsed = parseBfFetchId(event.registration && event.registration.id);
   event.waitUntil(
     (async () => {
-      let targetUrl = toAppUrl("/");
+      let targetUrl = toPageUrl("/");
       if (parsed) {
         const job = await getJob(parsed.jobId);
         if (job && job.eventId) {
-          targetUrl = toAppUrl(`/history/?highlight=${encodeURIComponent(job.eventId)}`);
+          targetUrl = toPageUrl(`/history/?highlight=${encodeURIComponent(job.eventId)}`);
         }
       }
       await openApp(targetUrl);

@@ -477,6 +477,8 @@ async function drain(): Promise<void> {
       void showUploadProgressNotification({
         fileIndex: 0,
         fileCount: job.files.length,
+        loaded: 0,
+        total: Math.max(job.files.reduce((n, f) => n + f.size, 0), 1),
         force: true,
         eventId: job.eventId,
       });
