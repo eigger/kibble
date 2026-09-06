@@ -15,7 +15,7 @@ const BF_MESSAGE_TYPE = "kibble-bf";
 const BF_SW_KICK = "kibble-bf-kick";
 const BF_SW_CANCEL = "kibble-bf-cancel";
 const BF_SW_ABORT_JOB = "kibble-bf-abort-job";
-const BF_MAX_RETRIES = 2;
+const BF_MAX_RETRIES = 5;
 const BF_MAX_BACKOFF_MS = 5000;
 
 function fileCacheUrl(jobId, index) {
@@ -318,7 +318,7 @@ function jobBadgeUrl(job) {
   if (job && job.iconUrl && job.iconUrl.indexOf("/icons/icon-192.png") !== -1) {
     return job.iconUrl.replace(/\/icons\/icon-192\.png$/, "/icons/badge-96.png");
   }
-  return "/icons/badge-96.png";
+  return toAppUrl("/icons/badge-96.png");
 }
 
 function toAppUrl(path) {
@@ -394,9 +394,12 @@ async function showSwProgressNotification(job) {
     : swTranslate(locale, "uploadingSingle", {
         percent: percentText,
       });
-  const icon = job.iconUrl || "/icons/icon-192.png";
-  const badge = jobBadgeUrl(job);
-  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
+  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
+  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const targetUrl = new URL(
+    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    self.location.origin,
+  ).href;
 
   try {
     await self.registration.showNotification("Kibble", {
@@ -418,9 +421,12 @@ async function showSwCompleteNotification(job) {
   const body = total > 1
     ? swTranslate(locale, "completeMultiple", { count: total })
     : swTranslate(locale, "completeSingle");
-  const icon = job.iconUrl || "/icons/icon-192.png";
-  const badge = jobBadgeUrl(job);
-  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
+  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
+  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const targetUrl = new URL(
+    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    self.location.origin,
+  ).href;
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
@@ -443,9 +449,12 @@ async function showSwFailedNotification(job, leftover) {
   if (!self.registration || !self.registration.showNotification) return;
   const locale = job.locale === "en" ? "en" : "ko";
   const body = swTranslate(locale, "failed", { count: leftover });
-  const icon = job.iconUrl || "/icons/icon-192.png";
-  const badge = jobBadgeUrl(job);
-  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
+  const icon = new URL(toAppUrl(job.iconUrl || "/icons/icon-192.png"), self.location.origin).href;
+  const badge = new URL(toAppUrl(jobBadgeUrl(job)), self.location.origin).href;
+  const targetUrl = new URL(
+    toAppUrl(job.eventId ? `/history/?highlight=${encodeURIComponent(job.eventId)}` : "/history/"),
+    self.location.origin,
+  ).href;
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
@@ -508,6 +517,17 @@ async function retryOrFail(job) {
     await putJob(job);
     await sleep(backoffMs(job.retries));
     await performWork(job);
+    return false;
+  }
+  // 모바일에서 오프라인 상태일 때는 즉시 실패로 영구 종결하지 않고,
+  // sync나 온라인 복귀 시 재시도할 수 있도록 pending 상태를 유지한다.
+  if (typeof self.navigator !== "undefined" && "onLine" in self.navigator && !self.navigator.onLine) {
+    job.status = "pending";
+    await putJob(job);
+    await registerSyncIfSupported();
+    await notifyClients(
+      Object.assign({ action: "fail", remainingCount: remainingFileCount(job) }, progressFields(job)),
+    );
     return false;
   }
   job.status = "failed";
@@ -653,12 +673,39 @@ async function doMultipartBf(job, work) {
     file.type,
     jobHeaders(job),
   );
+  const baseBytesDone = job.bytesDone || 0;
+  const fileSize = file.size || 0;
+  let progressTimer = null;
+
   try {
     await notifyClients(Object.assign({ action: "started" }, progressFields(job)));
     await showSwProgressNotification(job);
+
+    // Fetch는 브라우저 업로드 스트림 진행률 이벤트를 주지 않으므로
+    // 실제 전송 중 실시간 퍼센트를 체감할 수 있도록 가상 틱커를 가동한다.
+    let currentPct = 5;
+    progressTimer = setInterval(() => {
+      if (currentPct < 90) {
+        currentPct += Math.max(3, Math.round((90 - currentPct) * 0.25));
+        const estBytes = Math.round((currentPct / 100) * fileSize);
+        job.bytesDone = baseBytesDone + estBytes;
+        void showSwProgressNotification(job);
+        void notifyClients(Object.assign({ action: "progress" }, progressFields(job)));
+      }
+    }, 500);
+
     const res = await fetch(request);
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
     await handleSwFetchSettled(job, work, res);
   } catch (err) {
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+    job.bytesDone = baseBytesDone;
     console.warn("[kibble] sw multipart", err);
     job.fetchId = null;
     await retryOrFail(job);
@@ -878,18 +925,22 @@ async function onBfAborted(registration) {
 
 async function openApp(targetUrl) {
   const target = targetUrl || toAppUrl("/");
+  const fullUrl = new URL(toAppUrl(target), self.location.origin).href;
   const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   for (const client of clients) {
     if ("focus" in client) {
-      if ("navigate" in client && targetUrl) {
-        try {
-          await client.navigate(target);
-        } catch {}
+      try {
+        await client.focus();
+        if ("navigate" in client) {
+          await client.navigate(fullUrl);
+        }
+        return;
+      } catch (err) {
+        console.warn("[kibble] sw openApp focus/navigate failed", err);
       }
-      return client.focus();
     }
   }
-  if (self.clients.openWindow) return self.clients.openWindow(target);
+  if (self.clients.openWindow) return self.clients.openWindow(fullUrl);
 }
 
 async function abortJob(jobId) {
@@ -930,6 +981,10 @@ self.addEventListener("message", (event) => {
   }
 });
 
+self.addEventListener("online", () => {
+  kickIfIdle();
+});
+
 self.addEventListener("backgroundfetchsuccess", (event) => {
   event.waitUntil(onBfSettled(event.registration, "success"));
 });
@@ -950,7 +1005,7 @@ self.addEventListener("backgroundfetchclick", (event) => {
       if (parsed) {
         const job = await getJob(parsed.jobId);
         if (job && job.eventId) {
-          targetUrl = toAppUrl(`/history?highlight=${encodeURIComponent(job.eventId)}`);
+          targetUrl = toAppUrl(`/history/?highlight=${encodeURIComponent(job.eventId)}`);
         }
       }
       await openApp(targetUrl);

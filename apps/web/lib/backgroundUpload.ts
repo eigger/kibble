@@ -230,13 +230,22 @@ export function bindBackgroundFetchBridge(): () => void {
       .then(() => refreshBfFailedCount());
 
     if (typeof window !== "undefined") {
-      const onOnline = () => {
+      const onResume = () => {
         if (view && view.failedCount > 0 && !view.current && !running) {
           retryBackgroundUpload();
         }
       };
-      window.addEventListener("online", onOnline);
-      unsubOnline = () => window.removeEventListener("online", onOnline);
+      const onVisibility = () => {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          onResume();
+        }
+      };
+      window.addEventListener("online", onResume);
+      document.addEventListener("visibilitychange", onVisibility);
+      unsubOnline = () => {
+        window.removeEventListener("online", onResume);
+        document.removeEventListener("visibilitychange", onVisibility);
+      };
     }
   }
   return () => {

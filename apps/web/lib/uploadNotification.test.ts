@@ -157,7 +157,7 @@ describe("uploadNotification", () => {
       expect.objectContaining({
         actions: [{ action: "cancel", title: "취소" }],
         data: expect.objectContaining({
-          url: expect.stringContaining("/history?highlight=evt-123"),
+          url: expect.stringContaining("/history/?highlight=evt-123"),
           eventId: "evt-123",
           jobId: "job-abc",
         }),
@@ -171,7 +171,7 @@ describe("uploadNotification", () => {
       "Kibble",
       expect.objectContaining({
         data: expect.objectContaining({
-          url: expect.stringContaining("/history?highlight=evt-456"),
+          url: expect.stringContaining("/history/?highlight=evt-456"),
           eventId: "evt-456",
         }),
       }),
@@ -184,7 +184,7 @@ describe("uploadNotification", () => {
       "Kibble",
       expect.objectContaining({
         data: expect.objectContaining({
-          url: expect.stringContaining("/history?highlight=evt-789"),
+          url: expect.stringContaining("/history/?highlight=evt-789"),
           eventId: "evt-789",
         }),
       }),

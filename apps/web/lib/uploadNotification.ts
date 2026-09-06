@@ -95,9 +95,16 @@ export async function showUploadProgressNotification({
           percent: percentText,
         });
 
-    const icon = withBasePath("/icons/icon-192.png");
-    const badge = withBasePath("/icons/badge-96.png");
-    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
+    const icon = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
+      : withBasePath("/icons/icon-192.png");
+    const badge = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
+      : withBasePath("/icons/badge-96.png");
+    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
+    const targetUrl = typeof window !== "undefined" && window.location?.origin
+      ? new URL(targetPath, window.location.origin).href
+      : targetPath;
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -132,9 +139,16 @@ export async function showUploadCompleteNotification(fileCount: number, eventId?
       ? translate(locale, "uploadNotificationCompleteMultiple", { count: fileCount })
       : translate(locale, "uploadNotificationCompleteSingle");
 
-    const icon = withBasePath("/icons/icon-192.png");
-    const badge = withBasePath("/icons/badge-96.png");
-    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
+    const icon = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
+      : withBasePath("/icons/icon-192.png");
+    const badge = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
+      : withBasePath("/icons/badge-96.png");
+    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
+    const targetUrl = typeof window !== "undefined" && window.location?.origin
+      ? new URL(targetPath, window.location.origin).href
+      : targetPath;
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -171,9 +185,16 @@ export async function showUploadFailedNotification(failedCount: number, eventId?
     const locale = getStoredLocale();
     const body = translate(locale, "uploadNotificationFailed", { count: failedCount });
 
-    const icon = withBasePath("/icons/icon-192.png");
-    const badge = withBasePath("/icons/badge-96.png");
-    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
+    const icon = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
+      : withBasePath("/icons/icon-192.png");
+    const badge = typeof window !== "undefined" && window.location?.origin
+      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
+      : withBasePath("/icons/badge-96.png");
+    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
+    const targetUrl = typeof window !== "undefined" && window.location?.origin
+      ? new URL(targetPath, window.location.origin).href
+      : targetPath;
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,

@@ -1,4 +1,4 @@
-const CACHE_NAME = "kibble-shell-v7";
+const CACHE_NAME = "kibble-shell-v8";
 importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로
@@ -91,15 +91,19 @@ self.addEventListener("push", (event) => {
     /* malformed payload */
   }
 
+  const iconUrl = new URL(url("/icons/icon-192.png"), self.location.origin).href;
+  const badgeUrl = new URL(url("/icons/badge-96.png"), self.location.origin).href;
+  const targetUrl = new URL(pageUrl(data.url || "/"), self.location.origin).href;
+
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: url("/icons/icon-192.png"),
-      badge: url("/icons/badge-96.png"),
+      icon: iconUrl,
+      badge: badgeUrl,
       // API가 주는 경로는 앱 기준(루트 상대)이라, 서브패스 배포에서는 프리픽스를 붙여야
       // 알림을 눌렀을 때 앱 밖으로 나가지 않는다. trailingSlash 때문에 슬래시 없는
       // 주소는 308이 되므로 페이지 경로는 슬래시를 붙여 연다.
-      data: { url: pageUrl(data.url || "/") },
+      data: { url: targetUrl },
     }),
   );
 });
@@ -124,22 +128,30 @@ self.addEventListener("notificationclick", (event) => {
     return;
   }
 
-  const target = event.notification.data?.url || pageUrl("/");
+  const rawTarget = event.notification.data?.url || pageUrl("/");
+  const targetPath = pageUrl(rawTarget);
+  const fullUrl = new URL(targetPath, self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+    (async () => {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of clients) {
         if ("focus" in client) {
-          if ("navigate" in client) {
-            try {
-              await client.navigate(target);
-            } catch {}
+          try {
+            await client.focus();
+            if ("navigate" in client) {
+              await client.navigate(fullUrl);
+            }
+            return;
+          } catch (err) {
+            console.warn("[sw] focus/navigate failed", err);
           }
-          return client.focus();
         }
       }
-      if (self.clients.openWindow) return self.clients.openWindow(target);
-    }),
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(fullUrl);
+      }
+    })(),
   );
 });
 

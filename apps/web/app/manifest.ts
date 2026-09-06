@@ -18,6 +18,7 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: withBasePath("/icons/icon.svg"), sizes: "any", type: "image/svg+xml", purpose: "any" },
       { src: withBasePath("/icons/icon-192.png"), sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: withBasePath("/icons/badge-96.png"), sizes: "96x96", type: "image/png", purpose: "monochrome" },
       { src: withBasePath("/icons/icon-512.png"), sizes: "512x512", type: "image/png", purpose: "any" },
       { src: withBasePath("/icons/icon-maskable-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],

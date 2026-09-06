@@ -359,8 +359,8 @@ export default function QuickRecordPage() {
           needsReview: false,
         }),
       });
-      for (const attachmentId of meta.removedAttachmentIds) {
-        await deleteEventAttachment(attachmentId);
+      if (meta.removedAttachmentIds.length > 0) {
+        await Promise.all(meta.removedAttachmentIds.map((id) => deleteEventAttachment(id)));
       }
       const remainingAttachments = detailAttachments.filter(
         (a) => !meta.removedAttachmentIds.includes(a.id),

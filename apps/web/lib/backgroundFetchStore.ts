@@ -71,13 +71,14 @@ export function deleteBfJob(id: string): Promise<void> {
 
 export async function persistBfBlobs(jobId: string, files: File[]): Promise<void> {
   const cache = await caches.open(BF_CACHE);
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const headers = new Headers();
-    if (file.type) headers.set("Content-Type", file.type);
-    headers.set("Content-Length", String(file.size));
-    await cache.put(fileCacheUrl(jobId, i), new Response(file, { headers }));
-  }
+  await Promise.all(
+    files.map((file, i) => {
+      const headers = new Headers();
+      if (file.type) headers.set("Content-Type", file.type);
+      headers.set("Content-Length", String(file.size));
+      return cache.put(fileCacheUrl(jobId, i), new Response(file, { headers }));
+    }),
+  );
 }
 
 export async function deleteBfBlobs(jobId: string, fileCount: number): Promise<void> {
