@@ -104,6 +104,14 @@ export async function backupRoutes(app: FastifyInstance) {
     let tempDir = "";
     let archivePath = "";
 
+    // 빌드는 분 단위인데 정리 핸들러는 빌드가 끝나야 걸렸다. 그동안 탭을 닫으면
+    // uploads 전체 사본(`backup_<ts>/files/`)과 tar.gz가 그대로 남아, 누를 때마다
+    // 디스크가 원본의 2배씩 쌓였다. 요청이 끊긴 걸 빌드 전부터 지켜본다.
+    let clientGone = false;
+    request.raw.on("close", () => {
+      clientGone = true;
+    });
+
     try {
       // 아카이브를 다 만든 뒤에야 첫 바이트가 나간다. 첨부가 많으면 그동안 브라우저
       // 탭은 빈 흰 화면이다 — 어디서 오래 걸리는지 로그로는 보이게 해 둔다.
@@ -114,6 +122,19 @@ export async function backupRoutes(app: FastifyInstance) {
         { ms: Date.now() - startedAt, bytes: archiveStat.size },
         "Backup archive built",
       );
+
+      if (clientGone) {
+        app.log.warn(
+          { bytes: archiveStat.size },
+          "Backup export abandoned before delivery; discarding archive",
+        );
+        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+        await rm(archivePath, { force: true }).catch(() => {});
+        reply.hijack();
+        reply.raw.destroy();
+        return reply;
+      }
+
       const stream = createReadStream(archivePath);
       const cleanup = () => {
         rm(tempDir, { recursive: true, force: true }).catch(() => {});
