@@ -208,10 +208,15 @@ export function jobTotalBytes(job: BfJob): number {
   return job.files.reduce((n, file) => n + file.size, 0);
 }
 
-export function prepareFailedJobForRetry(job: BfJob, token: string | null): BfJob {
+export function prepareFailedJobForRetry(
+  job: BfJob,
+  token: string | null,
+  apiBase?: string,
+): BfJob {
   return {
     ...job,
     token: token || job.token,
+    apiBase: apiBase || job.apiBase,
     status: "pending",
     retries: 0,
     fetchId: null,

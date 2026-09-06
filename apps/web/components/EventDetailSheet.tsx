@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import type { QuickTimeKey } from "@kibble/shared";
 import { resolveQuickTime } from "@kibble/shared";
+import {
+  cancelUploadsForEvent,
+  getBackgroundUpload,
+  retryBackgroundUpload,
+  subscribeBackgroundUpload,
+} from "../lib/backgroundUpload";
 import {
   fromDatetimeLocalValue,
   parseOptionalNumber,
@@ -262,6 +268,18 @@ export function EventDetailSheet({
   const wantsMaps = open && draft?.eventTypeKey === "vet_visit";
   const mapConfig = useMapProviders(wantsMaps);
   const mapsOn = mapsEnabled(mapConfig);
+
+  const bgSnapshot = useSyncExternalStore(
+    subscribeBackgroundUpload,
+    getBackgroundUpload,
+    () => null,
+  );
+  const currentEventId = draft?.eventId;
+  const failedUploadItem = useMemo(
+    () => (currentEventId ? bgSnapshot?.failedItems?.find((item) => item.eventId === currentEventId) : undefined),
+    [bgSnapshot?.failedItems, currentEventId],
+  );
+  const failedUploadFiles = failedUploadItem?.failedFiles ?? [];
 
   const fields = useMemo(
     () => eventDetailFields(draft?.eventTypeKey, draft?.scaleType),
@@ -772,7 +790,7 @@ export function EventDetailSheet({
                 </section>
               )}
 
-              {attachments.length > 0 && (
+              {(attachments.length > 0 || failedUploadFiles.length > 0) && (
                 <section className="event-detail-view-attachments" aria-label={t("eventDetailAttachments")}>
                   <h3 className="field-label">{t("eventDetailAttachments")}</h3>
                   <ul className="event-detail-view-attachments-list">
@@ -796,6 +814,35 @@ export function EventDetailSheet({
                             <span className="attachment-video-badge attachment-video-badge-large" aria-hidden />
                           )}
                         </button>
+                      </li>
+                    ))}
+                    {failedUploadFiles.map((f, fi) => (
+                      <li key={`failed-${fi}`} className="event-detail-failed-attachment-item">
+                        <div className="event-detail-failed-box">
+                          <span className="event-detail-failed-icon" aria-hidden>⚠️</span>
+                          <div className="event-detail-failed-info">
+                            <span className="event-detail-failed-name" title={f.name}>
+                              {f.name}
+                            </span>
+                            <span className="event-detail-failed-tag">{t("attachmentUploadFailedBadge")}</span>
+                          </div>
+                          <div className="event-detail-failed-actions">
+                            <button
+                              type="button"
+                              className="btn-sm btn-primary event-detail-failed-btn"
+                              onClick={() => currentEventId && retryBackgroundUpload(currentEventId)}
+                            >
+                              {t("attachmentUploadRetry")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-sm btn-secondary event-detail-failed-btn"
+                              onClick={() => currentEventId && cancelUploadsForEvent(currentEventId)}
+                            >
+                              {t("attachmentUploadCancel")}
+                            </button>
+                          </div>
+                        </div>
                       </li>
                     ))}
                   </ul>

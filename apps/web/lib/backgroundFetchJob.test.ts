@@ -228,6 +228,14 @@ describe("prepareFailedJobForRetry", () => {
     expect(prepareFailedJobForRetry(j, null).token).toBe("old");
   });
 
+  it("updates apiBase when a new apiBase is provided", () => {
+    const j = job({
+      files: [{ index: 0, name: "a.jpg", type: "image/jpeg", size: 1, chunked: false }],
+      apiBase: "http://old-host:8080",
+    });
+    expect(prepareFailedJobForRetry(j, null, "http://new-host:8080").apiBase).toBe("http://new-host:8080");
+  });
+
   it("rewinds bytesDone with the cursor so the banner cannot pin at 100%", () => {
     const j = job({
       files: [

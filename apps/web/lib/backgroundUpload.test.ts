@@ -167,6 +167,73 @@ describe("startBackgroundUpload", () => {
     abortBf.mockRestore();
   });
 
+  it("tracks failedItems with eventId and file details in snapshot", async () => {
+    const leftover1 = file("img1.jpg");
+    const leftover2 = file("img2.jpg");
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [leftover1, leftover2] });
+    startBackgroundUpload("e1", [leftover1, leftover2]);
+    await vi.waitFor(() => {
+      const snap = getBackgroundUpload();
+      expect(snap?.failedCount).toBe(2);
+      expect(snap?.failedItems).toHaveLength(1);
+      expect(snap?.failedItems[0].eventId).toBe("e1");
+      expect(snap?.failedItems[0].failedFiles).toHaveLength(2);
+      expect(snap?.failedItems[0].failedFiles[0].name).toBe("img1.jpg");
+    });
+  });
+
+  it("cancelBackgroundUpload clears both queue and failed array", async () => {
+    const leftover = file("b.jpg");
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [leftover] });
+    startBackgroundUpload("e1", [leftover]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()?.failedCount).toBe(1);
+    });
+    cancelBackgroundUpload();
+    expect(getBackgroundUpload()).toBeNull();
+  });
+
+  it("retryBackgroundUpload with background fetch updates snapshot immediately", async () => {
+    const retryBf = vi.spyOn(backgroundFetchUpload, "retryFailedBackgroundFetches").mockResolvedValue(true);
+    const hydrateBf = vi.spyOn(backgroundFetchUpload, "hydrateBackgroundFetchJobs").mockResolvedValue({
+      running: {
+        id: "job1",
+        eventId: "e1",
+        token: "tok",
+        apiBase: "http://localhost",
+        locale: "ko",
+        iconUrl: "",
+        ui: { title: "", uploading: "", done: "", failed: "" },
+        files: [{ index: 0, name: "photo.jpg", type: "image/jpeg", size: 100, chunked: false }],
+        chunkSize: 8192,
+        createdAt: Date.now(),
+        fileIndex: 0,
+        chunkIndex: 0,
+        uploadId: null,
+        fetchId: null,
+        uploaded: [],
+        uploadedIndex: [],
+        skipped: [],
+        bytesDone: 0,
+        status: "pending",
+        retries: 0,
+        seq: 0,
+      },
+      failedCount: 0,
+      failedJobs: [],
+    });
+
+    retryBackgroundUpload();
+    await vi.waitFor(() => {
+      expect(retryBf).toHaveBeenCalledOnce();
+      expect(getBackgroundUpload()?.current?.eventId).toBe("e1");
+      expect(getBackgroundUpload()?.failedCount).toBe(0);
+    });
+
+    retryBf.mockRestore();
+    hydrateBf.mockRestore();
+  });
+
   it("canUseBackgroundFetch checks serviceWorker, caches, and indexedDB readiness", async () => {
     const supported = await backgroundFetchUpload.canUseBackgroundFetch();
     expect(typeof supported).toBe("boolean");
