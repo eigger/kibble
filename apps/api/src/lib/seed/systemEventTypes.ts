@@ -118,7 +118,7 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     icon: "pill",
     color: "violet",
     category: "MEDICAL",
-    aliases: ["제제", "약제", "외용제", "처방약"],
+    aliases: ["상비", "상비약", "제제", "약제", "외용제", "처방약"],
     sortOrder: 118,
   },
   {
