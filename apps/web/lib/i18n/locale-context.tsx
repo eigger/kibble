@@ -4,13 +4,12 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import {
   getStoredLocale,
   INTL_LOCALE,
+  LOCALE_STORAGE_KEY,
   translate,
   translateLabel,
   type Locale,
   type TranslationKey,
 } from "./translations";
-
-const STORAGE_KEY = "kibble_locale";
 
 interface LocaleContextValue {
   locale: Locale;
@@ -35,7 +34,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   function setLocale(next: Locale) {
     setLocaleState(next);
-    localStorage.setItem(STORAGE_KEY, next);
+    localStorage.setItem(LOCALE_STORAGE_KEY, next);
     document.documentElement.lang = next;
   }
 

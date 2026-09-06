@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDoseTime } from "@kibble/shared";
+import { formatDoseTime, intlLocale } from "@kibble/shared";
 import type { TranslationKey } from "../lib/i18n/translations";
 import type { DoseSlotToday } from "../lib/types";
 
@@ -29,7 +29,7 @@ export function MedicationDoseSlotPickSheet({
   locale,
 }: Props) {
   if (!open) return null;
-  const localeTag = locale === "ko" ? "ko-KR" : "en-US";
+  const localeTag = intlLocale(locale);
 
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>

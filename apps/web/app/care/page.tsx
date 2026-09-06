@@ -12,7 +12,7 @@ import type { TranslationKey } from "../../lib/i18n/translations";
 import { useToast } from "../../lib/toast-context";
 import { MedicationCourseSheet } from "../../components/MedicationCourseSheet";
 import type { CareReminder, MedicationCourseProgress, Pet } from "../../lib/types";
-import { formatDoseTime } from "@kibble/shared";
+import { formatDoseTime, intlLocale } from "@kibble/shared";
 import { formatEventTime } from "../../lib/eventDisplay";
 
 interface CarePayload {
@@ -23,7 +23,7 @@ interface CarePayload {
 }
 
 function formatDueDate(iso: string, locale: "ko" | "en"): string {
-  return new Date(iso).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+  return new Date(iso).toLocaleDateString(intlLocale(locale), {
     month: "numeric",
     day: "numeric",
   });
@@ -53,7 +53,7 @@ export default function CarePage() {
   const needsPet = user?.needsPet;
   const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
-  const localeTag = locale === "ko" ? "ko-KR" : "en-US";
+  const localeTag = intlLocale(locale);
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);

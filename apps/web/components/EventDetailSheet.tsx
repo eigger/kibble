@@ -21,7 +21,7 @@ import {
 import { ProductDetailSheet } from "./ProductDetailSheet";
 import { InfoIcon, LightbulbIcon } from "./ProductIcons";
 import type { EventAttachment, Product, ProductSummary } from "../lib/types";
-import type { TranslationKey } from "../lib/i18n/translations";
+import { intlLocale, type TranslationKey } from "../lib/i18n/translations";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
 import { mapsEnabled } from "../lib/maps/types";
@@ -153,7 +153,7 @@ function draftSyncKey(draft: EventDetailDraft | null): string {
 
 function formatOccurredAt(iso: string, locale: "ko" | "en"): string {
   const d = new Date(iso);
-  return d.toLocaleString(locale === "ko" ? "ko-KR" : "en-US", {
+  return d.toLocaleString(intlLocale(locale), {
     year: "numeric",
     month: "short",
     day: "numeric",

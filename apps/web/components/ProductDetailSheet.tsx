@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatWeightG, kstDayDiff } from "@kibble/shared";
+import { formatWeightG, intlLocale, kstDayDiff } from "@kibble/shared";
 import type { Product, ProductPhotoMeta } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson } from "../lib/api";
@@ -86,7 +86,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   }
 
   function formatKstDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+    return new Date(iso).toLocaleDateString(intlLocale(locale), {
       timeZone: "Asia/Seoul",
       year: "numeric",
       month: "short",

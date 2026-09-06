@@ -1,6 +1,7 @@
 import {
   dueMedicationPushKinds,
   formatDoseTime,
+  intlLocale,
   kstDayKey,
   normalizeDoseTimes,
   parseMedicationReminderPrefs,
@@ -10,28 +11,27 @@ import {
 import type { PrismaClient } from "@prisma/client";
 import { sendPushToHousehold } from "./push.js";
 import { prisma } from "./prisma.js";
+import { t } from "./i18n.js";
 
 type Db = Pick<
   PrismaClient,
   "setting" | "medicationCourse" | "event" | "medicationPushSent" | "pet"
 >;
 
-function pushCopy(
+export function pushCopy(
   kind: MedicationPushKind,
   locale: "ko" | "en",
   petName: string,
   courseName: string,
   time: string,
 ): { title: string; body: string } {
-  const timeLabel = formatDoseTime(time, locale === "en" ? "en-US" : "ko-KR");
-  if (kind === "lead") {
-    return locale === "en"
-      ? { title: "Medication soon", body: `${petName} · ${courseName} · ${timeLabel}` }
-      : { title: "복약 시간이 다가왔어요", body: `${petName} · ${courseName} · ${timeLabel}` };
-  }
-  return locale === "en"
-    ? { title: "Medication overdue", body: `${petName} · ${courseName} · ${timeLabel}` }
-    : { title: "복약 기록이 없어요", body: `${petName} · ${courseName} · ${timeLabel}` };
+  const timeLabel = formatDoseTime(time, intlLocale(locale));
+  const title =
+    kind === "lead"
+      ? t("medicationReminderLeadTitle", locale)
+      : t("medicationReminderOverdueTitle", locale);
+  const body = t("medicationReminderBody", locale, { petName, courseName, timeLabel });
+  return { title, body };
 }
 
 export async function processMedicationReminderPushes(
