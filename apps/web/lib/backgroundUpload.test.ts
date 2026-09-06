@@ -6,7 +6,9 @@ vi.mock("./eventAttachments", () => ({
 
 import { uploadEventAttachments } from "./eventAttachments";
 import {
+  bindBackgroundFetchBridge,
   cancelBackgroundUpload,
+  dismissFailedUploadFile,
   getBackgroundUpload,
   mergeTimelineAttachments,
   resetBackgroundUploadForTests,
@@ -179,7 +181,45 @@ describe("startBackgroundUpload", () => {
       expect(snap?.failedItems[0].eventId).toBe("e1");
       expect(snap?.failedItems[0].failedFiles).toHaveLength(2);
       expect(snap?.failedItems[0].failedFiles[0].name).toBe("img1.jpg");
+      expect(snap?.failedItems[0].failedFiles[0].file).toBe(leftover1);
     });
+  });
+
+  it("dismissFailedUploadFile excludes only the specified file from failed items", async () => {
+    const leftover1 = file("img1.jpg");
+    const leftover2 = file("img2.jpg");
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [leftover1, leftover2] });
+    startBackgroundUpload("e1", [leftover1, leftover2]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()?.failedCount).toBe(2);
+    });
+
+    dismissFailedUploadFile("e1", "img1.jpg");
+    const snap = getBackgroundUpload();
+    expect(snap?.failedCount).toBe(1);
+    expect(snap?.failedItems[0].failedFiles).toHaveLength(1);
+    expect(snap?.failedItems[0].failedFiles[0].name).toBe("img2.jpg");
+
+    dismissFailedUploadFile("e1", "img2.jpg");
+    expect(getBackgroundUpload()).toBeNull();
+  });
+
+  it("auto-retries failed uploads when online event fires", async () => {
+    const unbind = bindBackgroundFetchBridge();
+    const leftover = file("err.jpg");
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [leftover] });
+    startBackgroundUpload("e1", [leftover]);
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()?.failedCount).toBe(1);
+    });
+
+    uploadMock.mockResolvedValueOnce({ uploaded: [], remaining: [] });
+    window.dispatchEvent(new Event("online"));
+
+    await vi.waitFor(() => {
+      expect(getBackgroundUpload()).toBeNull();
+    });
+    unbind();
   });
 
   it("cancelBackgroundUpload clears both queue and failed array", async () => {

@@ -82,19 +82,6 @@ export default function HistoryPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!highlightEventId || events.length === 0) return;
-    if (scrolledHighlightRef.current === highlightEventId) return;
-    const targetEl = document.getElementById(`event-${highlightEventId}`);
-    if (targetEl) {
-      scrolledHighlightRef.current = highlightEventId;
-      targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-      const timer = setTimeout(() => {
-        setHighlightEventId(null);
-      }, 2600);
-      return () => clearTimeout(timer);
-    }
-  }, [highlightEventId, events]);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -271,6 +258,37 @@ export default function HistoryPage() {
     });
     setDetailOpen(true);
   }
+
+  useEffect(() => {
+    if (!highlightEventId || events.length === 0 || !activePet) return;
+    if (scrolledHighlightRef.current === highlightEventId) return;
+
+    const foundEvent = events.find((e) => e.id === highlightEventId);
+    if (foundEvent) {
+      scrolledHighlightRef.current = highlightEventId;
+      const targetEl = document.getElementById(`event-${highlightEventId}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      openDetailFromEvent(foundEvent);
+      const timer = setTimeout(() => {
+        setHighlightEventId(null);
+      }, 2600);
+      return () => clearTimeout(timer);
+    }
+
+    scrolledHighlightRef.current = highlightEventId;
+    apiJson<TimelineEvent>(`/api/events/${encodeURIComponent(highlightEventId)}`)
+      .then((fetched) => {
+        if (fetched) {
+          openDetailFromEvent(fetched);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setHighlightEventId(null);
+      });
+  }, [highlightEventId, events, activePet]);
 
   async function deleteEvent(eventId: string) {
     if (deletingEventId) return;

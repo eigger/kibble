@@ -31,11 +31,17 @@ export type AttachmentsUploadedDetail = {
   uploaded: EventAttachment[];
 };
 
+export type FailedUploadFile = {
+  name: string;
+  size: number;
+  file?: File;
+};
+
 export type FailedUploadItem = {
   eventId: string;
   totalCount: number;
   succeededFiles: { id?: string; name?: string; path?: string }[];
-  failedFiles: { name: string; size: number }[];
+  failedFiles: FailedUploadFile[];
 };
 
 export type BackgroundUploadSnapshot = {
@@ -65,6 +71,7 @@ let bfFailedCount = 0;
 let bfFailedJobs: import("./backgroundFetchJob").BfJob[] = [];
 let cancelGen = 0;
 let unsubBf: (() => void) | null = null;
+let unsubOnline: (() => void) | null = null;
 
 function emit(): void {
   for (const listener of listeners) listener();
@@ -81,7 +88,7 @@ function computeFailedItems(): FailedUploadItem[] {
       failedFiles: [],
     };
     for (const f of job.files) {
-      existing.failedFiles.push({ name: f.name, size: f.size });
+      existing.failedFiles.push({ name: f.name, size: f.size, file: f });
     }
     existing.totalCount = existing.succeededFiles.length + existing.failedFiles.length;
     map.set(job.eventId, existing);
@@ -221,10 +228,22 @@ export function bindBackgroundFetchBridge(): () => void {
     void sweepBackgroundFetchJobs()
       .catch(() => {})
       .then(() => refreshBfFailedCount());
+
+    if (typeof window !== "undefined") {
+      const onOnline = () => {
+        if (view && view.failedCount > 0 && !view.current && !running) {
+          retryBackgroundUpload();
+        }
+      };
+      window.addEventListener("online", onOnline);
+      unsubOnline = () => window.removeEventListener("online", onOnline);
+    }
   }
   return () => {
     unsubBf?.();
     unsubBf = null;
+    unsubOnline?.();
+    unsubOnline = null;
   };
 }
 
@@ -281,6 +300,48 @@ export function cancelUploadsForEvent(eventId: string): void {
     if (current.canLeave) current = null;
   }
   publish();
+}
+
+/** 특정 기록의 특정 실패 파일만 목록에서 제외한다. */
+export function dismissFailedUploadFile(eventId: string, fileName: string): void {
+  let changed = false;
+  const matchIdx = failed.findIndex((job) => job.eventId === eventId);
+  if (matchIdx !== -1) {
+    const job = failed[matchIdx];
+    const prevLen = job.files.length;
+    job.files = job.files.filter((f) => f.name !== fileName);
+    if (job.files.length < prevLen) {
+      changed = true;
+      if (job.files.length === 0) {
+        failed.splice(matchIdx, 1);
+      }
+    }
+  }
+
+  for (let i = bfFailedJobs.length - 1; i >= 0; i--) {
+    const bfJob = bfFailedJobs[i];
+    if (bfJob.eventId === eventId) {
+      const fileIdx = bfJob.files.findIndex((f) => f.name === fileName);
+      if (fileIdx !== -1) {
+        changed = true;
+        bfJob.files.splice(fileIdx, 1);
+        if (bfJob.files.length === 0) {
+          bfFailedJobs.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    bfFailedCount = bfFailedJobs.reduce(
+      (n, j) => n + (j.files.length - (j.uploadedIndex?.length ?? 0)),
+      0,
+    );
+    publish();
+    if (failed.length === 0 && bfFailedJobs.length === 0) {
+      void dismissUploadNotification();
+    }
+  }
 }
 
 export function retryBackgroundUpload(targetEventId?: string): void {
@@ -480,6 +541,8 @@ export function resetBackgroundUploadForTests(): void {
   cancelGen = 0;
   unsubBf?.();
   unsubBf = null;
+  unsubOnline?.();
+  unsubOnline = null;
   listeners.clear();
 }
 

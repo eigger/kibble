@@ -408,6 +408,9 @@ const dict = {
   attachmentUploadSucceededFiles: { ko: "업로드 완료 ({count})", en: "Uploaded ({count})" },
   attachmentUploadFailedFiles: { ko: "업로드 실패 ({count})", en: "Failed ({count})" },
   attachmentUploadFailedBadge: { ko: "업로드 실패", en: "Upload failed" },
+  timelineUploadFailedBadge: { ko: "업로드 실패 ({count})", en: "Upload failed ({count})" },
+  attachmentUploadingBadge: { ko: "사진 올리는 중…", en: "Uploading photos…" },
+  attachmentUploadExclude: { ko: "제외", en: "Exclude" },
   attachmentUploadRetryEvent: { ko: "이 기록 다시 올리기", en: "Retry this post" },
   attachmentUploadCancelEvent: { ko: "이 기록 취소", en: "Cancel this post" },
   uploadNotificationUploadingSingle: {
