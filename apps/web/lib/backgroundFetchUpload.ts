@@ -198,11 +198,12 @@ export async function startViaBackgroundFetch(
   let created: BfJob | null = null;
   beginUploadGuard();
   try {
-    const prepared: File[] = [];
-    for (let i = 0; i < files.length; i++) {
-      onPreparing?.({ fileIndex: i, fileCount: files.length });
-      prepared.push(await prepareAttachmentForUpload(files[i]));
-    }
+    const prepared = await Promise.all(
+      files.map(async (file, i) => {
+        onPreparing?.({ fileIndex: i, fileCount: files.length });
+        return prepareAttachmentForUpload(file);
+      }),
+    );
 
     const existing = await getAllBfJobs();
     const inFlight = existing.some((job) => Boolean(job.fetchId));

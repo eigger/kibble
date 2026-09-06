@@ -362,15 +362,17 @@ export default function HistoryPage() {
           needsReview: false,
         }),
       });
-      for (const attachmentId of meta.removedAttachmentIds) {
-        await deleteEventAttachment(attachmentId);
+      if (meta.removedAttachmentIds.length > 0) {
+        await Promise.all(meta.removedAttachmentIds.map((id) => deleteEventAttachment(id)));
       }
-      if (activePet) await loadEvents(activePet.id, periodFilter, typeFilter, true);
       setDetailOpen(false);
       setDetailDraft(null);
       setDetailPendingFiles([]);
       show(t("eventDetailSaved"), "success");
       startBackgroundUpload(draft.eventId, filesToUpload);
+      if (activePet) {
+        void loadEvents(activePet.id, periodFilter, typeFilter, true);
+      }
     } catch (err) {
       const message = formatApiErrorMessage(err, t("recordError"), locale);
       setDetailSaveError(message);

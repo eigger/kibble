@@ -14,7 +14,7 @@ export const BF_MESSAGE_TYPE = "kibble-bf";
 export const BF_SW_KICK = "kibble-bf-kick";
 export const BF_SW_CANCEL = "kibble-bf-cancel";
 export const BF_SW_ABORT_JOB = "kibble-bf-abort-job";
-export const BF_MAX_RETRIES = 2;
+export const BF_MAX_RETRIES = 5;
 export const BF_MAX_BACKOFF_MS = 5000;
 /**
  * 실패로 남은 잡을 붙들고 있는 기간. 원본은 사용자 갤러리에 그대로 있으므로,
