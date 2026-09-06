@@ -413,6 +413,14 @@ const dict = {
   attachmentUploadExclude: { ko: "제외", en: "Exclude" },
   attachmentUploadRetryEvent: { ko: "이 기록 다시 올리기", en: "Retry this post" },
   attachmentUploadCancelEvent: { ko: "이 기록 취소", en: "Cancel this post" },
+  uploadNotificationPreparingSingle: {
+    ko: "사진 준비 중...",
+    en: "Preparing photo...",
+  },
+  uploadNotificationPreparingMultiple: {
+    ko: "사진 {current}/{total}장 준비 중...",
+    en: "Preparing {current}/{total}...",
+  },
   uploadNotificationUploadingSingle: {
     ko: "사진 올리는 중...{percent}",
     en: "Uploading...{percent}",

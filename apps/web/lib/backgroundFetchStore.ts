@@ -69,16 +69,19 @@ export function deleteBfJob(id: string): Promise<void> {
   return runTransaction("readwrite", (store) => store.delete(id)).then(() => undefined);
 }
 
-export async function persistBfBlobs(jobId: string, files: File[]): Promise<void> {
+/** 파일 한 장만 Cache에 넣는다. 손질이 끝나는 대로 한 장씩 부르면 최대 점유가 낮다. */
+export async function persistBfBlob(jobId: string, index: number, file: File): Promise<void> {
   const cache = await caches.open(BF_CACHE);
-  await Promise.all(
-    files.map((file, i) => {
-      const headers = new Headers();
-      if (file.type) headers.set("Content-Type", file.type);
-      headers.set("Content-Length", String(file.size));
-      return cache.put(fileCacheUrl(jobId, i), new Response(file, { headers }));
-    }),
-  );
+  const headers = new Headers();
+  if (file.type) headers.set("Content-Type", file.type);
+  headers.set("Content-Length", String(file.size));
+  await cache.put(fileCacheUrl(jobId, index), new Response(file, { headers }));
+}
+
+export async function persistBfBlobs(jobId: string, files: File[]): Promise<void> {
+  for (let i = 0; i < files.length; i++) {
+    await persistBfBlob(jobId, i, files[i]);
+  }
 }
 
 export async function deleteBfBlobs(jobId: string, fileCount: number): Promise<void> {

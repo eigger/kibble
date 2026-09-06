@@ -6,6 +6,7 @@ const THROTTLE_INTERVAL_MS = 500;
 
 let lastProgressNotifyTime = 0;
 let lastFileIndex = -1;
+let lastPhase: "preparing" | "uploading" | null = null;
 let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearAutoClose(): void {
@@ -46,6 +47,22 @@ type ExtendedNotificationOptions = NotificationOptions & {
   actions?: Array<{ action: string; title: string; icon?: string }>;
 };
 
+function absolute(path: string): string {
+  if (typeof window === "undefined" || !window.location?.origin) return path;
+  return new URL(path, window.location.origin).href;
+}
+
+/** 알림에 붙는 아이콘·배지·딥링크. 진행/완료/실패가 같은 값을 쓴다. */
+function notificationAssets(eventId?: string): { icon: string; badge: string; targetUrl: string } {
+  return {
+    icon: absolute(withBasePath("/icons/icon-192.png")),
+    badge: absolute(withBasePath("/icons/badge-96.png")),
+    targetUrl: absolute(
+      withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/"),
+    ),
+  };
+}
+
 /**
  * 안드로이드 알림창에 업로드 진행률을 갱신한다.
  * tag가 같으므로 새 알림이 계속 쌓이지 않고 기존 알림의 내용만 실시간 업데이트된다.
@@ -67,13 +84,14 @@ export async function showUploadProgressNotification({
   clearAutoClose();
 
   const now = Date.now();
-  const fileChanged = fileIndex !== lastFileIndex;
-  if (!force && !fileChanged && now - lastProgressNotifyTime < THROTTLE_INTERVAL_MS) {
+  const changed = fileIndex !== lastFileIndex || lastPhase !== "uploading";
+  if (!force && !changed && now - lastProgressNotifyTime < THROTTLE_INTERVAL_MS) {
     return;
   }
 
   lastProgressNotifyTime = now;
   lastFileIndex = fileIndex;
+  lastPhase = "uploading";
 
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -95,16 +113,7 @@ export async function showUploadProgressNotification({
           percent: percentText,
         });
 
-    const icon = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
-      : withBasePath("/icons/icon-192.png");
-    const badge = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
-      : withBasePath("/icons/badge-96.png");
-    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
-    const targetUrl = typeof window !== "undefined" && window.location?.origin
-      ? new URL(targetPath, window.location.origin).href
-      : targetPath;
+    const { icon, badge, targetUrl } = notificationAssets(eventId);
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -121,6 +130,62 @@ export async function showUploadProgressNotification({
 }
 
 /**
+ * 저장 직후 파일 손질·복사 단계를 상단바에 알린다.
+ *
+ * 사진 여러 장이면 이 단계만 몇 초가 걸린다. 예전에는 전송이 실제로 시작될 때까지
+ * 알림이 아예 뜨지 않아, 저장을 누른 뒤 아무 일도 없는 것처럼 보였다.
+ */
+export async function showUploadPreparingNotification({
+  fileIndex,
+  fileCount,
+  eventId,
+}: {
+  fileIndex: number;
+  fileCount: number;
+  eventId?: string;
+}): Promise<void> {
+  if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
+    return;
+  }
+  if (!("serviceWorker" in navigator)) return;
+
+  clearAutoClose();
+
+  const now = Date.now();
+  const changed = fileIndex !== lastFileIndex || lastPhase !== "preparing";
+  if (!changed && now - lastProgressNotifyTime < THROTTLE_INTERVAL_MS) return;
+
+  lastProgressNotifyTime = now;
+  lastFileIndex = fileIndex;
+  lastPhase = "preparing";
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const locale = getStoredLocale();
+    const body = fileCount > 1
+      ? translate(locale, "uploadNotificationPreparingMultiple", {
+          current: Math.min(fileIndex + 1, fileCount),
+          total: fileCount,
+        })
+      : translate(locale, "uploadNotificationPreparingSingle");
+
+    const { icon, badge, targetUrl } = notificationAssets(eventId);
+
+    await reg.showNotification("Kibble", {
+      tag: UPLOAD_NOTIFICATION_TAG,
+      body,
+      icon,
+      badge,
+      silent: true,
+      data: { url: targetUrl, eventId },
+      actions: [{ action: "cancel", title: translate(locale, "cancel") }],
+    } as ExtendedNotificationOptions);
+  } catch (err) {
+    console.warn("[uploadNotification] show preparing failed", err);
+  }
+}
+
+/**
  * 업로드 완료 시 상단바 알림을 '완료'로 변경하고, 3.5초 뒤 자동으로 닫는다.
  */
 export async function showUploadCompleteNotification(fileCount: number, eventId?: string): Promise<void> {
@@ -131,6 +196,7 @@ export async function showUploadCompleteNotification(fileCount: number, eventId?
 
   clearAutoClose();
   lastFileIndex = -1;
+  lastPhase = null;
 
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -139,16 +205,7 @@ export async function showUploadCompleteNotification(fileCount: number, eventId?
       ? translate(locale, "uploadNotificationCompleteMultiple", { count: fileCount })
       : translate(locale, "uploadNotificationCompleteSingle");
 
-    const icon = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
-      : withBasePath("/icons/icon-192.png");
-    const badge = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
-      : withBasePath("/icons/badge-96.png");
-    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
-    const targetUrl = typeof window !== "undefined" && window.location?.origin
-      ? new URL(targetPath, window.location.origin).href
-      : targetPath;
+    const { icon, badge, targetUrl } = notificationAssets(eventId);
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -179,22 +236,14 @@ export async function showUploadFailedNotification(failedCount: number, eventId?
 
   clearAutoClose();
   lastFileIndex = -1;
+  lastPhase = null;
 
   try {
     const reg = await navigator.serviceWorker.ready;
     const locale = getStoredLocale();
     const body = translate(locale, "uploadNotificationFailed", { count: failedCount });
 
-    const icon = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/icon-192.png"), window.location.origin).href
-      : withBasePath("/icons/icon-192.png");
-    const badge = typeof window !== "undefined" && window.location?.origin
-      ? new URL(withBasePath("/icons/badge-96.png"), window.location.origin).href
-      : withBasePath("/icons/badge-96.png");
-    const targetPath = withBasePath(eventId ? `/history/?highlight=${encodeURIComponent(eventId)}` : "/history/");
-    const targetUrl = typeof window !== "undefined" && window.location?.origin
-      ? new URL(targetPath, window.location.origin).href
-      : targetPath;
+    const { icon, badge, targetUrl } = notificationAssets(eventId);
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -215,6 +264,7 @@ export async function showUploadFailedNotification(failedCount: number, eventId?
 export async function dismissUploadNotification(): Promise<void> {
   clearAutoClose();
   lastFileIndex = -1;
+  lastPhase = null;
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
   try {
     const reg = await navigator.serviceWorker.ready;

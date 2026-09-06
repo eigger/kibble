@@ -21,6 +21,7 @@ import {
   requestUploadNotificationPermission,
   showUploadCompleteNotification,
   showUploadFailedNotification,
+  showUploadPreparingNotification,
   showUploadProgressNotification,
 } from "./uploadNotification";
 
@@ -441,6 +442,13 @@ async function drain(): Promise<void> {
       if (await canUseBackgroundFetch()) {
         const started = await startViaBackgroundFetch(job.eventId, job.files, (prep) => {
           if (current?.eventId !== job.eventId) return;
+          // 손질·복사만 몇 초가 걸린다. SW가 전송을 시작해야 알림이 뜨던 예전에는
+          // 저장을 누른 뒤 그동안 상단바가 비어 있어 앱이 멈춘 것처럼 보였다.
+          void showUploadPreparingNotification({
+            fileIndex: prep.fileIndex,
+            fileCount: prep.fileCount,
+            eventId: job.eventId,
+          });
           current = {
             ...current,
             canLeave: false,
