@@ -367,11 +367,23 @@ async function reencodeToJpeg(file: File): Promise<File | null> {
   }
 }
 
-export async function prepareAttachmentForUpload(file: File): Promise<File> {
+export type PrepareOptions = {
+  /**
+   * 바이트를 메모리로 한 번 복사할지. Background Fetch 경로는 손질 직후 Cache에
+   * 원본을 그대로 넣으므로, 여기서 또 ArrayBuffer로 읽으면 같은 파일을 두 번 읽고
+   * 최대 점유가 두 배가 된다. content URI가 끊길 위험 구간은 어느 쪽이든 같다.
+   */
+  snapshot?: boolean;
+};
+
+export async function prepareAttachmentForUpload(
+  file: File,
+  { snapshot = true }: PrepareOptions = {},
+): Promise<File> {
   const typeHint = normalizeAttachmentType(file);
   if (typeHint.startsWith("video/")) return withType(file, typeHint);
 
-  const local = await snapshotFile(file);
+  const local = snapshot ? await snapshotFile(file) : file;
   const type = normalizeAttachmentType(local);
   const typed = withType(local, type);
   if (!type.startsWith("image/")) return typed;

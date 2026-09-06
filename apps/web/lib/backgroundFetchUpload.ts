@@ -20,10 +20,11 @@ import { shouldUseChunkedUpload } from "./chunkedUpload";
 import { prepareAttachmentForUpload } from "./uploadPrep";
 import { beginUploadGuard, endUploadGuard } from "./uploadGuard";
 import {
+  deleteBfBlobs,
   deleteBfJobAndBlobs,
   deleteOrphanBfBlobs,
   getAllBfJobs,
-  persistBfBlobs,
+  persistBfBlob,
   putBfJob,
 } from "./backgroundFetchStore";
 
@@ -171,16 +172,25 @@ export async function startViaBackgroundFetch(
   if (!token) return false;
 
   let created: BfJob | null = null;
+  // 잡 레코드가 만들어지기 전에 끊기면 Cache에 사본만 남는다 — 몇 장까지 넣었는지 센다.
+  const id = newJobId();
+  let persistedCount = 0;
   beginUploadGuard();
   try {
-    const prepared = await Promise.all(
-      files.map(async (file, i) => {
-        onPreparing?.({ fileIndex: i, fileCount: files.length });
-        return prepareAttachmentForUpload(file);
-      }),
-    );
+    // 한 장씩 손질해 그 자리에서 Cache에 넣는다. Promise.all은 모든 장을 동시에
+    // 메모리로 올려 갤럭시에서 최대 점유가 장 수만큼 뛰었고, onPreparing이 첫 tick에
+    // 마지막 장의 인덱스까지 한꺼번에 불려 '준비 중 n/N'이 항상 N으로 시작했다.
+    // snapshot: false — 바로 다음 줄에서 Cache로 복사하므로 ArrayBuffer 사본은
+    // 같은 파일을 한 번 더 읽는 낭비다. content URI가 끊길 구간은 어느 쪽이든 같다.
+    const prepared: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+      onPreparing?.({ fileIndex: i, fileCount: files.length });
+      const file = await prepareAttachmentForUpload(files[i], { snapshot: false });
+      await persistBfBlob(id, i, file);
+      persistedCount = i + 1;
+      prepared.push(file);
+    }
 
-    const id = newJobId();
     const locale = getStoredLocale();
     created = {
       id,
@@ -212,13 +222,13 @@ export async function startViaBackgroundFetch(
       chunkSize: UPLOAD_CHUNK_SIZE_BYTES,
       createdAt: Date.now(),
     };
-    await persistBfBlobs(id, prepared);
     await putBfJob(created);
     await pokeSw(BF_SW_KICK, { jobId: id });
     return true;
   } catch (err) {
     console.warn("[kibble] background fetch persist failed", err);
     if (created) await deleteBfJobAndBlobs(created).catch(() => {});
+    else if (persistedCount > 0) await deleteBfBlobs(id, persistedCount).catch(() => {});
     return false;
   } finally {
     endUploadGuard();

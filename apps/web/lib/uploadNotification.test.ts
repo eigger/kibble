@@ -4,6 +4,7 @@ import {
   requestUploadNotificationPermission,
   showUploadCompleteNotification,
   showUploadFailedNotification,
+  showUploadPreparingNotification,
   showUploadProgressNotification,
 } from "./uploadNotification";
 
@@ -110,6 +111,48 @@ describe("uploadNotification", () => {
         body: "사진 2/2장 올리는 중... (10%)",
       }),
     );
+  });
+
+  it("shows preparing notification before any bytes leave the device", async () => {
+    await showUploadPreparingNotification({ fileIndex: 0, fileCount: 3, eventId: "evt-1" });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        tag: "kibble-upload",
+        body: "사진 1/3장 준비 중...",
+        badge: expect.stringContaining("badge-96.png"),
+        silent: true,
+      }),
+    );
+
+    await showUploadPreparingNotification({ fileIndex: 1, fileCount: 3, eventId: "evt-1" });
+    expect(showNotificationMock).toHaveBeenLastCalledWith(
+      "Kibble",
+      expect.objectContaining({ body: "사진 2/3장 준비 중..." }),
+    );
+
+    // 준비 → 업로드 전환은 같은 파일이라도 스로틀에 걸리지 않는다
+    await showUploadProgressNotification({
+      fileIndex: 1,
+      fileCount: 3,
+      loaded: 10,
+      total: 100,
+    });
+    expect(showNotificationMock).toHaveBeenLastCalledWith(
+      "Kibble",
+      expect.objectContaining({ body: "사진 2/3장 올리는 중... (10%)" }),
+    );
+  });
+
+  it("shows single-file preparing notification in English", async () => {
+    localStorage.setItem("kibble_locale", "en");
+    await showUploadPreparingNotification({ fileIndex: 0, fileCount: 1 });
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({ body: "Preparing photo..." }),
+    );
+    localStorage.removeItem("kibble_locale");
   });
 
   it("shows complete notification and auto-closes after delay", async () => {
