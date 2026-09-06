@@ -92,39 +92,14 @@ function newJobId(): string {
 async function pokeSw(type: string, extra: Record<string, unknown> = {}): Promise<void> {
   if (!("serviceWorker" in navigator)) return;
   const registration = await navigator.serviceWorker.ready;
-  registration.active?.postMessage({ type, ...extra });
+  const target = registration.active || navigator.serviceWorker.controller;
+  target?.postMessage({ type, ...extra });
 }
 
 function isBfMessage(data: unknown): data is BfClientMessage {
   if (typeof data !== "object" || data === null) return false;
   const msg = data as BfClientMessage;
   return msg.type === BF_MESSAGE_TYPE && typeof msg.action === "string";
-}
-
-function waitForStarted(jobId: string, ms = 8_000): Promise<boolean> {
-  if (!("serviceWorker" in navigator)) return Promise.resolve(false);
-  return new Promise((resolve) => {
-    const timer = window.setTimeout(() => {
-      cleanup();
-      resolve(false);
-    }, ms);
-    function onMsg(event: MessageEvent) {
-      if (!isBfMessage(event.data) || event.data.jobId !== jobId) return;
-      if (event.data.action === "started" || event.data.action === "progress" || event.data.action === "done") {
-        cleanup();
-        resolve(true);
-      }
-      if (event.data.action === "fail") {
-        cleanup();
-        resolve(false);
-      }
-    }
-    function cleanup() {
-      window.clearTimeout(timer);
-      navigator.serviceWorker.removeEventListener("message", onMsg);
-    }
-    navigator.serviceWorker.addEventListener("message", onMsg);
-  });
 }
 
 async function abortFetches(ids: string[]): Promise<void> {
@@ -205,9 +180,6 @@ export async function startViaBackgroundFetch(
       }),
     );
 
-    const existing = await getAllBfJobs();
-    const inFlight = existing.some((job) => Boolean(job.fetchId));
-
     const id = newJobId();
     const locale = getStoredLocale();
     created = {
@@ -242,16 +214,7 @@ export async function startViaBackgroundFetch(
     };
     await persistBfBlobs(id, prepared);
     await putBfJob(created);
-
-    const startedWait = inFlight ? Promise.resolve(true) : waitForStarted(id, 8_000);
     await pokeSw(BF_SW_KICK, { jobId: id });
-    const ok = await startedWait;
-    if (!ok) {
-      await pokeSw(BF_SW_ABORT_JOB, { jobId: id });
-      await abortBackgroundFetchesFor((job) => job.id === id);
-      await deleteBfJobAndBlobs(created);
-      return false;
-    }
     return true;
   } catch (err) {
     console.warn("[kibble] background fetch persist failed", err);

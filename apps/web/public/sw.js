@@ -1,4 +1,4 @@
-const CACHE_NAME = "kibble-shell-v8";
+const CACHE_NAME = "kibble-shell-v9";
 importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로
@@ -135,21 +135,34 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const visibleClient = clients.find((c) => c.visibilityState === "visible");
+      if (visibleClient && "focus" in visibleClient) {
+        try {
+          if ("navigate" in visibleClient && visibleClient.url !== fullUrl) {
+            await visibleClient.navigate(fullUrl);
+          }
+          await visibleClient.focus();
+          return;
+        } catch {}
+      }
+      if (self.clients.openWindow) {
+        try {
+          const win = await self.clients.openWindow(fullUrl);
+          if (win) return;
+        } catch {}
+      }
       for (const client of clients) {
         if ("focus" in client) {
           try {
-            await client.focus();
-            if ("navigate" in client) {
+            if ("navigate" in client && client.url !== fullUrl) {
               await client.navigate(fullUrl);
             }
+            await client.focus();
             return;
           } catch (err) {
             console.warn("[sw] focus/navigate failed", err);
           }
         }
-      }
-      if (self.clients.openWindow) {
-        await self.clients.openWindow(fullUrl);
       }
     })(),
   );
