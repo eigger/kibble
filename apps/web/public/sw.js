@@ -1,4 +1,4 @@
-const CACHE_NAME = "kibble-shell-v6";
+const CACHE_NAME = "kibble-shell-v7";
 importScripts("sw-background-fetch.js");
 
 // public/ 파일은 빌드 시 basePath가 붙지 않는다. 대신 서비스워커는 자기 스코프를 알고 있으므로
@@ -106,14 +106,65 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+
+  if (event.action === "cancel") {
+    const jobId = event.notification.data?.jobId;
+    const eventId = event.notification.data?.eventId;
+    event.waitUntil(
+      (async () => {
+        if (jobId) {
+          await abortJob(jobId);
+        } else {
+          await abortAllBf();
+        }
+        await notifyClients({ action: "cancel", jobId, eventId });
+        await notifyClients({ action: "idle" });
+      })(),
+    );
+    return;
+  }
+
   const target = event.notification.data?.url || pageUrl("/");
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
       for (const client of clients) {
-        if (client.url.includes(target) && "focus" in client) return client.focus();
+        if ("focus" in client) {
+          if ("navigate" in client) {
+            try {
+              await client.navigate(target);
+            } catch {}
+          }
+          return client.focus();
+        }
       }
       if (self.clients.openWindow) return self.clients.openWindow(target);
     }),
   );
+});
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === "kibble-upload-sync") {
+    event.waitUntil(
+      (async () => {
+        try {
+          const jobs = await getAllJobs();
+          let revived = false;
+          for (const job of jobs) {
+            if (job.status === "failed") {
+              job.status = "pending";
+              job.retries = 0;
+              await putJob(job);
+              revived = true;
+            }
+          }
+          if (revived) {
+            await kickIfIdle();
+          }
+        } catch (err) {
+          console.warn("[kibble] sync event handler failed", err);
+        }
+      })(),
+    );
+  }
 });

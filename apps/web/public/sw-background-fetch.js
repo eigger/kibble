@@ -309,20 +309,45 @@ function jobBadgeUrl(job) {
   return "/icons/badge-96.png";
 }
 
+function toAppUrl(path) {
+  if (typeof pageUrl === "function") return pageUrl(path);
+  return path;
+}
+
+async function registerSyncIfSupported() {
+  if (self.registration && "sync" in self.registration) {
+    try {
+      await self.registration.sync.register("kibble-upload-sync");
+    } catch (err) {
+      console.warn("[kibble] bg sync register failed", err);
+    }
+  }
+}
+
 async function showSwProgressNotification(job) {
   if (!self.registration || !self.registration.showNotification) return;
   const currentNum = Math.min((job.fileIndex || 0) + 1, job.files.length);
   const total = job.files.length;
   const isEn = job.locale === "en";
+
+  let percentText = "";
+  const bytesTotal = (job.files || []).reduce((n, f) => n + (f.size || 0), 0);
+  if (bytesTotal > 0 && typeof job.bytesDone === "number") {
+    const pct = Math.min(100, Math.max(0, Math.round((job.bytesDone / bytesTotal) * 100)));
+    percentText = ` (${pct}%)`;
+  }
+
   const body = isEn
     ? total > 1
-      ? `Uploading ${currentNum}/${total}...`
-      : "Uploading..."
+      ? `Uploading ${currentNum}/${total}...${percentText}`
+      : `Uploading...${percentText}`
     : total > 1
-      ? `사진 ${currentNum}/${total}장 올리는 중...`
-      : "사진 올리는 중...";
+      ? `사진 ${currentNum}/${total}장 올리는 중...${percentText}`
+      : `사진 올리는 중...${percentText}`;
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
+  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
+
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
@@ -330,7 +355,8 @@ async function showSwProgressNotification(job) {
       icon,
       badge,
       silent: true,
-      data: { url: "/" },
+      data: { url: targetUrl, jobId: job.id, eventId: job.eventId },
+      actions: [{ action: "cancel", title: isEn ? "Cancel" : "취소" }],
     });
   } catch {}
 }
@@ -348,6 +374,7 @@ async function showSwCompleteNotification(job) {
       : "사진 업로드 완료";
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
+  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
@@ -355,7 +382,7 @@ async function showSwCompleteNotification(job) {
       icon,
       badge,
       silent: true,
-      data: { url: "/" },
+      data: { url: targetUrl, eventId: job.eventId },
     });
     setTimeout(async () => {
       try {
@@ -374,6 +401,7 @@ async function showSwFailedNotification(job, leftover) {
     : `사진 ${leftover}장 업로드 실패. 다시 시도해 주세요.`;
   const icon = job.iconUrl || "/icons/icon-192.png";
   const badge = jobBadgeUrl(job);
+  const targetUrl = toAppUrl(job.eventId ? `/history?highlight=${encodeURIComponent(job.eventId)}` : "/history");
   try {
     await self.registration.showNotification("Kibble", {
       tag: SW_NOTIFICATION_TAG,
@@ -381,7 +409,7 @@ async function showSwFailedNotification(job, leftover) {
       icon,
       badge,
       silent: false,
-      data: { url: "/" },
+      data: { url: targetUrl, eventId: job.eventId },
     });
   } catch {}
 }
@@ -440,6 +468,7 @@ async function retryOrFail(job) {
   }
   job.status = "failed";
   await putJob(job);
+  await registerSyncIfSupported();
   await notifyClients(
     Object.assign({ action: "fail", remainingCount: remainingFileCount(job) }, progressFields(job)),
   );
@@ -613,6 +642,7 @@ async function finishJob(job) {
     job.status = "failed";
     job.fetchId = null;
     await putJob(job);
+    await registerSyncIfSupported();
     await notifyClients(
       Object.assign({ action: "fail", remainingCount: leftover }, progressFields(job)),
     );
@@ -768,11 +798,18 @@ async function onBfAborted(registration) {
   await runKick();
 }
 
-async function openApp() {
-  const target = pageUrl("/");
+async function openApp(targetUrl) {
+  const target = targetUrl || toAppUrl("/");
   const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   for (const client of clients) {
-    if (client.url.includes(target) && "focus" in client) return client.focus();
+    if ("focus" in client) {
+      if ("navigate" in client && targetUrl) {
+        try {
+          await client.navigate(target);
+        } catch {}
+      }
+      return client.focus();
+    }
   }
   if (self.clients.openWindow) return self.clients.openWindow(target);
 }
@@ -782,6 +819,7 @@ async function abortJob(jobId) {
   const job = await getJob(jobId);
   if (job) {
     job.status = "cancelled";
+    await putJob(job);
     if (job.fetchId && self.registration.backgroundFetch) {
       try {
         const active = await self.registration.backgroundFetch.get(job.fetchId);
@@ -827,5 +865,17 @@ self.addEventListener("backgroundfetchabort", (event) => {
 });
 
 self.addEventListener("backgroundfetchclick", (event) => {
-  event.waitUntil(openApp());
+  const parsed = parseBfFetchId(event.registration && event.registration.id);
+  event.waitUntil(
+    (async () => {
+      let targetUrl = toAppUrl("/");
+      if (parsed) {
+        const job = await getJob(parsed.jobId);
+        if (job && job.eventId) {
+          targetUrl = toAppUrl(`/history?highlight=${encodeURIComponent(job.eventId)}`);
+        }
+      }
+      await openApp(targetUrl);
+    })(),
+  );
 });

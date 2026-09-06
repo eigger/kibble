@@ -2353,10 +2353,32 @@ button:disabled {
   width: 100%;
 }
 
+@keyframes timelineHighlightPulse {
+  0% {
+    background-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 24%, transparent);
+    border-radius: 8px;
+  }
+  60% {
+    background-color: color-mix(in srgb, var(--color-primary) 16%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 12%, transparent);
+    border-radius: 8px;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
 .timeline-row {
   display: flex;
   align-items: stretch;
   gap: 8px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.timeline-row.timeline-row-highlight {
+  animation: timelineHighlightPulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .timeline-row .timeline-item {
