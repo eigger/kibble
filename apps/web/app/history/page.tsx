@@ -8,7 +8,7 @@ import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
 import type { Pet, TimelineEvent } from "../../lib/types";
 import type { JournalStats } from "@kibble/shared";
-import { appendTimelinePage, kstDayKey, timelineHasMore } from "@kibble/shared";
+import { appendTimelinePage, intlLocale, kstDayKey, timelineHasMore } from "@kibble/shared";
 import {
   clinicFieldsFromContact,
   eventDisplayLabel,
@@ -223,7 +223,7 @@ export default function HistoryPage() {
     const groups: { dayKey: string; label: string; items: TimelineEvent[] }[] = [];
     for (const event of events) {
       const dayKey = kstDayKey(new Date(event.occurredAt));
-      const label = new Date(event.occurredAt).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+      const label = new Date(event.occurredAt).toLocaleDateString(intlLocale(locale), {
         weekday: "short",
         year: "numeric",
         month: "short",

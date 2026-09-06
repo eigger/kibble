@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { routePath } from "../../lib/base-path";
-import { formatDoseTime, insertTimelineEvent, resolveDoseTimeOccurredAt } from "@kibble/shared";
+import { formatDoseTime, insertTimelineEvent, intlLocale, resolveDoseTimeOccurredAt } from "@kibble/shared";
 import { apiJson } from "../../lib/api";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
@@ -95,7 +95,7 @@ export default function QuickRecordPage() {
   const needsPet = user?.needsPet;
   const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
-  const localeTag = locale === "ko" ? "ko-KR" : "en-US";
+  const localeTag = intlLocale(locale);
   const [pet, setPet] = useState<Pet | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [recentEvents, setRecentEvents] = useState<TimelineEvent[]>([]);

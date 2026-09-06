@@ -239,6 +239,18 @@ const MESSAGES = {
     ko: "업로드가 완료되지 않았습니다",
     en: "Upload is incomplete",
   },
+  medicationReminderLeadTitle: {
+    ko: "복약 시간이 다가왔어요",
+    en: "Medication soon",
+  },
+  medicationReminderOverdueTitle: {
+    ko: "복약 기록이 없어요",
+    en: "Medication overdue",
+  },
+  medicationReminderBody: {
+    ko: "{petName} · {courseName} · {timeLabel}",
+    en: "{petName} · {courseName} · {timeLabel}",
+  },
 } as const;
 
 export type ApiMessageKey = keyof typeof MESSAGES;

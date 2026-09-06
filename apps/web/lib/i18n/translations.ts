@@ -1075,15 +1075,12 @@ export function translateLabel(
   return labelOrKey.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
 }
 
-export const INTL_LOCALE: Record<Locale, string> = { ko: "ko-KR", en: "en-US" };
-
-export function intlLocale(locale: Locale): string {
-  return INTL_LOCALE[locale] ?? "ko-KR";
-}
+import { INTL_LOCALE, intlLocale, LOCALE_STORAGE_KEY } from "@kibble/shared";
+export { INTL_LOCALE, intlLocale, LOCALE_STORAGE_KEY };
 
 export function getStoredLocale(): Locale {
   if (typeof localStorage !== "undefined") {
-    const stored = localStorage.getItem("kibble_locale");
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
     if (stored === "en" || stored === "ko") return stored;
   }
   return "ko";

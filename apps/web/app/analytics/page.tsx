@@ -20,7 +20,7 @@ import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { fetchAnalyticsEvents } from "../../lib/fetchAnalyticsEvents";
 import { useLocale } from "../../lib/i18n/locale-context";
-import type { TranslationKey } from "../../lib/i18n/translations";
+import { intlLocale, type TranslationKey } from "../../lib/i18n/translations";
 import {
   avgDailyQuantity,
   filterEventsByPeriod,
@@ -123,7 +123,7 @@ export default function AnalyticsPage() {
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
   const { t, locale } = useLocale();
-  const localeTag = locale === "ko" ? "ko-KR" : "en-US";
+  const localeTag = intlLocale(locale);
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
