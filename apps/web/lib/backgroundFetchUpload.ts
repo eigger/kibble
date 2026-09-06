@@ -26,7 +26,7 @@ import {
 
 export type BfClientMessage = {
   type: typeof BF_MESSAGE_TYPE;
-  action: "started" | "progress" | "done" | "fail" | "idle";
+  action: "started" | "progress" | "done" | "fail" | "idle" | "cancel";
   jobId?: string;
   eventId?: string;
   fileIndex?: number;

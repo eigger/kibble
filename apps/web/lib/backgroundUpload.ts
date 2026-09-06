@@ -112,6 +112,14 @@ function onBfMessage(msg: BfClientMessage): void {
     void refreshBfFailedCount();
     return;
   }
+  if (msg.action === "cancel") {
+    if (msg.eventId) {
+      cancelUploadsForEvent(msg.eventId);
+    } else {
+      cancelBackgroundUpload();
+    }
+    return;
+  }
   if (msg.action === "fail") {
     void refreshBfFailedCount();
     return;
@@ -313,6 +321,7 @@ async function drain(): Promise<void> {
         fileIndex: 0,
         fileCount: job.files.length,
         force: true,
+        eventId: job.eventId,
       });
       try {
         const { uploaded, remaining } = await uploadEventAttachments(
@@ -327,6 +336,7 @@ async function drain(): Promise<void> {
               fileCount: progress.fileCount,
               loaded: progress.loaded,
               total: progress.total,
+              eventId: job.eventId,
             });
           },
           abort.signal,
@@ -337,10 +347,10 @@ async function drain(): Promise<void> {
             for (let i = failed.length - 1; i >= 0; i--) {
               if (failed[i].eventId === job.eventId) failed.splice(i, 1);
             }
-            void showUploadCompleteNotification(job.files.length);
+            void showUploadCompleteNotification(job.files.length, job.eventId);
           } else {
             holdFailed(job.eventId, remaining);
-            void showUploadFailedNotification(remaining.length);
+            void showUploadFailedNotification(remaining.length, job.eventId);
           }
         }
         if (uploaded.length > 0) {

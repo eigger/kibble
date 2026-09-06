@@ -45,6 +45,12 @@ export type UploadNotificationProgress = {
   loaded?: number;
   total?: number;
   force?: boolean;
+  eventId?: string;
+  jobId?: string;
+};
+
+type ExtendedNotificationOptions = NotificationOptions & {
+  actions?: Array<{ action: string; title: string; icon?: string }>;
 };
 
 /**
@@ -57,6 +63,8 @@ export async function showUploadProgressNotification({
   loaded,
   total,
   force = false,
+  eventId,
+  jobId,
 }: UploadNotificationProgress): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
     return;
@@ -94,6 +102,7 @@ export async function showUploadProgressNotification({
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
+    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -101,8 +110,9 @@ export async function showUploadProgressNotification({
       icon,
       badge,
       silent: true,
-      data: { url: "/" },
-    });
+      data: { url: targetUrl, eventId, jobId },
+      actions: [{ action: "cancel", title: isEn ? "Cancel" : "취소" }],
+    } as ExtendedNotificationOptions);
   } catch (err) {
     console.warn("[uploadNotification] show progress failed", err);
   }
@@ -111,7 +121,7 @@ export async function showUploadProgressNotification({
 /**
  * 업로드 완료 시 상단바 알림을 '완료'로 변경하고, 3.5초 뒤 자동으로 닫는다.
  */
-export async function showUploadCompleteNotification(fileCount: number): Promise<void> {
+export async function showUploadCompleteNotification(fileCount: number, eventId?: string): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
     return;
   }
@@ -133,6 +143,7 @@ export async function showUploadCompleteNotification(fileCount: number): Promise
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
+    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -140,7 +151,7 @@ export async function showUploadCompleteNotification(fileCount: number): Promise
       icon,
       badge,
       silent: true,
-      data: { url: "/" },
+      data: { url: targetUrl, eventId },
     });
 
     autoCloseTimer = setTimeout(async () => {
@@ -155,7 +166,7 @@ export async function showUploadCompleteNotification(fileCount: number): Promise
 /**
  * 업로드 실패 시 상단바 알림을 표시한다.
  */
-export async function showUploadFailedNotification(failedCount: number): Promise<void> {
+export async function showUploadFailedNotification(failedCount: number, eventId?: string): Promise<void> {
   if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") {
     return;
   }
@@ -173,6 +184,7 @@ export async function showUploadFailedNotification(failedCount: number): Promise
 
     const icon = withBasePath("/icons/icon-192.png");
     const badge = withBasePath("/icons/badge-96.png");
+    const targetUrl = withBasePath(eventId ? `/history?highlight=${encodeURIComponent(eventId)}` : "/history");
 
     await reg.showNotification("Kibble", {
       tag: UPLOAD_NOTIFICATION_TAG,
@@ -180,7 +192,7 @@ export async function showUploadFailedNotification(failedCount: number): Promise
       icon,
       badge,
       silent: false,
-      data: { url: "/" },
+      data: { url: targetUrl, eventId },
     });
   } catch (err) {
     console.warn("[uploadNotification] show failed failed", err);

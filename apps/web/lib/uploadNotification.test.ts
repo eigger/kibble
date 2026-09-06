@@ -143,6 +143,54 @@ describe("uploadNotification", () => {
     );
   });
 
+  it("includes cancel action and deep link URL in progress notification", async () => {
+    await showUploadProgressNotification({
+      fileIndex: 0,
+      fileCount: 1,
+      force: true,
+      eventId: "evt-123",
+      jobId: "job-abc",
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        actions: [{ action: "cancel", title: "취소" }],
+        data: expect.objectContaining({
+          url: expect.stringContaining("/history?highlight=evt-123"),
+          eventId: "evt-123",
+          jobId: "job-abc",
+        }),
+      }),
+    );
+  });
+
+  it("includes deep link in complete notification", async () => {
+    await showUploadCompleteNotification(3, "evt-456");
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        data: expect.objectContaining({
+          url: expect.stringContaining("/history?highlight=evt-456"),
+          eventId: "evt-456",
+        }),
+      }),
+    );
+  });
+
+  it("includes deep link in failure notification", async () => {
+    await showUploadFailedNotification(2, "evt-789");
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        data: expect.objectContaining({
+          url: expect.stringContaining("/history?highlight=evt-789"),
+          eventId: "evt-789",
+        }),
+      }),
+    );
+  });
+
   it("dismisses active upload notification", async () => {
     await dismissUploadNotification();
     expect(getNotificationsMock).toHaveBeenCalledWith({ tag: "kibble-upload" });

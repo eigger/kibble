@@ -62,6 +62,7 @@ export default function HistoryPage() {
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
+  const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
 
   const loadSeq = useRef(0);
   const loadMoreSeq = useRef(0);
@@ -70,6 +71,30 @@ export default function HistoryPage() {
   const periodRef = useRef("");
   const typeRef = useRef("");
   const loadingMoreRef = useRef(false);
+  const scrolledHighlightRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const hl = params.get("highlight");
+    if (hl) {
+      setHighlightEventId(hl);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!highlightEventId || events.length === 0) return;
+    if (scrolledHighlightRef.current === highlightEventId) return;
+    const targetEl = document.getElementById(`event-${highlightEventId}`);
+    if (targetEl) {
+      scrolledHighlightRef.current = highlightEventId;
+      targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      const timer = setTimeout(() => {
+        setHighlightEventId(null);
+      }, 2600);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightEventId, events]);
 
   useEffect(() => {
     eventsRef.current = events;
@@ -408,7 +433,11 @@ export default function HistoryPage() {
                 <ul className="timeline-list">
                   {group.items.map((event) => {
                     return (
-                      <li key={event.id} className="timeline-row">
+                      <li
+                        key={event.id}
+                        id={`event-${event.id}`}
+                        className={`timeline-row${highlightEventId === event.id ? " timeline-row-highlight" : ""}`}
+                      >
                         <div
                           className="timeline-item timeline-item-clickable"
                           role="button"
