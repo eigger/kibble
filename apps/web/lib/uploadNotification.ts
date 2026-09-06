@@ -1,5 +1,5 @@
 import { withBasePath } from "./base-path";
-import { translate, type Locale } from "./i18n/translations";
+import { getStoredLocale, translate } from "./i18n/translations";
 
 const UPLOAD_NOTIFICATION_TAG = "kibble-upload";
 const THROTTLE_INTERVAL_MS = 500;
@@ -7,14 +7,6 @@ const THROTTLE_INTERVAL_MS = 500;
 let lastProgressNotifyTime = 0;
 let lastFileIndex = -1;
 let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
-
-function getLocale(): Locale {
-  if (typeof localStorage !== "undefined") {
-    const locale = localStorage.getItem("kibble_locale");
-    if (locale === "en") return "en";
-  }
-  return "ko";
-}
 
 function clearAutoClose(): void {
   if (autoCloseTimer !== null) {
@@ -92,7 +84,7 @@ export async function showUploadProgressNotification({
       percentText = ` (${pct}%)`;
     }
 
-    const locale = getLocale();
+    const locale = getStoredLocale();
     const body = fileCount > 1
       ? translate(locale, "uploadNotificationUploadingMultiple", {
           current: currentNum,
@@ -135,7 +127,7 @@ export async function showUploadCompleteNotification(fileCount: number, eventId?
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    const locale = getLocale();
+    const locale = getStoredLocale();
     const body = fileCount > 1
       ? translate(locale, "uploadNotificationCompleteMultiple", { count: fileCount })
       : translate(locale, "uploadNotificationCompleteSingle");
@@ -176,7 +168,7 @@ export async function showUploadFailedNotification(failedCount: number, eventId?
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    const locale = getLocale();
+    const locale = getStoredLocale();
     const body = translate(locale, "uploadNotificationFailed", { count: failedCount });
 
     const icon = withBasePath("/icons/icon-192.png");

@@ -1,4 +1,4 @@
-import type { TranslationKey } from "./i18n/translations";
+import { intlLocale, type Locale, type TranslationKey } from "./i18n/translations";
 import type { PresetCategory } from "./presetGroups";
 import { PRESET_CATEGORY_ORDER, presetCategoryShortKey } from "./presetGroups";
 import { formatEventDetailLine } from "./eventDetailFields";
@@ -47,7 +47,7 @@ export function clinicFieldsFromContact(event: {
 
 export function formatEventTime(iso: string, locale: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString(locale === "ko" ? "ko-KR" : "en-US", {
+  return d.toLocaleTimeString(intlLocale(locale as Locale), {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -57,7 +57,7 @@ export function formatEventTime(iso: string, locale: string): string {
 
 export function formatEventDate(iso: string, locale: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+  return d.toLocaleDateString(intlLocale(locale as Locale), {
     month: "short",
     day: "numeric",
     timeZone: "Asia/Seoul",

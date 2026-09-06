@@ -2,6 +2,7 @@ import { recordFailedRequest } from "./bugReport";
 import { BASE_PATH } from "./base-path";
 import { isLocalFileFailure } from "./uploadPrep";
 import { isUploadCancelled, throwIfAborted, UploadCancelledError } from "./uploadAbort";
+import { getStoredLocale, translate } from "./i18n/translations";
 
 function resolveApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
@@ -37,7 +38,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     headers.set("Content-Type", "application/json");
   }
   // 서버 에러 메시지도 앱에서 고른 언어(브라우저/OS 설정이 아니라)로 받기 위해 매 요청에 싣는다.
-  const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
+  const locale = typeof window !== "undefined" ? getStoredLocale() : null;
   if (locale) headers.set("X-Locale", locale);
   const res = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
   // 버그 제보 시 자동 첨부되는 최근 실패 요청 — 경로/상태코드만, 본문은 담지 않는다.
@@ -48,10 +49,9 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 }
 
 // apiJson()은 컴포넌트 밖(어떤 페이지에서든 재사용되는 순수 lib 함수)이라 useLocale()의
-// t()를 쓸 수 없다 — 그래서 저장된 언어를 localStorage에서 직접 읽어 폴백 메시지만 고른다.
+// t()를 쓸 수 없다 — 그래서 getStoredLocale()로 언어를 읽고 translate()를 호출한다.
 function requestFailedMessage(status: number): string {
-  const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
-  return locale === "en" ? `Request failed (${status})` : `요청 실패 (${status})`;
+  return translate(getStoredLocale(), "requestFailed", { status });
 }
 
 // 4xx(요청 자체가 잘못됨)와 5xx/네트워크(일시적 문제)를 호출부에서 구분할 수 있어야
@@ -137,7 +137,7 @@ function sendFormUploadOnce<T>(
     xhr.withCredentials = true;
     const token = getToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    const locale = typeof window !== "undefined" ? localStorage.getItem("kibble_locale") : null;
+    const locale = typeof window !== "undefined" ? getStoredLocale() : null;
     if (locale) xhr.setRequestHeader("X-Locale", locale);
 
     const onAbort = () => {

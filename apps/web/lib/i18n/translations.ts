@@ -422,6 +422,51 @@ const dict = {
     ko: "사진 {count}장 업로드 실패. 다시 시도해 주세요.",
     en: "Upload failed ({count} files). Please try again.",
   },
+
+  // api & request
+  requestFailed: {
+    ko: "요청 실패 ({status})",
+    en: "Request failed ({status})",
+  },
+  apiErrorNetwork: {
+    ko: "네트워크 오류 — 연결을 확인하세요",
+    en: "Network error — check your connection",
+  },
+  apiErrorEmptyUpdate: {
+    ko: "변경할 내용이 없습니다",
+    en: "Nothing to save",
+  },
+  apiErrorInvalidDatetime: {
+    ko: "{label}: 올바른 날짜·시각을 입력하세요",
+    en: "{label}: enter a valid date and time",
+  },
+  apiErrorFieldRequired: {
+    ko: "{label}을(를) 입력하세요",
+    en: "{label} is required",
+  },
+
+  // background fetch UI
+  bgFetchUploading: { ko: "올리는 중", en: "Uploading" },
+  bgFetchDone: { ko: "올렸습니다", en: "Uploaded" },
+  bgFetchFailed: { ko: "업로드 실패", en: "Upload failed" },
+
+  // field labels for zod validation errors
+  fieldOccurredAt: { ko: "시각", en: "Time" },
+  fieldQuantity: { ko: "수량", en: "Amount" },
+  fieldQuantityOffered: { ko: "제공량", en: "Amount offered" },
+  fieldUnit: { ko: "단위", en: "Unit" },
+  fieldScaleValue: { ko: "척도", en: "Scale" },
+  fieldNote: { ko: "메모", en: "Note" },
+  fieldNeedsReview: { ko: "검토", en: "Review" },
+
+  // bug report diag labels
+  bugReportNoDesc: { ko: "(설명 없음)", en: "(no description)" },
+  bugReportAppVersion: { ko: "앱 버전", en: "App version" },
+  bugReportScreen: { ko: "발생 화면", en: "Screen" },
+  bugReportTime: { ko: "시각", en: "Time" },
+  bugReportBrowser: { ko: "브라우저", en: "Browser" },
+  bugReportFailedApi: { ko: "최근 실패한 API 요청", en: "Recent failed API requests" },
+  bugReportConsoleErrors: { ko: "최근 콘솔 에러", en: "Recent console errors" },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: {
     ko: "숫자로 입력해 주세요.",
@@ -1028,5 +1073,19 @@ export function translateLabel(
   }
   if (!params) return labelOrKey;
   return labelOrKey.replace(/\{(\w+)\}/g, (match, k) => (k in params ? String(params[k]) : match));
+}
+
+export const INTL_LOCALE: Record<Locale, string> = { ko: "ko-KR", en: "en-US" };
+
+export function intlLocale(locale: Locale): string {
+  return INTL_LOCALE[locale] ?? "ko-KR";
+}
+
+export function getStoredLocale(): Locale {
+  if (typeof localStorage !== "undefined") {
+    const stored = localStorage.getItem("kibble_locale");
+    if (stored === "en" || stored === "ko") return stored;
+  }
+  return "ko";
 }
 

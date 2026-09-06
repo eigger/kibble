@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
+  getStoredLocale,
+  INTL_LOCALE,
   translate,
   translateLabel,
   type Locale,
@@ -22,14 +24,11 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-const INTL_LOCALE: Record<Locale, string> = { ko: "ko-KR", en: "en-US" };
-
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("ko");
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const initial = stored === "en" || stored === "ko" ? stored : "ko";
+    const initial = getStoredLocale();
     setLocaleState(initial);
     document.documentElement.lang = initial;
   }, []);
