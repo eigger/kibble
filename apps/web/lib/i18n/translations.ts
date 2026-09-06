@@ -912,7 +912,7 @@ const dict = {
   // products
   productCategoryMeal: { ko: "사료", en: "Food" },
   productCategorySupplement: { ko: "영양제", en: "Supplements" },
-  productCategoryMedication: { ko: "약·제제", en: "Medication" },
+  productCategoryMedication: { ko: "상비약", en: "Medication" },
   productCategoryTreat: { ko: "간식", en: "Treats" },
   productCategoryHygiene: { ko: "위생·소모품", en: "Hygiene" },
   productCategoryDevice: { ko: "용품·기기", en: "Supplies & Gear" },
@@ -949,7 +949,7 @@ const dict = {
   productStorageLabel: { ko: "보관방법", en: "Storage" },
   productStoragePlaceholder: { ko: "예: 직사광선을 피해 서늘한 곳", en: "e.g. cool, dry place" },
   productUsageLabel: { ko: "용도", en: "Usage" },
-  productUsagePlaceholder: { ko: "예: 전연령용, 급성 제제", en: "e.g. all life stages" },
+  productUsagePlaceholder: { ko: "예: 전연령용, 상비약", en: "e.g. all life stages" },
   productOriginLabel: { ko: "원산지", en: "Origin" },
   productOriginPlaceholder: { ko: "예: 국내산, 캐나다", en: "e.g. Canada" },
   productFormLabel: { ko: "제형", en: "Form" },
