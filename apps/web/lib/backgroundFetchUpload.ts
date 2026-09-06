@@ -3,11 +3,13 @@ import { BASE_PATH } from "./base-path";
 import { getStoredLocale, translate } from "./i18n/translations";
 import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import {
+  BF_CACHE,
   BF_FETCH_PREFIX,
   BF_MESSAGE_TYPE,
   BF_SW_ABORT_JOB,
   BF_SW_CANCEL,
   BF_SW_KICK,
+  fileCacheUrl,
   isStaleFailedJob,
   prepareFailedJobForRetry,
   remainingFileCount,
@@ -57,13 +59,16 @@ function bgFetchOf(
  * 앱 화면을 내리거나 다른 앱으로 전환하더라도 Service Worker가 백그라운드에서
  * 업로드와 상단바 알림 갱신을 계속 진행하도록 합니다.
  */
-export async function canUseBackgroundFetch(): Promise<boolean> {
+export async function canUseBackgroundFetch(timeoutMs = 2000): Promise<boolean> {
   if (typeof window === "undefined") return false;
   if (!("serviceWorker" in navigator)) return false;
   if (!("caches" in window) || !("indexedDB" in window)) return false;
   try {
-    const registration = await navigator.serviceWorker.ready;
-    return Boolean(registration.active);
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ]);
+    return Boolean(registration && registration.active);
   } catch {
     return false;
   }
@@ -256,16 +261,45 @@ export async function startViaBackgroundFetch(
   }
 }
 
-export async function retryFailedBackgroundFetches(): Promise<boolean> {
+export async function hasBfBlobs(job: BfJob): Promise<boolean> {
+  if (typeof caches === "undefined") return false;
+  try {
+    const cache = await caches.open(BF_CACHE);
+    const uploaded = new Set(job.uploadedIndex ?? []);
+    for (let i = 0; i < job.files.length; i++) {
+      if (uploaded.has(i)) continue;
+      const res = await cache.match(fileCacheUrl(job.id, i));
+      if (!res) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function retryFailedBackgroundFetches(targetEventId?: string): Promise<boolean> {
   const jobs = await getAllBfJobs().catch(() => [] as BfJob[]);
-  const failed = jobs.filter((job) => job.status === "failed");
+  const failed = jobs.filter(
+    (job) => job.status === "failed" && (!targetEventId || job.eventId === targetEventId),
+  );
   if (failed.length === 0) return false;
   if (!(await canUseBackgroundFetch())) return false;
+
+  let retriedAny = false;
   for (const job of failed) {
-    await putBfJob(prepareFailedJobForRetry(job, getToken()));
+    const hasBlobs = await hasBfBlobs(job);
+    if (!hasBlobs) {
+      console.warn("[kibble] bf retry: blobs missing for job", job.id, "- cleaning unrecoverable job");
+      await deleteBfJobAndBlobs(job).catch(() => {});
+      continue;
+    }
+    await putBfJob(prepareFailedJobForRetry(job, getToken(), API_URL));
+    retriedAny = true;
   }
-  await pokeSw(BF_SW_KICK);
-  return true;
+  if (retriedAny) {
+    await pokeSw(BF_SW_KICK);
+  }
+  return retriedAny;
 }
 
 export function bfFailedFileCount(jobs: BfJob[]): number {
@@ -293,13 +327,16 @@ export async function sweepBackgroundFetchJobs(now = Date.now()): Promise<BfJob[
 export async function hydrateBackgroundFetchJobs(): Promise<{
   running: BfJob | undefined;
   failedCount: number;
+  failedJobs: BfJob[];
 }> {
   // 읽기만 한다 — 메시지마다 불리므로 Cache 전체 순회를 여기 두지 않는다. 정리는
   // 배너가 붙을 때 sweepBackgroundFetchJobs()가 한 번 돈다.
   const jobs = await getAllBfJobs().catch(() => [] as BfJob[]);
+  const failedJobs = jobs.filter((job) => job.status === "failed");
   return {
     running: jobs.find((job) => job.status === "running" || job.status === "pending"),
     failedCount: bfFailedFileCount(jobs),
+    failedJobs,
   };
 }
 

@@ -258,6 +258,18 @@ function headerSafe(value) {
 }
 
 function multipartRequest(url, blob, fileName, mime, headers) {
+  if (typeof FormData !== "undefined") {
+    const formData = new FormData();
+    formData.append("file", blob, fileName);
+    const reqHeaders = new Headers(headers);
+    reqHeaders.delete("Content-Type");
+    return new Request(url, {
+      method: "POST",
+      headers: reqHeaders,
+      body: formData,
+      credentials: "same-origin",
+    });
+  }
   const boundary = `----kibble${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
   const safe = headerSafe(fileName);
   const encoded = encodeURIComponent(fileName);
@@ -516,6 +528,16 @@ async function handleHttpError(job, work, res) {
     await performWork(job);
     return false;
   }
+  if (res.status === 401 || res.status === 403) {
+    job.status = "failed";
+    job.fetchId = null;
+    await putJob(job);
+    await notifyClients(
+      Object.assign({ action: "fail", remainingCount: remainingFileCount(job) }, progressFields(job)),
+    );
+    await runKick();
+    return false;
+  }
   return retryOrFail(job);
 }
 
@@ -611,7 +633,19 @@ async function handleSwFetchSettled(job, work, res) {
 
 async function doMultipartBf(job, work) {
   const file = job.files[work.fileIndex];
-  const blob = await getFileBlob(job, work.fileIndex);
+  let blob;
+  try {
+    blob = await getFileBlob(job, work.fileIndex);
+  } catch (err) {
+    console.warn("[kibble] sw multipart getFileBlob failed", err);
+    Object.assign(job, skipCurrentFile(job));
+    await putJob(job);
+    await notifyClients(
+      Object.assign({ action: "fail", remainingCount: remainingFileCount(job) }, progressFields(job)),
+    );
+    await performWork(job);
+    return;
+  }
   const request = multipartRequest(
     `${job.apiBase}/api/attachments?eventId=${encodeURIComponent(job.eventId)}`,
     blob,
@@ -633,7 +667,19 @@ async function doMultipartBf(job, work) {
 
 async function doChunkBf(job, work) {
   const file = job.files[work.fileIndex];
-  const blob = await getFileBlob(job, work.fileIndex);
+  let blob;
+  try {
+    blob = await getFileBlob(job, work.fileIndex);
+  } catch (err) {
+    console.warn("[kibble] sw chunk getFileBlob failed", err);
+    Object.assign(job, skipCurrentFile(job));
+    await putJob(job);
+    await notifyClients(
+      Object.assign({ action: "fail", remainingCount: remainingFileCount(job) }, progressFields(job)),
+    );
+    await performWork(job);
+    return;
+  }
   const chunkSize = jobChunkSize(job);
   const start = work.chunkIndex * chunkSize;
   const chunk = blob.slice(start, start + chunkSize);

@@ -31,6 +31,13 @@ export type AttachmentsUploadedDetail = {
   uploaded: EventAttachment[];
 };
 
+export type FailedUploadItem = {
+  eventId: string;
+  totalCount: number;
+  succeededFiles: { id?: string; name?: string; path?: string }[];
+  failedFiles: { name: string; size: number }[];
+};
+
 export type BackgroundUploadSnapshot = {
   current: {
     eventId: string;
@@ -40,6 +47,7 @@ export type BackgroundUploadSnapshot = {
     canLeave: boolean;
   } | null;
   failedCount: number;
+  failedItems: FailedUploadItem[];
 };
 
 type Job = { eventId: string; files: File[] };
@@ -54,6 +62,7 @@ let running = false;
 let jobAbort: AbortController | null = null;
 let bfActive = false;
 let bfFailedCount = 0;
+let bfFailedJobs: import("./backgroundFetchJob").BfJob[] = [];
 let cancelGen = 0;
 let unsubBf: (() => void) | null = null;
 
@@ -61,12 +70,53 @@ function emit(): void {
   for (const listener of listeners) listener();
 }
 
+function computeFailedItems(): FailedUploadItem[] {
+  const map = new Map<string, FailedUploadItem>();
+
+  for (const job of failed) {
+    const existing = map.get(job.eventId) ?? {
+      eventId: job.eventId,
+      totalCount: 0,
+      succeededFiles: [],
+      failedFiles: [],
+    };
+    for (const f of job.files) {
+      existing.failedFiles.push({ name: f.name, size: f.size });
+    }
+    existing.totalCount = existing.succeededFiles.length + existing.failedFiles.length;
+    map.set(job.eventId, existing);
+  }
+
+  for (const job of bfFailedJobs) {
+    const existing = map.get(job.eventId) ?? {
+      eventId: job.eventId,
+      totalCount: 0,
+      succeededFiles: [],
+      failedFiles: [],
+    };
+    const uploadedSet = new Set(job.uploadedIndex ?? []);
+    for (let i = 0; i < job.files.length; i++) {
+      const f = job.files[i];
+      if (uploadedSet.has(i)) {
+        existing.succeededFiles.push({ name: f.name });
+      } else {
+        existing.failedFiles.push({ name: f.name, size: f.size });
+      }
+    }
+    existing.totalCount = existing.succeededFiles.length + existing.failedFiles.length;
+    map.set(job.eventId, existing);
+  }
+
+  return Array.from(map.values());
+}
+
 function publish(): void {
+  const failedItems = computeFailedItems();
   const failedCount = failed.reduce((n, job) => n + job.files.length, 0) + bfFailedCount;
   if (!current && failedCount === 0) {
     view = null;
   } else {
-    view = { current, failedCount };
+    view = { current, failedCount, failedItems };
   }
   emit();
 }
@@ -121,6 +171,7 @@ function onBfMessage(msg: BfClientMessage): void {
     return;
   }
   if (msg.action === "fail") {
+    bfActive = false;
     void refreshBfFailedCount();
     return;
   }
@@ -132,8 +183,9 @@ function onBfMessage(msg: BfClientMessage): void {
 }
 
 async function refreshBfFailedCount(): Promise<void> {
-  const { running: runningJob, failedCount } = await hydrateBackgroundFetchJobs();
+  const { running: runningJob, failedCount, failedJobs } = await hydrateBackgroundFetchJobs();
   bfFailedCount = failedCount;
+  bfFailedJobs = failedJobs;
   if (runningJob) {
     bfActive = true;
     if (!current || current.canLeave) {
@@ -151,6 +203,11 @@ async function refreshBfFailedCount(): Promise<void> {
           fileStates: [],
         },
       };
+    }
+  } else {
+    bfActive = false;
+    if (!running && current?.canLeave) {
+      current = null;
     }
   }
   publish();
@@ -190,19 +247,21 @@ export function startBackgroundUpload(eventId: string, files: File[]): void {
   void drain();
 }
 
-/** 배너의 그만두기 — 큐·진행 중을 모두 끊는다. 기록 행은 그대로 둔다. */
+/** 배너의 그만두기 — 큐·진행 중·실패 목록을 모두 끊는다. 기록 행은 그대로 둔다. */
 export function cancelBackgroundUpload(): void {
   cancelGen += 1;
   queue.length = 0;
+  failed.length = 0;
   jobAbort?.abort();
   bfActive = false;
   bfFailedCount = 0;
+  bfFailedJobs = [];
   void cancelAllBackgroundFetches();
   void dismissUploadNotification();
   if (!running) {
     current = null;
-    publish();
   }
+  publish();
 }
 
 /** 이력 삭제 전에 그 기록으로 가는 전송만 끊는다. */
@@ -213,6 +272,7 @@ export function cancelUploadsForEvent(eventId: string): void {
   for (let i = failed.length - 1; i >= 0; i--) {
     if (failed[i].eventId === eventId) failed.splice(i, 1);
   }
+  bfFailedJobs = bfFailedJobs.filter((j) => j.eventId !== eventId);
   void abortBackgroundFetchesFor((job) => job.eventId === eventId).then(() => {
     void refreshBfFailedCount();
   });
@@ -223,15 +283,42 @@ export function cancelUploadsForEvent(eventId: string): void {
   publish();
 }
 
-export function retryBackgroundUpload(): void {
-  const toRetry = failed.splice(0, failed.length);
+export function retryBackgroundUpload(targetEventId?: string): void {
+  let toRetry: Job[] = [];
+  if (targetEventId) {
+    const matchIdx = failed.findIndex((job) => job.eventId === targetEventId);
+    if (matchIdx !== -1) {
+      toRetry = failed.splice(matchIdx, 1);
+    }
+  } else {
+    toRetry = failed.splice(0, failed.length);
+  }
   for (let i = toRetry.length - 1; i >= 0; i--) {
     queue.unshift(toRetry[i]);
   }
-  void retryFailedBackgroundFetches().then((ok) => {
-    if (ok) bfActive = true;
+
+  const shouldRetryBf =
+    bfFailedCount > 0 ||
+    bfFailedJobs.length > 0 ||
+    (toRetry.length === 0 && (!targetEventId || bfFailedJobs.some((j) => j.eventId === targetEventId)));
+
+  if (shouldRetryBf) {
+    if (!targetEventId) {
+      bfFailedCount = 0;
+      bfFailedJobs = [];
+    } else {
+      bfFailedJobs = bfFailedJobs.filter((j) => j.eventId !== targetEventId);
+      bfFailedCount = bfFailedJobs.reduce((n, j) => n + (j.files.length - (j.uploadedIndex?.length ?? 0)), 0);
+    }
+    bfActive = true;
     publish();
-  });
+
+    void retryFailedBackgroundFetches(targetEventId).then(async (ok) => {
+      if (!ok) bfActive = false;
+      await refreshBfFailedCount();
+    });
+  }
+
   if (toRetry.length > 0) {
     publish();
     void drain();
@@ -389,6 +476,7 @@ export function resetBackgroundUploadForTests(): void {
   jobAbort = null;
   bfActive = false;
   bfFailedCount = 0;
+  bfFailedJobs = [];
   cancelGen = 0;
   unsubBf?.();
   unsubBf = null;
