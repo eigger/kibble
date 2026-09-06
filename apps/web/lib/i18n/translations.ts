@@ -402,6 +402,26 @@ const dict = {
     ko: "첨부 {count}개를 못 올렸습니다. 다시 시도해 주세요.",
     en: "{count} attachment(s) failed. Retry the remaining files.",
   },
+  uploadNotificationUploadingSingle: {
+    ko: "사진 올리는 중...{percent}",
+    en: "Uploading...{percent}",
+  },
+  uploadNotificationUploadingMultiple: {
+    ko: "사진 {current}/{total}장 올리는 중...{percent}",
+    en: "Uploading {current}/{total}...{percent}",
+  },
+  uploadNotificationCompleteSingle: {
+    ko: "사진 업로드 완료",
+    en: "Photo uploaded",
+  },
+  uploadNotificationCompleteMultiple: {
+    ko: "사진 {count}장 업로드 완료",
+    en: "{count} photos uploaded",
+  },
+  uploadNotificationFailed: {
+    ko: "사진 {count}장 업로드 실패. 다시 시도해 주세요.",
+    en: "Upload failed ({count} files). Please try again.",
+  },
   eventDetailTimeInvalid: { ko: "시각을 입력해 주세요.", en: "Enter a valid time." },
   eventDetailQuantityInvalid: {
     ko: "숫자로 입력해 주세요.",

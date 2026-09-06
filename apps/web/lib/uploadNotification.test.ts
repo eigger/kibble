@@ -191,6 +191,44 @@ describe("uploadNotification", () => {
     );
   });
 
+  it("translates notification strings to English when locale is en", async () => {
+    localStorage.setItem("kibble_locale", "en");
+
+    await showUploadProgressNotification({
+      fileIndex: 0,
+      fileCount: 2,
+      loaded: 40,
+      total: 100,
+      force: true,
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        body: "Uploading 1/2... (40%)",
+        actions: [{ action: "cancel", title: "Cancel" }],
+      }),
+    );
+
+    await showUploadCompleteNotification(2);
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        body: "2 photos uploaded",
+      }),
+    );
+
+    await showUploadFailedNotification(1);
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      "Kibble",
+      expect.objectContaining({
+        body: "Upload failed (1 files). Please try again.",
+      }),
+    );
+
+    localStorage.removeItem("kibble_locale");
+  });
+
   it("dismisses active upload notification", async () => {
     await dismissUploadNotification();
     expect(getNotificationsMock).toHaveBeenCalledWith({ tag: "kibble-upload" });
