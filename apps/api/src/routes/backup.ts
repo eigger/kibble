@@ -9,8 +9,10 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import { existsSync } from "fs";
-import { mkdir, writeFile, readFile, rm } from "fs/promises";
+import { mkdir, writeFile, readFile, rm, stat } from "fs/promises";
 import { copyUploadsForBackup, restoreUploadsFromBackup } from "../lib/backupFiles.js";
+import { classifyBackupTicket } from "../lib/backupTicket.js";
+import { runBackupPreflight } from "../lib/backupPreflight.js";
 
 const execAsync = promisify(exec);
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
@@ -82,25 +84,19 @@ async function buildBackupArchive(tempDirName: string): Promise<{ tempDir: strin
 
 export async function backupRoutes(app: FastifyInstance) {
   app.get("/export", async (request, reply) => {
-    const ticket = (request.query as { ticket?: string }).ticket;
-    if (!ticket) {
-      return reply.code(401).send({ error: "unauthorized" });
+    // 세 가지 실패를 구분해 돌려준다. 예전에는 전부 같은 문구라, 사용자가 "백업 누르면
+    // unauthorized"라고 알려줘도 티켓이 안 온 건지·만료된 건지·이미 쓴 건지 알 수 없었다.
+    const verdict = classifyBackupTicket({
+      ticket: (request.query as { ticket?: string }).ticket,
+      verify: (token) => app.jwt.verify<{ purpose?: string; jti?: string }>(token),
+      isUsed: (jti) => usedBackupTicketJtis.has(jti),
+    });
+    if (!verdict.ok) {
+      app.log.warn({ reason: verdict.reason }, "Backup export ticket rejected");
+      return reply.code(401).send({ error: "unauthorized", reason: verdict.reason });
     }
+    const jti = verdict.jti;
 
-    let jti: string;
-    try {
-      const decoded = app.jwt.verify<{ purpose?: string; jti?: string }>(ticket);
-      if (decoded.purpose !== "backup" || typeof decoded.jti !== "string" || !decoded.jti) {
-        return reply.code(401).send({ error: "unauthorized" });
-      }
-      jti = decoded.jti;
-    } catch {
-      return reply.code(401).send({ error: "unauthorized" });
-    }
-
-    if (usedBackupTicketJtis.has(jti)) {
-      return reply.code(401).send({ error: "unauthorized" });
-    }
     usedBackupTicketJtis.add(jti);
     setTimeout(() => usedBackupTicketJtis.delete(jti), 60_000);
 
@@ -109,7 +105,15 @@ export async function backupRoutes(app: FastifyInstance) {
     let archivePath = "";
 
     try {
+      // 아카이브를 다 만든 뒤에야 첫 바이트가 나간다. 첨부가 많으면 그동안 브라우저
+      // 탭은 빈 흰 화면이다 — 어디서 오래 걸리는지 로그로는 보이게 해 둔다.
+      const startedAt = Date.now();
       ({ tempDir, archivePath } = await buildBackupArchive(tempDirName));
+      const archiveStat = await stat(archivePath);
+      app.log.info(
+        { ms: Date.now() - startedAt, bytes: archiveStat.size },
+        "Backup archive built",
+      );
       const stream = createReadStream(archivePath);
       const cleanup = () => {
         rm(tempDir, { recursive: true, force: true }).catch(() => {});
@@ -121,6 +125,9 @@ export async function backupRoutes(app: FastifyInstance) {
 
       return reply
         .header("Content-Type", "application/gzip")
+        // 길이를 알려야 브라우저가 진행률을 그리고, 길이 없는 chunked 응답을 통째로
+        // 버퍼링하는 프록시에 걸리지 않는다.
+        .header("Content-Length", String(archiveStat.size))
         .header(
           "Content-Disposition",
           `attachment; filename="kibble_backup_${new Date().toISOString().slice(0, 10)}.tar.gz"`,
@@ -145,6 +152,14 @@ export async function backupRoutes(app: FastifyInstance) {
         { expiresIn: BACKUP_TICKET_EXPIRES },
       );
       return { ticket, expiresIn: 60 };
+    });
+
+    /**
+     * 내보내기가 실패할 조건을 미리 본다. 다운로드는 새 탭이 받아 가므로 앱이 실패를
+     * 볼 방법이 없다 — 눌러 보기 전에 앱 안에서 이유를 보여주려는 것이다. K-7 — 읽기 전용.
+     */
+    admin.get("/export/preflight", async () => {
+      return runBackupPreflight(UPLOAD_DIR);
     });
 
     admin.post("/restore", async (request, reply) => {
