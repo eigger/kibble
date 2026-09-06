@@ -13,13 +13,16 @@ import {
   saveEventAttachment,
   WritableEventMissingError,
 } from "../lib/eventAttachment.js";
-import { householdWhere, requireHouseholdWrite } from "../lib/householdScope.js";
+import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
 import { sendFileWithRange } from "../lib/sendFile.js";
 import { attachmentSelect } from "../lib/attachmentSelect.js";
 import { TRANSCODE_STATUS } from "../lib/videoTranscode.js";
 import { kickVideoTranscode } from "../jobs/videoTranscode.js";
 
 export { attachmentSelect };
+
+/** 한 화면에 뜨는 영상 수보다 넉넉하다. 쿼리스트링으로 DB를 긁지 못하게 상한을 둔다. */
+const MAX_POSTER_STATUS_IDS = 60;
 
 function safeContentType(mime: string): string {
   return ALLOWED_ATTACHMENT_MIME.has(mime) ? mime : "application/octet-stream";
@@ -140,6 +143,31 @@ export async function attachmentRoutes(app: FastifyInstance) {
       return reply.code(201).send(attachment);
     },
   );
+
+  /**
+   * 영상 대표 프레임의 현재 상태만 돌려준다. 업로드 응답 시점에는 포스터가 없고
+   * (변환 잡이 뒤에서 만든다), 목록은 다시 불러오기 전까지 그 사실을 알 방법이 없어
+   * 방금 올린 영상만 썸네일이 안 보였다. 목록 전체를 다시 받는 대신 이것만 본다.
+   * K-7 — 읽기 전용이다.
+   */
+  app.get("/posters", async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const { ids } = request.query as { ids?: string };
+    const wanted = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, MAX_POSTER_STATUS_IDS);
+    if (wanted.length === 0) return reply.send([]);
+
+    const rows = await prisma.attachment.findMany({
+      where: { id: { in: wanted }, event: { ...householdWhere(householdId), deletedAt: null } },
+      select: { id: true, posterPath: true, transcodeStatus: true },
+    });
+    return reply.send(rows);
+  });
 
   app.delete("/:id", async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);

@@ -16,9 +16,11 @@ const mockProbe = vi.hoisted(() => ({
 }));
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
+const mockPoster = vi.hoisted(() => ({ savePosterForVideo: vi.fn(async () => null as string | null) }));
+
 vi.mock("../lib/eventAttachment.js", () => ({
   attachmentAbsolutePath: (rel: string) => `/abs/${rel}`,
-  savePosterForVideo: vi.fn(async () => null),
+  savePosterForVideo: mockPoster.savePosterForVideo,
 }));
 vi.mock("../lib/uploads.js", () => ({
   TEMP_DIR: "/tmp/kibble-transcode-test",
@@ -34,12 +36,17 @@ vi.mock("../lib/videoTranscode.js", async () => {
   };
 });
 
-import { recoverStuckProcessing, transcodeClaimedAttachment } from "./videoTranscode.js";
+import {
+  backfillMissingPosters,
+  recoverStuckProcessing,
+  transcodeClaimedAttachment,
+} from "./videoTranscode.js";
 import { TRANSCODE_STATUS } from "../lib/videoTranscode.js";
 
 describe("videoTranscode job", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPoster.savePosterForVideo.mockResolvedValue(null);
   });
 
   it("requeues processing rows on startup", async () => {
@@ -95,6 +102,75 @@ describe("videoTranscode job", () => {
       data: {
         transcodeStatus: TRANSCODE_STATUS.SKIPPED,
       },
+    });
+  });
+
+  it("attaches the poster before transcoding, so a transcode failure still leaves a thumbnail", async () => {
+    mockPoster.savePosterForVideo.mockResolvedValue("events/evt1-poster.jpg");
+    mockProbe.probeVideo.mockResolvedValue({
+      width: 3840,
+      height: 2160,
+      durationSec: 120,
+      codec: "hevc",
+    });
+    mockProbe.transcodeVideoTo720p.mockRejectedValue(new Error("ffmpeg timeout after 900000ms"));
+    mockPrisma.attachment.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(
+      transcodeClaimedAttachment({
+        id: "att3",
+        path: "events/big.mp4",
+        size: 400 * 1024 * 1024,
+        eventId: "evt1",
+      }),
+    ).rejects.toThrow(/ffmpeg timeout/);
+
+    // 원본에서 뽑았고, 변환이 죽기 전에 붙었다
+    expect(mockPoster.savePosterForVideo).toHaveBeenCalledWith("evt1", "/abs/events/big.mp4");
+    expect(mockPrisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: { id: "att3", posterPath: null },
+      data: { posterPath: "events/evt1-poster.jpg" },
+    });
+  });
+
+  it("does not overwrite a poster that is already attached", async () => {
+    mockPoster.savePosterForVideo.mockResolvedValue("events/evt1-poster.jpg");
+    mockProbe.probeVideo.mockResolvedValue({
+      width: 1280,
+      height: 720,
+      durationSec: 50,
+      codec: "h264",
+    });
+    // 첫 호출(포스터 연결)은 0건 — 이미 붙어 있다. 두 번째(상태 표시)는 1건.
+    mockPrisma.attachment.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValue({ count: 1 });
+
+    await transcodeClaimedAttachment({
+      id: "att4",
+      path: "events/clip.mp4",
+      size: 4 * 1024 * 1024,
+      eventId: "evt1",
+    });
+
+    expect(mockPrisma.attachment.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { id: "att4", posterPath: null },
+      data: { posterPath: "events/evt1-poster.jpg" },
+    });
+  });
+
+  it("backfills videos that finished without a poster", async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: "old1", path: "events/old.mp4", size: 99, eventId: "evtOld" },
+    ]);
+    mockPoster.savePosterForVideo.mockResolvedValue("events/evtOld-poster.jpg");
+    mockPrisma.attachment.updateMany.mockResolvedValue({ count: 1 });
+
+    await expect(backfillMissingPosters()).resolves.toBe(1);
+    expect(mockPoster.savePosterForVideo).toHaveBeenCalledWith("evtOld", "/abs/events/old.mp4");
+    expect(mockPrisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: { id: "old1", posterPath: null },
+      data: { posterPath: "events/evtOld-poster.jpg" },
     });
   });
 });

@@ -27,6 +27,7 @@ import {
 } from "../../lib/eventAttachments";
 import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
+import { useVideoPosterRefresh } from "../../lib/useVideoPosterRefresh";
 import { fetchTimelinePage } from "../../lib/timeline";
 import type { EventAttachment } from "../../lib/types";
 
@@ -88,6 +89,7 @@ export default function HistoryPage() {
   }, [events]);
 
   useMergeUploadedAttachments(setEvents);
+  useVideoPosterRefresh(events, setEvents);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
