@@ -4,6 +4,7 @@ import {
   resolveDoseTimeOccurredAt,
 } from "@kibble/shared";
 import { householdWhere } from "../lib/householdScope.js";
+import { nextDoseOrdinal } from "../lib/medicationCourseProgress.js";
 import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
@@ -243,14 +244,15 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     // 회차는 기록하는 순간 찍는다 — 이력은 "그때 몇 번째였나"를 남기는 자리이므로
     // 나중에 다시 세지 않는다. 진행 중인 처방의 현재 진행률은 케어 화면이 실제
     // 이벤트 수로 따로 유도한다 (medicationCourseProgress).
-    doseOrdinal =
-      (await db.event.count({
-        where: {
-          ...householdWhere(params.householdId),
-          medicationCourseId: course.id,
-          deletedAt: null,
-        },
-      })) + 1;
+    const numbering = await db.event.aggregate({
+      where: {
+        ...householdWhere(params.householdId),
+        medicationCourseId: course.id,
+      },
+      _max: { doseOrdinal: true },
+      _count: { _all: true },
+    });
+    doseOrdinal = nextDoseOrdinal(numbering._max.doseOrdinal, numbering._count._all);
   } else if (doseSlotIndex != null) {
     throw new CreateEventValidationError("DOSE_SLOT_WITHOUT_COURSE");
   }

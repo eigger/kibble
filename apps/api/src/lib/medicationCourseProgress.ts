@@ -44,6 +44,18 @@ export type MedicationCourseRow = {
   archivedAt: string | null;
 };
 
+/**
+ * 다음 회차 번호. 이미 찍힌 번호 중 최대값과 이벤트 수 가운데 큰 쪽에서 하나 더 간다.
+ *
+ * 이벤트 수만 세면 2회차를 지우고 다시 기록할 때 이미 있는 3회차와 같은 번호가 나온다.
+ * 최대값만 보면 이 컬럼 이전에 남긴(번호 없는) 기록이 있는 과정에서 1부터 다시 센다.
+ * 지운 기록도 최대값 계산에 넣는다 — 복원(POST /events/:id/restore)이 있어서, 뺐다가는
+ * 되살아난 기록과 번호가 겹친다. 그래서 번호는 빌지언정 겹치지 않는다.
+ */
+export function nextDoseOrdinal(maxOrdinal: number | null, eventCount: number): number {
+  return Math.max(maxOrdinal ?? 0, eventCount) + 1;
+}
+
 function daysOnCourse(startDate: Date, now: Date): number {
   const startKey = kstDayKey(startDate);
   const todayKey = kstDayKey(now);

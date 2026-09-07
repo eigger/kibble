@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { resolveMedicationDoseLog } from "./medicationCourseProgress.js";
+import { nextDoseOrdinal, resolveMedicationDoseLog } from "./medicationCourseProgress.js";
+
+describe("nextDoseOrdinal", () => {
+  it("starts at 1 on an empty course", () => {
+    expect(nextDoseOrdinal(null, 0)).toBe(1);
+  });
+
+  it("continues from the highest number already stamped", () => {
+    expect(nextDoseOrdinal(3, 3)).toBe(4);
+  });
+
+  it("leaves a gap instead of reusing a deleted dose's number", () => {
+    // 1·2·3을 찍고 2를 지운 뒤 다시 기록: 남은 이벤트는 2건이지만 3은 이미 쓰였다
+    expect(nextDoseOrdinal(3, 2)).toBe(4);
+  });
+
+  it("picks up after unnumbered doses from before the column existed", () => {
+    expect(nextDoseOrdinal(null, 5)).toBe(6);
+  });
+
+  it("keeps counting past a mix of numbered and unnumbered doses", () => {
+    expect(nextDoseOrdinal(6, 6)).toBe(7);
+  });
+});
 
 describe("resolveMedicationDoseLog", () => {
   const now = new Date("2026-09-01T14:00:00+09:00");
