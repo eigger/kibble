@@ -268,6 +268,7 @@ export function formatEventDetailLine(
     clinicAddress?: string | null;
     costKrw?: number | null;
     medicationCourseName?: string | null;
+    doseAmount?: string | null;
     doseOrdinal?: number | null;
     doseTotal?: number | null;
     quantity: number | null;
@@ -305,6 +306,10 @@ export function formatEventDetailLine(
 
   if (event.eventType.key === "medication" && event.medicationCourseName?.trim()) {
     parts.push(event.medicationCourseName.trim());
+  }
+
+  if (event.eventType.key === "medication" && event.doseAmount?.trim()) {
+    parts.push(event.doseAmount.trim());
   }
 
   // 회차와 남은 횟수. 총 횟수를 안 넣은 처방이면 회차만 나온다 — 없는 값을 추정하지 않는다.

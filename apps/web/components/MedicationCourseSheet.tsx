@@ -66,6 +66,7 @@ export function MedicationCourseSheet({
           body: JSON.stringify({
             petId,
             name: parsed.name,
+            dosage: parsed.dosage,
             dosesPerDay: parsed.dosesPerDay,
             doseTimes: parsed.doseTimes,
             totalDoses: parsed.totalDoses,
@@ -80,6 +81,7 @@ export function MedicationCourseSheet({
           method: "PATCH",
           body: JSON.stringify({
             name: parsed.name,
+            dosage: parsed.dosage,
             dosesPerDay: parsed.dosesPerDay,
             doseTimes: parsed.doseTimes,
             totalDoses: parsed.totalDoses,

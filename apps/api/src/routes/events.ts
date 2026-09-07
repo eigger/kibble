@@ -312,7 +312,7 @@ export async function eventRoutes(app: FastifyInstance) {
             placeUrl: true,
           },
         },
-        course: { select: { id: true, name: true, totalDoses: true } },
+        course: { select: { id: true, name: true, totalDoses: true, dosage: true } },
         createdBy: { select: { id: true, name: true } },
         updatedBy: { select: { id: true, name: true } },
         attachments: {

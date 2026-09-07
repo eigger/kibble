@@ -84,6 +84,8 @@ export interface EventDetailDraft {
   dedupeKey?: string;
   medicationCourseId?: string | null;
   doseSlotIndex?: number | null;
+  /** 처방에 적어 둔 1회 용량. 이 기록의 값이 아니라 과정의 값이라 읽기 전용이다 */
+  doseAmount?: string | null;
   /** 투약 회차 — 기록할 때 찍힌 값. 비어 있을 수 있다(이 기능 이전 기록) */
   doseOrdinal?: number | null;
   /** 처방에 입력한 총 횟수. 회차 옆 "n/N"과 남은 횟수의 근거 */
@@ -822,6 +824,7 @@ export function EventDetailSheet({
                     t("eventDetailCost"),
                     draft.costKrw != null ? `${draft.costKrw.toLocaleString()}${t("eventDetailCostUnit")}` : null,
                   )}
+                {renderViewValue(t("eventDetailDoseAmountLabel"), draft.doseAmount)}
                 {renderViewValue(t("eventDetailDoseOrdinalLabel"), doseOrdinalView)}
                 {fields.fecalScale &&
                   renderViewValue(

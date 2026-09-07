@@ -135,6 +135,7 @@ export function eventDetailLine(
       costKrw: event.costKrw,
       medicationCourseName:
         showCourseInDetail && event.course?.name ? event.course.name : null,
+      doseAmount: event.course?.dosage ?? null,
       doseOrdinal: event.doseOrdinal ?? null,
       doseTotal: event.course?.totalDoses ?? null,
       quantity: event.quantity,

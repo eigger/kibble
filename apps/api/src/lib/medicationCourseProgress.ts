@@ -13,6 +13,7 @@ export type DoseSlotToday = {
 export type MedicationCourseProgress = {
   id: string;
   name: string;
+  dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
   totalDoses: number | null;
@@ -33,6 +34,7 @@ export type MedicationCourseRow = {
   id: string;
   petId: string;
   name: string;
+  dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
   totalDoses: number | null;
@@ -62,6 +64,7 @@ function serializeCourse(course: MedicationCourse): MedicationCourseRow {
     id: course.id,
     petId: course.petId,
     name: course.name,
+    dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
     doseTimes: serializeDoseTimes(course),
     totalDoses: course.totalDoses,
@@ -215,6 +218,7 @@ function toProgress(
   return {
     id: course.id,
     name: course.name,
+    dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
     doseTimes,
     totalDoses: course.totalDoses,

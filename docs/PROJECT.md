@@ -397,6 +397,8 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String              // "○○ 캡슐"
+  dosage      String?             // 1회 용량 "0.5정"·"2.5ml". 단위가 제각각이라 자유 텍스트다.
+                                  // 처방 단위로 정해지므로 기록할 때 다시 묻지 않는다 (R127)
   dosesPerDay Int       @default(1)
   totalDoses  Int?                // 총 처방 횟수. null이면 무기한(영양제 등)
   startDate   DateTime

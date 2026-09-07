@@ -274,6 +274,30 @@ describe("formatEventDetailLine", () => {
     expect(line).toBe("○○ 캡슐 · 3/20회차 · 17회 남음");
   });
 
+  it("shows the dose amount written on the course", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      key === "eventDetailDoseOrdinalOfTotal"
+        ? `${params?.n}/${params?.total}회차`
+        : key === "careDosesRemaining"
+          ? `${params?.count}회 남음`
+          : key;
+    const line = formatEventDetailLine(
+      {
+        medicationCourseName: "○○ 캡슐",
+        doseAmount: "0.5정",
+        doseOrdinal: 3,
+        doseTotal: 20,
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        eventType: { key: "medication", scaleType: null },
+      },
+      t,
+    );
+    expect(line).toBe("○○ 캡슐 · 0.5정 · 3/20회차 · 17회 남음");
+  });
+
   it("shows the ordinal alone when the course has no total", () => {
     const t = (key: string, params?: Record<string, string | number>) =>
       key === "eventDetailDoseOrdinal" ? `${params?.n}회차` : key;

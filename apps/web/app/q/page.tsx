@@ -190,6 +190,7 @@ export default function QuickRecordPage() {
       scaleType: event.eventType.scaleType ?? null,
       scaleValue: event.scaleValue,
       medicationCourseId: event.course?.id ?? null,
+      doseAmount: event.course?.dosage ?? null,
       doseOrdinal: event.doseOrdinal ?? null,
       doseTotal: event.course?.totalDoses ?? null,
       createdAt: event.createdAt,

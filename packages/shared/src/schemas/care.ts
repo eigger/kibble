@@ -6,6 +6,7 @@ const doseTimeSchema = z.string().regex(DOSE_TIME_RE, "invalid dose time");
 export const createMedicationCourseSchema = z.object({
   petId: z.string().trim().min(1),
   name: z.string().trim().min(1).max(120),
+  dosage: z.string().trim().max(60).nullable().optional(),
   dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
   doseTimes: z.array(doseTimeSchema).max(24).optional(),
   /** @deprecated use doseTimes */
@@ -21,6 +22,7 @@ export type CreateMedicationCourseInput = z.infer<typeof createMedicationCourseS
 export const updateMedicationCourseSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+    dosage: z.string().trim().max(60).nullable().optional(),
     dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
     doseTimes: z.array(doseTimeSchema).max(24).optional(),
     doseSlotKeys: z.array(z.string()).max(24).optional(),
