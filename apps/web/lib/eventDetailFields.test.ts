@@ -251,6 +251,61 @@ describe("formatEventDetailLine", () => {
     expect(line).toBe("눈꼽 · 보통");
   });
 
+  it("shows dose ordinal and how many are left", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      key === "eventDetailDoseOrdinalOfTotal"
+        ? `${params?.n}/${params?.total}회차`
+        : key === "careDosesRemaining"
+          ? `${params?.count}회 남음`
+          : key;
+    const line = formatEventDetailLine(
+      {
+        medicationCourseName: "○○ 캡슐",
+        doseOrdinal: 3,
+        doseTotal: 20,
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        eventType: { key: "medication", scaleType: null },
+      },
+      t,
+    );
+    expect(line).toBe("○○ 캡슐 · 3/20회차 · 17회 남음");
+  });
+
+  it("shows the ordinal alone when the course has no total", () => {
+    const t = (key: string, params?: Record<string, string | number>) =>
+      key === "eventDetailDoseOrdinal" ? `${params?.n}회차` : key;
+    const line = formatEventDetailLine(
+      {
+        doseOrdinal: 3,
+        doseTotal: null,
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        eventType: { key: "medication", scaleType: null },
+      },
+      t,
+    );
+    expect(line).toBe("3회차");
+  });
+
+  it("older doses without an ordinal keep their old line", () => {
+    const line = formatEventDetailLine({
+      medicationCourseName: "○○ 캡슐",
+      doseOrdinal: null,
+      doseTotal: 20,
+      quantity: null,
+      quantityOffered: null,
+      unit: null,
+      scaleValue: null,
+      eventType: { key: "medication", scaleType: null },
+    });
+    expect(line).toBe("○○ 캡슐");
+  });
+
   it("summary line is quantities without a note field", () => {
     const line = formatEventDetailLine({
       quantity: 30,

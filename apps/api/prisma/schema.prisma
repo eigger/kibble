@@ -351,6 +351,7 @@ model Event {
   contactId          String?
   medicationCourseId String?
   doseSlotIndex      Int?
+  doseOrdinal        Int?
   payload            Json?
   rawText            String?
   entryId            String?

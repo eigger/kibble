@@ -77,6 +77,7 @@ function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
     costKrw: event.costKrw ?? null,
     contact: event.contact ?? null,
     course: event.course ?? null,
+    doseOrdinal: event.doseOrdinal ?? null,
     note: event.note,
     preset: event.preset,
     eventType: {
@@ -188,6 +189,9 @@ export default function QuickRecordPage() {
       note: event.note,
       scaleType: event.eventType.scaleType ?? null,
       scaleValue: event.scaleValue,
+      medicationCourseId: event.course?.id ?? null,
+      doseOrdinal: event.doseOrdinal ?? null,
+      doseTotal: event.course?.totalDoses ?? null,
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
       createdByName: event.createdBy?.name ?? null,
@@ -358,6 +362,7 @@ export default function QuickRecordPage() {
           costKrw: draft.costKrw,
           note: draft.note,
           scaleValue: draft.scaleValue ?? null,
+          doseOrdinal: draft.doseOrdinal ?? null,
           needsReview: false,
         }),
       });

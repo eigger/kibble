@@ -84,6 +84,10 @@ export interface EventDetailDraft {
   dedupeKey?: string;
   medicationCourseId?: string | null;
   doseSlotIndex?: number | null;
+  /** 투약 회차 — 기록할 때 찍힌 값. 비어 있을 수 있다(이 기능 이전 기록) */
+  doseOrdinal?: number | null;
+  /** 처방에 입력한 총 횟수. 회차 옆 "n/N"과 남은 횟수의 근거 */
+  doseTotal?: number | null;
   needsReview?: boolean;
   /** 조회용 메타 — 수정 대상이 아니다. view 모드 하단에 "작성자 · 최종 수정"으로만 쓰인다. */
   createdAt?: string;
@@ -190,6 +194,7 @@ function resetFormFromDraft(
     setUnit: (v: string) => void;
     setNote: (v: string) => void;
     setScaleValue: (v: number | null) => void;
+    setDoseOrdinal: (v: string) => void;
     setRemovedAttachmentIds: (v: string[]) => void;
   },
   detailTags: boolean,
@@ -220,6 +225,7 @@ function resetFormFromDraft(
   setters.setUnit(draft.unit ?? "");
   setters.setNote(draft.note ?? "");
   setters.setScaleValue(draft.scaleValue ?? null);
+  setters.setDoseOrdinal(draft.doseOrdinal != null ? String(draft.doseOrdinal) : "");
   setters.setRemovedAttachmentIds([]);
 }
 
@@ -304,6 +310,7 @@ export function EventDetailSheet({
   const [unit, setUnit] = useState("");
   const [note, setNote] = useState("");
   const [scaleValue, setScaleValue] = useState<number | null>(null);
+  const [doseOrdinal, setDoseOrdinal] = useState("");
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [lightboxAtt, setLightboxAtt] = useState<EventAttachment | null>(null);
@@ -407,6 +414,7 @@ export function EventDetailSheet({
         setUnit,
         setNote,
         setScaleValue,
+        setDoseOrdinal,
         setRemovedAttachmentIds,
       },
       fields.detailTags,
@@ -554,6 +562,15 @@ export function EventDetailSheet({
   const clinicMapName = draft.clinicName?.trim() || "";
   const auditParts = eventAuditParts(draft, t, locale);
 
+  // 회차와 남은 횟수. 총 횟수를 안 넣은 처방이면 회차만 보여준다.
+  const doseOrdinalView = (() => {
+    if (draft.doseOrdinal == null) return null;
+    const total = draft.doseTotal ?? null;
+    if (total == null) return String(draft.doseOrdinal);
+    const left = Math.max(0, total - draft.doseOrdinal);
+    return `${draft.doseOrdinal} / ${total} · ${t("careDosesRemaining", { count: left })}`;
+  })();
+
   function renderScale3Field() {
     if (!fields.scale3) return null;
     return (
@@ -610,6 +627,7 @@ export function EventDetailSheet({
         setUnit,
         setNote,
         setScaleValue,
+        setDoseOrdinal,
         setRemovedAttachmentIds,
       },
       fields.detailTags,
@@ -684,6 +702,17 @@ export function EventDetailSheet({
       cost = parsed.value != null ? Math.round(parsed.value) : null;
     }
 
+    // 회차는 투약 과정에 매인 기록만 갖는다. 비우면 번호 없는 기록으로 되돌린다.
+    let ordinal: number | null = draft.doseOrdinal ?? null;
+    if (draft.medicationCourseId) {
+      const parsed = parseOptionalNumber(doseOrdinal);
+      if (!parsed.ok || (parsed.value != null && parsed.value < 1)) {
+        onValidationError(t("eventDetailDoseOrdinalInvalid"));
+        return;
+      }
+      ordinal = parsed.value != null ? Math.round(parsed.value) : null;
+    }
+
     const savedProductName = fields.productName ? resolvedProductName() || null : null;
 
     onSave(
@@ -703,6 +732,7 @@ export function EventDetailSheet({
         costKrw: fields.cost ? cost : null,
         note: fields.note ? note.trim() || null : null,
         scaleValue: fields.fecalScale || fields.scale3 ? scaleValue : null,
+        doseOrdinal: ordinal,
         needsReview: false,
       },
       { removedAttachmentIds },
@@ -792,6 +822,7 @@ export function EventDetailSheet({
                     t("eventDetailCost"),
                     draft.costKrw != null ? `${draft.costKrw.toLocaleString()}${t("eventDetailCostUnit")}` : null,
                   )}
+                {renderViewValue(t("eventDetailDoseOrdinalLabel"), doseOrdinalView)}
                 {fields.fecalScale &&
                   renderViewValue(
                     t("eventDetailFecalScore"),
@@ -1139,6 +1170,27 @@ export function EventDetailSheet({
                     increaseLabel={t("qtyIncreaseField", { field: t("eventDetailCost") })}
                     formatStep={formatQtyStep}
                   />
+                </div>
+              )}
+
+              {draft.medicationCourseId && (
+                <div className="event-detail-field">
+                  <label className="field-label" htmlFor="event-dose-ordinal">
+                    {t("eventDetailDoseOrdinalLabel")}
+                  </label>
+                  <input
+                    id="event-dose-ordinal"
+                    type="number"
+                    className="event-detail-qty-input"
+                    min={1}
+                    max={9999}
+                    step={1}
+                    inputMode="numeric"
+                    value={doseOrdinal}
+                    onChange={(e) => setDoseOrdinal(e.target.value)}
+                    disabled={busy}
+                  />
+                  <p className="meta">{t("eventDetailDoseOrdinalHint")}</p>
                 </div>
               )}
 

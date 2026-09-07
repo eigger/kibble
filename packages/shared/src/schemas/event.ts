@@ -53,6 +53,8 @@ export const updateEventSchema = z
     clinicPlaceUrl: z.string().trim().url().max(500).nullable().optional(),
     costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
     note: z.string().trim().max(4000).nullable().optional(),
+    // 투약 회차. 기록할 때 찍히지만, 지운 회차 때문에 번호가 빌 수 있어 손으로 고친다.
+    doseOrdinal: z.coerce.number().int().min(1).max(9999).nullable().optional(),
     needsReview: z.boolean().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });

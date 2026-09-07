@@ -203,6 +203,17 @@ const dict = {
   eventDetailCost: { ko: "병원비", en: "Cost" },
   eventDetailCostPlaceholder: { ko: "30000", en: "30000" },
   eventDetailCostUnit: { ko: "원", en: " KRW" },
+  eventDetailDoseOrdinalLabel: { ko: "투약 회차", en: "Dose number" },
+  eventDetailDoseOrdinal: { ko: "{n}회차", en: "Dose {n}" },
+  eventDetailDoseOrdinalOfTotal: { ko: "{n}/{total}회차", en: "Dose {n} of {total}" },
+  eventDetailDoseOrdinalInvalid: {
+    ko: "회차는 1 이상의 숫자로 입력하세요.",
+    en: "Enter a dose number of 1 or more.",
+  },
+  eventDetailDoseOrdinalHint: {
+    ko: "기록할 때 자동으로 매겨진다. 지운 회차 때문에 번호가 어긋나면 고칠 수 있다.",
+    en: "Numbered automatically when logged. Edit it if a deleted dose left a gap.",
+  },
   eventDetailCostInvalid: { ko: "병원비를 확인해 주세요.", en: "Check the cost." },
 
   // 병원 장소 검색 · 지도 · 내비 (WORKPLAN §3.9)

@@ -122,7 +122,7 @@ export function eventDisplayLabel(
 
 export function eventDetailLine(
   event: TimelineEvent,
-  t: (key: TranslationKey) => string,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
 ): string | null {
   const clinic = clinicFieldsFromContact(event);
   const showCourseInDetail =
@@ -135,6 +135,8 @@ export function eventDetailLine(
       costKrw: event.costKrw,
       medicationCourseName:
         showCourseInDetail && event.course?.name ? event.course.name : null,
+      doseOrdinal: event.doseOrdinal ?? null,
+      doseTotal: event.course?.totalDoses ?? null,
       quantity: event.quantity,
       quantityOffered: event.quantityOffered,
       unit: event.unit,

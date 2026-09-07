@@ -268,13 +268,15 @@ export function formatEventDetailLine(
     clinicAddress?: string | null;
     costKrw?: number | null;
     medicationCourseName?: string | null;
+    doseOrdinal?: number | null;
+    doseTotal?: number | null;
     quantity: number | null;
     quantityOffered: number | null;
     unit: string | null;
     scaleValue: number | null;
     eventType: { key: string; scaleType?: string | null };
   },
-  t?: (key: TranslationKey) => string,
+  t?: (key: TranslationKey, params?: Record<string, string | number>) => string,
 ): string | null {
   const flags = eventDetailFields(event.eventType.key, event.eventType.scaleType);
   const unit = event.unit ?? flags.defaultUnit ?? "";
@@ -303,6 +305,22 @@ export function formatEventDetailLine(
 
   if (event.eventType.key === "medication" && event.medicationCourseName?.trim()) {
     parts.push(event.medicationCourseName.trim());
+  }
+
+  // 회차와 남은 횟수. 총 횟수를 안 넣은 처방이면 회차만 나온다 — 없는 값을 추정하지 않는다.
+  if (event.eventType.key === "medication" && event.doseOrdinal != null) {
+    const total = event.doseTotal ?? null;
+    if (total != null) {
+      parts.push(
+        t
+          ? t("eventDetailDoseOrdinalOfTotal", { n: event.doseOrdinal, total })
+          : `${event.doseOrdinal}/${total}`,
+      );
+      const left = Math.max(0, total - event.doseOrdinal);
+      parts.push(t ? t("careDosesRemaining", { count: left }) : `${left}`);
+    } else {
+      parts.push(t ? t("eventDetailDoseOrdinal", { n: event.doseOrdinal }) : `${event.doseOrdinal}`);
+    }
   }
 
   if (flags.quantityOffered && flags.quantity) {

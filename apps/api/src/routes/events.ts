@@ -312,7 +312,7 @@ export async function eventRoutes(app: FastifyInstance) {
             placeUrl: true,
           },
         },
-        course: { select: { id: true, name: true } },
+        course: { select: { id: true, name: true, totalDoses: true } },
         createdBy: { select: { id: true, name: true } },
         updatedBy: { select: { id: true, name: true } },
         attachments: {
@@ -401,6 +401,16 @@ export async function eventRoutes(app: FastifyInstance) {
     if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
     if (data.note !== undefined) updateData.note = data.note;
     if (data.needsReview !== undefined) updateData.needsReview = data.needsReview;
+
+    if (data.doseOrdinal !== undefined) {
+      const row = await prisma.event.findFirst({
+        where: { id, ...householdWhere(householdId), deletedAt: null },
+        select: { medicationCourseId: true },
+      });
+      if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+      // 회차는 투약 과정에 매인 기록만 갖는다. 그 외에는 조용히 흘린다 (K-12).
+      if (row.medicationCourseId) updateData.doseOrdinal = data.doseOrdinal;
+    }
 
     if (data.scaleValue !== undefined && data.scaleValue !== null) {
       const row = await prisma.event.findFirst({
