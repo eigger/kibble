@@ -44,6 +44,17 @@ export function MedicationCourseForm({
         onChange={(e) => onChange({ name: e.target.value })}
         disabled={disabled}
       />
+      <label className="field-label" htmlFor={`${formId}-dosage`}>
+        {t("careDosage")}
+      </label>
+      <input
+        id={`${formId}-dosage`}
+        className="care-input"
+        value={draft.dosage}
+        placeholder={t("careDosagePlaceholder")}
+        onChange={(e) => onChange({ dosage: e.target.value })}
+        disabled={disabled}
+      />
       <div className="care-add-row">
         <div>
           <label className="field-label" htmlFor={`${formId}-per-day`}>

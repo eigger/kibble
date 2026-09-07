@@ -179,7 +179,9 @@ export interface CreatedEvent {
     longitude?: number | null;
     placeUrl?: string | null;
   } | null;
-  course?: { id: string; name: string } | null;
+  course?: { id: string; name: string; totalDoses?: number | null; dosage?: string | null } | null;
+  /** 투약 회차 — 기록하는 순간 찍힌다. 그 이전 기록·투약이 아닌 기록은 null */
+  doseOrdinal?: number | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];
@@ -194,6 +196,8 @@ export interface TodaySummaryRow {
 export interface MedicationCourseProgress {
   id: string;
   name: string;
+  /** 1회 용량 자유 텍스트("0.5정"). 처방 단위로 정해진다 */
+  dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
   totalDoses: number | null;
@@ -221,6 +225,7 @@ export interface MedicationCourseRow {
   id: string;
   petId: string;
   name: string;
+  dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
   totalDoses: number | null;
@@ -266,7 +271,9 @@ export interface TimelineEvent {
     longitude?: number | null;
     placeUrl?: string | null;
   } | null;
-  course?: { id: string; name: string } | null;
+  course?: { id: string; name: string; totalDoses?: number | null; dosage?: string | null } | null;
+  /** 투약 회차 — 기록하는 순간 찍힌다. 그 이전 기록·투약이 아닌 기록은 null */
+  doseOrdinal?: number | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];

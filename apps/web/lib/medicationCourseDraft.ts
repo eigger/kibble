@@ -3,6 +3,7 @@ import type { MedicationCourseProgress, MedicationCourseRow } from "./types";
 
 export type MedicationCourseDraft = {
   name: string;
+  dosage: string;
   dosesPerDay: string;
   doseTimes: string[];
   totalDoses: string;
@@ -23,6 +24,7 @@ export function emptyMedicationCourseDraft(): MedicationCourseDraft {
   const today = new Date().toISOString().slice(0, 10);
   return {
     name: "",
+    dosage: "",
     dosesPerDay: "1",
     doseTimes: defaultDoseTimes(1),
     totalDoses: "",
@@ -37,6 +39,7 @@ export function courseToDraft(
 ): MedicationCourseDraft {
   return {
     name: course.name,
+    dosage: course.dosage ?? "",
     dosesPerDay: String(course.dosesPerDay),
     doseTimes: [...course.doseTimes],
     totalDoses: course.totalDoses != null ? String(course.totalDoses) : "",
@@ -65,6 +68,7 @@ export function updateDoseTimeAt(
 export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   ok: true;
   name: string;
+  dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
   totalDoses: number | null;
@@ -93,6 +97,7 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   return {
     ok: true,
     name,
+    dosage: draft.dosage.trim() || null,
     dosesPerDay,
     doseTimes,
     totalDoses,

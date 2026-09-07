@@ -148,6 +148,7 @@ export async function careRoutes(app: FastifyInstance) {
           householdId,
           petId: body.petId,
           name: body.name,
+          dosage: body.dosage ?? undefined,
           dosesPerDay,
           doseTimes,
           totalDoses: body.totalDoses ?? undefined,
@@ -193,6 +194,7 @@ export async function careRoutes(app: FastifyInstance) {
         where: { id },
         data: {
           ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.dosage !== undefined ? { dosage: body.dosage } : {}),
           ...(body.dosesPerDay !== undefined ? { dosesPerDay: body.dosesPerDay } : {}),
           ...(doseTimes !== undefined ? { doseTimes } : {}),
           ...(body.totalDoses !== undefined ? { totalDoses: body.totalDoses } : {}),

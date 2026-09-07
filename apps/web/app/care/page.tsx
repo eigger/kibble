@@ -33,13 +33,15 @@ function courseMetaParts(
   course: MedicationCourseProgress,
   t: (key: TranslationKey, params?: Record<string, string | number>) => string,
 ): string {
-  const parts = [
+  const parts: string[] = [];
+  if (course.dosage?.trim()) parts.push(course.dosage.trim());
+  parts.push(
     t("careTodayProgress", {
       done: String(course.dosesGivenToday),
       total: String(course.dosesPerDay),
     }),
     t("careDaysOnCourse", { days: String(course.daysOnCourse) }),
-  ];
+  );
   if (course.dosesRemaining != null) {
     parts.push(t("careDosesRemaining", { count: String(course.dosesRemaining) }));
   }

@@ -203,6 +203,18 @@ const dict = {
   eventDetailCost: { ko: "병원비", en: "Cost" },
   eventDetailCostPlaceholder: { ko: "30000", en: "30000" },
   eventDetailCostUnit: { ko: "원", en: " KRW" },
+  eventDetailDoseAmountLabel: { ko: "1회 용량", en: "Dose amount" },
+  eventDetailDoseOrdinalLabel: { ko: "투약 회차", en: "Dose number" },
+  eventDetailDoseOrdinal: { ko: "{n}회차", en: "Dose {n}" },
+  eventDetailDoseOrdinalOfTotal: { ko: "{n}/{total}회차", en: "Dose {n} of {total}" },
+  eventDetailDoseOrdinalInvalid: {
+    ko: "회차는 1 이상의 숫자로 입력하세요.",
+    en: "Enter a dose number of 1 or more.",
+  },
+  eventDetailDoseOrdinalHint: {
+    ko: "기록할 때 자동으로 매겨진다. 지운 회차 때문에 번호가 어긋나면 고칠 수 있다.",
+    en: "Numbered automatically when logged. Edit it if a deleted dose left a gap.",
+  },
   eventDetailCostInvalid: { ko: "병원비를 확인해 주세요.", en: "Check the cost." },
 
   // 병원 장소 검색 · 지도 · 내비 (WORKPLAN §3.9)
@@ -606,6 +618,8 @@ const dict = {
   careMedNamePlaceholder: { ko: "예: ○○ 캡슐", en: "e.g. antibiotic capsules" },
   careDosesPerDay: { ko: "하루 횟수", en: "Doses per day" },
   careTotalDoses: { ko: "총 횟수 (선택)", en: "Total doses (optional)" },
+  careDosage: { ko: "1회 용량 (선택)", en: "Dose amount (optional)" },
+  careDosagePlaceholder: { ko: "0.5정", en: "half a tablet" },
   careStartDate: { ko: "시작일", en: "Start date" },
   careEndDate: { ko: "종료일 (선택)", en: "End date (optional)" },
   careCourseNote: { ko: "메모", en: "Note" },

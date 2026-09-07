@@ -323,6 +323,9 @@ model Event {
   contactId    String?             // 병원 등. payload가 아닌 컬럼 — "이 병원 방문 이력",
                                    // "병원별 비용"이 쿼리돼야 한다.
   medicationCourseId String?       // 복약 이벤트가 어느 처방 과정에 속하는지
+  doseOrdinal        Int?          // 그 과정의 몇 번째 복약인지. 기록하는 순간 찍는다 —
+                                   // 이력은 "그때 몇 회차였나"를 남기는 자리다. 과정의
+                                   // 현재 진행률은 이벤트 수로 따로 유도한다 (R13/R126)
   payload      Json?               // 타입별 확장 필드 (쿼리 대상이 아닌 것만)
   // 사용자가 쓴 원문. 파싱해서 구조를 얻더라도 절대 버리지 않는다 —
   // 오파싱이 복구 가능해야 하고, 파싱 실패는 NOTE로 흡수된다.
@@ -394,6 +397,8 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String              // "○○ 캡슐"
+  dosage      String?             // 1회 용량 "0.5정"·"2.5ml". 단위가 제각각이라 자유 텍스트다.
+                                  // 처방 단위로 정해지므로 기록할 때 다시 묻지 않는다 (R127)
   dosesPerDay Int       @default(1)
   totalDoses  Int?                // 총 처방 횟수. null이면 무기한(영양제 등)
   startDate   DateTime

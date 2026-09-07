@@ -4,6 +4,7 @@ import {
   resolveDoseTimeOccurredAt,
 } from "@kibble/shared";
 import { householdWhere } from "../lib/householdScope.js";
+import { nextDoseOrdinal } from "../lib/medicationCourseProgress.js";
 import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
@@ -65,6 +66,8 @@ const eventSelect = {
   scaleValue: true,
   productName: true,
   contactId: true,
+  doseSlotIndex: true,
+  doseOrdinal: true,
   costKrw: true,
   note: true,
   rawText: true,
@@ -193,6 +196,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
 
   const medicationCourseId: string | null = params.medicationCourseId ?? null;
   let doseSlotIndex: number | null = params.doseSlotIndex ?? null;
+  let doseOrdinal: number | null = null;
   let occurredAt = params.occurredAt ?? new Date();
 
   if (medicationCourseId) {
@@ -236,6 +240,19 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     } else {
       doseSlotIndex = null;
     }
+
+    // 회차는 기록하는 순간 찍는다 — 이력은 "그때 몇 번째였나"를 남기는 자리이므로
+    // 나중에 다시 세지 않는다. 진행 중인 처방의 현재 진행률은 케어 화면이 실제
+    // 이벤트 수로 따로 유도한다 (medicationCourseProgress).
+    const numbering = await db.event.aggregate({
+      where: {
+        ...householdWhere(params.householdId),
+        medicationCourseId: course.id,
+      },
+      _max: { doseOrdinal: true },
+      _count: { _all: true },
+    });
+    doseOrdinal = nextDoseOrdinal(numbering._max.doseOrdinal, numbering._count._all);
   } else if (doseSlotIndex != null) {
     throw new CreateEventValidationError("DOSE_SLOT_WITHOUT_COURSE");
   }
@@ -283,6 +300,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
         dedupeKey: params.dedupeKey ?? undefined,
         medicationCourseId: medicationCourseId ?? undefined,
         doseSlotIndex: doseSlotIndex ?? undefined,
+        doseOrdinal: doseOrdinal ?? undefined,
       },
       select: eventSelect,
     });
@@ -315,7 +333,7 @@ export const eventWithRelationsSelect = {
   contact: {
     select: { id: true, name: true, address: true, latitude: true, longitude: true, placeUrl: true },
   },
-  course: { select: { id: true, name: true } },
+  course: { select: { id: true, name: true, totalDoses: true, dosage: true } },
   createdBy: { select: { id: true, name: true } },
   updatedBy: { select: { id: true, name: true } },
   attachments: {

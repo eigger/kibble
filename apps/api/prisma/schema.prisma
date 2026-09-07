@@ -351,6 +351,7 @@ model Event {
   contactId          String?
   medicationCourseId String?
   doseSlotIndex      Int?
+  doseOrdinal        Int?
   payload            Json?
   rawText            String?
   entryId            String?
@@ -423,6 +424,9 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String
+  // 1회 용량. "0.5정"·"2.5ml"처럼 단위가 제각각이라 자유 텍스트다 — 처방 단위로
+  // 정해지고 회차마다 바뀌지 않으므로 기록할 때 다시 묻지 않는다.
+  dosage      String?
   dosesPerDay Int       @default(1)
   doseTimes   String[]  @default([])
   totalDoses  Int?
