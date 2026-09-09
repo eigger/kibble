@@ -85,9 +85,7 @@ async function runBackupJob(app: FastifyInstance, job: BackupJob): Promise<void>
   const archivePath = archivePathFor(job.tempDirName);
   const startedAt = Date.now();
 
-  const abortIfCancelled = () => {
-    if (getBackupJob(job.id)?.cancelRequested) throw new BackupJobCancelledError();
-  };
+  const abortIfCancelled = () => abortIfCancelledFor(job);
 
   try {
     updateBackupJob(job.id, { phase: "database" });
@@ -107,13 +105,13 @@ async function runBackupJob(app: FastifyInstance, job: BackupJob): Promise<void>
     await copyUploadsForBackup(UPLOAD_DIR, filesDir, job.tempDirName, (bytes) => {
       const current = getBackupJob(job.id);
       if (current) current.copiedBytes += bytes;
-      // 복사 도중에 접는 유일한 방법이다 — 파일 하나 사이가 확인 지점이 된다
+      // 담는 도중에 접는 유일한 방법이다 — 파일 하나 사이가 확인 지점이 된다
       abortIfCancelled();
     });
 
     abortIfCancelled();
     updateBackupJob(job.id, { phase: "archiving" });
-    await execAsync(`tar -czf "${archivePath}" -C "${tempDir}" .`);
+    await archiveWithProgress(job, tempDir, archivePath);
 
     // 사본은 여기서 바로 버린다. 예전에는 다운로드 스트림이 닫힐 때까지 들고 있어
     // 원본 2배가 그동안 계속 잡혀 있었다 — 아카이브가 나온 뒤로는 쓸모가 없다.
@@ -126,7 +124,7 @@ async function runBackupJob(app: FastifyInstance, job: BackupJob): Promise<void>
     await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     await rm(archivePath, { force: true }).catch(() => {});
 
-    if (err instanceof BackupJobCancelledError) {
+    if (err instanceof BackupJobCancelledError || getBackupJob(job.id)?.cancelRequested) {
       // 취소는 실패가 아니다. 여기서 목록에서 뺀다 — 그전에 빼면 빌드가 도는 채로
       // 잠금이 풀려 두 번째 빌드가 시작된다.
       app.log.info({ jobId: job.id }, "Backup export cancelled");
@@ -142,12 +140,61 @@ async function runBackupJob(app: FastifyInstance, job: BackupJob): Promise<void>
   }
 }
 
+/** 아카이브가 자라는 속도를 재는 주기. 더 촘촘히 봐도 화면은 1초에 한 번만 묻는다 */
+const ARCHIVE_POLL_MS = 500;
+
+/**
+ * tar를 돌리면서 아카이브 파일이 자라는 것을 진행률로 삼는다.
+ *
+ * `files/`가 하드링크가 되면서 담는 단계는 순식간이 됐고, 시간이 전부 여기로 왔다 —
+ * 여기에 진행률이 없으면 막대가 10%에서 몇 분씩 멈춰 있다. tar의 verbose 출력을
+ * 파싱하지 않는 이유는 GNU tar와 busybox tar의 형식이 다르고, 우리가 알고 싶은 건
+ * 파일 수가 아니라 바이트이기 때문이다. 사진·영상은 이미 압축돼 있어 아카이브가
+ * 원본과 비슷한 크기로 자라므로, 파일 크기가 그대로 쓸 만한 근사가 된다.
+ */
+async function archiveWithProgress(
+  job: BackupJob,
+  tempDir: string,
+  archivePath: string,
+): Promise<void> {
+  const running = execAsync(`tar -czf "${archivePath}" -C "${tempDir}" .`);
+
+  const poll = setInterval(() => {
+    void (async () => {
+      // 압축 중에는 확인 지점이 여기뿐이다. tar를 죽이면 반쯤 쓴 아카이브가 남지만
+      // 취소 경로가 그걸 지운다.
+      if (getBackupJob(job.id)?.cancelRequested) {
+        running.child?.kill();
+        return;
+      }
+      try {
+        const info = await stat(archivePath);
+        updateBackupJob(job.id, { archivedBytes: info.size });
+      } catch {
+        /* 아직 안 만들어졌다 — 다음 tick에 다시 본다 */
+      }
+    })();
+  }, ARCHIVE_POLL_MS);
+
+  try {
+    await running;
+  } finally {
+    clearInterval(poll);
+  }
+  abortIfCancelledFor(job);
+}
+
+function abortIfCancelledFor(job: BackupJob): void {
+  if (getBackupJob(job.id)?.cancelRequested) throw new BackupJobCancelledError();
+}
+
 function backupJobView(job: BackupJob) {
   return {
     jobId: job.id,
     phase: job.phase,
     percent: backupJobPercent(job),
     copiedBytes: job.copiedBytes,
+    archivedBytes: job.archivedBytes,
     totalBytes: job.totalBytes,
     archiveBytes: job.archiveBytes,
     error: job.error,
