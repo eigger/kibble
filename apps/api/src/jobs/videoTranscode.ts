@@ -18,6 +18,16 @@ const TICK_MS = 60_000;
 /** 출력이 원본의 이 비율 이상이면 바꿔 끼우지 않는다 — 디스크만 두 배가 된다 */
 const MIN_SHRINK_RATIO = 0.95;
 
+/**
+ * 한 첨부를 이 횟수까지만 집는다.
+ *
+ * 예전에는 상한이 없었다. ffmpeg가 컨테이너를 OOM으로 죽이면 실패 처리 코드가 아예
+ * 돌지 않아 행이 `processing`으로 남고, 다음 기동의 `recoverStuckProcessing`이 그걸
+ * 다시 `pending`으로 되돌린다 — 죽고 되살리기를 무한히 반복하는 고리였다. 그래서
+ * 실패한 뒤가 아니라 **집는 순간** 센다.
+ */
+export const MAX_TRANSCODE_ATTEMPTS = 3;
+
 let drain: Promise<void> | null = null;
 let rerun = false;
 
@@ -39,7 +49,11 @@ export function kickVideoTranscode(): void {
 
 export function startVideoTranscodeJob(): void {
   recoverStuckProcessing()
-    .then(() => kickVideoTranscode())
+    .then(() => requeueFailedTranscodes())
+    .then((requeued) => {
+      if (requeued > 0) console.warn(`[video-transcode] requeued ${requeued} failed attachment(s)`);
+      return kickVideoTranscode();
+    })
     .then(() => backfillMissingPosters())
     .catch((err) => console.error("[video-transcode] recover failed", err));
   setInterval(() => kickVideoTranscode(), TICK_MS).unref();
@@ -92,7 +106,34 @@ export async function backfillMissingPosters(): Promise<number> {
 }
 
 /** API가 변환 중에 죽으면 processing에 남는다. 기동 시 한 번만 pending으로 되돌린다. */
+/**
+ * `failed`로 끝난 영상에 다시 기회를 준다. 기동 때 한 번만 — 주기적으로 돌리면
+ * 정말 못 읽는 파일에 ffmpeg를 계속 태우게 된다.
+ *
+ * 실패해도 원본은 지우지 않는다 (K-13). 변환은 용량을 줄이는 최적화지 첨부의
+ * 조건이 아니므로, 상한을 다 쓰면 원본 그대로 `failed`에 머문다.
+ */
+export async function requeueFailedTranscodes(): Promise<number> {
+  const result = await prisma.attachment.updateMany({
+    where: {
+      transcodeStatus: TRANSCODE_STATUS.FAILED,
+      transcodeAttempts: { lt: MAX_TRANSCODE_ATTEMPTS },
+    },
+    data: { transcodeStatus: TRANSCODE_STATUS.PENDING },
+  });
+  return result.count;
+}
+
 export async function recoverStuckProcessing(): Promise<number> {
+  // 상한을 다 쓴 행까지 되돌리면 무한 고리가 그대로다 — ffmpeg가 프로세스를 죽이는
+  // 파일은 매 기동마다 다시 집히고 또 죽는다. 남은 기회가 없으면 여기서 굳힌다.
+  await prisma.attachment.updateMany({
+    where: {
+      transcodeStatus: TRANSCODE_STATUS.PROCESSING,
+      transcodeAttempts: { gte: MAX_TRANSCODE_ATTEMPTS },
+    },
+    data: { transcodeStatus: TRANSCODE_STATUS.FAILED },
+  });
   const result = await prisma.attachment.updateMany({
     where: { transcodeStatus: TRANSCODE_STATUS.PROCESSING },
     data: { transcodeStatus: TRANSCODE_STATUS.PENDING },
@@ -148,7 +189,10 @@ async function claimNextPending(): Promise<Claimed | null> {
     if (!row) return null;
     await tx.attachment.update({
       where: { id: row.id },
-      data: { transcodeStatus: TRANSCODE_STATUS.PROCESSING },
+      data: {
+        transcodeStatus: TRANSCODE_STATUS.PROCESSING,
+        transcodeAttempts: { increment: 1 },
+      },
     });
     return row;
   });

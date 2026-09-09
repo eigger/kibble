@@ -39,7 +39,9 @@ vi.mock("../lib/videoTranscode.js", async () => {
 import {
   backfillMissingPosters,
   recoverStuckProcessing,
+  requeueFailedTranscodes,
   transcodeClaimedAttachment,
+  MAX_TRANSCODE_ATTEMPTS,
 } from "./videoTranscode.js";
 import { TRANSCODE_STATUS } from "../lib/videoTranscode.js";
 
@@ -54,6 +56,32 @@ describe("videoTranscode job", () => {
     await expect(recoverStuckProcessing()).resolves.toBe(2);
     expect(mockPrisma.attachment.updateMany).toHaveBeenCalledWith({
       where: { transcodeStatus: TRANSCODE_STATUS.PROCESSING },
+      data: { transcodeStatus: TRANSCODE_STATUS.PENDING },
+    });
+  });
+
+  // ffmpeg가 컨테이너째 죽이면 실패 처리 코드가 안 돈다 — 기동마다 되살아나
+  // 또 죽는 고리가 됐다. 남은 기회가 없는 행은 되돌리지 않고 굳힌다.
+  it("seals exhausted processing rows instead of retrying forever", async () => {
+    mockPrisma.attachment.updateMany.mockResolvedValue({ count: 0 });
+    await recoverStuckProcessing();
+    expect(mockPrisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        transcodeStatus: TRANSCODE_STATUS.PROCESSING,
+        transcodeAttempts: { gte: MAX_TRANSCODE_ATTEMPTS },
+      },
+      data: { transcodeStatus: TRANSCODE_STATUS.FAILED },
+    });
+  });
+
+  it("requeues failed videos only while attempts remain", async () => {
+    mockPrisma.attachment.updateMany.mockResolvedValue({ count: 3 });
+    await expect(requeueFailedTranscodes()).resolves.toBe(3);
+    expect(mockPrisma.attachment.updateMany).toHaveBeenCalledWith({
+      where: {
+        transcodeStatus: TRANSCODE_STATUS.FAILED,
+        transcodeAttempts: { lt: MAX_TRANSCODE_ATTEMPTS },
+      },
       data: { transcodeStatus: TRANSCODE_STATUS.PENDING },
     });
   });

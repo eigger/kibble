@@ -114,7 +114,7 @@ export async function attachmentRoutes(app: FastifyInstance) {
       const buffer = await file.toBuffer();
       let saved;
       try {
-        saved = await saveEventAttachment(event.id, buffer, file.mimetype);
+        saved = await saveEventAttachment(event.id, buffer, file.mimetype, householdId);
       } catch (err) {
         if (err instanceof InvalidAttachmentError) {
           return reply.code(400).send({ error: t("invalidImageFile", request.locale) });

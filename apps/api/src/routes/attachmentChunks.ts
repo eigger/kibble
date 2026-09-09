@@ -180,7 +180,12 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
 
     let saved;
     try {
-      saved = await finalizeEventAttachmentFromTemp(session.eventId, session.tempPath, session.mimeType);
+      saved = await finalizeEventAttachmentFromTemp(
+        session.eventId,
+        session.tempPath,
+        session.mimeType,
+        householdId,
+      );
     } catch (err) {
       await unlink(session.tempPath).catch(() => {});
       await deleteUploadSession(uploadId);
