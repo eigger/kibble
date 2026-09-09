@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { link, mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { processImageForStorage } from "./imageProcessing.js";
@@ -63,6 +64,8 @@ export type SavedEventAttachment = {
   path: string;
   mime: string;
   size: number;
+  /** 저장된 바이트의 sha256. 중복 판정 근거이자 다음 업로드가 이어붙을 자리다 */
+  contentHash?: string | null;
   width: number | null;
   height: number | null;
   /** 영상 목록용 대표 프레임. 추출에 실패하면 null — 첨부의 조건이 아니다 (K-12) */
@@ -88,11 +91,64 @@ export async function savePosterForVideo(eventId: string, videoAbsPath: string):
   }
 }
 
+export function hashAttachmentBuffer(buffer: Buffer): string {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+/** 큰 영상을 통째로 메모리에 올리지 않는다 — 청크 업로드 상한은 500MB다. */
+export async function hashAttachmentFile(absolutePath: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(absolutePath)) {
+    hash.update(chunk as Buffer);
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * 같은 가구에 같은 바이트가 이미 있으면 새로 쓰지 않고 **하드링크**로 잇는다.
+ *
+ * 행을 공유하지 않는 이유: `Attachment`는 `@@unique([path])`이고 삭제 경로가 여러
+ * 군데다. 참조 수를 우리가 세기 시작하면 어느 한 곳만 빠져도 남의 사진이 사라진다.
+ * 하드링크면 참조 수는 파일시스템이 세고, 기존 삭제 코드(`unlink` 한 번)가 그대로
+ * 맞는다 — 마지막 이름이 사라질 때 블록이 풀린다.
+ *
+ * 휴지통에 있는 첨부는 대상에서 뺀다. 링크 자체는 안전하지만(퍼지가 지우는 건 그쪽
+ * 이름 하나뿐이다) 지워질 예정인 것에 새 참조가 붙는 그림은 설명하기 어렵다.
+ *
+ * 실패는 전부 삼키고 false를 돌려준다 — 중복 제거는 최적화지 저장의 조건이 아니다 (K-12).
+ */
+export async function linkExistingCopy(
+  householdId: string,
+  contentHash: string,
+  destRelativePath: string,
+): Promise<boolean> {
+  try {
+    const existing = await prisma.attachment.findFirst({
+      // K-1 — 가구 경계는 이벤트를 통해 건다. 남의 가구 파일에 링크가 붙으면 안 된다.
+      where: { contentHash, event: { householdId, deletedAt: null } },
+      select: { path: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!existing) return false;
+
+    const sourceAbs = attachmentAbsolutePath(existing.path);
+    const info = await stat(sourceAbs);
+    if (!info.isFile()) return false;
+
+    await link(sourceAbs, attachmentAbsolutePath(destRelativePath));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 이벤트 첨부 1건을 디스크에 저장한다. 이미지는 sharp 파이프라인을 탄다. */
 export async function saveEventAttachment(
   eventId: string,
   buffer: Buffer,
   mime: string,
+  /** 있으면 같은 가구의 동일 파일을 찾아 하드링크한다. 없으면 그냥 새로 쓴다 */
+  householdId?: string,
 ): Promise<SavedEventAttachment> {
   if (!ALLOWED_ATTACHMENT_MIME.has(mime)) {
     throw new InvalidAttachmentError();
@@ -124,12 +180,16 @@ export async function saveEventAttachment(
   const filename = `${eventId}-${randomUUID()}${ext}`;
   const relativePath = `${EVENT_SUBDIR}/${filename}`;
   const absolutePath = attachmentAbsolutePath(relativePath);
-  await writeFile(absolutePath, fileBuffer);
+  const contentHash = hashAttachmentBuffer(fileBuffer);
+
+  const linked = householdId ? await linkExistingCopy(householdId, contentHash, relativePath) : false;
+  if (!linked) await writeFile(absolutePath, fileBuffer);
 
   return {
     path: relativePath,
     mime: outMime,
     size: fileBuffer.length,
+    contentHash,
     width,
     height,
     // 포스터·probe는 업로드 응답 밖에서 한다. complete를 붙잡으면 폰이 99%에서
@@ -144,6 +204,7 @@ export async function finalizeEventAttachmentFromTemp(
   eventId: string,
   tempPath: string,
   mime: string,
+  householdId?: string,
 ): Promise<SavedEventAttachment> {
   if (!ALLOWED_ATTACHMENT_MIME.has(mime)) {
     throw new InvalidAttachmentError();
@@ -152,7 +213,7 @@ export async function finalizeEventAttachmentFromTemp(
   if (ALLOWED_IMAGE_MIME.has(mime)) {
     const buffer = await readFile(tempPath);
     await unlink(tempPath).catch(() => {});
-    return saveEventAttachment(eventId, buffer, mime);
+    return saveEventAttachment(eventId, buffer, mime, householdId);
   }
 
   const dir = path.join(UPLOAD_DIR, EVENT_SUBDIR);
@@ -161,12 +222,23 @@ export async function finalizeEventAttachmentFromTemp(
   const filename = `${eventId}-${randomUUID()}${ext}`;
   const relativePath = `${EVENT_SUBDIR}/${filename}`;
   const destPath = attachmentAbsolutePath(relativePath);
-  await rename(tempPath, destPath);
+
+  // 해시는 rename 전에 조각에서 뽑는다. 중복이면 조각을 버리고 기존 파일에 링크만 건다 —
+  // 같은 191MB 영상을 아홉 번 올려 1.7GB를 먹었던 게 정확히 이 경로였다.
+  const contentHash = await hashAttachmentFile(tempPath);
+  const linked = householdId ? await linkExistingCopy(householdId, contentHash, relativePath) : false;
+  if (linked) {
+    await unlink(tempPath).catch(() => {});
+  } else {
+    await rename(tempPath, destPath);
+  }
+
   const fileStat = await stat(destPath);
   return {
     path: relativePath,
     mime,
     size: fileStat.size,
+    contentHash,
     width: null,
     height: null,
     posterPath: null,
@@ -247,6 +319,7 @@ export async function insertEventAttachment(
         height: saved.height ?? undefined,
         posterPath: saved.posterPath ?? undefined,
         transcodeStatus: saved.transcodeStatus ?? undefined,
+        contentHash: saved.contentHash ?? undefined,
       },
       select: attachmentSelect,
     });
