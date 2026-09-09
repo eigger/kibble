@@ -187,10 +187,25 @@ export interface CreatedEvent {
   attachments?: EventAttachment[];
 }
 
+export interface TodayUnitTotal {
+  unit: string | null;
+  count: number;
+  quantity: number | null;
+  quantityOffered: number | null;
+}
+
 export interface TodaySummaryRow {
   eventTypeKey: string;
   label: string;
+  /** 표시 규칙은 타입 키가 아니라 이 셋으로 정한다 — K-8 (§7.17) */
+  category: string;
+  scaleType: string | null;
+  defaultUnit: string | null;
   count: number;
+  /** 단위별 합계. 단위가 섞인 날에는 항목이 둘 이상이고 화면은 횟수로 떨어진다 */
+  totals: TodayUnitTotal[];
+  lastOccurredAt: string | null;
+  lastScaleValue: number | null;
 }
 
 export interface MedicationCourseProgress {
