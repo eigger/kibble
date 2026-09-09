@@ -1263,78 +1263,106 @@ button:disabled {
   white-space: nowrap;
 }
 
-.home-dashboard-total {
-  margin: 0 0 10px;
-}
-
 .home-dashboard-empty {
   margin: 4px 0 0;
 }
 
-.summary-grid {
+/* 오늘 카드 — 값이 먼저 읽히고 "마지막 언제"가 그 아래에 붙는다 (§7.17) */
+.today-grid {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
 }
 
-.summary-card {
+.today-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 12px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-.summary-card-count {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1.1;
-}
-
-.summary-card-label {
-  font-size: 0.78rem;
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
-.stats-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--color-border);
   background: var(--color-surface);
+  min-width: 0;
 }
 
-.stat-card-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.stat-card-label {
+.today-card-label {
   font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.today-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.today-card-unit {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+.today-card-sep {
+  margin: 0 4px;
+  font-weight: 500;
   color: var(--color-text-muted);
 }
 
-.timeline-list-compact .timeline-item-link {
-  text-decoration: none;
-  color: inherit;
+.today-card-caption,
+.today-card-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.today-medication {
+  margin-top: 12px;
+}
+
+.today-medication-heading {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.today-medication-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.today-medication-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.today-medication-name {
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.today-medication-progress {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.today-medication-done .today-medication-progress {
+  color: var(--color-text-muted);
 }
 
 .history-page {
