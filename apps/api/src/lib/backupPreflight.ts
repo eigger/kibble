@@ -5,8 +5,14 @@ import path from "node:path";
 
 const execFileAsync = promisify(execFile);
 
-/** 여유 공간은 원본의 이 배수만큼 필요하다 — files/ 복사본 + tar.gz 한 벌 */
-const SPACE_MULTIPLIER = 2;
+/**
+ * 여유 공간은 원본의 이 배수만큼 필요하다.
+ *
+ * 예전에는 2였다 — `files/` 사본 한 벌 + `tar.gz` 한 벌. 이제 `files/`는 하드링크라
+ * 자리를 차지하지 않으므로 아카이브 한 벌만 보면 된다. 2로 두면 아카이브를 담을
+ * 공간이 충분한 서버에서도 백업이 거부된다.
+ */
+const SPACE_MULTIPLIER = 1;
 /** 디렉터리 순회 상한. 첨부가 아주 많아도 프리플라이트가 오래 걸리면 안 된다 */
 const MAX_WALK_ENTRIES = 50_000;
 
@@ -129,7 +135,7 @@ export async function runBackupPreflight(uploadDir: string): Promise<BackupPrefl
       ok,
       detail: ok
         ? undefined
-        : `needs about ${mib(needed)} free (copy + archive) but only ${mib(freeBytes)} is available`,
+        : `needs about ${mib(needed)} free (archive) but only ${mib(freeBytes)} is available`,
     });
   }
 

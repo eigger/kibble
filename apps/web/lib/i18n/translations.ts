@@ -808,7 +808,10 @@ const dict = {
     ko: "사진·영상을 담는 중 ({done} / {total})",
     en: "Packing photos and videos ({done} / {total})",
   },
-  backupPhaseArchiving: { ko: "압축하는 중", en: "Compressing" },
+  backupPhaseArchiving: {
+    ko: "압축하는 중 ({done} / {total})",
+    en: "Compressing ({done} / {total})",
+  },
   backupReadyTitle: { ko: "백업 파일이 준비됐습니다", en: "Your backup is ready" },
   backupDownloadLink: { ko: "백업 파일 내려받기 ({size})", en: "Download backup ({size})" },
   backupDownloadHint: {

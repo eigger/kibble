@@ -19,6 +19,7 @@ type BackupJob = {
   phase: "database" | "files" | "archiving" | "ready" | "failed";
   percent: number;
   copiedBytes: number;
+  archivedBytes: number;
   totalBytes: number;
   archiveBytes: number | null;
   error: string | null;
@@ -144,7 +145,13 @@ export default function BackupPage() {
 
   function phaseLabel(current: BackupJob): string {
     if (current.phase === "database") return t("backupPhaseDatabase");
-    if (current.phase === "archiving") return t("backupPhaseArchiving");
+    // 담는 단계는 하드링크라 순식간이다 — 시간은 압축에서 간다
+    if (current.phase === "archiving") {
+      return t("backupPhaseArchiving", {
+        done: formatBytes(Math.min(current.archivedBytes, current.totalBytes)),
+        total: formatBytes(current.totalBytes),
+      });
+    }
     return t("backupPhaseFiles", {
       done: formatBytes(current.copiedBytes),
       total: formatBytes(current.totalBytes),

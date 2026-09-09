@@ -19,9 +19,11 @@ export type BackupJob = {
   /** 만든 관리자. 남의 작업 진행률을 들여다볼 이유가 없다 */
   userId: string;
   phase: BackupJobPhase;
-  /** files 단계에서 옮겨야 할 총량 (프리플라이트 실측) */
+  /** 담아야 할 총량 (프리플라이트 실측). files·archiving 두 단계가 같이 쓴다 */
   totalBytes: number;
   copiedBytes: number;
+  /** archiving 단계에서 지금까지 만들어진 아카이브 크기 */
+  archivedBytes: number;
   /** 다 만든 아카이브 크기. ready 전에는 null */
   archiveBytes: number | null;
   error: string | null;
@@ -63,6 +65,7 @@ export function createBackupJob(userId: string, totalBytes: number): BackupJob {
     phase: "database",
     totalBytes,
     copiedBytes: 0,
+    archivedBytes: 0,
     archiveBytes: null,
     error: null,
     tempDirName: `backup_${Date.now()}`,
@@ -127,13 +130,25 @@ export function sweepExpiredBackupJobs(now = Date.now()): string[] {
   return swept;
 }
 
-/** 화면이 그릴 진행률. 단계마다 폭이 다르다 — files가 실제 시간의 대부분이다 */
+/**
+ * 화면이 그릴 진행률.
+ *
+ * 단계 폭이 예전과 반대다. `files`가 하드링크가 되면서 사실상 순식간에 끝나고,
+ * 시간은 전부 압축(`archiving`)으로 옮겨 갔다 — 폭도 거기에 줘야 막대가 움직인다.
+ */
 export function backupJobPercent(job: BackupJob): number {
   if (job.phase === "ready") return 100;
   if (job.phase === "failed") return 0;
   if (job.phase === "database") return 2;
-  if (job.phase === "archiving") return 92;
-  if (job.totalBytes <= 0) return 50;
+  if (job.totalBytes <= 0) return job.phase === "archiving" ? 55 : 10;
+
+  if (job.phase === "archiving") {
+    // 사진·영상은 이미 압축돼 있어 아카이브가 원본과 비슷한 크기로 자란다. 어긋나도
+    // 막대가 뒤로 가지 않게 99에서 멈춘다 — 100은 실제로 끝났을 때만 쓴다.
+    const archived = Math.min(job.archivedBytes / job.totalBytes, 1);
+    return Math.min(99, Math.round(10 + archived * 89));
+  }
+
   const copied = Math.min(job.copiedBytes / job.totalBytes, 1);
-  return Math.round(4 + copied * 86);
+  return Math.round(2 + copied * 8);
 }

@@ -24,25 +24,38 @@ describe("backupJobs", () => {
     expect(activeBackupJob()).toBeNull();
   });
 
-  it("walks the percent forward through the phases", () => {
+  /**
+   * 담는 단계가 하드링크가 되면서 순식간에 끝난다 — 폭은 압축이 가져간다.
+   * 그러지 않으면 막대가 10%에서 몇 분씩 멈춰 있다.
+   */
+  it("gives most of the bar to compression, where the time actually goes", () => {
     const job = createBackupJob("admin-1", 1000);
     expect(backupJobPercent(job)).toBe(2);
 
     updateBackupJob(job.id, { phase: "files", copiedBytes: 500 });
-    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(47);
+    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(6);
 
-    updateBackupJob(job.id, { phase: "archiving" });
-    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(92);
+    updateBackupJob(job.id, { phase: "archiving", archivedBytes: 500 });
+    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(55);
 
     updateBackupJob(job.id, { phase: "ready" });
     expect(backupJobPercent(getBackupJob(job.id)!)).toBe(100);
+  });
+
+  // 압축률을 모르므로 아카이브가 원본보다 커질 수 있다. 막대가 뒤로 가면 안 된다.
+  it("never passes 99 before the archive is actually done", () => {
+    const job = createBackupJob("admin-1", 1000);
+    updateBackupJob(job.id, { phase: "archiving", archivedBytes: 5000 });
+    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(99);
   });
 
   // 첨부가 하나도 없는 인스턴스에서 0으로 나누지 않는다
   it("does not divide by zero when there is nothing to copy", () => {
     const job = createBackupJob("admin-1", 0);
     updateBackupJob(job.id, { phase: "files" });
-    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(50);
+    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(10);
+    updateBackupJob(job.id, { phase: "archiving" });
+    expect(backupJobPercent(getBackupJob(job.id)!)).toBe(55);
   });
 
   /**
