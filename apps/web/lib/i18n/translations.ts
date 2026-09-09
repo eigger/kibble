@@ -802,9 +802,24 @@ const dict = {
     ko: "백업을 시작할 수 없습니다 — {detail}",
     en: "Cannot start the backup — {detail}",
   },
-  backupPreparingToast: {
-    ko: "백업을 만드는 중입니다 (원본 {size}). 새 탭이 받아 갈 때까지 시간이 걸립니다.",
-    en: "Building the backup ({size} of source files). The new tab stays blank until it is ready.",
+  backupBuildingTitle: { ko: "백업 파일을 만드는 중", en: "Building the backup file" },
+  backupPhaseDatabase: { ko: "계정·설정을 모으는 중", en: "Collecting accounts and settings" },
+  backupPhaseFiles: {
+    ko: "사진·영상을 담는 중 ({done} / {total})",
+    en: "Packing photos and videos ({done} / {total})",
+  },
+  backupPhaseArchiving: { ko: "압축하는 중", en: "Compressing" },
+  backupReadyTitle: { ko: "백업 파일이 준비됐습니다", en: "Your backup is ready" },
+  backupDownloadLink: { ko: "백업 파일 내려받기 ({size})", en: "Download backup ({size})" },
+  backupDownloadHint: {
+    ko: "받고 나면 서버에서 아카이브를 지웁니다. 받지 않고 두면 2시간 뒤 정리됩니다.",
+    en: "The archive is deleted from the server once you download it, or after two hours if you do not.",
+  },
+  backupDiscardLabel: { ko: "지우기", en: "Discard" },
+  backupBuildFailed: { ko: "백업을 만들지 못했습니다 — {detail}", en: "Could not build the backup — {detail}" },
+  backupAlreadyRunning: {
+    ko: "이미 백업을 만드는 중입니다. 그 진행 상황을 보여줍니다.",
+    en: "A backup is already being built. Showing its progress.",
   },
   exportButton: { ko: "백업 보내기", en: "Export backup" },
   exportingLabel: { ko: "보내는 중...", en: "Exporting..." },

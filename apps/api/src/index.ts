@@ -7,6 +7,7 @@ import { prisma } from "./lib/prisma.js";
 import { seedSystemEventTypes } from "./lib/seed/systemEventTypes.js";
 import { sweepStaleUploadSessions } from "./lib/uploadSessions.js";
 import { sweepStaleBackupWorkspaces } from "./lib/backupWorkspace.js";
+import { sweepExpiredBackupJobs } from "./lib/backupJobs.js";
 import { UPLOAD_DIR } from "./lib/uploads.js";
 
 assertMediaAuthConfig();
@@ -26,6 +27,9 @@ setInterval(() => {
  * 프로세스가 죽거나 탭을 닫아 남은 것을 기동 시 한 번, 이후 매시간 걷는다.
  */
 function sweepBackupWorkspaces(): void {
+  // 나이를 다 먹은 작업은 목록에서 뺀다 — 파일은 아래 스윕이 걷으므로, 남겨 두면
+  // 화면에만 "받을 수 있다"고 남는다
+  sweepExpiredBackupJobs();
   sweepStaleBackupWorkspaces(UPLOAD_DIR)
     .then((swept) => {
       if (swept.length === 0) return;
