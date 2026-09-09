@@ -13,6 +13,17 @@ import { mkdir, writeFile, readFile, rm, stat } from "fs/promises";
 import { copyUploadsForBackup, restoreUploadsFromBackup } from "../lib/backupFiles.js";
 import { classifyBackupTicket } from "../lib/backupTicket.js";
 import { runBackupPreflight } from "../lib/backupPreflight.js";
+import {
+  activeBackupJob,
+  backupJobPercent,
+  BackupJobCancelledError,
+  createBackupJob,
+  deleteBackupJob,
+  getBackupJob,
+  requestBackupJobCancel,
+  updateBackupJob,
+  type BackupJob,
+} from "../lib/backupJobs.js";
 
 const execAsync = promisify(exec);
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "uploads");
@@ -59,27 +70,88 @@ const SECRET_SETTING_KEYS = ["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"];
 
 const usedBackupTicketJtis = new Set<string>();
 
-async function buildBackupArchive(tempDirName: string): Promise<{ tempDir: string; archivePath: string }> {
-  const tempDir = path.join(UPLOAD_DIR, tempDirName);
+function archivePathFor(tempDirName: string): string {
+  return path.join(UPLOAD_DIR, `${tempDirName}.tar.gz`);
+}
+
+/**
+ * 아카이브를 만든다. 요청 밖에서 돈다 — 응답을 붙잡고 만들던 시절에는 새 탭이
+ * 빌드 내내(첨부가 많으면 분 단위) 빈 흰 화면이었고, 그 침묵이 "아무것도 안 됨"으로
+ * 읽혀 사용자가 탭을 닫았다. 진행 상황은 작업(job)에 적고 화면이 물어보게 한다.
+ */
+async function runBackupJob(app: FastifyInstance, job: BackupJob): Promise<void> {
+  const tempDir = path.join(UPLOAD_DIR, job.tempDirName);
   const filesDir = path.join(tempDir, "files");
-  const archivePath = path.join(UPLOAD_DIR, `${tempDirName}.tar.gz`);
+  const archivePath = archivePathFor(job.tempDirName);
+  const startedAt = Date.now();
 
-  const [users, households, householdMembers, settings] = await Promise.all([
-    prisma.user.findMany({ select: USER_EXPORT_SELECT }),
-    prisma.household.findMany({ select: HOUSEHOLD_EXPORT_SELECT }),
-    prisma.householdMember.findMany({ select: MEMBER_EXPORT_SELECT }),
-    prisma.setting.findMany({ where: { key: { notIn: SECRET_SETTING_KEYS } } }),
-  ]);
+  const abortIfCancelled = () => {
+    if (getBackupJob(job.id)?.cancelRequested) throw new BackupJobCancelledError();
+  };
 
-  const dbData = { users, households, householdMembers, settings };
+  try {
+    updateBackupJob(job.id, { phase: "database" });
+    const [users, households, householdMembers, settings] = await Promise.all([
+      prisma.user.findMany({ select: USER_EXPORT_SELECT }),
+      prisma.household.findMany({ select: HOUSEHOLD_EXPORT_SELECT }),
+      prisma.householdMember.findMany({ select: MEMBER_EXPORT_SELECT }),
+      prisma.setting.findMany({ where: { key: { notIn: SECRET_SETTING_KEYS } } }),
+    ]);
+    const dbData = { users, households, householdMembers, settings };
 
-  await mkdir(filesDir, { recursive: true });
-  await writeFile(path.join(tempDir, "db.json"), JSON.stringify(dbData, null, 2), "utf8");
+    await mkdir(filesDir, { recursive: true });
+    await writeFile(path.join(tempDir, "db.json"), JSON.stringify(dbData, null, 2), "utf8");
 
-  await copyUploadsForBackup(UPLOAD_DIR, filesDir, tempDirName);
+    abortIfCancelled();
+    updateBackupJob(job.id, { phase: "files" });
+    await copyUploadsForBackup(UPLOAD_DIR, filesDir, job.tempDirName, (bytes) => {
+      const current = getBackupJob(job.id);
+      if (current) current.copiedBytes += bytes;
+      // 복사 도중에 접는 유일한 방법이다 — 파일 하나 사이가 확인 지점이 된다
+      abortIfCancelled();
+    });
 
-  await execAsync(`tar -czf "${archivePath}" -C "${tempDir}" .`);
-  return { tempDir, archivePath };
+    abortIfCancelled();
+    updateBackupJob(job.id, { phase: "archiving" });
+    await execAsync(`tar -czf "${archivePath}" -C "${tempDir}" .`);
+
+    // 사본은 여기서 바로 버린다. 예전에는 다운로드 스트림이 닫힐 때까지 들고 있어
+    // 원본 2배가 그동안 계속 잡혀 있었다 — 아카이브가 나온 뒤로는 쓸모가 없다.
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+
+    const archiveStat = await stat(archivePath);
+    updateBackupJob(job.id, { phase: "ready", archiveBytes: archiveStat.size });
+    app.log.info({ ms: Date.now() - startedAt, bytes: archiveStat.size }, "Backup archive built");
+  } catch (err) {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    await rm(archivePath, { force: true }).catch(() => {});
+
+    if (err instanceof BackupJobCancelledError) {
+      // 취소는 실패가 아니다. 여기서 목록에서 뺀다 — 그전에 빼면 빌드가 도는 채로
+      // 잠금이 풀려 두 번째 빌드가 시작된다.
+      app.log.info({ jobId: job.id }, "Backup export cancelled");
+      deleteBackupJob(job.id);
+      return;
+    }
+
+    app.log.error(err, "Backup export failed");
+    updateBackupJob(job.id, {
+      phase: "failed",
+      error: err instanceof Error ? err.message.slice(0, 300) : String(err),
+    });
+  }
+}
+
+function backupJobView(job: BackupJob) {
+  return {
+    jobId: job.id,
+    phase: job.phase,
+    percent: backupJobPercent(job),
+    copiedBytes: job.copiedBytes,
+    totalBytes: job.totalBytes,
+    archiveBytes: job.archiveBytes,
+    error: job.error,
+  };
 }
 
 export async function backupRoutes(app: FastifyInstance) {
@@ -88,88 +160,122 @@ export async function backupRoutes(app: FastifyInstance) {
     // unauthorized"라고 알려줘도 티켓이 안 온 건지·만료된 건지·이미 쓴 건지 알 수 없었다.
     const verdict = classifyBackupTicket({
       ticket: (request.query as { ticket?: string }).ticket,
-      verify: (token) => app.jwt.verify<{ purpose?: string; jti?: string }>(token),
+      verify: (token) => app.jwt.verify<{ purpose?: string; jti?: string; jobId?: string }>(token),
       isUsed: (jti) => usedBackupTicketJtis.has(jti),
     });
     if (!verdict.ok) {
       app.log.warn({ reason: verdict.reason }, "Backup export ticket rejected");
       return reply.code(401).send({ error: "unauthorized", reason: verdict.reason });
     }
-    const jti = verdict.jti;
 
-    usedBackupTicketJtis.add(jti);
-    setTimeout(() => usedBackupTicketJtis.delete(jti), 60_000);
-
-    const tempDirName = `backup_${Date.now()}`;
-    let tempDir = "";
-    let archivePath = "";
-
-    // 빌드는 분 단위인데 정리 핸들러는 빌드가 끝나야 걸렸다. 그동안 탭을 닫으면
-    // uploads 전체 사본(`backup_<ts>/files/`)과 tar.gz가 그대로 남아, 누를 때마다
-    // 디스크가 원본의 2배씩 쌓였다. 요청이 끊긴 걸 빌드 전부터 지켜본다.
-    let clientGone = false;
-    request.raw.on("close", () => {
-      clientGone = true;
-    });
-
-    try {
-      // 아카이브를 다 만든 뒤에야 첫 바이트가 나간다. 첨부가 많으면 그동안 브라우저
-      // 탭은 빈 흰 화면이다 — 어디서 오래 걸리는지 로그로는 보이게 해 둔다.
-      const startedAt = Date.now();
-      ({ tempDir, archivePath } = await buildBackupArchive(tempDirName));
-      const archiveStat = await stat(archivePath);
-      app.log.info(
-        { ms: Date.now() - startedAt, bytes: archiveStat.size },
-        "Backup archive built",
-      );
-
-      if (clientGone) {
-        app.log.warn(
-          { bytes: archiveStat.size },
-          "Backup export abandoned before delivery; discarding archive",
-        );
-        await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-        await rm(archivePath, { force: true }).catch(() => {});
-        reply.hijack();
-        reply.raw.destroy();
-        return reply;
-      }
-
-      const stream = createReadStream(archivePath);
-      const cleanup = () => {
-        rm(tempDir, { recursive: true, force: true }).catch(() => {});
-        rm(archivePath, { force: true }).catch(() => {});
-      };
-      stream.on("close", cleanup);
-      stream.on("error", cleanup);
-      reply.raw.on("close", cleanup);
-
-      return reply
-        .header("Content-Type", "application/gzip")
-        // 길이를 알려야 브라우저가 진행률을 그리고, 길이 없는 chunked 응답을 통째로
-        // 버퍼링하는 프록시에 걸리지 않는다.
-        .header("Content-Length", String(archiveStat.size))
-        .header(
-          "Content-Disposition",
-          `attachment; filename="kibble_backup_${new Date().toISOString().slice(0, 10)}.tar.gz"`,
-        )
-        .send(stream);
-    } catch (err: any) {
-      app.log.error(err, "Backup export failed");
-      if (tempDir) rm(tempDir, { recursive: true, force: true }).catch(() => {});
-      if (archivePath) rm(archivePath, { force: true }).catch(() => {});
-      return reply.code(500).send({ error: `Backup export failed: ${err.message || err}` });
+    // 이제 이 라우트는 만들지 않는다 — 미리 만들어 둔 것을 흘려보낼 뿐이다.
+    const job = verdict.jobId ? getBackupJob(verdict.jobId) : null;
+    if (!job || job.phase !== "ready") {
+      app.log.warn({ jobId: verdict.jobId, phase: job?.phase }, "Backup export archive not ready");
+      return reply.code(409).send({ error: "backup_not_ready", phase: job?.phase ?? "gone" });
     }
+
+    const archivePath = archivePathFor(job.tempDirName);
+    let archiveStat;
+    try {
+      archiveStat = await stat(archivePath);
+    } catch {
+      // 스윕이 이미 걷어 갔다 — 작업만 남아 "받을 수 있다"고 거짓말하지 않게 지운다
+      deleteBackupJob(job.id);
+      return reply.code(409).send({ error: "backup_not_ready", phase: "gone" });
+    }
+
+    usedBackupTicketJtis.add(verdict.jti);
+    setTimeout(() => usedBackupTicketJtis.delete(verdict.jti), 60_000);
+
+    const stream = createReadStream(archivePath);
+    const cleanup = () => {
+      rm(archivePath, { force: true }).catch(() => {});
+      deleteBackupJob(job.id);
+    };
+    stream.on("close", cleanup);
+    stream.on("error", cleanup);
+
+    return reply
+      .header("Content-Type", "application/gzip")
+      // 길이를 알려야 브라우저가 진행률을 그리고, 길이 없는 chunked 응답을 통째로
+      // 버퍼링하는 프록시에 걸리지 않는다.
+      .header("Content-Length", String(archiveStat.size))
+      .header(
+        "Content-Disposition",
+        `attachment; filename="kibble_backup_${new Date().toISOString().slice(0, 10)}.tar.gz"`,
+      )
+      .send(stream);
   });
 
   await app.register(async (admin) => {
     admin.addHook("preHandler", app.authenticate);
     admin.addHook("preHandler", app.requireAdmin);
 
-    admin.post("/export-ticket", async (request) => {
+    /**
+     * 아카이브 만들기를 시작한다. 응답은 즉시 돌아오고 빌드는 뒤에서 돈다 —
+     * 화면은 `GET /export/jobs/:id`로 진행률을 물어본다.
+     */
+    admin.post("/export/jobs", async (request, reply) => {
+      const running = activeBackupJob();
+      if (running) {
+        // 빌드 하나가 uploads 한 벌을 복사한다. 둘이 겹치면 디스크가 세 배다.
+        return reply.code(409).send({ ...backupJobView(running), error: "backup_already_running" });
+      }
+
+      const preflight = await runBackupPreflight(UPLOAD_DIR);
+      if (!preflight.ok) {
+        const failed = preflight.checks.find((check) => !check.ok);
+        return reply
+          .code(400)
+          .send({ error: "backup_preflight_failed", detail: failed?.detail ?? failed?.name });
+      }
+
+      const job = createBackupJob(request.user.sub, preflight.sourceBytes);
+      // 일부러 await하지 않는다 — 요청은 지금 돌려주고 빌드는 뒤에서 돈다.
+      void runBackupJob(app, job);
+      return backupJobView(job);
+    });
+
+    admin.get("/export/jobs/:jobId", async (request, reply) => {
+      const { jobId } = request.params as { jobId: string };
+      const job = getBackupJob(jobId);
+      if (!job || job.userId !== request.user.sub) {
+        return reply.code(404).send({ error: "backup_job_not_found" });
+      }
+      return backupJobView(job);
+    });
+
+    /** 취소하거나, 다 만든 아카이브를 버린다 — 아무도 안 받을 것을 디스크에 두지 않는다 */
+    admin.delete("/export/jobs/:jobId", async (request, reply) => {
+      const { jobId } = request.params as { jobId: string };
+      const job = getBackupJob(jobId);
+      if (!job || job.userId !== request.user.sub) {
+        return reply.code(404).send({ error: "backup_job_not_found" });
+      }
+
+      // 빌드 중이면 파일을 여기서 지우지 않는다 — 쓰고 있는 것을 지우면 tar가 깨진다.
+      // 플래그만 세우고, 빌드가 다음 확인 지점에서 스스로 접으며 치운다.
+      if (requestBackupJobCancel(job.id)) return { ok: true, cancelling: true };
+
+      await rm(archivePathFor(job.tempDirName), { force: true }).catch(() => {});
+      deleteBackupJob(job.id);
+      return { ok: true, cancelling: false };
+    });
+
+    admin.post("/export-ticket", async (request, reply) => {
+      const { jobId } = (request.body ?? {}) as { jobId?: string };
+      const job = jobId ? getBackupJob(jobId) : null;
+      if (!job || job.userId !== request.user.sub) {
+        return reply.code(404).send({ error: "backup_job_not_found" });
+      }
+      if (job.phase !== "ready") {
+        return reply.code(409).send({ error: "backup_not_ready", phase: job.phase });
+      }
+
       const jti = randomBytes(16).toString("hex");
       const ticket = app.jwt.sign(
-        { sub: request.user.sub, purpose: "backup", jti },
+        { sub: request.user.sub, purpose: "backup", jti, jobId: job.id },
         { expiresIn: BACKUP_TICKET_EXPIRES },
       );
       return { ticket, expiresIn: 60 };

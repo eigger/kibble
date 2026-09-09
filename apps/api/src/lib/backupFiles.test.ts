@@ -88,6 +88,21 @@ describe("backupFiles", () => {
     expect(copied).not.toContain("backup-work");
   });
 
+  // 진행률을 그리려고 파일 단위로 내려간다 — 합계가 실제 바이트와 맞아야 한다
+  it("reports every copied byte so the screen can draw progress", async () => {
+    await seedUploads();
+    const seen: number[] = [];
+
+    await copyUploadsForBackup(uploadDir, filesDir, "backup-work", (bytes) => seen.push(bytes));
+
+    // events 2개 + pets 1개 + 루트 평면 파일 1개 — tmp와 이전 아카이브는 빠진다
+    expect(seen).toHaveLength(4);
+    const total = seen.reduce((sum, n) => sum + n, 0);
+    expect(total).toBe(
+      "photo-bytes".length + "video-bytes".length + "pet-bytes".length + "legacy-bytes".length,
+    );
+  });
+
   it("does nothing when the upload dir does not exist yet", async () => {
     await rm(uploadDir, { recursive: true, force: true });
     await expect(copyUploadsForBackup(uploadDir, filesDir, "backup-work")).resolves.toBeUndefined();

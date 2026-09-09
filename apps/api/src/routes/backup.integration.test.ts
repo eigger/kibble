@@ -163,15 +163,49 @@ describe("backup export/restore round trip", () => {
     if (uploadDir) await rm(uploadDir, { recursive: true, force: true }).catch(() => {});
   });
 
-  it("round-trips users and settings through export ticket + restore", async () => {
+  /**
+   * 내보내기는 이제 두 걸음이다 — 빌드를 시작시키고, 다 될 때까지 진행률을 물어본다.
+   * 예전처럼 `GET /export` 하나가 만들면서 흘려보내지 않는다.
+   */
+  async function buildReadyJob(): Promise<string> {
+    const startRes = await app.inject({
+      method: "POST",
+      url: "/api/backup/export/jobs",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(startRes.statusCode).toBe(200);
+    const { jobId } = startRes.json() as { jobId: string };
+
+    for (let i = 0; i < 200; i += 1) {
+      const statusRes = await app.inject({
+        method: "GET",
+        url: `/api/backup/export/jobs/${jobId}`,
+        headers: { authorization: `Bearer ${adminToken}` },
+      });
+      expect(statusRes.statusCode).toBe(200);
+      const job = statusRes.json() as { phase: string; error: string | null };
+      if (job.phase === "ready") return jobId;
+      expect(job.phase, job.error ?? "").not.toBe("failed");
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error("backup job did not become ready");
+  }
+
+  async function issueTicket(jobId: string): Promise<string> {
     const ticketRes = await app.inject({
       method: "POST",
       url: "/api/backup/export-ticket",
       headers: { authorization: `Bearer ${adminToken}` },
+      payload: { jobId },
     });
     expect(ticketRes.statusCode).toBe(200);
     const { ticket } = ticketRes.json() as { ticket: string };
     expect(ticket).toBeTruthy();
+    return ticket;
+  }
+
+  it("round-trips users and settings through export ticket + restore", async () => {
+    const ticket = await issueTicket(await buildReadyJob());
 
     const exportRes = await app.inject({
       method: "GET",
@@ -276,12 +310,7 @@ describe("backup export/restore round trip", () => {
   });
 
   it("marks a replayed ticket as already used — a download re-request lands here", async () => {
-    const ticketRes = await app.inject({
-      method: "POST",
-      url: "/api/backup/export-ticket",
-      headers: { authorization: `Bearer ${adminToken}` },
-    });
-    const { ticket } = ticketRes.json() as { ticket: string };
+    const ticket = await issueTicket(await buildReadyJob());
 
     const first = await app.inject({
       method: "GET",
@@ -295,6 +324,44 @@ describe("backup export/restore round trip", () => {
     });
     expect(replay.statusCode).toBe(401);
     expect(replay.json()).toMatchObject({ reason: "ticket_already_used" });
+  });
+
+  // 티켓은 미리 만들어 둔 아카이브를 가리킨다 — 가리킬 것이 없으면 발급하지 않는다
+  it("refuses a ticket for a job that does not exist", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/backup/export-ticket",
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { jobId: "no-such-job" },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  // 빌드 하나가 uploads를 통째로 복사한다. 둘이 겹치면 디스크가 세 배다.
+  it("refuses a second build while one is running, and hands back its progress", async () => {
+    const startRes = await app.inject({
+      method: "POST",
+      url: "/api/backup/export/jobs",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(startRes.statusCode).toBe(200);
+    const { jobId } = startRes.json() as { jobId: string };
+
+    const second = await app.inject({
+      method: "POST",
+      url: "/api/backup/export/jobs",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    // 이미 끝났을 수도 있다(첨부가 거의 없는 테스트 인스턴스다) — 겹쳤을 때만 검사한다
+    if (second.statusCode === 409) {
+      expect(second.json()).toMatchObject({ error: "backup_already_running", jobId });
+    }
+
+    await app.inject({
+      method: "DELETE",
+      url: `/api/backup/export/jobs/${jobId}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
   });
 
   it("reports export preflight so the app can explain a failure it cannot see", async () => {

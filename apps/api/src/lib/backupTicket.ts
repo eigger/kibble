@@ -9,7 +9,7 @@
  * app.inject()로 정상 경로만 밟고, 정작 실기에서 터진 건 실패 경로였다.
  */
 
-export type BackupTicketPayload = { purpose?: string; jti?: string };
+export type BackupTicketPayload = { purpose?: string; jti?: string; jobId?: string };
 
 export type BackupTicketReason =
   /** 쿼리에 ticket 자체가 없다 — 링크가 잘렸거나 프록시가 쿼리를 떨궜다 */
@@ -22,7 +22,9 @@ export type BackupTicketReason =
   | "ticket_already_used";
 
 export type BackupTicketResult =
-  | { ok: true; jti: string }
+  /** jobId는 미리 만들어 둔 아카이브를 가리킨다. 티켓이 유효해도 그 작업이 없거나
+   *  아직 안 끝났을 수 있으므로, 그 판단은 라우트가 한다 */
+  | { ok: true; jti: string; jobId?: string }
   | { ok: false; reason: BackupTicketReason };
 
 export function classifyBackupTicket(input: {
@@ -48,5 +50,5 @@ export function classifyBackupTicket(input: {
   }
   if (isUsed(decoded.jti)) return { ok: false, reason: "ticket_already_used" };
 
-  return { ok: true, jti: decoded.jti };
+  return { ok: true, jti: decoded.jti, jobId: decoded.jobId };
 }

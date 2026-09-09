@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { cp, readdir } from "node:fs/promises";
+import { copyFile, cp, mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 /** 청크 업로드 중인 조각 — 완성되지 않은 쓰레기라 백업에 담지 않는다 */
@@ -24,12 +24,18 @@ function isWorkDir(name: string): boolean {
  * 디렉터리다. 예전에는 최상위 파일만 복사해서 사진·영상이 백업에 하나도 들어가지
  * 않았다 (파일이 UPLOAD_DIR 루트에 평평하게 있던 시절 코드가 그대로 남아 있었다).
  *
+ * 한 파일씩 옮긴다. `cp -r` 한 방이 더 짧지만 그러면 **얼마나 갔는지 알 방법이 없다** —
+ * 화면은 빌드가 끝날 때까지 아무 말도 못 한다. 진행률을 그리려고 파일 단위로 내려간다.
+ *
  * @param skipDirName 이번 백업이 쓰고 있는 작업 디렉터리 — 자기 자신을 담지 않는다
+ * @param onCopied 파일 하나를 옮길 때마다 그 바이트 수로 불린다. 여기서 던지면 복사가
+ *   그 자리에서 멈춘다 — 취소는 그렇게 걸린다
  */
 export async function copyUploadsForBackup(
   uploadDir: string,
   filesDir: string,
   skipDirName: string,
+  onCopied?: (bytes: number) => void,
 ): Promise<void> {
   if (!existsSync(uploadDir)) return;
 
@@ -42,9 +48,29 @@ export async function copyUploadsForBackup(
     if (entry.isFile() && entry.name.endsWith(".tar.gz")) continue;
     if (!entry.isFile() && !entry.isDirectory()) continue;
 
-    await cp(path.join(uploadDir, entry.name), path.join(filesDir, entry.name), {
-      recursive: true,
-    });
+    await copyTree(path.join(uploadDir, entry.name), path.join(filesDir, entry.name), onCopied);
+  }
+}
+
+/** 제외 규칙은 최상위에서만 본다 — 그 아래는 전부 사용자 파일이다 */
+async function copyTree(
+  source: string,
+  dest: string,
+  onCopied?: (bytes: number) => void,
+): Promise<void> {
+  const info = await stat(source);
+  if (info.isFile()) {
+    await mkdir(path.dirname(dest), { recursive: true });
+    await copyFile(source, dest);
+    onCopied?.(info.size);
+    return;
+  }
+  if (!info.isDirectory()) return;
+
+  await mkdir(dest, { recursive: true });
+  const entries = await readdir(source, { withFileTypes: true });
+  for (const entry of entries) {
+    await copyTree(path.join(source, entry.name), path.join(dest, entry.name), onCopied);
   }
 }
 
