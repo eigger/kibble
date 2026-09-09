@@ -123,6 +123,53 @@ describe("todaySummaryForPet", () => {
     expect(rows[0].lastOccurredAt).toBe("2026-09-09T05:00:00.000Z");
   });
 
+  it("folds a missing unit into the type's default unit", async () => {
+    // 자동 입력은 단위를 안 보내고 화면 입력은 항상 defaultUnit을 붙인다 —
+    // 둘을 다른 단위로 두면 섞인 날 합계가 통째로 횟수로 떨어진다.
+    const db = fakeDb({
+      grouped: [
+        {
+          eventTypeId: "type_water",
+          unit: null,
+          _count: { _all: 1 },
+          _sum: { quantity: 250, quantityOffered: null },
+          _max: { occurredAt: new Date("2026-09-09T01:00:00.000Z") },
+        },
+        {
+          eventTypeId: "type_water",
+          unit: "ml",
+          _count: { _all: 2 },
+          _sum: { quantity: 300, quantityOffered: null },
+          _max: { occurredAt: new Date("2026-09-09T06:00:00.000Z") },
+        },
+      ],
+    });
+
+    const rows = await todaySummaryForPet(db, "hh_1", "pet_1");
+
+    expect(rows[0].totals).toEqual([
+      { unit: "ml", count: 3, quantity: 550, quantityOffered: null },
+    ]);
+    expect(rows[0].lastOccurredAt).toBe("2026-09-09T06:00:00.000Z");
+  });
+
+  it("keeps a null unit as null when the type has no default", async () => {
+    const db = fakeDb({
+      grouped: [
+        {
+          eventTypeId: "type_feces",
+          unit: null,
+          _count: { _all: 2 },
+          _sum: { quantity: null, quantityOffered: null },
+          _max: { occurredAt: new Date("2026-09-09T03:00:00.000Z") },
+        },
+      ],
+    });
+
+    const rows = await todaySummaryForPet(db, "hh_1", "pet_1");
+    expect(rows[0].totals[0].unit).toBeNull();
+  });
+
   it("takes the most recent scale value for the type", async () => {
     const db = fakeDb({
       grouped: [

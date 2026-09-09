@@ -656,10 +656,6 @@ const dict = {
     ko: "오늘 기록이 아직 없습니다. 기록 탭에서 남겨 보세요.",
     en: "Nothing logged today yet. Use the Log tab to add an entry.",
   },
-  homeDashboardTodayTotal: {
-    ko: "오늘 {count}건",
-    en: "{count} entries today",
-  },
   homeTodayJustNow: { ko: "방금", en: "Just now" },
   homeTodayMinutesAgo: { ko: "{n}분 전", en: "{n} min ago" },
   homeTodayHoursAgo: { ko: "{n}시간 전", en: "{n}h ago" },
@@ -668,7 +664,6 @@ const dict = {
   homeTodayOffered: { ko: "제공", en: "Offered" },
   homeTodayConsumed: { ko: "섭취", en: "Eaten" },
   homeTodayMedicationHeading: { ko: "오늘 복약", en: "Medication today" },
-  homeTodayMedicationDone: { ko: "완료", en: "Done" },
   homeDashboardViewTrends: { ko: "추세 보기", en: "View trends" },
   analyticsHeading: { ko: "건강 · 급여 추세", en: "Health & feeding trends" },
   analyticsPeriodAll: { ko: "전체", en: "All" },

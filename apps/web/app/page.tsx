@@ -46,17 +46,25 @@ function TodayCard({
   row,
   t,
   label,
+  locale,
 }: {
   row: TodaySummaryRow;
   t: (key: TranslationKey, params?: Record<string, string>) => string;
   label: string;
+  locale: string;
 }) {
   const value = todayCardValue(row);
   const since = row.lastOccurredAt ? relativeSince(row.lastOccurredAt) : null;
   const scale = formatScaleValuePart(row.scaleType, row.lastScaleValue, t);
 
   const meta: string[] = [];
-  if (since) meta.push(t("homeTodayLast", { when: t(since.key, since.params) }));
+  if (row.lastOccurredAt) {
+    // 앞선 시각으로 적어 둔 기록은 상대 시각이 거짓이 된다 — 그럴 때만 벽시계로 적는다.
+    const when = since
+      ? t(since.key, since.params)
+      : formatEventTime(row.lastOccurredAt, locale);
+    meta.push(t("homeTodayLast", { when }));
+  }
   if (scale) meta.push(scale);
 
   return (
@@ -244,6 +252,7 @@ export default function HomePage() {
                     row={row}
                     t={t}
                     label={tLabel(row.label)}
+                    locale={locale}
                   />
                 ))}
               </ul>

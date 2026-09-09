@@ -50,6 +50,13 @@ function toNumber(value: unknown): number | null {
   return null;
 }
 
+/** 둘 다 없으면 없는 것으로 남긴다 — 기록되지 않은 양을 0으로 만들지 않는다. */
+function addAmounts(left: number | null, right: number | null): number | null {
+  if (left == null) return right;
+  if (right == null) return left;
+  return left + right;
+}
+
 function toIso(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string") return value;
@@ -141,12 +148,26 @@ export async function todaySummaryForPet(
 
     const count = group._count?._all ?? 0;
     row.count += count;
-    row.totals.push({
-      unit: group.unit ?? null,
-      count,
-      quantity: toNumber(group._sum?.quantity),
-      quantityOffered: toNumber(group._sum?.quantityOffered),
-    });
+
+    // 단위가 비어 있으면 그 타입의 기본 단위다 — 앱의 다른 곳도 모두 그렇게 읽는다
+    // (`formatEventDetailLine`, `parseEntry`). 여기서만 null을 별도 단위로 두면,
+    // 단위를 안 보내는 자동 입력과 화면 입력이 섞인 날 합계가 통째로 횟수로 떨어진다.
+    const unit = group.unit ?? type.defaultUnit ?? null;
+    const existing = row.totals.find((total) => total.unit === unit);
+    const target = existing ?? {
+      unit,
+      count: 0,
+      quantity: null as number | null,
+      quantityOffered: null as number | null,
+    };
+    if (!existing) row.totals.push(target);
+
+    target.count += count;
+    target.quantity = addAmounts(target.quantity, toNumber(group._sum?.quantity));
+    target.quantityOffered = addAmounts(
+      target.quantityOffered,
+      toNumber(group._sum?.quantityOffered),
+    );
 
     const last = toIso(group._max?.occurredAt);
     if (last && (row.lastOccurredAt == null || last > row.lastOccurredAt)) {
