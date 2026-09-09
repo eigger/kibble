@@ -121,6 +121,10 @@ export default function BackupPage() {
       });
       const a = document.createElement("a");
       a.href = `${API_URL}/api/backup/export?ticket=${encodeURIComponent(ticket)}`;
+      // 성공하면 Content-Disposition 때문에 이동 없이 받아진다. 실패하면 JSON이
+      // 그대로 나가는데, target이 없으면 **이 화면이** 그 JSON으로 이동해 버린다.
+      a.target = "_blank";
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
