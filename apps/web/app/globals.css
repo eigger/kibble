@@ -2544,6 +2544,13 @@ button:disabled {
   }
 }
 
+/* 세 칸(체중 0.01·0.1·1)은 버튼이 여섯이라 폰 폭에서 넘친다 — 바깥 칸부터 접는다. */
+@container (max-width: 420px) {
+  .qty-stepper-3 .qty-stepper-btn-extra {
+    display: none;
+  }
+}
+
 .bg-upload-banner {
   position: sticky;
   top: 0;

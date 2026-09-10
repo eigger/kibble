@@ -4,6 +4,7 @@ import {
   COST_KRW_STEP_LARGE,
   costStepperSteps,
   quantityExtraStep,
+  quantityFineStep,
   quantityStepperSteps,
   quantityStep,
   stepQuantityValue,
@@ -45,8 +46,17 @@ describe("quantityStepperSteps", () => {
     expect(quantityStepperSteps(null, "water")).toEqual([1, 10]);
   });
 
-  it("weight gets 0.1 and 1", () => {
-    expect(quantityStepperSteps(null, "weight")).toEqual([0.1, 1]);
+  it("weight gets 0.01, 0.1 and 1", () => {
+    expect(quantityStepperSteps(null, "weight")).toEqual([0.01, 0.1, 1]);
+    expect(quantityStepperSteps("kg", "weight")).toEqual([0.01, 0.1, 1]);
+    expect(quantityFineStep("kg")).toBe(0.01);
+  });
+
+  it("only weight gets the fine step", () => {
+    expect(quantityFineStep("g", "meal")).toBeNull();
+    expect(quantityFineStep(null, "meal")).toBeNull();
+    expect(quantityFineStep("컵", "weight")).toBeNull();
+    expect(quantityStepperSteps("g", "weight")).toEqual([1, 10]);
   });
 
   it("walk gets 1 and 5", () => {

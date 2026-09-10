@@ -6,7 +6,7 @@ type Props = {
   id: string;
   value: string;
   onChange: (value: string) => void;
-  /** 오름차순. 하나면 ±, 둘이면 작은 칸이 입력 옆·큰 칸이 바깥. */
+  /** 오름차순. 하나면 ±, 여럿이면 작은 칸이 입력 옆·큰 칸이 바깥. */
   steps: number[];
   /** 자리가 좁으면 CSS로 숨기는 칸. 기본 칸은 남긴다. */
   extraStep?: number | null;
@@ -61,43 +61,39 @@ export function QuantityStepper({
   increaseLabel,
   formatStep,
 }: Props) {
-  const unique = steps.filter((step, i) => steps.indexOf(step) === i);
-  const small = unique[0] ?? 1;
-  const large = unique.length > 1 ? unique[unique.length - 1] : null;
-  const labeled = large != null;
+  const unique = steps.filter((step, i) => steps.indexOf(step) === i).sort((a, b) => a - b);
+  const tiers = unique.length > 0 ? unique : [1];
+  const labeled = tiers.length > 1;
 
-  function minusText(step: number): string {
-    return labeled ? `−${formatStep(step, unique)}` : "−";
+  function text(sign: "−" | "+", step: number): string {
+    return labeled ? `${sign}${formatStep(step, tiers)}` : sign;
   }
-  function plusText(step: number): string {
-    return labeled ? `+${formatStep(step, unique)}` : "+";
+  function label(base: string, step: number): string {
+    return labeled ? `${base} ${formatStep(step, tiers)}` : base;
   }
   function isExtra(step: number): boolean {
     return labeled && extraStep != null && step === extraStep;
   }
 
+  // 작은 칸이 입력 옆, 큰 칸이 바깥 — 빼기는 큰 것부터, 더하기는 작은 것부터
+  const className = ["qty-stepper", labeled && "qty-stepper-labeled", `qty-stepper-${tiers.length}`]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={labeled ? "qty-stepper qty-stepper-labeled" : "qty-stepper"}>
-      {large != null && (
+    <div className={className}>
+      {[...tiers].reverse().map((step) => (
         <StepButton
-          amount={-large}
-          extra={isExtra(large)}
+          key={`minus-${step}`}
+          amount={-step}
+          extra={isExtra(step)}
           disabled={disabled}
-          label={`${decreaseLabel} ${formatStep(large, unique)}`}
-          text={minusText(large)}
+          label={label(decreaseLabel, step)}
+          text={text("−", step)}
           onChange={onChange}
           value={value}
         />
-      )}
-      <StepButton
-        amount={-small}
-        extra={isExtra(small)}
-        disabled={disabled}
-        label={labeled ? `${decreaseLabel} ${formatStep(small, unique)}` : decreaseLabel}
-        text={minusText(small)}
-        onChange={onChange}
-        value={value}
-      />
+      ))}
       <input
         id={id}
         type="text"
@@ -108,26 +104,18 @@ export function QuantityStepper({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       />
-      <StepButton
-        amount={small}
-        extra={isExtra(small)}
-        disabled={disabled}
-        label={labeled ? `${increaseLabel} ${formatStep(small, unique)}` : increaseLabel}
-        text={plusText(small)}
-        onChange={onChange}
-        value={value}
-      />
-      {large != null && (
+      {tiers.map((step) => (
         <StepButton
-          amount={large}
-          extra={isExtra(large)}
+          key={`plus-${step}`}
+          amount={step}
+          extra={isExtra(step)}
           disabled={disabled}
-          label={`${increaseLabel} ${formatStep(large, unique)}`}
-          text={plusText(large)}
+          label={label(increaseLabel, step)}
+          text={text("+", step)}
           onChange={onChange}
           value={value}
         />
-      )}
+      ))}
     </div>
   );
 }
