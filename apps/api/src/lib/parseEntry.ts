@@ -27,6 +27,13 @@ export type ParsedLineSuggestion = {
   occurredAt: Date | null;
   needsReview: boolean;
   note: string | null;
+  /** 별칭이 세부 태그까지 가리키면 그 slug — "양치"는 관리 + `dental` (§7.18) */
+  productName: string | null;
+};
+
+/** 타입 별칭 중 상세 태그(`apps/web/lib/eventDetailTags.ts`)에 대응하는 것. 키워드 → 태그 slug */
+const KEYWORD_TAGS: Record<string, Record<string, string>> = {
+  care: { 양치: "dental", 목욕: "bath", 발톱: "nail", 빗질: "brush", 귀청소: "ear_clean" },
 };
 
 type KeywordHit = {
@@ -265,6 +272,7 @@ function noteFallback(rawLine: string, noteEventTypeId: string): ParsedLineSugge
     occurredAt: null,
     needsReview: true,
     note: rawLine,
+    productName: null,
   };
 }
 
@@ -352,6 +360,7 @@ function parseLine(
     occurredAt: time.occurredAt,
     needsReview,
     note: noteText || null,
+    productName: KEYWORD_TAGS[chosen.eventTypeKey]?.[chosen.keyword] ?? null,
   };
 }
 

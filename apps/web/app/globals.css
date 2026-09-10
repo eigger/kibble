@@ -2906,6 +2906,19 @@ button:disabled {
   color: var(--color-text-muted);
 }
 
+/* 태그가 많은 타입(관찰)은 묶음 소제목 아래 나눠 그린다 — 한 줄 나열은 18개를 훑기 어렵다. */
+.event-detail-tag-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-detail-tag-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* 작성자 · 최종 수정 — 기록 내용이 아니라 시스템 메타이므로 살짝 떨어뜨려 둔다. */
 .event-detail-audit {
   margin: 4px 0 0;

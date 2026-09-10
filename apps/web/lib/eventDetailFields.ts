@@ -99,6 +99,17 @@ export function eventDetailFields(
     };
   }
 
+  // 관리(양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기) — "했다"를 태그로만 받는다
+  if (key === "care") {
+    return {
+      ...NOTE_ONLY,
+      productName: true,
+      detailTags: true,
+      productCustomInput: false,
+      productNameLabelKey: productNameFieldLabelKey(key),
+    };
+  }
+
   if (scaleType === "FECAL_7") {
     return { ...NOTE_ONLY, fecalScale: true };
   }

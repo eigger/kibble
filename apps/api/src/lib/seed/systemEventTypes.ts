@@ -1,5 +1,6 @@
 import type { EventCategory, Prisma, PrismaClient, ScaleType, Species } from "@prisma/client";
 import { isUniqueConstraintError } from "../prismaErrors.js";
+import { CARE_ALIASES, migrateDentalToCare, migrateGroomingToCare } from "./migrateDentalToCare.js";
 import { migrateEnergyToObservation } from "./migrateEnergyToObservation.js";
 
 export type SystemEventTypeSeed = {
@@ -85,15 +86,6 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 60,
   },
   {
-    key: "dental",
-    label: "eventType.dental",
-    icon: "sparkles",
-    color: "cyan",
-    category: "HEALTH",
-    aliases: ["양치", "치아", "덴탈"],
-    sortOrder: 65,
-  },
-  {
     key: "observation",
     label: "eventType.observation",
     icon: "eye",
@@ -151,12 +143,12 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 100,
   },
   {
-    key: "grooming",
-    label: "eventType.grooming",
-    icon: "scissors",
+    key: "care",
+    label: "eventType.care",
+    icon: "hand-heart",
     color: "pink",
     category: "CARE",
-    aliases: [],
+    aliases: CARE_ALIASES,
     sortOrder: 110,
   },
   {
@@ -248,6 +240,7 @@ export async function seedSystemEventTypes(
   let updated = 0;
 
   await migrateEnergyToObservation(prisma);
+  await migrateGroomingToCare(prisma);
 
   for (const row of SYSTEM_EVENT_TYPES) {
     const existing = await prisma.eventType.findFirst({
@@ -282,6 +275,8 @@ export async function seedSystemEventTypes(
       data: { archivedAt: null },
     });
   }
+
+  await migrateDentalToCare(prisma);
 
   return { created, updated };
 }

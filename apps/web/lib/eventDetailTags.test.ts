@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   encodeProductNameValue,
+  eventDetailTagGroupsFor,
   findEventDetailTag,
   formatProductNameDisplay,
   parseProductNameValue,
@@ -46,5 +47,35 @@ describe("eventDetailTags", () => {
     });
     expect(encodeProductNameValue("vomit", ["hairball"], "거품")).toBe("hairball,거품");
     expect(formatProductNameDisplay("vomit", "hairball,거품", t)).toBe("헤어볼 · 거품");
+  });
+
+  it("reads the renamed ear_smell slug as smell", () => {
+    expect(parseProductNameValue("observation", "ear_smell,cough")).toEqual({
+      tagIds: ["smell", "cough"],
+      custom: "",
+    });
+    // 다른 타입에서는 별칭이 적용되지 않는다
+    expect(parseProductNameValue("vomit", "ear_smell").custom).toBe("ear_smell");
+  });
+
+  it("groups observation tags into body and behavior, in that order", () => {
+    const groups = eventDetailTagGroupsFor("observation");
+    expect(groups.map((g) => g.group)).toEqual(["body", "behavior"]);
+    expect(groups[0].tags.map((t) => t.id)).toContain("gum_color");
+    expect(groups[1].tags.map((t) => t.id)).toContain("sleep_change");
+  });
+
+  it("returns one ungrouped bucket for types without groups", () => {
+    expect(eventDetailTagGroupsFor("care")).toHaveLength(1);
+    expect(eventDetailTagGroupsFor("care")[0].group).toBeNull();
+    expect(eventDetailTagGroupsFor("meal")).toEqual([]);
+  });
+
+  it("care tags round-trip", () => {
+    expect(parseProductNameValue("care", "dental,bath")).toEqual({
+      tagIds: ["dental", "bath"],
+      custom: "",
+    });
+    expect(encodeProductNameValue("care", ["dental", "bath"], "")).toBe("dental,bath");
   });
 });
