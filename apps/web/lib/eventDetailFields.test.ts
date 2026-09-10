@@ -109,8 +109,17 @@ describe("eventDetailFields", () => {
     expect(line).toBe("헤어볼 · 혈토");
   });
 
-  it("grooming is note-only", () => {
-    const f = eventDetailFields("grooming", null);
+  it("care takes tags plus note, no free text nor quantity", () => {
+    const f = eventDetailFields("care", null);
+    expect(f.detailTags).toBe(true);
+    expect(f.productCustomInput).toBe(false);
+    expect(f.productNameLabelKey).toBe("eventDetailCareItems");
+    expect(f.note).toBe(true);
+    expect(f.quantity).toBe(false);
+  });
+
+  it("litter_change is note-only", () => {
+    const f = eventDetailFields("litter_change", null);
     expect(f.note).toBe(true);
     expect(f.quantity).toBe(false);
   });

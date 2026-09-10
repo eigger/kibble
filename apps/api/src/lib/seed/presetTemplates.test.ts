@@ -53,7 +53,7 @@ describe("selectPresetsToInsert", () => {
     ]);
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, existing, true);
     expect(rows).toHaveLength(5);
-    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["dental", "observation", "remedy", "vet_visit", "weight"]);
+    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["care", "observation", "remedy", "vet_visit", "weight"]);
   });
 
   it("creates full species set for second pet without starters", () => {

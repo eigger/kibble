@@ -2,15 +2,48 @@ import type { TranslationKey } from "./i18n/translations";
 
 /** 이벤트 상세 — 태그 칩으로 고르는 값. `productName`에 slug를 `,`로 이어 저장한다. */
 
+export type EventDetailTagGroupKey = "body" | "behavior";
+
 export type EventDetailTag = {
   id: string;
   labelKey: TranslationKey;
+  /** 태그가 많은 타입은 묶음 소제목 아래 나눠 그린다 (관찰: 몸 / 증상·행동) */
+  group?: EventDetailTagGroupKey;
+};
+
+export type EventDetailTagGroup = {
+  group: EventDetailTagGroupKey | null;
+  tags: EventDetailTag[];
 };
 
 export type ParsedProductName = {
   tagIds: string[];
   custom: string;
 };
+
+const OBSERVATION_BODY: EventDetailTag[] = [
+  { id: "eye_discharge", labelKey: "eventTag.observation.eye_discharge", group: "body" },
+  { id: "ear_wax", labelKey: "eventTag.observation.ear_wax", group: "body" },
+  { id: "smell", labelKey: "eventTag.observation.smell", group: "body" },
+  { id: "skin", labelKey: "eventTag.observation.skin", group: "body" },
+  { id: "coat", labelKey: "eventTag.observation.coat", group: "body" },
+  { id: "hair_loss", labelKey: "eventTag.observation.hair_loss", group: "body" },
+  { id: "teeth", labelKey: "eventTag.observation.teeth", group: "body" },
+  { id: "gum_color", labelKey: "eventTag.observation.gum_color", group: "body" },
+  { id: "pupil", labelKey: "eventTag.observation.pupil", group: "body" },
+  { id: "wound", labelKey: "eventTag.observation.wound", group: "body" },
+];
+
+const OBSERVATION_BEHAVIOR: EventDetailTag[] = [
+  { id: "scratching", labelKey: "eventTag.observation.scratching", group: "behavior" },
+  { id: "cough", labelKey: "eventTag.observation.cough", group: "behavior" },
+  { id: "sneezing", labelKey: "eventTag.observation.sneezing", group: "behavior" },
+  { id: "limping", labelKey: "eventTag.observation.limping", group: "behavior" },
+  { id: "breathing", labelKey: "eventTag.observation.breathing", group: "behavior" },
+  { id: "vocalizing", labelKey: "eventTag.observation.vocalizing", group: "behavior" },
+  { id: "behavior", labelKey: "eventTag.observation.behavior", group: "behavior" },
+  { id: "sleep_change", labelKey: "eventTag.observation.sleep_change", group: "behavior" },
+];
 
 export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
   vomit: [
@@ -20,17 +53,27 @@ export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
     { id: "bile", labelKey: "eventTag.vomit.bile" },
     { id: "foam", labelKey: "eventTag.vomit.foam" },
   ],
-  observation: [
-    { id: "eye_discharge", labelKey: "eventTag.observation.eye_discharge" },
-    { id: "ear_wax", labelKey: "eventTag.observation.ear_wax" },
-    { id: "ear_smell", labelKey: "eventTag.observation.ear_smell" },
-    { id: "skin", labelKey: "eventTag.observation.skin" },
-    { id: "scratching", labelKey: "eventTag.observation.scratching" },
-    { id: "cough", labelKey: "eventTag.observation.cough" },
-    { id: "sneezing", labelKey: "eventTag.observation.sneezing" },
-    { id: "limping", labelKey: "eventTag.observation.limping" },
-    { id: "breathing", labelKey: "eventTag.observation.breathing" },
+  observation: [...OBSERVATION_BODY, ...OBSERVATION_BEHAVIOR],
+  // "봤다"(관찰)와 "했다"(관리)가 갈리도록 표현을 다르게 둔다 — 관찰은 눈꼽·귀지, 관리는 눈 닦기·귀 청소
+  care: [
+    { id: "dental", labelKey: "eventTag.care.dental" },
+    { id: "eye_clean", labelKey: "eventTag.care.eye_clean" },
+    { id: "ear_clean", labelKey: "eventTag.care.ear_clean" },
+    { id: "nail", labelKey: "eventTag.care.nail" },
+    { id: "bath", labelKey: "eventTag.care.bath" },
+    { id: "brush", labelKey: "eventTag.care.brush" },
+    { id: "petting", labelKey: "eventTag.care.petting" },
   ],
+};
+
+/** 이름을 바꾼 태그 — 저장된 옛 slug를 현재 id로 읽는다 (실기록 보존). */
+const LEGACY_TAG_IDS: Partial<Record<string, Record<string, string>>> = {
+  observation: { ear_smell: "smell" },
+};
+
+export const EVENT_DETAIL_TAG_GROUP_LABEL_KEYS: Record<EventDetailTagGroupKey, TranslationKey> = {
+  body: "eventTagGroup.body",
+  behavior: "eventTagGroup.behavior",
 };
 
 export function eventDetailTagsFor(eventTypeKey: string | null | undefined): EventDetailTag[] {
@@ -38,8 +81,27 @@ export function eventDetailTagsFor(eventTypeKey: string | null | undefined): Eve
   return EVENT_DETAIL_TAGS[eventTypeKey] ?? [];
 }
 
+/** 묶음 순서대로. 묶음이 없는 타입은 `group: null` 하나로 돌아온다. */
+export function eventDetailTagGroupsFor(
+  eventTypeKey: string | null | undefined,
+): EventDetailTagGroup[] {
+  const groups: EventDetailTagGroup[] = [];
+  for (const tag of eventDetailTagsFor(eventTypeKey)) {
+    const key = tag.group ?? null;
+    const last = groups[groups.length - 1];
+    if (last && last.group === key) last.tags.push(tag);
+    else groups.push({ group: key, tags: [tag] });
+  }
+  return groups;
+}
+
 function knownTagIds(eventTypeKey: string | null | undefined): Set<string> {
   return new Set(eventDetailTagsFor(eventTypeKey).map((tag) => tag.id));
+}
+
+function canonicalTagId(eventTypeKey: string | null | undefined, id: string): string {
+  if (!eventTypeKey) return id;
+  return LEGACY_TAG_IDS[eventTypeKey]?.[id] ?? id;
 }
 
 export function findEventDetailTag(
@@ -60,9 +122,10 @@ export function parseProductNameValue(
   const tagIds: string[] = [];
   const customParts: string[] = [];
 
-  for (const part of value.split(",").map((p) => p.trim()).filter(Boolean)) {
+  for (const raw of value.split(",").map((p) => p.trim()).filter(Boolean)) {
+    const part = canonicalTagId(eventTypeKey, raw);
     if (known.has(part)) tagIds.push(part);
-    else customParts.push(part);
+    else customParts.push(raw);
   }
 
   return { tagIds, custom: customParts.join(", ") };
@@ -110,6 +173,8 @@ export function productNameFieldLabelKey(eventTypeKey: string | null | undefined
     case "observation":
     case "energy":
       return "eventDetailObservationSigns";
+    case "care":
+      return "eventDetailCareItems";
     default:
       return "eventDetailProductName";
   }

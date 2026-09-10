@@ -1,7 +1,7 @@
 "use client";
 
 import type { TranslationKey } from "../lib/i18n/translations";
-import { eventDetailTagsFor } from "../lib/eventDetailTags";
+import { EVENT_DETAIL_TAG_GROUP_LABEL_KEYS, eventDetailTagGroupsFor } from "../lib/eventDetailTags";
 import { EventDetailChip } from "./EventDetailChip";
 
 interface EventDetailTagPickerProps {
@@ -19,22 +19,29 @@ export function EventDetailTagPicker({
   t,
   onToggle,
 }: EventDetailTagPickerProps) {
-  const tags = eventDetailTagsFor(eventTypeKey);
-  if (tags.length === 0) return null;
+  const groups = eventDetailTagGroupsFor(eventTypeKey);
+  if (groups.length === 0) return null;
 
   return (
-    <div className="event-detail-chip-row" role="group" aria-label={t("eventDetailTagPickerLabel")}>
-      {tags.map((tag) => {
-        const selected = selectedIds.includes(tag.id);
+    <div className="event-detail-tag-groups" role="group" aria-label={t("eventDetailTagPickerLabel")}>
+      {groups.map((group) => {
+        const heading = group.group ? t(EVENT_DETAIL_TAG_GROUP_LABEL_KEYS[group.group]) : null;
         return (
-          <EventDetailChip
-            key={tag.id}
-            selected={selected}
-            disabled={disabled}
-            onClick={() => onToggle(tag.id)}
-          >
-            {t(tag.labelKey)}
-          </EventDetailChip>
+          <div key={group.group ?? "all"} className="event-detail-tag-group">
+            {heading && <span className="event-detail-chip-hint">{heading}</span>}
+            <div className="event-detail-chip-row" role="group" aria-label={heading ?? undefined}>
+              {group.tags.map((tag) => (
+                <EventDetailChip
+                  key={tag.id}
+                  selected={selectedIds.includes(tag.id)}
+                  disabled={disabled}
+                  onClick={() => onToggle(tag.id)}
+                >
+                  {t(tag.labelKey)}
+                </EventDetailChip>
+              ))}
+            </div>
+          </div>
         );
       })}
     </div>

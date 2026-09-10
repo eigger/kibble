@@ -59,13 +59,12 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `poop` | `eventType.poop` | `circle-dot` | `amber-900` | EXCRETION | — | **FECAL_7** | 40 | 대변. Phase 1 척도 UI 대상 |
 | `pee` | `eventType.pee` | `droplets` | `yellow` | EXCRETION | — | **URINE_AMOUNT_3** | 50 | 소변량 3단계 |
 | `vomit` | `eventType.vomit` | `frown` | `rose` | HEALTH | — | — | 60 | 구토·역류 |
-| `dental` | `eventType.dental` | `sparkles` | `cyan` | HEALTH | — | — | 65 | 양치 |
-| `observation` | `eventType.observation` | `eye` | `teal` | HEALTH | — | **ENERGY_3** | 72 | 관찰(활력·특이사항). 구 `energy` 키는 시드가 통합 |
+| `observation` | `eventType.observation` | `eye` | `teal` | HEALTH | — | **ENERGY_3** | 72 | 관찰(활력·특이사항). 구 `energy` 키는 시드가 통합. 태그는 몸 / 증상·행동 두 묶음 |
 | `medication` | `eventType.medication` | `pill` | `violet` | MEDICAL | — | — | 115 | 투약 |
 | `weight` | `eventType.weight` | `scale` | `slate` | HEALTH | `kg` | — | 80 | 체중 |
 | `symptom` | `eventType.symptom` | `stethoscope` | `red` | HEALTH | — | — | 90 | 기침·통증 등. `scaleType`은 Phase 2 |
 | `play` | `eventType.play` | `gamepad-2` | `green` | ACTIVITY | `min` | — | 100 | 놀이 |
-| `grooming` | `eventType.grooming` | `scissors` | `pink` | CARE | — | — | 110 | 빗질·발톱·양치 |
+| `care` | `eventType.care` | `hand-heart` | `pink` | CARE | — | — | 110 | 관리 — 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기를 **태그**로 받는다. 구 `grooming`·`dental` 키는 시드가 통합 (§7.18) |
 | `vet_visit` | `eventType.vet_visit` | `hospital` | `blue` | MEDICAL | — | — | 120 | 병원·응급 |
 | `vaccination` | `eventType.vaccination` | `syringe` | `indigo` | MEDICAL | — | — | 130 | 예방접종·구충 |
 | `note` | `eventType.note` | `sticky-note` | `gray` | NOTE | — | — | 999 | 파싱 실패·자유 메모 폴백 (K-12) |
@@ -94,8 +93,8 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `poop` | `대변`, `똥`, `변`, `응가` |
 | `pee` | `소변`, `쉬`, `오줌` |
 | `vomit` | `구토`, `토`, `역류` |
-| `dental` | `양치`, `치아`, `덴탈` |
 | `observation` | `관찰`, `활력`, `기력`, `컨디션`, `특이사항` |
+| `care` | `관리`, `케어`, `양치`, `목욕`, `발톱`, `빗질`, `귀청소` |
 | `medication` | `약`, `투약`, `복약` |
 | `weight` | `체중`, `몸무게` |
 | `walk` | `산책`, `산책함` |
@@ -116,13 +115,12 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 | `eventType.poop` | 대변 | Stool |
 | `eventType.pee` | 소변 | Urine |
 | `eventType.vomit` | 구토 | Vomit |
-| `eventType.dental` | 양치 | Dental |
 | `eventType.observation` | 관찰 | Observation |
 | `eventType.medication` | 투약 | Medication |
 | `eventType.weight` | 체중 | Weight |
 | `eventType.symptom` | 증상 | Symptom |
 | `eventType.play` | 놀이 | Play |
-| `eventType.grooming` | 그루밍 | Grooming |
+| `eventType.care` | 관리 | Care |
 | `eventType.walk` | 산책 | Walk |
 | `eventType.litter_change` | 모래갈이 | Litter change |
 | `eventType.vet_visit` | 병원 | Vet visit |
@@ -189,7 +187,7 @@ for t in templates:
 | 5 | false | `supplement` | 영양 | |
 | 6 | false | `medication` | 투약 | |
 | 7 | false | `vomit` | 구토 | |
-| 8 | false | `dental` | 양치 | |
+| 8 | false | `care` | 관리 | 태그: 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기 |
 | 9 | false | `observation` | 관찰 | `ENERGY_3` + 관찰 태그 |
 | 10 | false | `weight` | 체중 | |
 | 11 | false | `vet_visit` | 병원 | |
@@ -206,7 +204,7 @@ for t in templates:
 | 5 | false | `supplement` | 영양 |
 | 6 | false | `medication` | 투약 |
 | 7 | false | `walk` | 산책 |
-| 8 | false | `dental` | 양치 |
+| 8 | false | `care` | 관리 |
 | 9 | false | `observation` | 관찰 |
 | 10 | false | `weight` | 체중 |
 | 11 | false | `vet_visit` | 병원 |
@@ -222,7 +220,7 @@ for t in templates:
 | 4 | false | `treat` | 간식 |
 | 5 | false | `supplement` | 영양 |
 | 6 | false | `medication` | 투약 |
-| 7 | false | `dental` | 양치 |
+| 7 | false | `care` | 관리 |
 | 8 | false | `observation` | 관찰 |
 | 9 | false | `weight` | 체중 |
 | 10 | false | `vet_visit` | 병원 |
