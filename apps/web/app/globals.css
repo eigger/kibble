@@ -1807,6 +1807,14 @@ button:disabled {
   margin: 0;
 }
 
+/* 오늘 복약 카드의 성분 — 지난 처방 행과 같은 줄바꿈 규칙 */
+.care-med-ingredients {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
 .care-log-btn {
   flex-shrink: 0;
   padding: 8px 12px;

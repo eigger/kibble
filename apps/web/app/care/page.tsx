@@ -283,6 +283,9 @@ export default function CarePage() {
                       <div className="care-med-main">
                         <p className="care-med-name">{course.name}</p>
                         <p className="care-med-meta meta">{courseMetaParts(course, t)}</p>
+                        {course.ingredients?.trim() && (
+                          <p className="care-med-ingredients">{course.ingredients.trim()}</p>
+                        )}
                         {course.note && <p className="care-med-note meta">{course.note}</p>}
                         {(course.dosesToday?.length ?? 0) > 0 && (
                           <p className="care-med-doses-today meta">
