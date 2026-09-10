@@ -186,7 +186,6 @@ export default function HistoryPage() {
         const pet = await loadBootstrap(petParam);
         if (cancelled || !pet) return;
 
-        let courseId = "";
         if (courseParam) {
           try {
             const course = await apiJson<MedicationCourseRow>(
@@ -194,14 +193,15 @@ export default function HistoryPage() {
             );
             if (cancelled) return;
             if (course.petId === pet.id) {
+              // 필터를 세우면 아래 필터 effect가 첫 페이지를 받는다 — 여기서 또 받지 않는다
               setCourseFilter(course);
-              courseId = course.id;
+              return;
             }
           } catch {
             // 없는 처방이면 필터 없이 이력을 그린다 (K-12)
           }
         }
-        await loadEvents(pet.id, periodFilter, typeFilter, courseId, true);
+        await loadEvents(pet.id, periodFilter, typeFilter, "", true);
       } catch {
         if (!cancelled) setLoadError(t("historyLoadError"));
       }
