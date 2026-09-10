@@ -44,15 +44,32 @@ export function quantityExtraStep(
   return null;
 }
 
-/** 작은 칸이 입력 옆, 큰 칸이 바깥. 값이 하나면 ±만. */
+/**
+ * 기본 칸 안쪽에 하나 더 두는 미세 칸. 체중만 — 4.23kg처럼 소수 둘째 자리를
+ * 맞출 일이 흔한데 0.1로는 닿지 않는다. 좁아도 숨기지 않는다.
+ */
+export function quantityFineStep(
+  unit: string | null | undefined,
+  eventTypeKey?: string | null,
+): number | null {
+  const u = (unit ?? "").trim().toLowerCase();
+  if (u === "kg") return 0.01;
+  if (u === "") return (eventTypeKey ?? "") === "weight" ? 0.01 : null;
+  return null;
+}
+
+/** 오름차순 — 작은 칸이 입력 옆, 큰 칸이 바깥. 값이 하나면 ±만. */
 export function quantityStepperSteps(
   unit: string | null | undefined,
   eventTypeKey?: string | null,
 ): number[] {
   const main = quantityStep(unit, eventTypeKey);
   const extra = quantityExtraStep(unit, eventTypeKey);
-  if (extra == null || extra === main) return [main];
-  return extra < main ? [extra, main] : [main, extra];
+  const fine = quantityFineStep(unit, eventTypeKey);
+  const steps = new Set<number>([main]);
+  if (extra != null) steps.add(extra);
+  if (fine != null) steps.add(fine);
+  return [...steps].sort((a, b) => a - b);
 }
 
 export function costStepperSteps(): number[] {
