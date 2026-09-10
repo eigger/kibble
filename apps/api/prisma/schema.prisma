@@ -431,6 +431,9 @@ model MedicationCourse {
   householdId String
   petId       String
   name        String
+  // 성분 자유 텍스트. 조제약은 처방마다 조성이 달라 구조화하지 않고 제품을 참조하지도
+  // 않는다. 성분이 바뀌면 처방을 새로 만들므로 과정 목록이 곧 성분 변천 이력이다 (§7.19).
+  ingredients String?
   // 1회 용량. "0.5정"·"2.5ml"처럼 단위가 제각각이라 자유 텍스트다 — 처방 단위로
   // 정해지고 회차마다 바뀌지 않으므로 기록할 때 다시 묻지 않는다.
   dosage      String?

@@ -396,7 +396,9 @@ model MedicationCourse {
   id          String    @id @default(cuid())
   householdId String
   petId       String
-  name        String              // "○○ 캡슐"
+  name        String              // "아침약" — 자리(슬롯) 이름이어도 된다. 지난 처방은 이름별로 묶인다
+  ingredients String?             // 성분 자유 텍스트. 처방마다 조성이 달라 구조화하지 않고,
+                                  // 제품(MEDICATION)을 참조하지도 않는다 (WORKPLAN §7.19, R141)
   dosage      String?             // 1회 용량 "0.5정"·"2.5ml". 단위가 제각각이라 자유 텍스트다.
                                   // 처방 단위로 정해지므로 기록할 때 다시 묻지 않는다 (R127)
   dosesPerDay Int       @default(1)

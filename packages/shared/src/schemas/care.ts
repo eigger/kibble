@@ -6,6 +6,7 @@ const doseTimeSchema = z.string().regex(DOSE_TIME_RE, "invalid dose time");
 export const createMedicationCourseSchema = z.object({
   petId: z.string().trim().min(1),
   name: z.string().trim().min(1).max(120),
+  ingredients: z.string().trim().max(2000).nullable().optional(),
   dosage: z.string().trim().max(60).nullable().optional(),
   dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
   doseTimes: z.array(doseTimeSchema).max(24).optional(),
@@ -15,6 +16,11 @@ export const createMedicationCourseSchema = z.object({
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional(),
+  /**
+   * "새 처방으로 이어가기" — 이 처방에서 출발했다. 생성과 같은 트랜잭션에서 이전 처방을
+   * 종료한다. 이미 종료된 처방이면 그대로 둔다 (지난 처방에서 다시 시작하는 경우).
+   */
+  continuesCourseId: z.string().trim().min(1).optional(),
 });
 
 export type CreateMedicationCourseInput = z.infer<typeof createMedicationCourseSchema>;
@@ -22,6 +28,7 @@ export type CreateMedicationCourseInput = z.infer<typeof createMedicationCourseS
 export const updateMedicationCourseSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+    ingredients: z.string().trim().max(2000).nullable().optional(),
     dosage: z.string().trim().max(60).nullable().optional(),
     dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
     doseTimes: z.array(doseTimeSchema).max(24).optional(),

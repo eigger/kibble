@@ -249,6 +249,7 @@ export async function eventRoutes(app: FastifyInstance) {
       period?: string;
       date?: string;
       eventTypeKey?: string;
+      medicationCourseId?: string;
     };
     const petId = query.petId?.trim();
     if (!petId) return reply.code(400).send({ error: t("petIdRequired", request.locale) });
@@ -272,6 +273,8 @@ export async function eventRoutes(app: FastifyInstance) {
     }
     const beforeId = query.beforeId?.trim();
     const eventTypeKey = query.eventTypeKey?.trim();
+    // 처방 하나의 복약 기록만. 가구·펫 조건 안에서 거르므로 남의 처방 id를 넣어도 빈 목록이다.
+    const medicationCourseId = query.medicationCourseId?.trim();
 
     const cursorFilter =
       beforeAt && beforeId
@@ -294,6 +297,7 @@ export async function eventRoutes(app: FastifyInstance) {
         ...periodFilter,
         ...cursorFilter,
         ...(eventTypeKey ? { eventType: { key: eventTypeKey } } : {}),
+        ...(medicationCourseId ? { medicationCourseId } : {}),
       },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: limit,

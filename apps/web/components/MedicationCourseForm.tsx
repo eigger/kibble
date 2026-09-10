@@ -44,6 +44,18 @@ export function MedicationCourseForm({
         onChange={(e) => onChange({ name: e.target.value })}
         disabled={disabled}
       />
+      <label className="field-label" htmlFor={`${formId}-ingredients`}>
+        {t("careIngredients")}
+      </label>
+      <textarea
+        id={`${formId}-ingredients`}
+        className="event-detail-note"
+        rows={2}
+        value={draft.ingredients}
+        placeholder={t("careIngredientsPlaceholder")}
+        onChange={(e) => onChange({ ingredients: e.target.value })}
+        disabled={disabled}
+      />
       <label className="field-label" htmlFor={`${formId}-dosage`}>
         {t("careDosage")}
       </label>

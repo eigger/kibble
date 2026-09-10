@@ -15,6 +15,7 @@ export function timelineEventsPath(
   limit = TIMELINE_PAGE_SIZE,
   period?: string,
   eventTypeKey?: string,
+  medicationCourseId?: string,
 ): string {
   const params = new URLSearchParams({
     petId,
@@ -30,6 +31,9 @@ export function timelineEventsPath(
   if (eventTypeKey) {
     params.set("eventTypeKey", eventTypeKey);
   }
+  if (medicationCourseId) {
+    params.set("medicationCourseId", medicationCourseId);
+  }
   return `/api/events?${params.toString()}`;
 }
 
@@ -39,6 +43,9 @@ export async function fetchTimelinePage(
   limit = TIMELINE_PAGE_SIZE,
   period?: string,
   eventTypeKey?: string,
+  medicationCourseId?: string,
 ): Promise<TimelineEvent[]> {
-  return apiJson<TimelineEvent[]>(timelineEventsPath(petId, cursor, limit, period, eventTypeKey));
+  return apiJson<TimelineEvent[]>(
+    timelineEventsPath(petId, cursor, limit, period, eventTypeKey, medicationCourseId),
+  );
 }
