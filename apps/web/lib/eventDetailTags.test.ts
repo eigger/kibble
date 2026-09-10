@@ -62,6 +62,7 @@ describe("eventDetailTags", () => {
     const groups = eventDetailTagGroupsFor("observation");
     expect(groups.map((g) => g.group)).toEqual(["body", "behavior"]);
     expect(groups[0].tags.map((t) => t.id)).toContain("gum_color");
+    expect(groups[0].tags.map((t) => t.id)).toContain("complexion");
     expect(groups[1].tags.map((t) => t.id)).toContain("sleep_change");
   });
 
