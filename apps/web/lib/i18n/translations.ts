@@ -993,6 +993,7 @@ const dict = {
   "eventTag.observation.hair_loss": { ko: "탈모", en: "Hair loss" },
   "eventTag.observation.teeth": { ko: "치아", en: "Teeth" },
   "eventTag.observation.gum_color": { ko: "잇몸 색", en: "Gum color" },
+  "eventTag.observation.complexion": { ko: "혈색", en: "Complexion" },
   "eventTag.observation.pupil": { ko: "동공", en: "Pupils" },
   "eventTag.observation.wound": { ko: "상처", en: "Wound" },
   "eventTag.observation.scratching": { ko: "긁음", en: "Scratching" },

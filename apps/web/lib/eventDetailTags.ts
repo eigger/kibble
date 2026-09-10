@@ -30,6 +30,8 @@ const OBSERVATION_BODY: EventDetailTag[] = [
   { id: "hair_loss", labelKey: "eventTag.observation.hair_loss", group: "body" },
   { id: "teeth", labelKey: "eventTag.observation.teeth", group: "body" },
   { id: "gum_color", labelKey: "eventTag.observation.gum_color", group: "body" },
+  // 잇몸 색과 별개다 — 귀 안쪽·코·피부 등 전반이 창백한지. 잇몸은 R139대로 따로 본다
+  { id: "complexion", labelKey: "eventTag.observation.complexion", group: "body" },
   { id: "pupil", labelKey: "eventTag.observation.pupil", group: "body" },
   { id: "wound", labelKey: "eventTag.observation.wound", group: "body" },
 ];
