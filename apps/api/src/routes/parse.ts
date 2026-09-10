@@ -89,6 +89,7 @@ export async function parseRoutes(app: FastifyInstance) {
         occurredAt: s.occurredAt?.toISOString() ?? null,
         needsReview: s.needsReview,
         note: s.note,
+        productName: s.productName,
       })),
     };
   });

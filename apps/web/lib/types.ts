@@ -308,6 +308,8 @@ export interface ParseSuggestion {
   occurredAt: string | null;
   needsReview: boolean;
   note: string | null;
+  /** 별칭이 상세 태그까지 가리킬 때 그 slug ("양치" → 관리 + `dental`) */
+  productName: string | null;
 }
 
 export interface ParseEntryResponse {
