@@ -13,6 +13,7 @@ export type DoseSlotToday = {
 export type MedicationCourseProgress = {
   id: string;
   name: string;
+  ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
@@ -34,6 +35,7 @@ export type MedicationCourseRow = {
   id: string;
   petId: string;
   name: string;
+  ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
@@ -42,6 +44,17 @@ export type MedicationCourseRow = {
   endDate: string | null;
   note: string | null;
   archivedAt: string | null;
+};
+
+/**
+ * 지난 처방 한 줄. "언제부터 언제까지 어떤 성분을 먹였나"에 답하는 행이다 (§7.19).
+ * `endedAt`은 마지막 복약 시각 → `endDate` → `archivedAt` 순 — 처방일이 아니라 실제로
+ * 마지막에 먹인 날이 "언제까지"의 정답이다.
+ */
+export type MedicationCourseHistoryRow = MedicationCourseRow & {
+  dosesGivenTotal: number;
+  lastDoseAt: string | null;
+  endedAt: string | null;
 };
 
 /**
@@ -76,6 +89,7 @@ function serializeCourse(course: MedicationCourse): MedicationCourseRow {
     id: course.id,
     petId: course.petId,
     name: course.name,
+    ingredients: course.ingredients,
     dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
     doseTimes: serializeDoseTimes(course),
@@ -122,6 +136,80 @@ export async function listMedicationCourses(
     orderBy: [{ archivedAt: "asc" }, { startDate: "desc" }, { name: "asc" }],
   });
   return courses.map(serializeCourse);
+}
+
+/**
+ * "지난 처방"의 조건. 종료(`archivedAt`)했거나 `endDate`가 지난 것 — 사라지는 경로가
+ * 둘인데 사용자에게는 하나로 보여야 한다 (§7.19). 진행 중 목록(`medicationCoursesWithProgress`)의
+ * 정확한 여집합이다.
+ */
+export function pastMedicationCourseWhere(now: Date) {
+  return { OR: [{ archivedAt: { not: null } }, { endDate: { lt: now } }] };
+}
+
+export function resolveCourseEndedAt(
+  course: Pick<MedicationCourse, "endDate" | "archivedAt">,
+  lastDoseAt: Date | null,
+  now: Date,
+): Date | null {
+  if (lastDoseAt) return lastDoseAt;
+  if (course.endDate && course.endDate.getTime() < now.getTime()) return course.endDate;
+  return course.archivedAt ?? course.endDate;
+}
+
+export async function countPastMedicationCourses(
+  db: Pick<PrismaClient, "medicationCourse">,
+  householdId: string,
+  petId: string,
+  now = new Date(),
+): Promise<number> {
+  return db.medicationCourse.count({
+    where: { ...householdWhere(householdId), petId, ...pastMedicationCourseWhere(now) },
+  });
+}
+
+export async function listPastMedicationCourses(
+  db: Pick<PrismaClient, "medicationCourse" | "event">,
+  householdId: string,
+  petId: string,
+  now = new Date(),
+): Promise<MedicationCourseHistoryRow[]> {
+  const courses = await db.medicationCourse.findMany({
+    where: { ...householdWhere(householdId), petId, ...pastMedicationCourseWhere(now) },
+    orderBy: [{ startDate: "desc" }, { name: "asc" }],
+  });
+  if (courses.length === 0) return [];
+
+  const stats = await db.event.groupBy({
+    by: ["medicationCourseId"],
+    where: {
+      ...householdWhere(householdId),
+      petId,
+      medicationCourseId: { in: courses.map((c) => c.id) },
+      deletedAt: null,
+    },
+    _count: { _all: true },
+    _max: { occurredAt: true },
+  });
+  const byCourse = new Map(
+    stats
+      .filter((row) => row.medicationCourseId)
+      .map((row) => [
+        row.medicationCourseId!,
+        { count: row._count._all, lastDoseAt: row._max.occurredAt ?? null },
+      ]),
+  );
+
+  return courses.map((course) => {
+    const stat = byCourse.get(course.id);
+    const lastDoseAt = stat?.lastDoseAt ?? null;
+    return {
+      ...serializeCourse(course),
+      dosesGivenTotal: stat?.count ?? 0,
+      lastDoseAt: lastDoseAt?.toISOString() ?? null,
+      endedAt: resolveCourseEndedAt(course, lastDoseAt, now)?.toISOString() ?? null,
+    };
+  });
 }
 
 export async function medicationCoursesWithProgress(
@@ -230,6 +318,7 @@ function toProgress(
   return {
     id: course.id,
     name: course.name,
+    ingredients: course.ingredients,
     dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
     doseTimes,

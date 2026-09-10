@@ -6,7 +6,7 @@ import { ApiError, apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
-import type { Pet, TimelineEvent } from "../../lib/types";
+import type { MedicationCourseRow, Pet, TimelineEvent } from "../../lib/types";
 import type { JournalStats } from "@kibble/shared";
 import { appendTimelinePage, intlLocale, kstDayKey, timelineHasMore } from "@kibble/shared";
 import {
@@ -36,6 +36,23 @@ interface HistoryBootstrap {
   activePet: Pet | null;
 }
 
+/**
+ * 처방 하나의 복약 기록만 보는 필터. 케어의 처방 상세에서 `/history?pet=…&course=…`로 들어온다.
+ * 칩에 이름·기간을 그리려고 처방을 한 번 읽는다 — URL에 이름을 실어 보내지 않는다.
+ */
+type CourseFilter = Pick<MedicationCourseRow, "id" | "name" | "startDate">;
+
+// 같은 이름("아침약")의 처방이 여럿이라 시작일로 구분한다. 종료일은 케어의 지난 처방이
+// 마지막 복약 기준으로 그리므로 여기서 다른 값을 또 말하지 않는다.
+function courseFilterStart(course: CourseFilter, locale: "ko" | "en"): string {
+  return new Date(course.startDate).toLocaleDateString(intlLocale(locale), {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  });
+}
+
 export default function HistoryPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -47,6 +64,7 @@ export default function HistoryPage() {
   const [activePet, setActivePet] = useState<Pet | null>(null);
   const [periodFilter, setPeriodFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [courseFilter, setCourseFilter] = useState<CourseFilter | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -71,6 +89,7 @@ export default function HistoryPage() {
   const petIdRef = useRef<string | null>(null);
   const periodRef = useRef("");
   const typeRef = useRef("");
+  const courseRef = useRef("");
   const loadingMoreRef = useRef(false);
   const scrolledHighlightRef = useRef<string | null>(null);
 
@@ -108,7 +127,13 @@ export default function HistoryPage() {
   }, []);
 
   const loadEvents = useCallback(
-    async (petId: string, period: string, eventTypeKey: string, reset: boolean) => {
+    async (
+      petId: string,
+      period: string,
+      eventTypeKey: string,
+      medicationCourseId: string,
+      reset: boolean,
+    ) => {
       const seq = ++loadSeq.current;
       if (reset) {
         loadMoreSeq.current += 1;
@@ -123,11 +148,13 @@ export default function HistoryPage() {
           undefined,
           period || undefined,
           eventTypeKey || undefined,
+          medicationCourseId || undefined,
         );
         if (seq !== loadSeq.current) return;
         petIdRef.current = petId;
         periodRef.current = period;
         typeRef.current = eventTypeKey;
+        courseRef.current = medicationCourseId;
         setEvents(page);
         setHasMore(timelineHasMore(page.length));
       } catch (err) {
@@ -151,9 +178,30 @@ export default function HistoryPage() {
     let cancelled = false;
     (async () => {
       try {
-        const pet = await loadBootstrap();
+        // 케어의 처방 상세에서 온 링크 — 그 펫·그 처방으로 시작한다
+        const params = new URLSearchParams(window.location.search);
+        const petParam = params.get("pet")?.trim() || undefined;
+        const courseParam = params.get("course")?.trim() || "";
+
+        const pet = await loadBootstrap(petParam);
         if (cancelled || !pet) return;
-        await loadEvents(pet.id, periodFilter, typeFilter, true);
+
+        let courseId = "";
+        if (courseParam) {
+          try {
+            const course = await apiJson<MedicationCourseRow>(
+              `/api/care/medication-courses/${encodeURIComponent(courseParam)}`,
+            );
+            if (cancelled) return;
+            if (course.petId === pet.id) {
+              setCourseFilter(course);
+              courseId = course.id;
+            }
+          } catch {
+            // 없는 처방이면 필터 없이 이력을 그린다 (K-12)
+          }
+        }
+        await loadEvents(pet.id, periodFilter, typeFilter, courseId, true);
       } catch {
         if (!cancelled) setLoadError(t("historyLoadError"));
       }
@@ -168,13 +216,23 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!activePet) return;
-    void loadEvents(activePet.id, periodFilter, typeFilter, true);
-  }, [periodFilter, typeFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadEvents(activePet.id, periodFilter, typeFilter, courseFilter?.id ?? "", true);
+  }, [periodFilter, typeFilter, courseFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
     setActivePet(pet);
-    await loadEvents(pet.id, periodFilter, typeFilter, true);
+    // 처방은 펫 하나의 것이라 펫을 바꾸면 필터도 내린다
+    if (courseFilter) {
+      clearCourseFilter();
+      return;
+    }
+    await loadEvents(pet.id, periodFilter, typeFilter, "", true);
+  }
+
+  function clearCourseFilter() {
+    setCourseFilter(null);
+    router.replace("/history");
   }
 
   const loadMore = useCallback(async () => {
@@ -193,6 +251,7 @@ export default function HistoryPage() {
         undefined,
         periodRef.current || undefined,
         typeRef.current || undefined,
+        courseRef.current || undefined,
       );
       if (seq !== loadMoreSeq.current || petId !== petIdRef.current) return;
       setEvents((prev) => appendTimelinePage(prev, page).events);
@@ -378,7 +437,7 @@ export default function HistoryPage() {
       show(t("eventDetailSaved"), "success");
       startBackgroundUpload(draft.eventId, filesToUpload);
       if (activePet) {
-        void loadEvents(activePet.id, periodFilter, typeFilter, true);
+        void loadEvents(activePet.id, periodFilter, typeFilter, courseFilter?.id ?? "", true);
       }
     } catch (err) {
       const message = formatApiErrorMessage(err, t("recordError"), locale);
@@ -438,6 +497,22 @@ export default function HistoryPage() {
               tLabel={tLabel}
             />
           </div>
+          {courseFilter && (
+            <div className="history-course-chip">
+              <span className="history-course-chip-label">
+                {t("historyCourseFilter", { name: courseFilter.name })}
+                <span className="meta"> · {courseFilterStart(courseFilter, locale)} ~</span>
+              </span>
+              <button
+                type="button"
+                className="history-course-chip-clear"
+                aria-label={t("historyCourseFilterClear")}
+                onClick={clearCourseFilter}
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </>
       )}
 

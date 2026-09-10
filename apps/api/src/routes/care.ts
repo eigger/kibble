@@ -14,7 +14,9 @@ import {
 } from "../lib/householdScope.js";
 import { assertPetInHousehold } from "../lib/historyPeriods.js";
 import {
+  countPastMedicationCourses,
   listMedicationCourses,
+  listPastMedicationCourses,
   medicationCoursesWithProgress,
   resolveMedicationDoseLog,
   serializeCourse,
@@ -74,11 +76,20 @@ export async function careRoutes(app: FastifyInstance) {
     }
 
     if (!activePet) {
-      return { pets, activePet: null, medicationCourses: [], reminders: [] };
+      return {
+        pets,
+        activePet: null,
+        medicationCourses: [],
+        pastMedicationCourseCount: 0,
+        reminders: [],
+      };
     }
 
-    const [medicationCourses, reminders] = await Promise.all([
+    // 지난 처방은 개수만 내린다 — 목록은 펼칠 때 따로 받는다 (§7.19). 케어 화면은
+    // 복약 버튼을 누를 때마다 다시 읽으므로 응답을 무겁게 두지 않는다.
+    const [medicationCourses, pastMedicationCourseCount, reminders] = await Promise.all([
       medicationCoursesWithProgress(prisma, householdId, activePet.id),
+      countPastMedicationCourses(prisma, householdId, activePet.id),
       prisma.reminder.findMany({
         where: { petId: activePet.id, active: true },
         orderBy: { nextDueAt: "asc" },
@@ -97,6 +108,7 @@ export async function careRoutes(app: FastifyInstance) {
       pets,
       activePet,
       medicationCourses,
+      pastMedicationCourseCount,
       reminders: reminders.map((row) => ({
         id: row.id,
         label: row.label,
@@ -113,7 +125,11 @@ export async function careRoutes(app: FastifyInstance) {
     const householdId = requireHouseholdId(request, reply);
     if (!householdId) return;
 
-    const query = request.query as { petId?: string; includeArchived?: string };
+    const query = request.query as {
+      petId?: string;
+      includeArchived?: string;
+      status?: string;
+    };
     const petId = query.petId?.trim();
     if (!petId) {
       return reply.code(400).send({ error: t("petIdRequired", request.locale) });
@@ -121,9 +137,28 @@ export async function careRoutes(app: FastifyInstance) {
     const petOk = await assertPetInHousehold(prisma, householdId, petId);
     if (!petOk) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
+    // `status=past` — 지난 처방(종료했거나 endDate가 지난 것)을 복약 횟수·마지막 복약과 함께.
+    // 케어 화면의 "지난 처방" 섹션이 쓴다 (§7.19).
+    if (query.status === "past") {
+      const courses = await listPastMedicationCourses(prisma, householdId, petId);
+      return { courses };
+    }
+
     const includeArchived = query.includeArchived === "1";
     const courses = await listMedicationCourses(prisma, householdId, petId, includeArchived);
     return { courses };
+  });
+
+  app.get("/medication-courses/:id", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdId(request, reply);
+    if (!householdId) return;
+
+    const { id } = request.params as { id: string };
+    const course = await findCourseInHousehold(householdId, id);
+    if (!course) {
+      return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
+    }
+    return serializeCourse(course);
   });
 
   app.post(
@@ -143,19 +178,42 @@ export async function careRoutes(app: FastifyInstance) {
       const dosesPerDay = body.dosesPerDay ?? 1;
       const doseTimes = normalizeDoseTimes(body.doseTimes ?? body.doseSlotKeys, dosesPerDay);
 
-      const course = await prisma.medicationCourse.create({
-        data: {
-          householdId,
-          petId: body.petId,
-          name: body.name,
-          dosage: body.dosage ?? undefined,
-          dosesPerDay,
-          doseTimes,
-          totalDoses: body.totalDoses ?? undefined,
-          startDate: body.startDate ? new Date(body.startDate) : new Date(),
-          endDate: body.endDate ? new Date(body.endDate) : undefined,
-          note: body.note ?? undefined,
-        },
+      // "새 처방으로 이어가기" — 출발한 처방은 같은 펫의 것이어야 한다. 이전 처방 종료와
+      // 새 처방 생성을 한 트랜잭션에 묶는다: 둘 중 하나만 되면 같은 이름이 둘 진행 중이거나
+      // 아무것도 없는 상태가 된다.
+      const previous = body.continuesCourseId
+        ? await prisma.medicationCourse.findFirst({
+            where: { id: body.continuesCourseId, ...householdWhere(householdId), petId: body.petId },
+            select: { id: true, archivedAt: true },
+          })
+        : null;
+      if (body.continuesCourseId && !previous) {
+        return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
+      }
+
+      const data = {
+        householdId,
+        petId: body.petId,
+        name: body.name,
+        ingredients: body.ingredients ?? undefined,
+        dosage: body.dosage ?? undefined,
+        dosesPerDay,
+        doseTimes,
+        totalDoses: body.totalDoses ?? undefined,
+        startDate: body.startDate ? new Date(body.startDate) : new Date(),
+        endDate: body.endDate ? new Date(body.endDate) : undefined,
+        note: body.note ?? undefined,
+      };
+
+      const course = await prisma.$transaction(async (tx) => {
+        const created = await tx.medicationCourse.create({ data });
+        if (previous && !previous.archivedAt) {
+          await tx.medicationCourse.update({
+            where: { id: previous.id },
+            data: { archivedAt: new Date() },
+          });
+        }
+        return created;
       });
 
       return reply.code(201).send(serializeCourse(course));
@@ -194,6 +252,7 @@ export async function careRoutes(app: FastifyInstance) {
         where: { id },
         data: {
           ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.ingredients !== undefined ? { ingredients: body.ingredients } : {}),
           ...(body.dosage !== undefined ? { dosage: body.dosage } : {}),
           ...(body.dosesPerDay !== undefined ? { dosesPerDay: body.dosesPerDay } : {}),
           ...(doseTimes !== undefined ? { doseTimes } : {}),

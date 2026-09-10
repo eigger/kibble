@@ -1458,6 +1458,130 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.med-course-sheet-hint {
+  margin: -6px 0 12px;
+}
+
+/* 처방 상세의 보조 동작 — 복약 기록 보기 · 새 처방으로 이어가기 */
+.med-course-sheet-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.med-course-sheet-link {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.med-course-sheet-link:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 지난 처방 — 이름별 묶음, 묶음 안은 기간·성분 (WORKPLAN §7.19) */
+.care-past-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.care-past-heading {
+  margin: 0;
+}
+
+.care-past-chevron {
+  font-size: 0.9rem;
+}
+
+.care-past-group {
+  margin-bottom: 14px;
+}
+
+.care-past-group-name {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.care-past-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.care-past-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.care-past-row-ongoing {
+  border-color: var(--color-primary);
+}
+
+.care-past-period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.care-past-changed {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.care-past-ingredients {
+  font-size: 0.9rem;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.care-past-meta {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
 .care-med-actions {
   display: flex;
   flex-shrink: 0;
@@ -5446,6 +5570,41 @@ th {
 
 .history-type-select {
   width: 100%;
+}
+
+/* 처방 하나의 복약 기록만 보는 필터 칩 — 케어의 처방 상세에서 들어온다 */
+.history-course-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 6px 6px 12px;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.85rem;
+}
+
+.history-course-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.history-course-chip-clear {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
 }
 
 /* 백업 내보내기 진행률 — 아카이브를 만드는 동안 화면이 침묵하지 않게 한다 */

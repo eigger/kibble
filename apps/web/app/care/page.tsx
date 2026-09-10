@@ -11,22 +11,58 @@ import { useLocale } from "../../lib/i18n/locale-context";
 import type { TranslationKey } from "../../lib/i18n/translations";
 import { useToast } from "../../lib/toast-context";
 import { MedicationCourseSheet } from "../../components/MedicationCourseSheet";
-import type { CareReminder, MedicationCourseProgress, Pet } from "../../lib/types";
+import type {
+  CareReminder,
+  MedicationCourseHistoryRow,
+  MedicationCourseProgress,
+  MedicationCourseRow,
+  Pet,
+} from "../../lib/types";
 import { formatDoseTime, intlLocale } from "@kibble/shared";
 import { formatEventTime } from "../../lib/eventDisplay";
+import { groupCourseHistory, type CourseHistoryEntry } from "../../lib/medicationCourseHistory";
 
 interface CarePayload {
   pets: Pet[];
   activePet: Pet | null;
   medicationCourses: MedicationCourseProgress[];
+  pastMedicationCourseCount: number;
   reminders: CareReminder[];
 }
+
+type CourseSheetState =
+  | { mode: "add" }
+  | { mode: "edit"; course: MedicationCourseProgress | MedicationCourseRow }
+  | { mode: "continue"; course: MedicationCourseProgress | MedicationCourseRow };
 
 function formatDueDate(iso: string, locale: "ko" | "en"): string {
   return new Date(iso).toLocaleDateString(intlLocale(locale), {
     month: "numeric",
     day: "numeric",
   });
+}
+
+/** 지난 처방의 기간 표기. 올해가 아니면 연도를 붙인다 — 몇 달 전 처방이 흔하다 */
+function formatCourseDate(iso: string, locale: "ko" | "en", now: Date): string {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === now.getFullYear();
+  return date.toLocaleDateString(intlLocale(locale), {
+    ...(sameYear ? {} : { year: "2-digit" }),
+    month: "numeric",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  });
+}
+
+function courseHistoryPeriod(
+  entry: CourseHistoryEntry,
+  locale: "ko" | "en",
+  now: Date,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+): string {
+  const start = formatCourseDate(entry.startDate, locale, now);
+  if (entry.ongoing) return `${start} ~ ${t("carePastOngoing")}`;
+  return entry.endedAt ? `${start} ~ ${formatCourseDate(entry.endedAt, locale, now)}` : `${start} ~`;
 }
 
 function courseMetaParts(
@@ -60,14 +96,17 @@ export default function CarePage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [activePet, setActivePet] = useState<Pet | null>(null);
   const [medicationCourses, setMedicationCourses] = useState<MedicationCourseProgress[]>([]);
+  const [pastCount, setPastCount] = useState(0);
   const [reminders, setReminders] = useState<CareReminder[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loggingCourseId, setLoggingCourseId] = useState<string | null>(null);
   const [undoingCourseId, setUndoingCourseId] = useState<string | null>(null);
-  const [courseSheet, setCourseSheet] = useState<
-    { mode: "add" } | { mode: "edit"; course: MedicationCourseProgress } | null
-  >(null);
+  const [courseSheet, setCourseSheet] = useState<CourseSheetState | null>(null);
+  // 지난 처방은 펼칠 때 따로 받는다. `pastCourses`가 null이면 아직 안 받은 것.
+  const [pastOpen, setPastOpen] = useState(false);
+  const [pastCourses, setPastCourses] = useState<MedicationCourseHistoryRow[] | null>(null);
+  const [pastLoading, setPastLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -87,6 +126,7 @@ export default function CarePage() {
         setPets(data.pets);
         setActivePet(data.activePet);
         setMedicationCourses(data.medicationCourses);
+        setPastCount(data.pastMedicationCourseCount ?? 0);
         setReminders(data.reminders);
       } catch (err) {
         if (isApiError(err) && err.status === 401) {
@@ -108,11 +148,48 @@ export default function CarePage() {
     void loadCare();
   }, [user, needsPet, pathname, loadCare]);
 
+  const loadPastCourses = useCallback(
+    async (petId: string) => {
+      setPastLoading(true);
+      try {
+        const data = await apiJson<{ courses: MedicationCourseHistoryRow[] }>(
+          `/api/care/medication-courses?petId=${encodeURIComponent(petId)}&status=past`,
+        );
+        setPastCourses(data.courses);
+      } catch (err) {
+        show(formatApiErrorMessage(err, t("carePastLoadError"), locale), "error");
+      } finally {
+        setPastLoading(false);
+      }
+    },
+    [locale, show, t],
+  );
+
+  // 펼치는 순간 받는다. 그 뒤 처방이 바뀌면(저장·종료·이어가기) `refreshCourses`가 다시 받는다
+  const activePetId = activePet?.id ?? null;
+  useEffect(() => {
+    if (!activePetId || !pastOpen) return;
+    void loadPastCourses(activePetId);
+  }, [activePetId, pastOpen, loadPastCourses]);
+
+  async function refreshCourses(petId: string) {
+    await Promise.all([loadCare(petId), pastOpen ? loadPastCourses(petId) : Promise.resolve()]);
+  }
+
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
     setActivePet(pet);
+    setPastCourses(null);
     await loadCare(pet.id);
   }
+
+  function togglePast() {
+    setPastOpen((prev) => !prev);
+  }
+
+  const historyGroups =
+    pastOpen && pastCourses ? groupCourseHistory(medicationCourses, pastCourses) : [];
+  const now = new Date();
 
   async function handleLogDose(courseId: string, doseSlotIndex?: number) {
     if (loggingCourseId || undoingCourseId) return;
@@ -292,6 +369,77 @@ export default function CarePage() {
             )}
           </section>
 
+          {pastCount > 0 && (
+            <section className="care-section" aria-label={t("carePastSection")}>
+              <button
+                type="button"
+                className="care-past-toggle"
+                aria-expanded={pastOpen}
+                aria-controls="care-past-list"
+                onClick={togglePast}
+              >
+                <span className="care-section-heading care-past-heading">
+                  {t("carePastToggle", { count: String(pastCount) })}
+                </span>
+                <span className="care-past-chevron" aria-hidden="true">
+                  {pastOpen ? "▾" : "▸"}
+                </span>
+              </button>
+              {pastOpen && (
+                <div id="care-past-list">
+                  {pastLoading && pastCourses === null ? (
+                    <p className="meta care-empty">{t("loading")}</p>
+                  ) : (
+                    historyGroups.map((group) => (
+                      <div key={group.name} className="care-past-group">
+                        <h3 className="care-past-group-name">{group.name}</h3>
+                        <ul className="care-past-list">
+                          {group.entries.map((entry) => (
+                            <li key={entry.id}>
+                              <button
+                                type="button"
+                                className={`care-past-row${entry.ongoing ? " care-past-row-ongoing" : ""}`}
+                                aria-label={t("carePastOpen", { name: entry.name })}
+                                onClick={() => setCourseSheet({ mode: "edit", course: entry.source })}
+                              >
+                                <span className="care-past-period">
+                                  {courseHistoryPeriod(entry, locale, now, t)}
+                                  {entry.ingredientsChanged && (
+                                    <span className="care-past-changed">
+                                      {t("carePastIngredientsChanged")}
+                                    </span>
+                                  )}
+                                </span>
+                                <span
+                                  className={`care-past-ingredients${entry.ingredients ? "" : " meta"}`}
+                                >
+                                  {entry.ingredients?.trim() || t("carePastNoIngredients")}
+                                </span>
+                                <span className="care-past-meta meta">
+                                  {[
+                                    entry.dosage?.trim() || null,
+                                    entry.totalDoses != null
+                                      ? t("carePastDosesOfTotal", {
+                                          given: String(entry.dosesGivenTotal),
+                                          total: String(entry.totalDoses),
+                                        })
+                                      : t("carePastDoses", { given: String(entry.dosesGivenTotal) }),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
           <section className="care-section" aria-label={t("careRemindersSection")}>
             <h2 className="care-section-heading">{t("careRemindersSection")}</h2>
             {reminders.length === 0 ? (
@@ -320,10 +468,11 @@ export default function CarePage() {
           open
           mode={courseSheet.mode}
           petId={activePet.id}
-          course={courseSheet.mode === "edit" ? courseSheet.course : null}
+          course={courseSheet.mode === "add" ? null : courseSheet.course}
           onClose={() => setCourseSheet(null)}
-          onSaved={() => void loadCare(activePet.id)}
-          onArchived={() => void loadCare(activePet.id)}
+          onSaved={() => void refreshCourses(activePet.id)}
+          onArchived={() => void refreshCourses(activePet.id)}
+          onContinue={(course) => setCourseSheet({ mode: "continue", course })}
           t={t}
           locale={locale}
           showToast={show}

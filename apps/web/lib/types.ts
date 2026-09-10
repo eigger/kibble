@@ -211,6 +211,8 @@ export interface TodaySummaryRow {
 export interface MedicationCourseProgress {
   id: string;
   name: string;
+  /** 성분 자유 텍스트. 처방마다 조성이 달라 구조화하지 않는다 (WORKPLAN §7.19) */
+  ingredients: string | null;
   /** 1회 용량 자유 텍스트("0.5정"). 처방 단위로 정해진다 */
   dosage: string | null;
   dosesPerDay: number;
@@ -240,6 +242,7 @@ export interface MedicationCourseRow {
   id: string;
   petId: string;
   name: string;
+  ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
@@ -248,6 +251,14 @@ export interface MedicationCourseRow {
   endDate: string | null;
   note: string | null;
   archivedAt: string | null;
+}
+
+/** 지난 처방 한 줄 (`GET /api/care/medication-courses?status=past`). */
+export interface MedicationCourseHistoryRow extends MedicationCourseRow {
+  dosesGivenTotal: number;
+  lastDoseAt: string | null;
+  /** 마지막 복약 → endDate → archivedAt 순으로 정한 종료 시점 */
+  endedAt: string | null;
 }
 
 export interface CareReminder {

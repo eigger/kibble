@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { nextDoseOrdinal, resolveMedicationDoseLog } from "./medicationCourseProgress.js";
+import {
+  nextDoseOrdinal,
+  pastMedicationCourseWhere,
+  resolveCourseEndedAt,
+  resolveMedicationDoseLog,
+} from "./medicationCourseProgress.js";
 
 describe("nextDoseOrdinal", () => {
   it("starts at 1 on an empty course", () => {
@@ -70,5 +75,38 @@ describe("resolveMedicationDoseLog", () => {
       now,
     );
     expect(result).toEqual({ error: "slotTaken" });
+  });
+});
+
+describe("resolveCourseEndedAt", () => {
+  const now = new Date("2026-09-11T09:00:00+09:00");
+  const endDate = new Date("2026-09-05T12:00:00+09:00");
+  const archivedAt = new Date("2026-09-08T20:00:00+09:00");
+  const lastDoseAt = new Date("2026-09-03T08:00:00+09:00");
+
+  it("prefers the last dose — that is when the pet actually stopped taking it", () => {
+    expect(resolveCourseEndedAt({ endDate, archivedAt }, lastDoseAt, now)).toBe(lastDoseAt);
+  });
+
+  it("falls back to a past endDate when nothing was logged", () => {
+    expect(resolveCourseEndedAt({ endDate, archivedAt }, null, now)).toBe(endDate);
+  });
+
+  it("ignores a future endDate on a course ended early and uses archivedAt", () => {
+    const future = new Date("2026-12-01T12:00:00+09:00");
+    expect(resolveCourseEndedAt({ endDate: future, archivedAt }, null, now)).toBe(archivedAt);
+  });
+
+  it("is null for an open-ended course that was never ended", () => {
+    expect(resolveCourseEndedAt({ endDate: null, archivedAt: null }, null, now)).toBeNull();
+  });
+});
+
+describe("pastMedicationCourseWhere", () => {
+  it("is the complement of the active list: archived OR endDate passed", () => {
+    const now = new Date("2026-09-11T09:00:00+09:00");
+    expect(pastMedicationCourseWhere(now)).toEqual({
+      OR: [{ archivedAt: { not: null } }, { endDate: { lt: now } }],
+    });
   });
 });

@@ -1,8 +1,9 @@
-import { defaultDoseTimes, isDoseTime, normalizeDoseTimes } from "@kibble/shared";
+import { defaultDoseTimes, isDoseTime, kstDayKey, normalizeDoseTimes } from "@kibble/shared";
 import type { MedicationCourseProgress, MedicationCourseRow } from "./types";
 
 export type MedicationCourseDraft = {
   name: string;
+  ingredients: string;
   dosage: string;
   dosesPerDay: string;
   doseTimes: string[];
@@ -21,9 +22,11 @@ export function dateInputToIso(date: string): string {
 }
 
 export function emptyMedicationCourseDraft(): MedicationCourseDraft {
-  const today = new Date().toISOString().slice(0, 10);
+  // KST 기준 오늘. UTC로 자르면 한국 아침(09:00 이전)에 어제 날짜가 들어간다
+  const today = kstDayKey(new Date());
   return {
     name: "",
+    ingredients: "",
     dosage: "",
     dosesPerDay: "1",
     doseTimes: defaultDoseTimes(1),
@@ -39,6 +42,7 @@ export function courseToDraft(
 ): MedicationCourseDraft {
   return {
     name: course.name,
+    ingredients: course.ingredients ?? "",
     dosage: course.dosage ?? "",
     dosesPerDay: String(course.dosesPerDay),
     doseTimes: [...course.doseTimes],
@@ -46,6 +50,20 @@ export function courseToDraft(
     startDate: toDateInputValue(course.startDate),
     endDate: course.endDate ? toDateInputValue(course.endDate) : "",
     note: course.note ?? "",
+  };
+}
+
+/**
+ * "새 처방으로 이어가기"의 초안 — 이전 처방의 값을 그대로 물려받고 기간만 오늘부터 새로.
+ * 보통 바뀌는 건 성분 한 줄이라, 사용자는 그것만 고치면 된다 (§7.19).
+ */
+export function continueCourseDraft(
+  course: MedicationCourseRow | MedicationCourseProgress,
+): MedicationCourseDraft {
+  return {
+    ...courseToDraft(course),
+    startDate: emptyMedicationCourseDraft().startDate,
+    endDate: "",
   };
 }
 
@@ -68,6 +86,7 @@ export function updateDoseTimeAt(
 export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   ok: true;
   name: string;
+  ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
   doseTimes: string[];
@@ -97,6 +116,7 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   return {
     ok: true,
     name,
+    ingredients: draft.ingredients.trim() || null,
     dosage: draft.dosage.trim() || null,
     dosesPerDay,
     doseTimes,
