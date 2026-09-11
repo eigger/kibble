@@ -28,6 +28,8 @@ const OBSERVATION_BODY: EventDetailTag[] = [
   { id: "skin", labelKey: "eventTag.observation.skin", group: "body" },
   { id: "coat", labelKey: "eventTag.observation.coat", group: "body" },
   { id: "hair_loss", labelKey: "eventTag.observation.hair_loss", group: "body" },
+  // 탈모와 별개다 — 원형 각질·딱지처럼 보호자가 "곰팡이"로 부르는 피부 소견. 진단은 수의사가 (K-16)
+  { id: "fungus", labelKey: "eventTag.observation.fungus", group: "body" },
   { id: "teeth", labelKey: "eventTag.observation.teeth", group: "body" },
   { id: "gum_color", labelKey: "eventTag.observation.gum_color", group: "body" },
   // 잇몸 색과 별개다 — 귀 안쪽·코·피부 등 전반이 창백한지. 잇몸은 R139대로 따로 본다
