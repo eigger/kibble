@@ -991,6 +991,7 @@ const dict = {
   "eventTag.observation.skin": { ko: "피부", en: "Skin" },
   "eventTag.observation.coat": { ko: "털", en: "Coat" },
   "eventTag.observation.hair_loss": { ko: "탈모", en: "Hair loss" },
+  "eventTag.observation.fungus": { ko: "곰팡이", en: "Fungus" },
   "eventTag.observation.teeth": { ko: "치아", en: "Teeth" },
   "eventTag.observation.gum_color": { ko: "잇몸 색", en: "Gum color" },
   "eventTag.observation.complexion": { ko: "혈색", en: "Complexion" },
