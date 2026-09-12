@@ -11,6 +11,11 @@ describe("resolveEventProductFields", () => {
       expected: { productId: "p1", productName: "오리젠 사료" },
     },
     {
+      name: "태그 타입(fillNameFromProduct=false)은 productName을 제품 이름으로 채우지 않는다",
+      input: { productId: "p1", productName: undefined, householdProduct: PROD, fillNameFromProduct: false },
+      expected: { productId: "p1" },
+    },
+    {
       name: "productId와 커스텀 productName이 모두 주어지면 커스텀 이름을 유지한다",
       input: { productId: "p1", productName: "오리젠 캣 (소분)", householdProduct: PROD },
       expected: { productId: "p1", productName: "오리젠 캣 (소분)" },

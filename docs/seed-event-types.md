@@ -64,7 +64,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `weight` | `eventType.weight` | `scale` | `slate` | HEALTH | `kg` | — | 80 | 체중 |
 | `symptom` | `eventType.symptom` | `stethoscope` | `red` | HEALTH | — | — | 90 | 기침·통증 등. `scaleType`은 Phase 2 |
 | `play` | `eventType.play` | `gamepad-2` | `green` | ACTIVITY | `min` | — | 100 | 놀이 |
-| `care` | `eventType.care` | `hand-heart` | `pink` | CARE | — | — | 110 | 관리 — 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기를 **태그**로 받는다. 구 `grooming`·`dental` 키는 시드가 통합 (§7.18) |
+| `care` | `eventType.care` | `hand-heart` | `pink` | CARE | — | — | 110 | 관리 — 태그 두 묶음. 몸: 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기 / 화장실: 청소·모래 보충·모래 갈이·패드 교체·세척 (종별 노출). 등록 제품(`HYGIENE`)을 `productId`로 잇는다. 구 `grooming`·`dental`·`litter_change` 키는 시드가 통합 (§7.18·§7.20) |
 | `vet_visit` | `eventType.vet_visit` | `hospital` | `blue` | MEDICAL | — | — | 120 | 병원·응급 |
 | `vaccination` | `eventType.vaccination` | `syringe` | `indigo` | MEDICAL | — | — | 130 | 예방접종·구충 |
 | `note` | `eventType.note` | `sticky-note` | `gray` | NOTE | — | — | 999 | 파싱 실패·자유 메모 폴백 (K-12) |
@@ -74,7 +74,8 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | key | label (i18n 키) | species | icon | color | category | defaultUnit | sortOrder |
 |---|---|---|---|---|---|---|---|
 | `walk` | `eventType.walk` | DOG | `footprints` | `lime` | ACTIVITY | `min` | 95 |
-| `litter_change` | `eventType.litter_change` | CAT | `box` | `stone` | CARE | — | 115 |
+
+> `litter_change`(CAT)는 있었지만 어떤 프리셋 템플릿에도 없어 칩에 나온 적이 없었다. `care` + 태그 `litter_change`로 합쳤다 (§7.20). 종별 구분은 타입이 아니라 **태그의 `species`**가 한다 — 모래 보충·모래 갈이는 CAT·OTHER, 패드 교체는 DOG·OTHER.
 
 > `symptom`의 `scaleType`은 Phase 2 UI까지 **null 유지**. `observation`이 일상 관찰·활력(ENERGY_3)을 담당한다.
 
@@ -94,7 +95,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `pee` | `소변`, `쉬`, `오줌` |
 | `vomit` | `구토`, `토`, `역류` |
 | `observation` | `관찰`, `활력`, `기력`, `컨디션`, `특이사항` |
-| `care` | `관리`, `케어`, `양치`, `목욕`, `발톱`, `빗질`, `귀청소` |
+| `care` | `관리`, `케어`, `양치`, `목욕`, `발톱`, `빗질`, `귀청소`, `모래`, `모래갈이`, `패드` — `화장실`은 넣지 않는다(배변 문장에서 오탐) |
 | `medication` | `약`, `투약`, `복약` |
 | `weight` | `체중`, `몸무게` |
 | `walk` | `산책`, `산책함` |
@@ -122,7 +123,6 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 | `eventType.play` | 놀이 | Play |
 | `eventType.care` | 관리 | Care |
 | `eventType.walk` | 산책 | Walk |
-| `eventType.litter_change` | 모래갈이 | Litter change |
 | `eventType.vet_visit` | 병원 | Vet visit |
 | `eventType.vaccination` | 접종 | Vaccination |
 | `eventType.note` | 메모 | Note |
@@ -187,7 +187,7 @@ for t in templates:
 | 5 | false | `supplement` | 영양 | |
 | 6 | false | `medication` | 투약 | |
 | 7 | false | `vomit` | 구토 | |
-| 8 | false | `care` | 관리 | 태그: 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기 |
+| 8 | false | `care` | 관리 | 태그: 몸(양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기) / 화장실(청소·모래 보충·모래 갈이·세척) |
 | 9 | false | `observation` | 관찰 | `ENERGY_3` + 관찰 태그 |
 | 10 | false | `weight` | 체중 | |
 | 11 | false | `vet_visit` | 병원 | |

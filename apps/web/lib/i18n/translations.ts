@@ -182,6 +182,7 @@ const dict = {
   eventDetailCareItems: { ko: "관리 항목", en: "Care items" },
   "eventTagGroup.body": { ko: "몸", en: "Body" },
   "eventTagGroup.behavior": { ko: "증상·행동", en: "Symptoms & behavior" },
+  "eventTagGroup.toilet": { ko: "화장실", en: "Toilet" },
   eventDetailTagPickerLabel: { ko: "태그 선택 (여러 개 가능)", en: "Tags (multi-select)" },
   eventDetailProductNamePlaceholder: {
     ko: "예: 로얄캐닌 키튼",
@@ -974,7 +975,6 @@ const dict = {
   "eventType.play": { ko: "놀이", en: "Play" },
   "eventType.care": { ko: "관리", en: "Care" },
   "eventType.walk": { ko: "산책", en: "Walk" },
-  "eventType.litter_change": { ko: "모래갈이", en: "Litter change" },
   "eventType.vet_visit": { ko: "병원", en: "Vet visit" },
   "eventType.vaccination": { ko: "접종", en: "Vaccination" },
   "eventType.note": { ko: "메모", en: "Note" },
@@ -1012,6 +1012,11 @@ const dict = {
   "eventTag.care.bath": { ko: "목욕", en: "Bath" },
   "eventTag.care.brush": { ko: "빗질", en: "Brushing" },
   "eventTag.care.petting": { ko: "만져주기", en: "Petting" },
+  "eventTag.care.toilet_clean": { ko: "화장실 청소", en: "Toilet cleanup" },
+  "eventTag.care.litter_topup": { ko: "모래 보충", en: "Litter top-up" },
+  "eventTag.care.litter_change": { ko: "모래 갈이", en: "Litter change" },
+  "eventTag.care.pad_change": { ko: "패드 교체", en: "Pad change" },
+  "eventTag.care.toilet_wash": { ko: "화장실 세척", en: "Toilet wash" },
 
   // products
   productCategoryMeal: { ko: "사료", en: "Food" },

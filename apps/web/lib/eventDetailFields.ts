@@ -272,9 +272,26 @@ export function formatScaleValuePart(
 }
 
 /** 목록 요약(제품·수량·척도). 메모는 넣지 않는다 — 행을 눌러 상세에서 본다. */
+/**
+ * 제품 자리에 보일 문자열. 이름 타입은 등록 제품 이름이 스냅샷(`productName`)을 대신하고,
+ * 태그 타입(관리)은 태그 라벨 뒤에 제품 이름을 **붙인다** — 모래 갈이 · 벤토나이트 (§7.20)
+ */
+export function productValueDisplay(
+  detailTags: boolean,
+  productNameDisplay: string | null,
+  linkedProductName: string | null,
+): string | null {
+  const linked = linkedProductName?.trim() || null;
+  if (!detailTags) return linked ?? productNameDisplay;
+  const parts = [productNameDisplay, linked].filter((p): p is string => !!p);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export function formatEventDetailLine(
   event: {
     productName?: string | null;
+    /** 연결된 등록 제품 이름 (`event.product.name`) */
+    linkedProductName?: string | null;
     clinicName?: string | null;
     clinicAddress?: string | null;
     costKrw?: number | null;
@@ -294,13 +311,18 @@ export function formatEventDetailLine(
   const unit = event.unit ?? flags.defaultUnit ?? "";
   const parts: string[] = [];
 
-  if (flags.productName && event.productName?.trim()) {
-    parts.push(
-      t
-        ? formatProductNameDisplay(event.eventType.key, event.productName.trim(), t) ??
-          event.productName.trim()
-        : event.productName.trim(),
+  if (flags.productName) {
+    const stored = event.productName?.trim() || null;
+    const storedDisplay =
+      stored && t
+        ? (formatProductNameDisplay(event.eventType.key, stored, t) ?? stored)
+        : stored;
+    const shown = productValueDisplay(
+      flags.detailTags,
+      storedDisplay,
+      event.linkedProductName ?? null,
     );
+    if (shown) parts.push(shown);
   }
 
   if (flags.clinicName && event.clinicName?.trim()) {

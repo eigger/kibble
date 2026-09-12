@@ -1,6 +1,11 @@
 import type { EventCategory, Prisma, PrismaClient, ScaleType, Species } from "@prisma/client";
 import { isUniqueConstraintError } from "../prismaErrors.js";
-import { CARE_ALIASES, migrateDentalToCare, migrateGroomingToCare } from "./migrateDentalToCare.js";
+import {
+  CARE_ALIASES,
+  migrateDentalToCare,
+  migrateGroomingToCare,
+  migrateLitterChangeToCare,
+} from "./migrateDentalToCare.js";
 import { migrateEnergyToObservation } from "./migrateEnergyToObservation.js";
 
 export type SystemEventTypeSeed = {
@@ -189,16 +194,6 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     aliases: ["산책", "산책함"],
     sortOrder: 95,
   },
-  {
-    key: "litter_change",
-    label: "eventType.litter_change",
-    icon: "box",
-    color: "stone",
-    category: "CARE",
-    species: "CAT",
-    aliases: [],
-    sortOrder: 115,
-  },
 ];
 
 function seedData(row: SystemEventTypeSeed): Prisma.EventTypeUncheckedCreateInput {
@@ -277,6 +272,7 @@ export async function seedSystemEventTypes(
   }
 
   await migrateDentalToCare(prisma);
+  await migrateLitterChangeToCare(prisma);
 
   return { created, updated };
 }

@@ -5,7 +5,7 @@ import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
 import { periodRangeFromQuery } from "../lib/kstPeriodRange.js";
 import { assertPetInHousehold, listEventHistoryPeriods } from "../lib/historyPeriods.js";
-import { productSuggestionsForPet } from "../lib/frequentProducts.js";
+import { productNameIsTagList, productSuggestionsForPet } from "../lib/frequentProducts.js";
 import { clinicSuggestionsForPet } from "../lib/frequentClinics.js";
 import { upsertVetContact, type VetContactDetails } from "../lib/upsertVetContact.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
@@ -368,10 +368,21 @@ export async function eventRoutes(app: FastifyInstance) {
           select: { id: true, name: true },
         });
       }
+      // 이름을 안 보내고 제품만 바꾸는 요청 — 태그 타입이면 slug 목록을 제품 이름으로 덮지 않는다
+      let fillNameFromProduct = true;
+      if (householdProduct && data.productName === undefined) {
+        const row = await prisma.event.findFirst({
+          where: { id, ...householdWhere(householdId), deletedAt: null },
+          select: { eventType: { select: { key: true } } },
+        });
+        if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
+        fillNameFromProduct = !productNameIsTagList(row.eventType.key);
+      }
       const resolved = resolveEventProductFields({
         productId: data.productId,
         productName: data.productName,
         householdProduct,
+        fillNameFromProduct,
       });
       if (resolved.productId !== undefined) updateData.productId = resolved.productId;
       if (resolved.productName !== undefined) updateData.productName = resolved.productName;
