@@ -3,6 +3,7 @@ import {
   normalizeDoseTimes,
   resolveDoseTimeOccurredAt,
 } from "@kibble/shared";
+import { productNameIsTagList } from "../lib/frequentProducts.js";
 import { householdWhere } from "../lib/householdScope.js";
 import { nextDoseOrdinal } from "../lib/medicationCourseProgress.js";
 import { startOfTodayBoundary } from "../lib/kstClock.js";
@@ -188,7 +189,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
       OR: [{ householdId: null }, { householdId: params.householdId }],
       archivedAt: null,
     },
-    select: { id: true, scaleType: true },
+    select: { id: true, key: true, scaleType: true },
   });
   if (!eventType) throw new CreateEventNotFoundError("eventType");
 
@@ -269,7 +270,8 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     });
     if (!product) {
       productId = null;
-    } else if (!productName) {
+    } else if (!productName && !productNameIsTagList(eventType.key)) {
+      // 태그 타입(관리 등)은 productName이 slug 목록이라 제품 이름으로 채우지 않는다 (§7.20)
       productName = product.name;
     }
   }

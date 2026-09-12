@@ -606,6 +606,7 @@ export default function HistoryPage() {
       <EventDetailSheet
         open={detailOpen}
         draft={detailDraft}
+        petSpecies={activePet?.species ?? null}
         saving={detailSaving}
         deleting={detailDraft?.eventId != null && deletingEventId === detailDraft.eventId}
         attachments={detailAttachments}

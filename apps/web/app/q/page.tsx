@@ -631,6 +631,7 @@ export default function QuickRecordPage() {
       <EventDetailSheet
         open={detailOpen}
         draft={detailDraft}
+        petSpecies={pet?.species ?? null}
         saving={detailSaving}
         deleting={detailDraft?.eventId != null && deletingEventId === detailDraft.eventId}
         attachments={detailAttachments}

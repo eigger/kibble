@@ -2,10 +2,13 @@
 
 import type { TranslationKey } from "../lib/i18n/translations";
 import { EVENT_DETAIL_TAG_GROUP_LABEL_KEYS, eventDetailTagGroupsFor } from "../lib/eventDetailTags";
+import type { Species } from "../lib/types";
 import { EventDetailChip } from "./EventDetailChip";
 
 interface EventDetailTagPickerProps {
   eventTypeKey: string | null | undefined;
+  /** 종별 태그(모래 갈이·패드 교체)를 거른다. 모르면 전부 보인다 */
+  species?: Species | null;
   selectedIds: string[];
   disabled?: boolean;
   t: (key: TranslationKey) => string;
@@ -14,12 +17,13 @@ interface EventDetailTagPickerProps {
 
 export function EventDetailTagPicker({
   eventTypeKey,
+  species,
   selectedIds,
   disabled = false,
   t,
   onToggle,
 }: EventDetailTagPickerProps) {
-  const groups = eventDetailTagGroupsFor(eventTypeKey);
+  const groups = eventDetailTagGroupsFor(eventTypeKey, species);
   if (groups.length === 0) return null;
 
   return (

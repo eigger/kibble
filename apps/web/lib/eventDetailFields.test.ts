@@ -142,6 +142,57 @@ describe("resolveEventUnit", () => {
 });
 
 describe("formatEventDetailLine", () => {
+  const t = (key: string) => {
+    if (key === "eventTag.care.litter_change") return "모래 갈이";
+    if (key === "eventTag.care.toilet_clean") return "화장실 청소";
+    return key;
+  };
+
+  it("care shows tag labels and then the linked hygiene product (§7.20)", () => {
+    const line = formatEventDetailLine(
+      {
+        productName: "toilet_clean,litter_change",
+        linkedProductName: "벤토나이트 모래",
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        eventType: { key: "care", scaleType: null },
+      },
+      t as never,
+    );
+    expect(line).toBe("화장실 청소 · 모래 갈이 · 벤토나이트 모래");
+  });
+
+  it("care with a product but no tags shows only the product", () => {
+    const line = formatEventDetailLine(
+      {
+        productName: null,
+        linkedProductName: "벤토나이트 모래",
+        quantity: null,
+        quantityOffered: null,
+        unit: null,
+        scaleValue: null,
+        eventType: { key: "care", scaleType: null },
+      },
+      t as never,
+    );
+    expect(line).toBe("벤토나이트 모래");
+  });
+
+  it("meal keeps replacing the snapshot name with the linked product", () => {
+    const line = formatEventDetailLine({
+      productName: "옛 이름",
+      linkedProductName: "새 이름",
+      quantity: null,
+      quantityOffered: null,
+      unit: null,
+      scaleValue: null,
+      eventType: { key: "meal", scaleType: null },
+    });
+    expect(line).toBe("새 이름");
+  });
+
   it("does not show meal quantities on poop", () => {
     const line = formatEventDetailLine({
       quantity: 30,

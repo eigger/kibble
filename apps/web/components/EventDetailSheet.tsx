@@ -17,7 +17,7 @@ import {
   toDatetimeLocalValue,
 } from "../lib/datetimeLocal";
 import { apiJson } from "../lib/api";
-import { eventDetailFields, formatScaleValuePart, quantityPlaceholder, resolveEventUnit, scale3FieldLabelKey, scale3ValueLabelKey } from "../lib/eventDetailFields";
+import { eventDetailFields, formatScaleValuePart, productValueDisplay, quantityPlaceholder, resolveEventUnit, scale3FieldLabelKey, scale3ValueLabelKey } from "../lib/eventDetailFields";
 import { loadEventDetailPrefs, saveEventDetailPrefs } from "../lib/eventDetailPrefs";
 import {
   encodeProductNameValue,
@@ -27,7 +27,7 @@ import {
 } from "../lib/eventDetailTags";
 import { ProductDetailSheet } from "./ProductDetailSheet";
 import { InfoIcon, LightbulbIcon } from "./ProductIcons";
-import type { EventAttachment, Product, ProductSummary } from "../lib/types";
+import type { EventAttachment, Product, ProductSummary, Species } from "../lib/types";
 import { intlLocale, type TranslationKey } from "../lib/i18n/translations";
 import type { AttachmentUploadProgress } from "../lib/eventAttachments";
 import { eventAuditParts } from "../lib/eventDisplay";
@@ -114,6 +114,8 @@ interface EventDetailSheetProps {
   saveError?: string | null;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   locale?: "ko" | "en";
+  /** 종별 태그(모래 갈이·패드 교체)를 거른다. 모르면 전부 보인다 */
+  petSpecies?: Species | null;
 }
 
 const QUICK_TIME_KEYS: QuickTimeKey[] = ["now", "oneHourAgo", "yesterdayEvening"];
@@ -291,6 +293,7 @@ export function EventDetailSheet({
   saveError,
   t,
   locale = "ko",
+  petSpecies = null,
 }: EventDetailSheetProps) {
   const [occurredLocal, setOccurredLocal] = useState("");
   const [productId, setProductId] = useState<string | null>(null);
@@ -371,15 +374,12 @@ export function EventDetailSheet({
     if (productId === item.id) {
       setProductId(null);
       setProductDosage(null);
-      if (fields.detailTags) {
-        setCustomProductName("");
-      } else {
-        setProductName("");
-      }
+      if (!fields.detailTags) setProductName("");
     } else {
       setProductId(item.id);
       setProductDosage(item.dosage ?? null);
-      applyStoredProductName(item.name);
+      // 태그 타입(관리)은 productName이 slug 목록이라 제품 이름을 쓰지 않는다 — 태그는 그대로 (§7.20)
+      if (!fields.detailTags) applyStoredProductName(item.name);
     }
   }
 
@@ -800,8 +800,11 @@ export function EventDetailSheet({
                     draft.product || draft.productId ? (
                       <span className="event-detail-product-value">
                         <span>
-                          {draft.product?.name ??
-                            formatProductNameDisplay(draft.eventTypeKey, draft.productName, t)}
+                          {productValueDisplay(
+                            fields.detailTags,
+                            formatProductNameDisplay(draft.eventTypeKey, draft.productName, t),
+                            draft.product?.name ?? null,
+                          )}
                         </span>
                         <button
                           type="button"
@@ -992,6 +995,7 @@ export function EventDetailSheet({
                   {fields.detailTags && (
                     <EventDetailTagPicker
                       eventTypeKey={draft.eventTypeKey}
+                      species={petSpecies}
                       selectedIds={selectedTagIds}
                       disabled={busy}
                       t={t}

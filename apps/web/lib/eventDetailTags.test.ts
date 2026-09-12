@@ -67,9 +67,40 @@ describe("eventDetailTags", () => {
   });
 
   it("returns one ungrouped bucket for types without groups", () => {
-    expect(eventDetailTagGroupsFor("care")).toHaveLength(1);
-    expect(eventDetailTagGroupsFor("care")[0].group).toBeNull();
+    expect(eventDetailTagGroupsFor("vomit")).toHaveLength(1);
+    expect(eventDetailTagGroupsFor("vomit")[0].group).toBeNull();
     expect(eventDetailTagGroupsFor("meal")).toEqual([]);
+  });
+
+  it("groups care tags into body and toilet (§7.20)", () => {
+    const groups = eventDetailTagGroupsFor("care");
+    expect(groups.map((g) => g.group)).toEqual(["body", "toilet"]);
+    expect(groups[0].tags[0].id).toBe("dental");
+    expect(groups[1].tags.map((t) => t.id)).toEqual([
+      "toilet_clean",
+      "litter_topup",
+      "litter_change",
+      "pad_change",
+      "toilet_wash",
+    ]);
+  });
+
+  it("filters species-specific toilet tags in the picker only", () => {
+    const cat = eventDetailTagGroupsFor("care", "CAT")[1].tags.map((t) => t.id);
+    expect(cat).toContain("litter_change");
+    expect(cat).not.toContain("pad_change");
+
+    const dog = eventDetailTagGroupsFor("care", "DOG")[1].tags.map((t) => t.id);
+    expect(dog).toContain("pad_change");
+    expect(dog).not.toContain("litter_change");
+    expect(dog).not.toContain("litter_topup");
+
+    // 기타 종·미상은 전부 보인다
+    expect(eventDetailTagGroupsFor("care", "OTHER")[1].tags).toHaveLength(5);
+    expect(eventDetailTagGroupsFor("care", null)[1].tags).toHaveLength(5);
+
+    // 저장된 slug는 종과 무관하게 읽는다 (K-13) — 개 기록에 모래 갈이가 있어도 raw slug가 아니다
+    expect(parseProductNameValue("care", "litter_change").tagIds).toEqual(["litter_change"]);
   });
 
   it("care tags round-trip", () => {
