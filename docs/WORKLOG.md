@@ -190,7 +190,7 @@
 - **태그에 `species` allowlist** — 모래 보충·모래 갈이는 CAT·OTHER, 패드 교체는 DOG·OTHER. 피커만 거른다. 저장된 slug는 종과 무관하게 읽어 raw slug가 화면에 뜨지 않는다 (K-13). `EventDetailSheet`가 `petSpecies`를 받는다
 - **제품 연결**: `product-suggestions`에 `care`→`HYGIENE`. 관리 시트에 등록 제품 칩 줄이 떠서 모래·샴푸·치약을 1탭으로 단다. `Product`는 안 건드렸다 (R148)
 - **`productName`은 태그 CSV로 남고 제품은 `productId`로만.** 이걸 지키기 위해 세 군데를 고쳤다 — (1) 웹 `selectActiveProduct`가 태그 타입에서 태그를 건드리지 않는다(전에는 `applyStoredProductName(제품명)`이 태그를 전부 지웠을 것), (2) `createEvent`·PATCH가 태그 타입의 빈 `productName`을 제품 이름으로 채우지 않는다(`productNameIsTagList`, `resolveEventProductFields.fillNameFromProduct`), (3) 타임라인·상세 뷰가 태그 라벨 뒤에 제품 이름을 붙인다(`productValueDisplay`) — 전에는 `product.name ?? productName`이라 제품이 붙는 순간 태그가 사라졌다 (R150)
-- `care`는 이름 제안·빈도를 받지 않는다 (R149). 파서 별칭에 모래·모래갈이·패드 (R151)
+- `care`는 이름 제안·빈도를 받지 않는다 (R149). 파서 별칭에 모래·모래갈이·패드 (R151). 리뷰에서 잡힌 것 — `CARE_ALIASES`만 늘리고 `KEYWORD_TAGS`(별칭→태그 slug)를 안 고쳐 "모래갈이"가 관리로만 저장되고 태그가 비었다. 모래갈이→`litter_change`, 패드→`pad_change`를 붙였고, 파서 테스트 픽스처가 `CARE_ALIASES`를 직접 쓰게 해 별칭과 태그 표가 어긋나면 잡히게 했다. `createEvent`도 PATCH와 같은 `resolveEventProductFields`를 타게 통일
 - 고아 타입 `litter_change`는 `migrateLitterChangeToCare`(시드 루프 뒤)로 `care` + 태그 `litter_change`에 합치고, 시드 목록에서 뺐다 — 루프의 `seedUpdate`가 `archivedAt: null`로 되살리기 때문
 
 **남은 것**: 실기 확인 — 배포 후 관리 시트에서 화장실 묶음이 종별로 맞게 보이는지, 제품 칩을 고른 뒤 태그가 유지되는지. 보류: "마지막 모래 갈이 N일 전"(홈·케어), 모래 소진일 계산(`weightG`는 R104로 위생용품에 안 뜬다), 태그별 마지막 제품 자동 선택. 작업 기기에 DB가 없어 마이그레이션은 기존 `mergeSystemEventType` 단위 테스트에 기댄다.

@@ -32,8 +32,17 @@ export type ParsedLineSuggestion = {
 };
 
 /** 타입 별칭 중 상세 태그(`apps/web/lib/eventDetailTags.ts`)에 대응하는 것. 키워드 → 태그 slug */
+// "모래"는 보충·갈이가 갈려 slug를 붙이지 않는다 — 관리로만 잡히고 세부는 시트에서 (§7.20)
 const KEYWORD_TAGS: Record<string, Record<string, string>> = {
-  care: { 양치: "dental", 목욕: "bath", 발톱: "nail", 빗질: "brush", 귀청소: "ear_clean" },
+  care: {
+    양치: "dental",
+    목욕: "bath",
+    발톱: "nail",
+    빗질: "brush",
+    귀청소: "ear_clean",
+    모래갈이: "litter_change",
+    패드: "pad_change",
+  },
 };
 
 type KeywordHit = {

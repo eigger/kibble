@@ -118,7 +118,7 @@ describe("eventDetailFields", () => {
     expect(f.quantity).toBe(false);
   });
 
-  it("litter_change is note-only", () => {
+  it("unknown/legacy type keys fall back to note-only (litter_change is merged into care)", () => {
     const f = eventDetailFields("litter_change", null);
     expect(f.note).toBe(true);
     expect(f.quantity).toBe(false);

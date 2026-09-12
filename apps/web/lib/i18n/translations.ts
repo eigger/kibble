@@ -975,7 +975,6 @@ const dict = {
   "eventType.play": { ko: "놀이", en: "Play" },
   "eventType.care": { ko: "관리", en: "Care" },
   "eventType.walk": { ko: "산책", en: "Walk" },
-  "eventType.litter_change": { ko: "모래갈이", en: "Litter change" },
   "eventType.vet_visit": { ko: "병원", en: "Vet visit" },
   "eventType.vaccination": { ko: "접종", en: "Vaccination" },
   "eventType.note": { ko: "메모", en: "Note" },
