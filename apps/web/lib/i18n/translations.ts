@@ -183,6 +183,7 @@ const dict = {
   "eventTagGroup.body": { ko: "몸", en: "Body" },
   "eventTagGroup.behavior": { ko: "증상·행동", en: "Symptoms & behavior" },
   "eventTagGroup.toilet": { ko: "화장실", en: "Toilet" },
+  "eventTagGroup.environment": { ko: "환경", en: "Environment" },
   eventDetailTagPickerLabel: { ko: "태그 선택 (여러 개 가능)", en: "Tags (multi-select)" },
   eventDetailProductNamePlaceholder: {
     ko: "예: 로얄캐닌 키튼",
@@ -1005,6 +1006,7 @@ const dict = {
   "eventTag.observation.vocalizing": { ko: "울음", en: "Vocalizing" },
   "eventTag.observation.behavior": { ko: "이상행동", en: "Unusual behavior" },
   "eventTag.observation.sleep_change": { ko: "수면 변화", en: "Sleep change" },
+  "eventTag.observation.foreign_object": { ko: "이물섭취", en: "Foreign object ingestion" },
   "eventTag.care.dental": { ko: "양치", en: "Teeth brushing" },
   "eventTag.care.eye_clean": { ko: "눈 닦기", en: "Eye cleaning" },
   "eventTag.care.ear_clean": { ko: "귀 청소", en: "Ear cleaning" },
@@ -1017,6 +1019,9 @@ const dict = {
   "eventTag.care.litter_change": { ko: "모래 갈이", en: "Litter change" },
   "eventTag.care.pad_change": { ko: "패드 교체", en: "Pad change" },
   "eventTag.care.toilet_wash": { ko: "화장실 세척", en: "Toilet wash" },
+  "eventTag.care.water_change": { ko: "물 갈이", en: "Water change" },
+  "eventTag.care.dish_wash": { ko: "식기 세척", en: "Dish wash" },
+  "eventTag.care.furniture_move": { ko: "가구 위치 변경", en: "Furniture rearrangement" },
 
   // products
   productCategoryMeal: { ko: "사료", en: "Food" },
