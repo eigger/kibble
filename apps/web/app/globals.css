@@ -2120,6 +2120,18 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* 320px대 폭에서 영문 3버튼("Archive · Cancel · Save product")이 한 줄을 넘지 않게 */
+@media (max-width: 359px) {
+  .form-actions {
+    gap: 6px;
+  }
+
+  .form-actions > button {
+    padding: 10px 10px;
+    font-size: 0.9rem;
+  }
+}
+
 /* 파괴적 동작은 저장에서 가장 멀리 — 왼쪽 끝 */
 .form-actions > .danger {
   margin-right: auto;
