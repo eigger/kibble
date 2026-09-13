@@ -273,9 +273,11 @@ export default function PetEditPage({ params }: { params: Promise<{ id: string }
           onChange={(e) => setPet({ ...pet, sortOrder: Number(e.target.value) })}
         />
 
-        <button type="submit" disabled={saving}>
-          {saving ? t("saving") : t("petSaveButton")}
-        </button>
+        <div className="form-actions form-actions-page">
+          <button type="submit" disabled={saving}>
+            {saving ? t("saving") : t("petSaveButton")}
+          </button>
+        </div>
       </form>
     </main>
   );

@@ -1423,41 +1423,6 @@ button:disabled {
   font-size: 1.05rem;
 }
 
-.med-course-sheet-footer {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
-.med-course-sheet-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  gap: 8px;
-  justify-content: stretch;
-  margin-top: 12px;
-}
-
-.med-course-sheet-actions .secondary,
-.med-course-sheet-actions .primary {
-  flex: 1 1 0;
-  min-width: 0;
-  width: auto;
-  max-width: none;
-  min-height: 44px;
-  padding: 10px 16px;
-  font-size: 0.95rem;
-}
-
-.med-course-archive-btn {
-  width: 100%;
-  margin-top: 12px;
-  min-height: 44px;
-  padding: 10px 16px;
-  font-size: 0.95rem;
-}
-
 .med-course-sheet-hint {
   margin: -6px 0 12px;
 }
@@ -2127,6 +2092,55 @@ button:disabled {
   }
 }
 
+/* 폼 하단 동작 막대 — 모든 저장 폼이 같은 배치를 쓴다: 삭제·종료·보관은 왼쪽, 취소·저장은
+   오른쪽, 한 줄. 스크롤 컨테이너 바닥에 sticky로 붙어 폼이 길어도 끝까지 내리지 않고 저장할 수
+   있다. 시트에서는 카드 자체가 스크롤 컨테이너라 bottom: 0, 페이지에서는 하단 탭 위. 막대가
+   카드의 바닥 여백(safe-area 포함)을 대신 지므로 막대를 넣은 카드는 padding-bottom을 0으로 한다. */
+.form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 12px -20px 0;
+  padding: 10px 20px calc(12px + env(safe-area-inset-bottom));
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.form-actions > button {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+/* 파괴적 동작은 저장에서 가장 멀리 — 왼쪽 끝 */
+.form-actions > .danger {
+  margin-right: auto;
+}
+
+.sheet-card:has(.form-actions) {
+  padding-bottom: 0;
+}
+
+/* 하단 탭이 있는 페이지 카드(.card) 안에서는 탭 위에 붙고 카드 안쪽 여백(14px)·모서리를 따른다 */
+.form-actions-page {
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  margin: 4px -14px 0;
+  padding: 10px 14px;
+  border-radius: 0 0 13px 13px;
+}
+
+.card:has(> .form-actions-page) {
+  padding-bottom: 0;
+}
+
 .sheet-handle {
   width: 36px;
   height: 4px;
@@ -2331,30 +2345,6 @@ button:disabled {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
-}
-
-.event-detail-sheet-btn {
-  min-height: 32px;
-  height: 32px;
-  padding: 0 12px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.event-detail-sheet-btn-primary {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: transparent;
-}
-
-.event-detail-sheet-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .event-detail-view-fields {
@@ -3067,29 +3057,7 @@ button:disabled {
 }
 
 .event-detail-save-error {
-  width: 100%;
-  margin: 0 0 8px;
-  font-size: 0.9rem;
-}
-
-.event-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.event-detail-actions-primary {
-  display: flex;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.event-detail-delete {
-  width: auto;
-  padding: 8px 14px;
+  margin: 8px 0 0;
   font-size: 0.9rem;
 }
 
@@ -4793,7 +4761,6 @@ th {
 .product-edit-sheet {
   max-height: min(88vh, 640px);
   overflow-y: auto;
-  padding-bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
 .product-popup-header {
@@ -5026,13 +4993,6 @@ th {
   line-height: 1.4;
 }
 
-.product-popup-actions {
-  margin-top: 14px;
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-}
-
 /* Edit Sheet Form */
 .product-sheet-title {
   margin: 0 0 14px;
@@ -5196,11 +5156,6 @@ th {
   padding: 0;
   min-height: auto;
   line-height: 1;
-}
-
-.product-archive-btn {
-  margin-top: 6px;
-  width: 100%;
 }
 
 .product-info-trigger-btn {

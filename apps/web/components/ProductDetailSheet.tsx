@@ -447,11 +447,13 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
         </div>
 
         {/* Footer Actions */}
-        <div className="sheet-actions product-popup-actions">
+        <div className="form-actions">
+          <button type="button" className="secondary" onClick={onClose}>
+            {t("close")}
+          </button>
           {onEdit && (
             <button
               type="button"
-              className="secondary"
               onClick={() => {
                 onClose();
                 onEdit(product);
@@ -460,9 +462,6 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
               {t("edit")}
             </button>
           )}
-          <button type="button" className="primary" onClick={onClose}>
-            {t("close")}
-          </button>
         </div>
       </div>
     </div>
