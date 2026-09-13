@@ -1132,6 +1132,7 @@ const dict = {
   productAddBtn: { ko: "제품 등록", en: "Add product" },
   productEditBtn: { ko: "제품 수정", en: "Edit product" },
   productSaveBtn: { ko: "제품 저장", en: "Save product" },
+  productArchiveBtn: { ko: "보관", en: "Archive" },
   productSavedToast: { ko: "제품이 저장되었습니다", en: "Product saved" },
   productDeletedToast: { ko: "제품이 보관되었습니다", en: "Product archived" },
   productDeleteConfirm: { ko: "이 제품을 보관 처리하시겠습니까? 과거 기록의 정보는 계속 유지됩니다.", en: "Archive this product? Past log references will remain intact." },

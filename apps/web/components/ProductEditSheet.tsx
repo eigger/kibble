@@ -1077,20 +1077,12 @@ export function ProductEditSheet({
             />
           </div>
 
-          {/* Archive button in edit mode */}
-          {mode === "edit" && product && (
-            <button
-              type="button"
-              className="button danger product-archive-btn"
-              onClick={() => void handleArchive()}
-              disabled={saving}
-            >
-              {t("delete")} / {t("productStatusArchived")}
-            </button>
-          )}
-
-          {/* Actions */}
-          <div className="sheet-actions">
+          <div className="form-actions">
+            {mode === "edit" && product && (
+              <button type="button" className="danger" onClick={() => void handleArchive()} disabled={saving}>
+                {t("productArchiveBtn")}
+              </button>
+            )}
             <button type="button" className="secondary" onClick={onClose} disabled={saving}>
               {t("cancel")}
             </button>

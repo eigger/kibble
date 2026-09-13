@@ -198,17 +198,12 @@ export function MedicationCourseSheet({
               )}
             </div>
           )}
-          {editingCourse && !isEnded(editingCourse) && (
-            <button
-              type="button"
-              className="danger med-course-archive-btn"
-              disabled={saving}
-              onClick={() => void handleArchive()}
-            >
-              {t("medicationsArchive")}
-            </button>
-          )}
-          <div className="med-course-sheet-actions">
+          <div className="form-actions">
+            {editingCourse && !isEnded(editingCourse) && (
+              <button type="button" className="danger" disabled={saving} onClick={() => void handleArchive()}>
+                {t("medicationsArchive")}
+              </button>
+            )}
             <button type="button" className="secondary" disabled={saving} onClick={onClose}>
               {t("cancel")}
             </button>

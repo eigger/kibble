@@ -935,27 +935,15 @@ export function EventDetailSheet({
                 <p className="event-detail-audit meta">{auditParts.join(" · ")}</p>
               )}
 
-              <div className="event-detail-actions">
-                <div className="event-detail-actions-primary">
-                  {draft.eventId && (
-                    <button
-                      type="button"
-                      className="event-detail-sheet-btn event-detail-sheet-btn-primary"
-                      disabled={busy}
-                      onClick={() => setIsEditing(true)}
-                    >
-                      {t("edit")}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="event-detail-sheet-btn"
-                    disabled={busy}
-                    onClick={onClose}
-                  >
-                    {t("close")}
+              <div className="form-actions">
+                <button type="button" className="secondary" disabled={busy} onClick={onClose}>
+                  {t("close")}
+                </button>
+                {draft.eventId && (
+                  <button type="button" disabled={busy} onClick={() => setIsEditing(true)}>
+                    {t("edit")}
                   </button>
-                </div>
+                )}
               </div>
             </div>
           ) : (
@@ -1363,26 +1351,19 @@ export function EventDetailSheet({
                 </fieldset>
               )}
 
-              <div className="event-detail-actions">
-                {saveError && <p className="error-text event-detail-save-error">{saveError}</p>}
+              {saveError && <p className="error-text event-detail-save-error">{saveError}</p>}
+              <div className="form-actions">
                 {draft.eventId && onDeleteEvent && (
-                  <button
-                    type="button"
-                    className="danger event-detail-delete"
-                    disabled={busy}
-                    onClick={onDeleteEvent}
-                  >
+                  <button type="button" className="danger" disabled={busy} onClick={onDeleteEvent}>
                     {deleting ? t("deleting") : t("eventDetailDelete")}
                   </button>
                 )}
-                <div className="event-detail-actions-primary">
-                  <button type="button" className="secondary" disabled={busy} onClick={handleCancelEdit}>
-                    {t("cancel")}
-                  </button>
-                  <button type="submit" disabled={busy}>
-                    {saving ? t("saving") : t("save")}
-                  </button>
-                </div>
+                <button type="button" className="secondary" disabled={busy} onClick={handleCancelEdit}>
+                  {t("cancel")}
+                </button>
+                <button type="submit" disabled={busy}>
+                  {saving ? t("saving") : t("save")}
+                </button>
               </div>
             </form>
           )}
