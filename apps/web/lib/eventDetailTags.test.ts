@@ -72,9 +72,9 @@ describe("eventDetailTags", () => {
     expect(eventDetailTagGroupsFor("meal")).toEqual([]);
   });
 
-  it("groups care tags into body and toilet (§7.20)", () => {
+  it("groups care tags into body, toilet, and environment (§7.20, §7.21)", () => {
     const groups = eventDetailTagGroupsFor("care");
-    expect(groups.map((g) => g.group)).toEqual(["body", "toilet"]);
+    expect(groups.map((g) => g.group)).toEqual(["body", "toilet", "environment"]);
     expect(groups[0].tags[0].id).toBe("dental");
     expect(groups[1].tags.map((t) => t.id)).toEqual([
       "toilet_clean",
@@ -83,6 +83,7 @@ describe("eventDetailTags", () => {
       "pad_change",
       "toilet_wash",
     ]);
+    expect(groups[2].tags.map((t) => t.id)).toEqual(["water_change", "dish_wash", "furniture_move"]);
   });
 
   it("filters species-specific toilet tags in the picker only", () => {

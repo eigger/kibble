@@ -3,12 +3,12 @@ import type { Species } from "./types";
 
 /** 이벤트 상세 — 태그 칩으로 고르는 값. `productName`에 slug를 `,`로 이어 저장한다. */
 
-export type EventDetailTagGroupKey = "body" | "behavior" | "toilet";
+export type EventDetailTagGroupKey = "body" | "behavior" | "toilet" | "environment";
 
 export type EventDetailTag = {
   id: string;
   labelKey: TranslationKey;
-  /** 태그가 많은 타입은 묶음 소제목 아래 나눠 그린다 (관찰: 몸 / 증상·행동, 관리: 몸 / 화장실) */
+  /** 태그가 많은 타입은 묶음 소제목 아래 나눠 그린다 (관찰: 몸 / 증상·행동, 관리: 몸 / 화장실 / 환경) */
   group?: EventDetailTagGroupKey;
   /**
    * 이 종에게만 보이는 태그. 없으면 전 종. 피커만 거른다 — 저장된 slug는 종과 무관하게
@@ -53,6 +53,7 @@ const OBSERVATION_BEHAVIOR: EventDetailTag[] = [
   { id: "vocalizing", labelKey: "eventTag.observation.vocalizing", group: "behavior" },
   { id: "behavior", labelKey: "eventTag.observation.behavior", group: "behavior" },
   { id: "sleep_change", labelKey: "eventTag.observation.sleep_change", group: "behavior" },
+  { id: "foreign_object", labelKey: "eventTag.observation.foreign_object", group: "behavior" },
 ];
 
 // "봤다"(관찰)와 "했다"(관리)가 갈리도록 표현을 다르게 둔다 — 관찰은 눈꼽·귀지, 관리는 눈 닦기·귀 청소
@@ -76,6 +77,13 @@ const CARE_TOILET: EventDetailTag[] = [
   { id: "toilet_wash", labelKey: "eventTag.care.toilet_wash", group: "toilet" },
 ];
 
+// 그릇·가구 자체가 아니라 그 안의 상태를 바꾸는 일 — "물 갈이"는 물그릇이 아니라 물을 간다(모래 갈이와 같은 결, §7.21)
+const CARE_ENVIRONMENT: EventDetailTag[] = [
+  { id: "water_change", labelKey: "eventTag.care.water_change", group: "environment" },
+  { id: "dish_wash", labelKey: "eventTag.care.dish_wash", group: "environment" },
+  { id: "furniture_move", labelKey: "eventTag.care.furniture_move", group: "environment" },
+];
+
 export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
   vomit: [
     { id: "hairball", labelKey: "eventTag.vomit.hairball" },
@@ -85,7 +93,7 @@ export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
     { id: "foam", labelKey: "eventTag.vomit.foam" },
   ],
   observation: [...OBSERVATION_BODY, ...OBSERVATION_BEHAVIOR],
-  care: [...CARE_BODY, ...CARE_TOILET],
+  care: [...CARE_BODY, ...CARE_TOILET, ...CARE_ENVIRONMENT],
 };
 
 /** 이름을 바꾼 태그 — 저장된 옛 slug를 현재 id로 읽는다 (실기록 보존). */
@@ -97,6 +105,7 @@ export const EVENT_DETAIL_TAG_GROUP_LABEL_KEYS: Record<EventDetailTagGroupKey, T
   body: "eventTagGroup.body",
   behavior: "eventTagGroup.behavior",
   toilet: "eventTagGroup.toilet",
+  environment: "eventTagGroup.environment",
 };
 
 export function eventDetailTagsFor(eventTypeKey: string | null | undefined): EventDetailTag[] {
