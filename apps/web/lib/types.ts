@@ -208,6 +208,9 @@ export interface TodaySummaryRow {
   totals: TodayUnitTotal[];
   lastOccurredAt: string | null;
   lastScaleValue: number | null;
+  /** 오늘 마지막 기록의 양 — 측정값(HEALTH + 단위)은 합계 대신 이것을 보여준다 (§7.23) */
+  lastQuantity?: number | null;
+  lastQuantityUnit?: string | null;
 }
 
 export interface MedicationCourseProgress {

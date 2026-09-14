@@ -53,7 +53,8 @@ type KeywordHit = {
   sortOrder: number;
 };
 
-const UNIT_ALT = "g|kg|ml|mL|l|L|개|회|분|정";
+// 체온 단위 — "38.5도"·"38.5℃"·"38.5°C". "도"는 숫자 바로 뒤에서만 단위다 ("40g정도"는 g가 먼저 잡힌다)
+const UNIT_ALT = "g|kg|ml|mL|l|L|개|회|분|정|℃|°C|도";
 const QUANTITY_SINGLE_RE = new RegExp(`(~?\\d+(?:\\.\\d+)?)\\s*(${UNIT_ALT})(?![a-zA-Z])`, "i");
 const QUANTITY_RANGE_RE = new RegExp(
   `(\\d+(?:\\.\\d+)?)\\s*~\\s*(\\d+(?:\\.\\d+)?)\\s*(${UNIT_ALT})(?![a-zA-Z])`,
@@ -64,6 +65,11 @@ const OFFERED_CONSUMED_RE = new RegExp(
   "i",
 );
 const WEIGHT_INLINE_RE = /^(\d+(?:\.\d+)?)\s*(kg|g)\s*$/i;
+/**
+ * 단위 없는 "체온 38.5" — 별칭이 잡힌 줄에서만 맨 숫자를 값으로 읽는다 (§7.23).
+ * 체온 모양(3x.x·4x.x)만 — "열 10일째"의 10을 값으로 읽지 않기 위해서다. 나머지는 메모에 남는다 (K-12)
+ */
+const BARE_TEMPERATURE_RE = /(?<![\d.])([34]\d(?:\.\d+)?)(?![\d.])/;
 
 const TIME_PM_RE = /오후\s*(\d{1,2})\s*시(?:\s*(?:(\d{1,2})\s*분)?)?/;
 const TIME_AM_RE = /오전\s*(\d{1,2})\s*시(?:\s*(?:(\d{1,2})\s*분)?)?/;
@@ -125,7 +131,9 @@ function normalizeRange(low: string, high: string): [number, number] {
 
 function normalizeUnit(raw: string): string {
   const u = raw.toLowerCase();
-  return u === "l" ? "L" : u;
+  if (u === "l") return "L";
+  if (u === "도" || u === "℃" || u === "°c") return "°C";
+  return u;
 }
 
 type QuantityParse = {
@@ -331,6 +339,22 @@ function parseLine(
     }
   }
 
+  // 단위가 °C면 키워드 없이도 체온이다 — "38.5도"만 적는 사람이 많다 (§7.23)
+  if (resolvedHits.length === 0 && qty.quantity != null && qty.unit === "°C") {
+    const temperature = targets.find((t) => t.eventTypeKey === "temperature");
+    if (temperature) {
+      resolvedHits = [
+        {
+          eventTypeId: temperature.eventTypeId,
+          eventTypeKey: temperature.eventTypeKey,
+          presetId: temperature.presetId ?? null,
+          keyword: "temperature",
+          sortOrder: temperature.sortOrder ?? 85,
+        },
+      ];
+    }
+  }
+
   if (resolvedHits.length === 0) {
     const note = noteFallback(rawLine, noteEventTypeId);
     note.lineIndex = lineIndex;
@@ -346,6 +370,16 @@ function parseLine(
   const chosen = resolvedHits[0]!;
   const target = targets.find((t) => t.eventTypeId === chosen.eventTypeId);
   const resolvedUnit = qty.unit ?? target?.defaultUnit ?? null;
+
+  // "체온 38.5" — 별칭으로 체온이 잡혔는데 단위가 없으면 맨 숫자를 값으로. 시각(8시)은 이미 떼어낸 뒤다
+  let bareQuantity: number | null = null;
+  if (chosen.eventTypeKey === "temperature" && qty.quantity == null) {
+    const bare = working.match(BARE_TEMPERATURE_RE);
+    if (bare) {
+      bareQuantity = Number(bare[1]);
+      working = stripMatch(working, bare);
+    }
+  }
 
   let needsReview = false;
   if (resolvedHits.length > 1) needsReview = true;
@@ -363,7 +397,7 @@ function parseLine(
     eventTypeKey: chosen.eventTypeKey,
     eventTypeId: chosen.eventTypeId,
     presetId: chosen.presetId,
-    quantity: qty.quantity,
+    quantity: qty.quantity ?? bareQuantity,
     quantityOffered: qty.quantityOffered,
     unit: resolvedUnit,
     occurredAt: time.occurredAt,

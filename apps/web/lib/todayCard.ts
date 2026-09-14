@@ -19,6 +19,16 @@ function hasAmount(total: TodayUnitTotal): boolean {
 export function todayCardValue(row: TodaySummaryRow): TodayCardValue {
   const withAmount = row.totals.filter(hasAmount);
 
+  // HEALTH의 양은 측정값이다(체중·체온) — 아침 38.6 · 저녁 38.9를 더하면 거짓말이 된다.
+  // 카테고리로만 가른다. 타입 키는 보지 않는다 (K-8, §7.23)
+  if (row.category === "HEALTH" && row.lastQuantity != null) {
+    return {
+      kind: "amount",
+      value: row.lastQuantity,
+      unit: row.lastQuantityUnit ?? row.defaultUnit ?? "",
+    };
+  }
+
   // 단위가 섞인 날(같은 타입에 g과 개가 함께 들어온 날)에는 더하지 않는다.
   // 합쳐서 내면 거짓말이 되므로 조용히 횟수로 떨어진다 — 입력을 막지는 않는다 (K-12).
   if (withAmount.length !== 1) return { kind: "count", count: row.count };

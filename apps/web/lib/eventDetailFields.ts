@@ -20,6 +20,11 @@ export type EventDetailFieldFlags = {
    * 영양·사료·간식만 — 상비는 처방·투약 축과 얽혀 따로 본다.
    */
   multiProduct: boolean;
+  /**
+   * 마지막 제품 연결(productId)을 다음 기록에 그대로 채우는 타입. 관리는 false — 지난 관리(모래)와
+   * 이번 관리(양치)는 다른 일이라 엉뚱한 제품이 붙는다 (R149). 체온은 하는 일이 하나라 true (§7.23)
+   */
+  rememberLastProduct: boolean;
   fecalScale: boolean;
   scale3: boolean;
   note: boolean;
@@ -32,6 +37,7 @@ export type EventDetailQuantityLabelKey =
   | "eventDetailQuantity"
   | "eventDetailQuantityConsumed"
   | "eventDetailWeight"
+  | "eventDetailTemperature"
   | "eventDetailVolume"
   | "eventDetailDuration";
 
@@ -48,6 +54,7 @@ const NOTE_ONLY: EventDetailFieldFlags = {
   quantity: false,
   showUnitInput: false,
   multiProduct: false,
+  rememberLastProduct: false,
   fecalScale: false,
   scale3: false,
   note: true,
@@ -138,6 +145,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: true,
       multiProduct: key !== "remedy",
+      rememberLastProduct: true,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -171,6 +179,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -194,12 +203,39 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
       quantityLabelKey: "eventDetailWeight",
       quantityOfferedLabelKey: "eventDetailQuantityOffered",
       defaultUnit: "kg",
+    };
+  }
+
+  // 체온 — 체중과 같은 측정값. 값 한 칸, 단위는 °C 고정. 측정 방법은 태그(하나), 체온계는
+  // 등록 기기(DEVICE)를 productId로 — 관리가 위생용품을 다는 것과 같은 구조 (§7.23)
+  if (key === "temperature") {
+    return {
+      productName: true,
+      detailTags: true,
+      productCustomInput: false,
+      productNameLabelKey: productNameFieldLabelKey(key),
+      noteLabelKey: "eventDetailNote",
+      clinicName: false,
+      clinicAddress: false,
+      cost: false,
+      quantityOffered: false,
+      quantity: true,
+      showUnitInput: false,
+      multiProduct: false,
+      rememberLastProduct: true,
+      fecalScale: false,
+      scale3: false,
+      note: true,
+      quantityLabelKey: "eventDetailTemperature",
+      quantityOfferedLabelKey: "eventDetailQuantityOffered",
+      defaultUnit: "°C",
     };
   }
 
@@ -217,6 +253,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -261,6 +298,7 @@ export function quantityPlaceholder(
 ): string {
   const key = eventTypeKey ?? "";
   if (key === "weight") return "4.2";
+  if (key === "temperature") return "38.5";
   if (key === "water") return "100";
   if (key === "walk" || key === "play") return "30";
   if (hasOffered) return "30";

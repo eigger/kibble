@@ -4,6 +4,7 @@ import type { TimelineEvent } from "./types";
 
 const ANALYTICS_EVENT_KEYS = [
   "weight",
+  "temperature",
   "meal",
   "water",
   "treat",
@@ -21,6 +22,7 @@ function toMetricEvent(event: TimelineEvent): MetricEvent {
     occurredAt: event.occurredAt,
     quantity: event.quantity,
     quantityOffered: event.quantityOffered,
+    productName: event.productName ?? null,
     scaleValue: event.scaleValue,
     costKrw: event.costKrw,
     eventType: {

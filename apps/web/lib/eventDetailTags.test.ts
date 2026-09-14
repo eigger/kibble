@@ -5,7 +5,9 @@ import {
   findEventDetailTag,
   formatProductNameDisplay,
   parseProductNameValue,
+  productNameFieldLabelKey,
   resolveEventTagLabel,
+  toggleProductNameTag,
 } from "./eventDetailTags";
 
 const t = (key: string) => {
@@ -110,5 +112,29 @@ describe("eventDetailTags", () => {
       custom: "",
     });
     expect(encodeProductNameValue("care", ["dental", "bath"], "")).toBe("dental,bath");
+  });
+});
+
+describe("eventDetailTags — 체온 측정 방법 (§7.23)", () => {
+  it("방법 4개, 묶음 소제목 없음, 전 종 공통", () => {
+    const groups = eventDetailTagGroupsFor("temperature", "CAT");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].group).toBeNull();
+    expect(groups[0].tags.map((tag) => tag.id)).toEqual(["rectal", "ear", "axillary", "infrared"]);
+    expect(eventDetailTagGroupsFor("temperature", "DOG")[0].tags).toHaveLength(4);
+  });
+
+  it("하나만 고른다 — 다른 방법을 누르면 바뀐다, 같은 걸 누르면 풀린다", () => {
+    expect(toggleProductNameTag("temperature", [], "rectal")).toEqual(["rectal"]);
+    expect(toggleProductNameTag("temperature", ["rectal"], "ear")).toEqual(["ear"]);
+    expect(toggleProductNameTag("temperature", ["ear"], "ear")).toEqual([]);
+    // 관리는 여전히 여러 개
+    expect(toggleProductNameTag("care", ["dental"], "bath")).toEqual(["dental", "bath"]);
+  });
+
+  it("라벨 키와 저장 형식", () => {
+    expect(productNameFieldLabelKey("temperature")).toBe("eventDetailTemperatureMethod");
+    expect(encodeProductNameValue("temperature", ["ear"], "")).toBe("ear");
+    expect(parseProductNameValue("temperature", "ear")).toEqual({ tagIds: ["ear"], custom: "" });
   });
 });

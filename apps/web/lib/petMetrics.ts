@@ -7,6 +7,8 @@ export type AnalyticsPeriod = "1w" | "1m" | "6m" | "1y" | "all";
 export type ChartGranularity = "day" | "week" | "month";
 
 export type MetricEvent = {
+  /** 태그 타입(체온 측정 방법)의 slug CSV — 그래프 툴팁에 방법을 같이 보여준다 (§7.23) */
+  productName?: string | null;
   id: string;
   occurredAt: string;
   quantity: number | null;
@@ -89,19 +91,50 @@ function decimalToNumber(value: number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function weightChartPoints(
+/** 측정값(체중·체온)의 점 — 묶지 않고 기록 하나가 점 하나다. 시간 순. */
+export function measurementChartPoints(
   events: MetricEvent[],
+  eventTypeKey: string,
   localeTag: string,
-): { label: string; weight: number }[] {
+): { label: string; value: number; productName: string | null }[] {
   return events
-    .filter((e) => e.eventType.key === "weight" && decimalToNumber(e.quantity) != null)
+    .filter((e) => e.eventType.key === eventTypeKey && decimalToNumber(e.quantity) != null)
     .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
     .map((e) => ({
       label: new Intl.DateTimeFormat(localeTag, { month: "numeric", day: "numeric" }).format(
         new Date(e.occurredAt),
       ),
-      weight: decimalToNumber(e.quantity)!,
+      value: decimalToNumber(e.quantity)!,
+      productName: e.productName ?? null,
     }));
+}
+
+export function weightChartPoints(
+  events: MetricEvent[],
+  localeTag: string,
+): { label: string; weight: number }[] {
+  return measurementChartPoints(events, "weight", localeTag).map((p) => ({
+    label: p.label,
+    weight: p.value,
+  }));
+}
+
+/**
+ * 체온 그래프의 Y축 범위 — 0부터 그리면 37~40°C가 평평한 선이 된다 (§7.23).
+ * 데이터 범위 ±pad를 0.1 단위로 내림·올림한다. 점이 없으면 null.
+ */
+export function measurementDomain(
+  points: { value: number }[],
+  pad = 0.5,
+): [number, number] | null {
+  if (points.length === 0) return null;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const p of points) {
+    if (p.value < min) min = p.value;
+    if (p.value > max) max = p.value;
+  }
+  return [Math.floor((min - pad) * 10) / 10, Math.ceil((max + pad) * 10) / 10];
 }
 
 export function groupedQuantitySums(
@@ -180,11 +213,15 @@ export function totalCost(events: MetricEvent[], eventTypeKey: string): number |
   return withCost.reduce((sum, e) => sum + e.costKrw!, 0);
 }
 
-export function latestWeight(events: MetricEvent[]): number | null {
+export function latestQuantity(events: MetricEvent[], eventTypeKey: string): number | null {
   const sorted = events
-    .filter((e) => e.eventType.key === "weight" && decimalToNumber(e.quantity) != null)
+    .filter((e) => e.eventType.key === eventTypeKey && decimalToNumber(e.quantity) != null)
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
   return sorted.length > 0 ? decimalToNumber(sorted[0].quantity) : null;
+}
+
+export function latestWeight(events: MetricEvent[]): number | null {
+  return latestQuantity(events, "weight");
 }
 
 export function avgDailyQuantity(events: MetricEvent[], eventTypeKey: string): number | null {

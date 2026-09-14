@@ -107,3 +107,45 @@ describe("relativeSince", () => {
     expect(relativeSince("nonsense", now)).toBeNull();
   });
 });
+
+describe("todayCardValue — 측정값 (§7.23)", () => {
+  it("HEALTH의 양은 합계가 아니라 마지막 값이다 — 체온 두 번이 77.5°C가 되지 않는다", () => {
+    expect(
+      todayCardValue(
+        row({
+          eventTypeKey: "temperature",
+          category: "HEALTH",
+          defaultUnit: "°C",
+          count: 2,
+          totals: [{ unit: "°C", count: 2, quantity: 77.5, quantityOffered: null }],
+          lastQuantity: 38.9,
+          lastQuantityUnit: "°C",
+        }),
+      ),
+    ).toEqual({ kind: "amount", value: 38.9, unit: "°C" });
+  });
+
+  it("FEEDING은 그대로 합계다 — 카테고리로만 가른다", () => {
+    expect(
+      todayCardValue(
+        row({
+          totals: [{ unit: "g", count: 2, quantity: 80, quantityOffered: null }],
+          lastQuantity: 40,
+          lastQuantityUnit: "g",
+        }),
+      ),
+    ).toEqual({ kind: "amount", value: 80, unit: "g" });
+  });
+
+  it("HEALTH인데 마지막 양이 없으면(구 서버) 지금처럼 합계로", () => {
+    expect(
+      todayCardValue(
+        row({
+          category: "HEALTH",
+          defaultUnit: "kg",
+          totals: [{ unit: "kg", count: 1, quantity: 4.2, quantityOffered: null }],
+        }),
+      ),
+    ).toEqual({ kind: "amount", value: 4.2, unit: "kg" });
+  });
+});

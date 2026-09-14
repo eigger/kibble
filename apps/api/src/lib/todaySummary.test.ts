@@ -39,21 +39,38 @@ const EVENT_TYPES = [
     defaultUnit: null,
     sortOrder: 2,
   },
+  {
+    id: "type_temperature",
+    key: "temperature",
+    label: "eventType.temperature",
+    category: "HEALTH",
+    scaleType: null,
+    defaultUnit: "°C",
+    sortOrder: 3,
+  },
 ];
 
 function fakeDb(options: {
   grouped: unknown[];
   scaleEvents?: { eventTypeId: string; scaleValue: number | null }[];
+  quantityEvents?: { eventTypeId: string; quantity: unknown; unit: string | null }[];
 }) {
-  return {
+  const calls: { quantityWhere?: Record<string, unknown> } = {};
+  const db = {
+    calls,
     event: {
       groupBy: async () => options.grouped,
-      findMany: async () => options.scaleEvents ?? [],
+      findMany: async (args: { where?: { scaleValue?: unknown; quantity?: unknown } }) => {
+        if (args.where?.scaleValue !== undefined) return options.scaleEvents ?? [];
+        calls.quantityWhere = args.where as Record<string, unknown>;
+        return options.quantityEvents ?? [];
+      },
     },
     eventType: {
       findMany: async () => EVENT_TYPES,
     },
-  } as never;
+  };
+  return db as typeof db & Parameters<typeof todaySummaryForPet>[0];
 }
 
 describe("todaySummaryForPet", () => {
@@ -90,6 +107,8 @@ describe("todaySummaryForPet", () => {
       totals: [{ unit: "g", count: 3, quantity: 90, quantityOffered: 120 }],
       lastOccurredAt: "2026-09-09T04:00:00.000Z",
       lastScaleValue: null,
+      lastQuantity: null,
+      lastQuantityUnit: "g",
     });
     expect(rows[1].totals).toEqual([{ unit: "ml", count: 2, quantity: 250, quantityOffered: null }]);
   });
@@ -198,5 +217,33 @@ describe("todaySummaryForPet", () => {
 
   it("returns nothing when the day has no events", async () => {
     expect(await todaySummaryForPet(fakeDb({ grouped: [] }), "hh_1", "pet_1")).toEqual([]);
+  });
+});
+
+describe("todaySummaryForPet — 측정값의 마지막 값 (§7.23)", () => {
+  it("합계와 별개로 타입별 마지막 양을 낸다 — 체온을 두 번 재면 합계 77.5, 마지막 38.9", async () => {
+    const db = fakeDb({
+      grouped: [
+        {
+          eventTypeId: "type_temperature",
+          unit: null,
+          _count: { _all: 2 },
+          _sum: { quantity: 77.5, quantityOffered: null },
+          _max: { occurredAt: new Date("2026-09-09T10:00:00.000Z") },
+        },
+      ],
+      quantityEvents: [
+        { eventTypeId: "type_temperature", quantity: { toNumber: () => 38.9 }, unit: null },
+        { eventTypeId: "type_temperature", quantity: "38.6", unit: null },
+      ],
+    });
+
+    const rows = await todaySummaryForPet(db, "hh_1", "pet_1");
+    expect(db.calls.quantityWhere?.eventType).toEqual({ category: "HEALTH" });
+    expect(rows[0].category).toBe("HEALTH");
+    expect(rows[0].totals[0].quantity).toBe(77.5);
+    expect(rows[0].lastQuantity).toBe(38.9);
+    // 빈 단위는 기본 단위로
+    expect(rows[0].lastQuantityUnit).toBe("°C");
   });
 });

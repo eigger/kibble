@@ -17,6 +17,11 @@ describe("eventTypeSupportsProductName", () => {
     expect(eventTypeSupportsProductName("care")).toBe(true);
   });
 
+  it("includes temperature — 체온계(DEVICE)를 잇는다 (§7.23)", () => {
+    expect(eventTypeSupportsProductName("temperature")).toBe(true);
+    expect(productNameIsTagList("temperature")).toBe(true);
+  });
+
   it("excludes other types", () => {
     expect(eventTypeSupportsProductName("water")).toBe(false);
     expect(eventTypeSupportsProductName("poop")).toBe(false);
@@ -159,5 +164,77 @@ describe("productSuggestionsForPet — query path", () => {
     // 옛 필드는 첫 항목과 같다
     expect(result.lastProduct).toBe("유산균");
     expect(result.lastProductId).toBe("p-lacto");
+  });
+});
+
+describe("productSuggestionsForPet — temperature (§7.23)", () => {
+  it("DEVICE 제품 + 마지막 방법·기기를 준다. 빈도는 세지 않는다", async () => {
+    const db = {
+      eventType: { findFirst: vi.fn(async () => ({ id: "et-id" })) },
+      event: {
+        findFirst: vi.fn(async () => ({
+          id: "e1",
+          entryId: null,
+          productName: "rectal",
+          productId: "p-thermo",
+          quantity: "38.6",
+          quantityOffered: null,
+          unit: null,
+          product: { id: "p-thermo", name: "브라운 체온계", dosage: null },
+        })),
+        findMany: vi.fn(async () => []),
+      },
+      product: {
+        findMany: vi.fn(async () => [
+          { id: "p-thermo", name: "브라운 체온계", brand: null, category: "DEVICE", dosage: null, isActive: true },
+        ]),
+      },
+    };
+
+    const result = await productSuggestionsForPet(db as never, {
+      householdId: "hh",
+      petId: "pet",
+      eventTypeKey: "temperature",
+      userId: "u1",
+    });
+
+    const where = db.product.findMany.mock.calls[0][0].where as { category?: string };
+    expect(where.category).toBe("DEVICE");
+    // 방법만 있거나 기기만 있어도 마지막 기록이다
+    const lastWhere = db.event.findFirst.mock.calls[0][0].where as { OR?: unknown[]; productName?: unknown };
+    expect(lastWhere.OR).toHaveLength(2);
+    expect(lastWhere.productName).toBeUndefined();
+    expect(result.lastProduct).toBe("rectal");
+    expect(result.lastProductId).toBe("p-thermo");
+    // 태그 CSV라 빈도를 세지 않는다
+    expect(db.event.findMany).not.toHaveBeenCalled();
+    expect(result.frequent).toEqual([]);
+  });
+
+  it("방법 없이 기기만 단 기록은 제품 이름을 태그 자리에 넣지 않는다 (R150)", async () => {
+    const db = {
+      eventType: { findFirst: vi.fn(async () => ({ id: "et-id" })) },
+      event: {
+        findFirst: vi.fn(async () => ({
+          id: "e1",
+          entryId: null,
+          productName: null,
+          productId: "p-thermo",
+          quantity: "38.6",
+          quantityOffered: null,
+          unit: null,
+          product: { id: "p-thermo", name: "브라운 체온계", dosage: null },
+        })),
+        findMany: vi.fn(async () => []),
+      },
+      product: { findMany: vi.fn(async () => []) },
+    };
+    const result = await productSuggestionsForPet(db as never, {
+      householdId: "hh",
+      petId: "pet",
+      eventTypeKey: "temperature",
+    });
+    expect(result.lastProduct).toBeNull();
+    expect(result.lastProductId).toBe("p-thermo");
   });
 });

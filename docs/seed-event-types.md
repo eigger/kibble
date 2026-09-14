@@ -62,6 +62,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `observation` | `eventType.observation` | `eye` | `teal` | HEALTH | — | **ENERGY_3** | 72 | 관찰(활력·특이사항). 구 `energy` 키는 시드가 통합. 태그는 몸 / 증상·행동 두 묶음 |
 | `medication` | `eventType.medication` | `pill` | `violet` | MEDICAL | — | — | 115 | 투약 |
 | `weight` | `eventType.weight` | `scale` | `slate` | HEALTH | `kg` | — | 80 | 체중 |
+| `temperature` | `eventType.temperature` | `thermometer` | `red` | HEALTH | `°C` | — | 85 | 체온. 측정값 — 홈 카드는 합계가 아니라 마지막 값. 측정 방법 태그(직장·귀·겨드랑이·비접촉, 하나만) + 체온계(`DEVICE`)를 `productId`로 (§7.23) |
 | `symptom` | `eventType.symptom` | `stethoscope` | `red` | HEALTH | — | — | 90 | 기침·통증 등. `scaleType`은 Phase 2 |
 | `play` | `eventType.play` | `gamepad-2` | `green` | ACTIVITY | `min` | — | 100 | 놀이 |
 | `care` | `eventType.care` | `hand-heart` | `pink` | CARE | — | — | 110 | 관리 — 태그 두 묶음. 몸: 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기 / 화장실: 청소·모래 보충·모래 갈이·패드 교체·세척 (종별 노출). 등록 제품(`HYGIENE`)을 `productId`로 잇는다. 구 `grooming`·`dental`·`litter_change` 키는 시드가 통합 (§7.18·§7.20) |
@@ -98,6 +99,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `care` | `관리`, `케어`, `양치`, `목욕`, `발톱`, `빗질`, `귀청소`, `모래`, `모래갈이`, `패드` — `화장실`은 넣지 않는다(배변 문장에서 오탐) |
 | `medication` | `약`, `투약`, `복약` |
 | `weight` | `체중`, `몸무게` |
+| `temperature` | `체온`, `열` |
 | `walk` | `산책`, `산책함` |
 | `vet_visit` | `병원`, `진료`, `검진` |
 
@@ -119,6 +121,7 @@ Phase 1 `translations.ts`에 **동시 추가** (K-9).
 | `eventType.observation` | 관찰 | Observation |
 | `eventType.medication` | 투약 | Medication |
 | `eventType.weight` | 체중 | Weight |
+| `eventType.temperature` | 체온 | Temp |
 | `eventType.symptom` | 증상 | Symptom |
 | `eventType.play` | 놀이 | Play |
 | `eventType.care` | 관리 | Care |
@@ -175,7 +178,7 @@ for t in templates:
 | `quantity` / `unit` | `null` (1탭 기록은 타입만; 상세 시트에서 입력) |
 | `petId` | 등록한 반려동물 ID (종 특화 칩 분리) |
 
-### 4.2 고양이 (`CAT`) — 12개
+### 4.2 고양이 (`CAT`) — 14개
 
 | sort | isStarter | eventType.key | label (ko) | 비고 |
 |---|---|---|---|---|
@@ -186,13 +189,15 @@ for t in templates:
 | 4 | false | `treat` | 간식 | |
 | 5 | false | `supplement` | 영양 | |
 | 6 | false | `medication` | 투약 | |
-| 7 | false | `vomit` | 구토 | |
-| 8 | false | `care` | 관리 | 태그: 몸(양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기) / 화장실(청소·모래 보충·모래 갈이·세척) |
-| 9 | false | `observation` | 관찰 | `ENERGY_3` + 관찰 태그 |
-| 10 | false | `weight` | 체중 | |
-| 11 | false | `vet_visit` | 병원 | |
+| 7 | false | `remedy` | 상비 | |
+| 8 | false | `vomit` | 구토 | |
+| 9 | false | `care` | 관리 | 태그: 몸(양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기) / 화장실(청소·모래 보충·모래 갈이·세척) / 환경 |
+| 10 | false | `observation` | 관찰 | `ENERGY_3` + 관찰 태그 |
+| 11 | false | `weight` | 체중 | |
+| 12 | false | `temperature` | 체온 | 측정값 (§7.23) |
+| 13 | false | `vet_visit` | 병원 | |
 
-### 4.3 개 (`DOG`) — 12개
+### 4.3 개 (`DOG`) — 14개
 
 | sort | isStarter | eventType.key | label (ko) |
 |---|---|---|---|
@@ -203,27 +208,31 @@ for t in templates:
 | 4 | false | `treat` | 간식 |
 | 5 | false | `supplement` | 영양 |
 | 6 | false | `medication` | 투약 |
-| 7 | false | `walk` | 산책 |
+| 7 | false | `remedy` | 상비 |
+| 8 | false | `walk` | 산책 |
+| 9 | false | `care` | 관리 |
+| 10 | false | `observation` | 관찰 |
+| 11 | false | `weight` | 체중 |
+| 12 | false | `temperature` | 체온 |
+| 13 | false | `vet_visit` | 병원 |
+
+### 4.4 기타 (`OTHER`) — 13개
+
+| sort | isStarter | eventType.key | label (ko) |
+|---|---|---|---|
+| 0 | **true** | `meal` | 사료 |
+| 1 | **true** | `water` | 물 |
+| 2 | **true** | `poop` | 대변 |
+| 3 | false | `pee` | 소변 |
+| 4 | false | `treat` | 간식 |
+| 5 | false | `supplement` | 영양 |
+| 6 | false | `medication` | 투약 |
+| 7 | false | `remedy` | 상비 |
 | 8 | false | `care` | 관리 |
 | 9 | false | `observation` | 관찰 |
 | 10 | false | `weight` | 체중 |
-| 11 | false | `vet_visit` | 병원 |
-
-### 4.4 기타 (`OTHER`) — 11개
-
-| sort | isStarter | eventType.key | label (ko) |
-|---|---|---|---|
-| 0 | **true** | `meal` | 사료 |
-| 1 | **true** | `water` | 물 |
-| 2 | **true** | `poop` | 대변 |
-| 3 | false | `pee` | 소변 |
-| 4 | false | `treat` | 간식 |
-| 5 | false | `supplement` | 영양 |
-| 6 | false | `medication` | 투약 |
-| 7 | false | `care` | 관리 |
-| 8 | false | `observation` | 관찰 |
-| 9 | false | `weight` | 체중 |
-| 10 | false | `vet_visit` | 병원 |
+| 11 | false | `temperature` | 체온 |
+| 12 | false | `vet_visit` | 병원 |
 
 ---
 

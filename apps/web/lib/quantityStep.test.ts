@@ -88,3 +88,12 @@ describe("stepQuantityValue", () => {
     expect(stepQuantityValue("35", 10)).toBe("45");
   });
 });
+
+describe("quantityStep — 체온 (§7.23)", () => {
+  it("°C는 0.1 / 바깥 1, 미세 칸 없음", () => {
+    expect(quantityStep("°C", "temperature")).toBe(0.1);
+    expect(quantityStep("", "temperature")).toBe(0.1);
+    expect(quantityExtraStep("°C", "temperature")).toBe(1);
+    expect(quantityFineStep("", "temperature")).toBeNull();
+  });
+});

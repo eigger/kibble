@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   eventDetailFields,
   formatEventDetailLine,
+  quantityPlaceholder,
   resolveEventUnit,
 } from "./eventDetailFields";
 
@@ -414,5 +415,33 @@ describe("eventDetailFields — multiProduct (§7.22)", () => {
     expect(eventDetailFields("care", null).multiProduct).toBe(false);
     expect(eventDetailFields("water", null).multiProduct).toBe(false);
     expect(eventDetailFields("vet_visit", null).multiProduct).toBe(false);
+  });
+});
+
+describe("eventDetailFields — temperature (§7.23)", () => {
+  it("값 한 칸(°C 고정) + 측정 방법 태그 + 체온계 연결, 직접 입력 없음", () => {
+    const f = eventDetailFields("temperature", null);
+    expect(f.quantity).toBe(true);
+    expect(f.quantityOffered).toBe(false);
+    expect(f.showUnitInput).toBe(false);
+    expect(f.productName).toBe(true);
+    expect(f.detailTags).toBe(true);
+    expect(f.productCustomInput).toBe(false);
+    expect(f.productNameLabelKey).toBe("eventDetailTemperatureMethod");
+    expect(f.defaultUnit).toBe("°C");
+    expect(f.quantityLabelKey).toBe("eventDetailTemperature");
+    expect(quantityPlaceholder("temperature", false)).toBe("38.5");
+  });
+});
+
+describe("eventDetailFields — rememberLastProduct (R149·§7.23)", () => {
+  it("이름 타입과 체온은 마지막 제품을 기억하고, 관리·태그 타입은 기억하지 않는다", () => {
+    expect(eventDetailFields("meal", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("supplement", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("remedy", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("temperature", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("care", null).rememberLastProduct).toBe(false);
+    expect(eventDetailFields("observation", null).rememberLastProduct).toBe(false);
+    expect(eventDetailFields("vomit", null).rememberLastProduct).toBe(false);
   });
 });

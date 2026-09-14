@@ -2,6 +2,8 @@
 
 export type EventDetailPrefs = {
   productName?: string | null;
+  /** 제품 연결. 없으면(undefined) 이 필드가 생기기 전 저장값 — 서버 lastProductId로 보충한다 */
+  productId?: string | null;
   quantity?: string;
   quantityOffered?: string;
   unit?: string;

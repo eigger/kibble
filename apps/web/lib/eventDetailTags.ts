@@ -84,7 +84,22 @@ const CARE_ENVIRONMENT: EventDetailTag[] = [
   { id: "furniture_move", labelKey: "eventTag.care.furniture_move", group: "environment" },
 ];
 
+/**
+ * 체온 측정 방법 — 종별로 다르지 않고 방법이 여럿이다(직장이 기준, 나머지는 보호자가 실제로
+ * 쓰는 방식). 값을 보정·해석하지는 않는다 (K-16). 한 번에 하나만 고른다 (§7.23)
+ */
+const TEMPERATURE_METHODS: EventDetailTag[] = [
+  { id: "rectal", labelKey: "eventTag.temperature.rectal" },
+  { id: "ear", labelKey: "eventTag.temperature.ear" },
+  { id: "axillary", labelKey: "eventTag.temperature.axillary" },
+  { id: "infrared", labelKey: "eventTag.temperature.infrared" },
+];
+
+/** 태그를 하나만 고르는 타입 — 측정 방법은 동시에 둘일 수 없다 */
+const EXCLUSIVE_TAG_TYPES = new Set(["temperature"]);
+
 export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
+  temperature: TEMPERATURE_METHODS,
   vomit: [
     { id: "hairball", labelKey: "eventTag.vomit.hairball" },
     { id: "blood", labelKey: "eventTag.vomit.blood" },
@@ -217,6 +232,8 @@ export function productNameFieldLabelKey(eventTypeKey: string | null | undefined
       return "eventDetailObservationSigns";
     case "care":
       return "eventDetailCareItems";
+    case "temperature":
+      return "eventDetailTemperatureMethod";
     default:
       return "eventDetailProductName";
   }
@@ -228,7 +245,7 @@ export function toggleProductNameTag(
   tagId: string,
 ): string[] {
   if (!knownTagIds(eventTypeKey).has(tagId)) return currentTagIds;
-  return currentTagIds.includes(tagId)
-    ? currentTagIds.filter((id) => id !== tagId)
-    : [...currentTagIds, tagId];
+  if (currentTagIds.includes(tagId)) return currentTagIds.filter((id) => id !== tagId);
+  if (eventTypeKey && EXCLUSIVE_TAG_TYPES.has(eventTypeKey)) return [tagId];
+  return [...currentTagIds, tagId];
 }

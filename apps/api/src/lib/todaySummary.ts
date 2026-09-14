@@ -27,6 +27,9 @@ export type TodaySummaryRow = {
   totals: TodayUnitTotal[];
   lastOccurredAt: string | null;
   lastScaleValue: number | null;
+  /** 오늘 마지막 기록의 양. 측정값(HEALTH + 단위 — 체중·체온)은 합계가 아니라 이것을 보여준다 (§7.23) */
+  lastQuantity: number | null;
+  lastQuantityUnit: string | null;
 };
 
 /**
@@ -90,7 +93,7 @@ export async function todaySummaryForPet(
 
   const typeIds = [...new Set(grouped.map((g) => g.eventTypeId))];
   // K-1: typeIds는 위 householdWhere 스코프 이벤트에서만 나온다. EventType은 시스템(householdId null) 또는 동일 가구 행만 FK로 연결된다.
-  const [types, scaleEvents] = await Promise.all([
+  const [types, scaleEvents, quantityEvents] = await Promise.all([
     db.eventType.findMany({
       where: { id: { in: typeIds } },
       select: {
@@ -109,6 +112,14 @@ export async function todaySummaryForPet(
       take: SCALE_LOOKBACK,
       select: { eventTypeId: true, scaleValue: true },
     }),
+    // 측정값용 — HEALTH 타입별 마지막 양(§7.23). 합계는 위 groupBy가 내고 화면이 카테고리로 가른다.
+    // 급여·급수는 자동 입력이 하루 수백 건일 수 있어 여기서 카테고리를 좁혀야 창(100건)이 안 밀린다
+    db.event.findMany({
+      where: { ...scope, quantity: { not: null }, eventType: { category: "HEALTH" } },
+      orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+      take: SCALE_LOOKBACK,
+      select: { eventTypeId: true, quantity: true, unit: true },
+    }),
   ]);
 
   const typeById = new Map(types.map((type) => [type.id, type]));
@@ -120,6 +131,13 @@ export async function todaySummaryForPet(
     if (!lastScaleByType.has(event.eventTypeId)) {
       lastScaleByType.set(event.eventTypeId, event.scaleValue);
     }
+  }
+
+  const lastQuantityByType = new Map<string, { quantity: number; unit: string | null }>();
+  for (const event of quantityEvents) {
+    const quantity = toNumber(event.quantity);
+    if (quantity == null || lastQuantityByType.has(event.eventTypeId)) continue;
+    lastQuantityByType.set(event.eventTypeId, { quantity, unit: event.unit ?? null });
   }
 
   type Accumulated = TodaySummaryRow & { sortOrder: number };
@@ -141,6 +159,9 @@ export async function todaySummaryForPet(
         totals: [],
         lastOccurredAt: null,
         lastScaleValue: lastScaleByType.get(group.eventTypeId) ?? null,
+        lastQuantity: lastQuantityByType.get(group.eventTypeId)?.quantity ?? null,
+        lastQuantityUnit:
+          lastQuantityByType.get(group.eventTypeId)?.unit ?? type.defaultUnit ?? null,
         sortOrder: type.sortOrder,
       };
       byType.set(group.eventTypeId, row);
