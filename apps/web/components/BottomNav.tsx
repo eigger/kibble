@@ -8,6 +8,7 @@ import { routePath } from "../lib/base-path";
 import { useAuth } from "../lib/auth-context";
 import { useLocale } from "../lib/i18n/locale-context";
 import { initBugReportCapture } from "../lib/bugReport";
+import { QUICK_MODE_TOGGLE_EVENT } from "../lib/routines";
 import type { TranslationKey } from "../lib/i18n/translations";
 import { BugReportModal } from "./BugReportModal";
 
@@ -93,6 +94,14 @@ function PresetMenuIcon() {
       <path d="M9 11v6" />
       <path d="M15 11v6" />
       <path d="M7 17h10" />
+    </svg>
+  );
+}
+
+function RoutineMenuIcon() {
+  return (
+    <svg {...iconProps()}>
+      <path d="M13 3 5 13h6l-1 8 8-10h-6z" />
     </svg>
   );
 }
@@ -211,6 +220,7 @@ const MORE_ROUTES = [
   "/backup",
   "/pets",
   "/presets",
+  "/routines",
   "/products",
   "/users",
   "/analytics",
@@ -276,6 +286,12 @@ export function BottomNav() {
             href={NAV_TAB_CENTER.href}
             className={`scan-tab ${pathname === NAV_TAB_CENTER.href ? "active" : ""}`}
             aria-current={pathname === NAV_TAB_CENTER.href ? "page" : undefined}
+            onClick={(e) => {
+              // 이미 기록 화면이면 이동 대신 칩 ↔ 루틴 토글 (§7.24). 루틴이 없으면 /q가 무시한다
+              if (pathname !== NAV_TAB_CENTER.href) return;
+              e.preventDefault();
+              window.dispatchEvent(new Event(QUICK_MODE_TOGGLE_EVENT));
+            }}
           >
             <span className="icon-wrap">
               <span className="icon">
@@ -346,6 +362,12 @@ export function BottomNav() {
                   <PresetMenuIcon />
                 </span>
                 {t("presetsManageLink")}
+              </button>
+              <button type="button" className="sheet-item" onClick={() => go("/routines")}>
+                <span className="sheet-item-icon">
+                  <RoutineMenuIcon />
+                </span>
+                {t("routinesTitle")}
               </button>
               <button type="button" className="sheet-item" onClick={() => go("/products")}>
                 <span className="sheet-item-icon">

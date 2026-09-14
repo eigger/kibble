@@ -18,6 +18,7 @@ import { prisma } from "./lib/prisma.js";
 import { petRoutes, onboardingRoutes } from "./routes/pets.js";
 import { householdRoutes } from "./routes/household.js";
 import { presetRoutes, eventTypeRoutes } from "./routes/presets.js";
+import { routineRoutes } from "./routes/routines.js";
 import { homeRoutes } from "./routes/home.js";
 import { careRoutes } from "./routes/care.js";
 import { eventRoutes } from "./routes/events.js";
@@ -127,6 +128,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(householdRoutes, { prefix: "/api/household" });
   await app.register(presetRoutes, { prefix: "/api/presets" });
   await app.register(eventTypeRoutes, { prefix: "/api/event-types" });
+  await app.register(routineRoutes, { prefix: "/api/routines" });
   await app.register(homeRoutes, { prefix: "/api/home" });
   await app.register(careRoutes, { prefix: "/api/care" });
   await app.register(productRoutes, { prefix: "/api/products" });

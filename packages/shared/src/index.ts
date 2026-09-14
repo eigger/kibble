@@ -3,6 +3,7 @@ export * from "./schemas/settings.js";
 export * from "./schemas/maps.js";
 export * from "./schemas/pet.js";
 export * from "./schemas/preset.js";
+export * from "./schemas/routine.js";
 export * from "./schemas/event.js";
 export * from "./schemas/apiToken.js";
 export * from "./schemas/care.js";

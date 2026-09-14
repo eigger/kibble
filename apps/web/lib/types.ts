@@ -49,9 +49,34 @@ export interface PresetDetail extends Omit<Preset, "eventType"> {
   eventType: { key: string; label: string; scaleType?: string | null };
 }
 
+/** 루틴 항목 — 이벤트 한 건이 될 값 (WORKPLAN §7.24) */
+export interface RoutineItem {
+  id: string;
+  sortOrder: number;
+  eventTypeId: string;
+  presetId: string | null;
+  productId: string | null;
+  productName: string | null;
+  quantity: number | null;
+  unit: string | null;
+  eventType: { key: string; label: string; category: string; defaultUnit: string | null };
+  preset: { id: string; label: string } | null;
+  product: { id: string; name: string } | null;
+}
+
+/** 루틴 — 누르면 항목 전부가 지금 시각으로 저장된다 */
+export interface Routine {
+  id: string;
+  petId: string;
+  label: string;
+  sortOrder: number;
+  items: RoutineItem[];
+}
+
 export interface EventTypeAliasesRow {
   key: string;
   label: string;
+  defaultUnit?: string | null;
   aliases: string[];
   systemAliases: string[];
   hasCustomAliases: boolean;

@@ -112,6 +112,29 @@ curl -sS -X POST "$BASE/api/pets" \
 curl -sS "$BASE/api/presets?petId=<pet-id>" -H "$AUTH"
 ```
 
+## 루틴
+
+미리 정한 값(사료 10g, 영양제 3종)을 1탭으로 저장하는 정의 (WORKPLAN §7.24). 세션 전용 — 정의의 CRUD만 있고, **저장은 항목마다 `POST /api/events`** 로 한다 (K-4).
+
+```bash
+curl -sS "$BASE/api/routines?petId=<pet-id>" -H "$AUTH"
+
+curl -sS -X POST "$BASE/api/routines" -H "$AUTH" -H "Content-Type: application/json" -d '{
+  "petId": "<pet-id>",
+  "label": "아침 밥",
+  "items": [
+    { "eventTypeId": "<meal-type-id>", "presetId": "<meal-preset-id>", "productId": "<product-id>", "quantity": 10, "unit": "g" },
+    { "eventTypeId": "<water-type-id>", "quantity": 5.5, "unit": "ml" }
+  ]
+}'
+
+# PATCH — items가 있으면 항목 전체를 바꾼다
+curl -sS -X PATCH "$BASE/api/routines/<id>" -H "$AUTH" -H "Content-Type: application/json" -d '{ "label": "저녁 밥" }'
+curl -sS -X DELETE "$BASE/api/routines/<id>" -H "$AUTH"
+```
+
+항목의 타입·칩·제품은 같은 가구·같은 반려동물 것이어야 한다(404). `medication` 타입은 받지 않는다 — 처방·회차가 끼어 1탭이 안 된다.
+
 ---
 
 ## 상태 조회 (역방향)
