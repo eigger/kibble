@@ -5,6 +5,14 @@ export type EventDetailPrefs = {
   quantity?: string;
   quantityOffered?: string;
   unit?: string;
+  /** 같이 준 둘째 제품부터 — 영양·사료·간식에서 지난 세트를 그대로 다시 연다 (§7.22) */
+  extraItems?: {
+    productId?: string | null;
+    productName?: string;
+    quantity?: string;
+    quantityOffered?: string;
+    unit?: string;
+  }[];
 };
 
 const PREFIX = "kibble_detail_prefs";

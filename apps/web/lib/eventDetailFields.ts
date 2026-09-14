@@ -15,6 +15,11 @@ export type EventDetailFieldFlags = {
   quantity: boolean;
   /** 단위 입력란 노출 (기본 단위만 쓰는 타입은 false) */
   showUnitInput: boolean;
+  /**
+   * 등록 제품을 여러 개 골라 항목마다 양·단위를 적고 이벤트 N건을 같은 `entryId`로 만든다 (§7.22).
+   * 영양·사료·간식만 — 상비는 처방·투약 축과 얽혀 따로 본다.
+   */
+  multiProduct: boolean;
   fecalScale: boolean;
   scale3: boolean;
   note: boolean;
@@ -42,6 +47,7 @@ const NOTE_ONLY: EventDetailFieldFlags = {
   quantityOffered: false,
   quantity: false,
   showUnitInput: false,
+  multiProduct: false,
   fecalScale: false,
   scale3: false,
   note: true,
@@ -131,6 +137,7 @@ export function eventDetailFields(
       quantityOffered: key === "meal",
       quantity: true,
       showUnitInput: true,
+      multiProduct: key !== "remedy",
       fecalScale: false,
       scale3: false,
       note: true,
@@ -163,6 +170,7 @@ export function eventDetailFields(
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
+      multiProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -185,6 +193,7 @@ export function eventDetailFields(
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
+      multiProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -207,6 +216,7 @@ export function eventDetailFields(
       quantityOffered: false,
       quantity: true,
       showUnitInput: false,
+      multiProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,

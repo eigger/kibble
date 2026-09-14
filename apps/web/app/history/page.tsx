@@ -28,7 +28,7 @@ import {
 import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgroundUpload";
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
 import { useVideoPosterRefresh } from "../../lib/useVideoPosterRefresh";
-import { fetchTimelinePage } from "../../lib/timeline";
+import { fetchTimelinePage, isGroupedWithPrevious } from "../../lib/timeline";
 import type { EventAttachment } from "../../lib/types";
 
 interface HistoryBootstrap {
@@ -533,12 +533,13 @@ export default function HistoryPage() {
               <div key={group.dayKey} className="history-day-group">
                 <h2 className="history-day-heading">{group.label}</h2>
                 <ul className="timeline-list">
-                  {group.items.map((event) => {
+                  {group.items.map((event, index) => {
+                    const grouped = isGroupedWithPrevious(group.items, index);
                     return (
                       <li
                         key={event.id}
                         id={`event-${event.id}`}
-                        className={`timeline-row${highlightEventId === event.id ? " timeline-row-highlight" : ""}`}
+                        className={`timeline-row${highlightEventId === event.id ? " timeline-row-highlight" : ""}${grouped ? " timeline-row-grouped" : ""}`}
                       >
                         <div
                           className="timeline-item timeline-item-clickable"
@@ -552,7 +553,7 @@ export default function HistoryPage() {
                           }}
                         >
                           <time className="timeline-time" dateTime={event.occurredAt}>
-                            {formatEventTime(event.occurredAt, locale)}
+                            {grouped ? "" : formatEventTime(event.occurredAt, locale)}
                           </time>
                           <TimelineEventBody event={event}>
                             {(event.attachments?.length ?? 0) > 0 && (

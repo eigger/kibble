@@ -9,6 +9,7 @@ import { formatDoseTime, insertTimelineEvent, intlLocale, resolveDoseTimeOccurre
 import { apiJson } from "../../lib/api";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
+import { isGroupedWithPrevious } from "../../lib/timeline";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import type { TranslationKey } from "../../lib/i18n/translations";
@@ -25,7 +26,11 @@ import {
   MedicationDoseSlotPickSheet,
   pendingDoseSlots,
 } from "../../components/MedicationDoseSlotPickSheet";
-import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
+import {
+  EventDetailSheet,
+  type EventDetailDraft,
+  type EventDetailSaveMeta,
+} from "../../components/EventDetailSheet";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PresetChip } from "../../components/PresetChip";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
@@ -57,10 +62,21 @@ interface QuickHomePayload {
 
 const QUICK_RECENT_COUNT = 5;
 
-function newDedupeKey(petId: string, presetId: string): string {
+function randomSuffix(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
-  const suffix = uuid ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  return `quick:${petId}:${presetId}:${suffix}`;
+  return uuid ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function newDedupeKey(petId: string, presetId: string): string {
+  return `quick:${petId}:${presetId}:${randomSuffix()}`;
+}
+
+/**
+ * 여러 제품을 한 번에 기록할 때 이벤트들을 묶는 id (§7.22). 시트를 열 때 정해 두어야
+ * 저장이 중간에 실패해 다시 눌러도 같은 묶음으로 들어간다 — 이벤트가 하나면 보내지 않는다.
+ */
+function newEntryId(): string {
+  return `entry:${randomSuffix()}`;
 }
 
 function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
@@ -74,6 +90,7 @@ function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
     unit: event.unit,
     scaleValue: event.scaleValue ?? null,
     productName: event.productName ?? null,
+    entryId: event.entryId ?? null,
     costKrw: event.costKrw ?? null,
     contact: event.contact ?? null,
     course: event.course ?? null,
@@ -248,6 +265,7 @@ export default function QuickRecordPage() {
       scaleType: preset.eventType?.scaleType ?? null,
       scaleValue: null,
       dedupeKey: newDedupeKey(pet.id, preset.id),
+      entryId: newEntryId(),
       medicationCourseId: options?.medicationCourseId ?? null,
       doseSlotIndex: options?.doseSlotIndex ?? null,
     });
@@ -281,10 +299,7 @@ export default function QuickRecordPage() {
     });
   }
 
-  async function handleDetailSave(
-    draft: EventDetailDraft,
-    meta: { removedAttachmentIds: string[] },
-  ) {
+  async function handleDetailSave(draft: EventDetailDraft, meta: EventDetailSaveMeta) {
     // 오프라인 큐 항목에는 소유자가 필요하다 — 세션이 없으면 저장 자체를 하지 않는다.
     if (!user) return;
 
@@ -295,53 +310,106 @@ export default function QuickRecordPage() {
     try {
       if (!draft.eventId && draft.mode === "create") {
         const preset = presets.find((p) => p.id === draft.presetId);
-        const outcome = await createEventWithOfflineFallback({
-          userId: user.id,
-          labelKey: preset?.label ?? draft.label,
-          attachments: filesToUpload,
-          body: {
-            petId: draft.petId,
-            presetId: draft.presetId ?? undefined,
-            source: "QUICK",
-            dedupeKey: draft.dedupeKey,
-            occurredAt: draft.occurredAt,
-            quantity: draft.quantity ?? undefined,
-            quantityOffered: draft.quantityOffered ?? undefined,
-            unit: draft.unit ?? undefined,
-            productId: draft.productId ?? undefined,
-            productName: draft.productName ?? undefined,
-            clinicName: draft.clinicName ?? undefined,
-            clinicAddress: draft.clinicAddress ?? undefined,
-            clinicLatitude: draft.clinicLatitude ?? undefined,
-            clinicLongitude: draft.clinicLongitude ?? undefined,
-            clinicPlaceUrl: draft.clinicPlaceUrl ?? undefined,
-            costKrw: draft.costKrw ?? undefined,
-            note: draft.note ?? undefined,
-            scaleValue: draft.scaleValue ?? undefined,
-            medicationCourseId: draft.medicationCourseId ?? undefined,
-            doseSlotIndex: draft.doseSlotIndex ?? undefined,
-          },
-        });
+        const labelKey = preset?.label ?? draft.label;
+        const extras = meta.extraItems;
+        // 제품이 둘 이상이면 이벤트도 그만큼 — 같은 entryId로 묶는다 (§7.22). 하나면 지금과 같다
+        const entryId = extras.length > 0 ? draft.entryId : undefined;
+        const shared = {
+          petId: draft.petId,
+          presetId: draft.presetId ?? undefined,
+          source: "QUICK" as const,
+          occurredAt: draft.occurredAt,
+          entryId,
+        };
 
-        if (outcome.status === "queued") {
-          show(t("offlineQueuedToast"), "info");
-          setDetailOpen(false);
-          setDetailDraft(null);
-          setDetailAttachments([]);
-          setDetailPendingFiles([]);
-          return;
+        // 둘째 제품부터 **먼저**, 첫 제품은 마지막에 만든다. 타임라인은 같은 시각이면 id 내림차순
+        // (나중 것이 위)이라 이렇게 해야 시트에 보이던 순서(첫 제품 · 메모 · 첨부가 맨 위)로 읽힌다.
+        // 메모·첨부는 첫 건에만. dedupeKey는 항목별이라 중간에 끊겨 다시 눌러도 이미 들어간 건은 그대로 돌아온다.
+        const created: CreatedEvent[] = [];
+        let queued = false;
+        // 하나라도 만들어졌으면 실패해도 타임라인에는 넣는다 — 서버에 이미 있는 것을 화면만 모르면 안 된다
+        const flushCreated = () => {
+          if (created.length === 0) return;
+          setRecentEvents((prev) =>
+            created.reduce((acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)), prev),
+          );
+        };
+
+        try {
+          for (let i = extras.length - 1; i >= 0; i -= 1) {
+            const item = extras[i];
+            const extraOutcome = await createEventWithOfflineFallback({
+              userId: user.id,
+              labelKey,
+              body: {
+                ...shared,
+                dedupeKey: draft.dedupeKey ? `${draft.dedupeKey}:${i + 1}` : undefined,
+                quantity: item.quantity ?? undefined,
+                quantityOffered: item.quantityOffered ?? undefined,
+                unit: item.unit ?? undefined,
+                productId: item.productId ?? undefined,
+                productName: item.productName || undefined,
+              },
+            });
+            if (extraOutcome.status === "queued") queued = true;
+            else created.push(extraOutcome.event);
+          }
+        } catch (err) {
+          flushCreated();
+          throw err;
         }
 
-        const event = outcome.event;
+        let outcome;
+        try {
+          outcome = await createEventWithOfflineFallback({
+            userId: user.id,
+            labelKey,
+            attachments: filesToUpload,
+            body: {
+              ...shared,
+              dedupeKey: draft.dedupeKey,
+              quantity: draft.quantity ?? undefined,
+              quantityOffered: draft.quantityOffered ?? undefined,
+              unit: draft.unit ?? undefined,
+              productId: draft.productId ?? undefined,
+              productName: draft.productName ?? undefined,
+              clinicName: draft.clinicName ?? undefined,
+              clinicAddress: draft.clinicAddress ?? undefined,
+              clinicLatitude: draft.clinicLatitude ?? undefined,
+              clinicLongitude: draft.clinicLongitude ?? undefined,
+              clinicPlaceUrl: draft.clinicPlaceUrl ?? undefined,
+              costKrw: draft.costKrw ?? undefined,
+              note: draft.note ?? undefined,
+              scaleValue: draft.scaleValue ?? undefined,
+              medicationCourseId: draft.medicationCourseId ?? undefined,
+              doseSlotIndex: draft.doseSlotIndex ?? undefined,
+            },
+          });
+        } catch (err) {
+          flushCreated();
+          throw err;
+        }
+        if (outcome.status === "queued") queued = true;
+        else created.push(outcome.event);
+
         // 첨부보다 먼저 타임라인에 넣는다 — 업로드는 뒤에서 돌고, 끝나면
         // kibble-attachments-uploaded로 썸네일을 붙인다.
-        setRecentEvents((prev) => insertTimelineEvent(prev, createdEventToTimeline(event)));
+        flushCreated();
         setDetailOpen(false);
         setDetailDraft(null);
         setDetailAttachments([]);
         setDetailPendingFiles([]);
-        show(t("eventDetailCreated"), "success");
-        startBackgroundUpload(event.id, filesToUpload);
+        if (queued) {
+          show(t("offlineQueuedToast"), "info");
+        } else {
+          show(
+            created.length > 1
+              ? t("eventDetailCreatedMany", { count: created.length })
+              : t("eventDetailCreated"),
+            "success",
+          );
+        }
+        if (outcome.status === "created") startBackgroundUpload(outcome.event.id, filesToUpload);
         return;
       }
 
@@ -478,9 +546,10 @@ export default function QuickRecordPage() {
           <p className="meta timeline-empty">{t("quickRecordEmpty")}</p>
         ) : (
           <ul className="timeline-list">
-            {previewEvents.map((event) => {
+            {previewEvents.map((event, index) => {
+              const grouped = isGroupedWithPrevious(previewEvents, index);
               return (
-                <li key={event.id} className="timeline-row">
+                <li key={event.id} className={`timeline-row${grouped ? " timeline-row-grouped" : ""}`}>
                   <div
                     className="timeline-item timeline-item-clickable"
                     role="button"
@@ -493,7 +562,7 @@ export default function QuickRecordPage() {
                     }}
                   >
                     <time className="timeline-time" dateTime={event.occurredAt}>
-                      {formatEventTime(event.occurredAt, locale)}
+                      {grouped ? "" : formatEventTime(event.occurredAt, locale)}
                     </time>
                     <TimelineEventBody event={event}>
                       {(event.attachments?.length ?? 0) > 0 && (

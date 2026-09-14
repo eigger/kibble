@@ -2549,6 +2549,32 @@ button:disabled {
   border-bottom: none;
 }
 
+/* 같은 entryId로 한 번에 만든 행(여러 제품 동시 기록, §7.22)은 위 행에 붙인다 — 시각은 위 행이
+   말했고, 구분선을 지워 한 묶음으로 읽히게 한다. 행 자체는 그대로라 수정·삭제는 건별이다. */
+.timeline-list > li.timeline-row-grouped {
+  border-top: none;
+  margin-top: -6px;
+}
+
+.timeline-row-grouped .timeline-time {
+  position: relative;
+}
+
+.timeline-row-grouped .timeline-time::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 14px;
+  width: 6px;
+  height: 6px;
+  border-left: 1.5px solid var(--color-border);
+  border-bottom: 1.5px solid var(--color-border);
+}
+
+.timeline-list > li:has(+ li.timeline-row-grouped) {
+  border-bottom: none;
+}
+
 .timeline-row-actions {
   display: flex;
   flex-direction: row;
@@ -5188,6 +5214,75 @@ th {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+}
+
+/* 같이 준 둘째 제품부터 — 제품마다 양·단위 한 묶음. 첫 제품은 시트의 기본 칸이다 (§7.22) */
+.event-detail-extra-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: 12px;
+}
+
+.event-detail-extra-item {
+  padding: 4px 12px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.event-detail-extra-item .field-label {
+  margin-top: 8px;
+}
+
+.event-detail-extra-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 32px;
+}
+
+.event-detail-extra-item-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-detail-extra-item-remove {
+  position: relative;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* 44px 터치 타깃은 보이지 않는 ::before가 확보한다 (.chip-info-btn과 같은 방식) */
+.event-detail-extra-item-remove::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.event-detail-extra-item-remove:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .chip-info-btn {

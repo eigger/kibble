@@ -50,8 +50,31 @@ import {
   quantityStepperSteps,
 } from "../lib/quantityStep";
 
+/**
+ * 같이 준 제품 한 항목 — 첫 제품은 시트의 기본 칸(제품·양·단위)이 맡고, 둘째부터 이 배열이다.
+ * 저장하면 항목마다 이벤트 한 건이 되고 같은 `entryId`로 묶인다 (§7.22).
+ */
+export interface ExtraProductItem {
+  productId: string | null;
+  productName: string;
+  dosage: string | null;
+  quantity: string;
+  quantityOffered: string;
+  unit: string;
+}
+
+export interface ExtraProductSave {
+  productId: string | null;
+  productName: string;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+}
+
 export interface EventDetailSaveMeta {
   removedAttachmentIds: string[];
+  /** 둘째 제품부터 — create 모드의 영양·사료·간식에서만 채워진다 */
+  extraItems: ExtraProductSave[];
 }
 
 export interface EventDetailDraft {
@@ -131,13 +154,50 @@ export type ActiveProductSuggestion = {
   isActive: boolean;
 };
 
+type LastProductItem = {
+  productId: string | null;
+  productName: string | null;
+  dosage: string | null;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+};
+
 type ProductSuggestions = {
   lastProduct: string | null;
   lastProductId: string | null;
   lastProductDosage?: string | null;
+  /** 마지막 묶음의 항목들 — 첫 항목이 `lastProduct*`와 같다 */
+  lastItems?: LastProductItem[];
   activeProducts: ActiveProductSuggestion[];
   frequent: { productName: string; count: number }[];
 };
+
+function numberToInput(value: number | null | undefined): string {
+  return value != null ? String(value) : "";
+}
+
+/** 같은 제품이 두 번 오면(파싱으로 같은 제품 두 줄) 첫 것만 — 칩 토글·키가 제품 id 기준이라 */
+function dedupeExtras(items: ExtraProductItem[]): ExtraProductItem[] {
+  const seen = new Set<string>();
+  return items.filter((x) => {
+    if (!x.productId) return true;
+    if (seen.has(x.productId)) return false;
+    seen.add(x.productId);
+    return true;
+  });
+}
+
+function lastItemToExtra(item: LastProductItem): ExtraProductItem {
+  return {
+    productId: item.productId,
+    productName: item.productName ?? "",
+    dosage: item.dosage,
+    quantity: numberToInput(item.quantity),
+    quantityOffered: numberToInput(item.quantityOffered),
+    unit: item.unit ?? "",
+  };
+}
 
 type ClinicPlace = {
   name: string;
@@ -298,6 +358,7 @@ export function EventDetailSheet({
   const [occurredLocal, setOccurredLocal] = useState("");
   const [productId, setProductId] = useState<string | null>(null);
   const [productDosage, setProductDosage] = useState<string | null>(null);
+  const [extraItems, setExtraItems] = useState<ExtraProductItem[]>([]);
   const [activeProducts, setActiveProducts] = useState<ActiveProductSuggestion[]>([]);
   const [popupProduct, setPopupProduct] = useState<Product | null>(null);
   const [productName, setProductName] = useState("");
@@ -345,6 +406,8 @@ export function EventDetailSheet({
   const qtyUnit = unit || fields.defaultUnit;
   const qtySteps = quantityStepperSteps(qtyUnit, draft?.eventTypeKey);
   const qtyExtraStep = quantityExtraStep(qtyUnit, draft?.eventTypeKey);
+  // 여러 제품은 새 기록에서만 — 이미 저장된 행은 각자 한 제품이라 그 행만 고친다
+  const multiProduct = fields.multiProduct && draft?.mode === "create";
 
   function formatQtyStep(step: number, steps: number[]): string {
     if (step === 10000) return t("qtyStep10000");
@@ -372,15 +435,54 @@ export function EventDetailSheet({
 
   function selectActiveProduct(item: ActiveProductSuggestion) {
     if (productId === item.id) {
+      // 첫 제품을 빼면 둘째가 첫 칸으로 올라온다 — 값(양·단위)도 같이 옮겨서 칸이 비지 않는다
+      const [next, ...rest] = extraItems;
+      if (multiProduct && next) {
+        setProductId(next.productId);
+        setProductDosage(next.dosage);
+        setProductName(next.productName);
+        setQuantity(next.quantity);
+        setQuantityOffered(next.quantityOffered);
+        setUnit(next.unit);
+        setExtraItems(rest);
+        return;
+      }
       setProductId(null);
       setProductDosage(null);
       if (!fields.detailTags) setProductName("");
-    } else {
-      setProductId(item.id);
-      setProductDosage(item.dosage ?? null);
-      // 태그 타입(관리)은 productName이 slug 목록이라 제품 이름을 쓰지 않는다 — 태그는 그대로 (§7.20)
-      if (!fields.detailTags) applyStoredProductName(item.name);
+      return;
     }
+    if (multiProduct && extraItems.some((x) => x.productId === item.id)) {
+      setExtraItems((prev) => prev.filter((x) => x.productId !== item.id));
+      return;
+    }
+    // 첫 칸이 차 있으면 둘째 이후로 붙는다. 첫 칸의 양·단위는 그대로 — 각 제품의 양은 따로다 (§7.22)
+    if (multiProduct && (productId || productName.trim())) {
+      setExtraItems((prev) => [
+        ...prev,
+        {
+          productId: item.id,
+          productName: item.name,
+          dosage: item.dosage ?? null,
+          quantity: "",
+          quantityOffered: "",
+          unit: "",
+        },
+      ]);
+      return;
+    }
+    setProductId(item.id);
+    setProductDosage(item.dosage ?? null);
+    // 태그 타입(관리)은 productName이 slug 목록이라 제품 이름을 쓰지 않는다 — 태그는 그대로 (§7.20)
+    if (!fields.detailTags) applyStoredProductName(item.name);
+  }
+
+  function updateExtraItem(index: number, patch: Partial<ExtraProductItem>) {
+    setExtraItems((prev) => prev.map((x, i) => (i === index ? { ...x, ...patch } : x)));
+  }
+
+  function removeExtraItem(index: number) {
+    setExtraItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleOpenProductPopup(targetIdInput?: string | null) {
@@ -421,6 +523,7 @@ export function EventDetailSheet({
       },
       fields.detailTags,
     );
+    setExtraItems([]);
     setFrequentProducts([]);
     setFrequentClinics([]);
     setClinicSearchOpen(false);
@@ -434,6 +537,21 @@ export function EventDetailSheet({
         if (prefs.quantityOffered) setQuantityOffered(prefs.quantityOffered);
         if (prefs.quantity) setQuantity(prefs.quantity);
         if (prefs.unit) setUnit(prefs.unit);
+        // 지난 세트의 둘째 이후. 복용법 힌트는 서버 제품 목록이 오면 붙는다
+        if (fields.multiProduct && !draft.productName?.trim() && prefs.extraItems?.length) {
+          setExtraItems(
+            dedupeExtras(
+              prefs.extraItems.map((x) => ({
+                productId: x.productId ?? null,
+                productName: x.productName ?? "",
+                dosage: null,
+                quantity: x.quantity ?? "",
+                quantityOffered: x.quantityOffered ?? "",
+                unit: x.unit ?? "",
+              })),
+            ),
+          );
+        }
       }
     }
   }, [open, syncKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -466,6 +584,34 @@ export function EventDetailSheet({
             } else if (data.lastProduct) {
               applyStoredProductName(data.lastProduct);
             }
+            // 이 기기에 저장값이 없으면 지난 세트(양·단위까지)를 서버에서 그대로 연다 (§7.22).
+            // 응답이 오기 전에 사용자가 칩을 골랐으면 그쪽이 우선 — 덮어쓰지 않는다
+            const [first, ...rest] = data.lastItems ?? [];
+            if (fields.multiProduct && first) {
+              if (first.quantity != null) setQuantity(numberToInput(first.quantity));
+              if (first.quantityOffered != null) setQuantityOffered(numberToInput(first.quantityOffered));
+              if (first.unit) setUnit(first.unit);
+              // 첫 칸에 들어간 제품이 둘째 이후에도 있으면 걷어낸다 — 로컬 prefs가 둘째만 기억한 경우
+              const primaryId = data.lastProductId ?? first.productId;
+              setExtraItems((prev) =>
+                dedupeExtras(prev.length > 0 ? prev : rest.map(lastItemToExtra)).filter(
+                  (x) => !x.productId || x.productId !== primaryId,
+                ),
+              );
+            }
+          } else if (fields.multiProduct && prefs.extraItems === undefined) {
+            // 이 기능 전에 저장된 로컬값(첫 제품만) — 서버의 지난 세트가 같은 제품으로 시작하면
+            // 둘째 이후를 거기서 가져온다. 다른 제품이면 로컬값을 존중해 한 제품으로 둔다
+            const [first, ...rest] = data.lastItems ?? [];
+            if (first && rest.length > 0 && first.productName === prefs.productName) {
+              setExtraItems((prev) => (prev.length > 0 ? prev : dedupeExtras(rest.map(lastItemToExtra))));
+            }
+          } else if (fields.multiProduct && prefs.extraItems?.length) {
+            // 로컬 저장값의 둘째 이후에 복용법 힌트를 서버 제품 목록에서 붙인다
+            const dosageById = new Map((data.activeProducts ?? []).map((p) => [p.id, p.dosage ?? null]));
+            setExtraItems((prev) =>
+              prev.map((x) => (x.productId ? { ...x, dosage: dosageById.get(x.productId) ?? x.dosage } : x)),
+            );
           }
         }
       })
@@ -715,7 +861,54 @@ export function EventDetailSheet({
       ordinal = parsed.value != null ? Math.round(parsed.value) : null;
     }
 
-    const savedProductName = fields.productName ? resolvedProductName() || null : null;
+    let savedProductName = fields.productName ? resolvedProductName() || null : null;
+    let savedProductId = productId;
+    let unitForSave = unit;
+
+    // 둘째 제품부터 — 제품도 이름도 없는 빈 줄은 조용히 버린다 (K-12). 숫자가 아닌 양만 막는다
+    const extras: ExtraProductSave[] = [];
+    if (multiProduct) {
+      // 첫 칸과 같은 제품이 둘째 이후에도 있으면 한 번만 — 같은 제품이 두 건 저장되지 않게
+      let items = extraItems.filter(
+        (x) => (x.productId || x.productName.trim()) && !(x.productId && x.productId === savedProductId),
+      );
+      // 첫 칸이 비었는데(제품·이름·양 전부 없음) 둘째가 있으면 둘째를 첫 칸으로 올린다 —
+      // 안 그러면 내용 없는 이벤트가 한 건 앞에 붙는다
+      if (!savedProductId && !savedProductName && consumed == null && offered == null && items.length > 0) {
+        const [first, ...rest] = items;
+        const qty = parseOptionalNumber(first.quantity);
+        const off = fields.quantityOffered
+          ? parseOptionalNumber(first.quantityOffered)
+          : { ok: true as const, value: null };
+        if (!qty.ok || !off.ok) {
+          onValidationError(t("eventDetailQuantityInvalid"));
+          return;
+        }
+        savedProductId = first.productId;
+        savedProductName = first.productName.trim() || null;
+        consumed = qty.value;
+        offered = fields.quantityOffered ? off.value : null;
+        unitForSave = first.unit;
+        items = rest;
+      }
+      for (const item of items) {
+        const qty = parseOptionalNumber(item.quantity);
+        const off = fields.quantityOffered
+          ? parseOptionalNumber(item.quantityOffered)
+          : { ok: true as const, value: null };
+        if (!qty.ok || !off.ok) {
+          onValidationError(t("eventDetailQuantityInvalid"));
+          return;
+        }
+        extras.push({
+          productId: item.productId,
+          productName: item.productName.trim(),
+          quantity: qty.value,
+          quantityOffered: fields.quantityOffered ? off.value : null,
+          unit: resolveEventUnit(fields, item.unit),
+        });
+      }
+    }
 
     onSave(
       {
@@ -723,8 +916,8 @@ export function EventDetailSheet({
         occurredAt,
         quantityOffered: fields.quantityOffered ? offered : null,
         quantity: fields.quantity ? consumed : null,
-        unit: resolveEventUnit(fields, unit),
-        productId: fields.productName ? productId : null,
+        unit: resolveEventUnit(fields, unitForSave),
+        productId: fields.productName ? savedProductId : null,
         productName: savedProductName,
         clinicName: fields.clinicName ? clinicName.trim() || null : null,
         clinicAddress: fields.clinicAddress ? clinicAddress.trim() || null : null,
@@ -737,15 +930,27 @@ export function EventDetailSheet({
         doseOrdinal: ordinal,
         needsReview: false,
       },
-      { removedAttachmentIds },
+      { removedAttachmentIds, extraItems: extras },
     );
 
     if (draft.petId && draft.eventTypeKey) {
+      // 저장한 값 그대로 기억한다 — 첫 칸이 승격됐으면 승격된 뒤의 모양이다
       saveEventDetailPrefs(draft.petId, draft.eventTypeKey, {
         productName: savedProductName,
-        quantity: fields.quantity ? quantity : undefined,
-        quantityOffered: fields.quantityOffered ? quantityOffered : undefined,
-        unit: fields.showUnitInput ? unit : undefined,
+        quantity: fields.quantity ? numberToInput(consumed) : undefined,
+        quantityOffered: fields.quantityOffered ? numberToInput(offered) : undefined,
+        unit: fields.showUnitInput ? unitForSave : undefined,
+        ...(fields.multiProduct
+          ? {
+              extraItems: extras.map((x) => ({
+                productId: x.productId,
+                productName: x.productName,
+                quantity: numberToInput(x.quantity),
+                quantityOffered: numberToInput(x.quantityOffered),
+                unit: x.unit ?? "",
+              })),
+            }
+          : {}),
       });
     }
   }
@@ -996,10 +1201,14 @@ export function EventDetailSheet({
                   )}
                   {activeProducts.length > 0 && (
                     <div className="product-registered-section">
-                      <span className="event-detail-chip-hint">{t("productSelectRegistered")}</span>
+                      <span className="event-detail-chip-hint">
+                        {t(multiProduct ? "productSelectRegisteredMulti" : "productSelectRegistered")}
+                      </span>
                       <div className="product-quick-chips-row">
                         {activeProducts.map((p) => {
-                          const isSelected = productId === p.id;
+                          const isSelected =
+                            productId === p.id ||
+                            (multiProduct && extraItems.some((x) => x.productId === p.id));
                           return (
                             <div key={p.id} className="product-quick-chip-wrap">
                               <button
@@ -1248,6 +1457,94 @@ export function EventDetailSheet({
                     onChange={(e) => setUnit(e.target.value)}
                   />
                 </>
+              )}
+
+              {multiProduct && extraItems.length > 0 && (
+                <div className="event-detail-extra-items">
+                  <span className="event-detail-chip-hint">{t("eventDetailExtraItemsHint")}</span>
+                  {extraItems.map((item, index) => {
+                    const itemUnit = item.unit || fields.defaultUnit;
+                    const itemSteps = quantityStepperSteps(itemUnit, draft.eventTypeKey);
+                    const itemExtraStep = quantityExtraStep(itemUnit, draft.eventTypeKey);
+                    const key = `${item.productId ?? "custom"}-${index}`;
+                    return (
+                      <div key={key} className="event-detail-extra-item">
+                        <div className="event-detail-extra-item-head">
+                          <span className="event-detail-extra-item-name">{item.productName}</span>
+                          <button
+                            type="button"
+                            className="event-detail-extra-item-remove"
+                            aria-label={t("eventDetailExtraItemRemove", { name: item.productName })}
+                            title={t("eventDetailExtraItemRemove", { name: item.productName })}
+                            disabled={busy}
+                            onClick={() => removeExtraItem(index)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {item.dosage && (
+                          <div className="product-dosage-hint">
+                            <span className="dosage-icon">
+                              <LightbulbIcon size={13} />
+                            </span>
+                            <span className="dosage-text">{t("productDetailDosageHint", { dosage: item.dosage })}</span>
+                          </div>
+                        )}
+                        <div className="event-detail-qty-row">
+                          {fields.quantityOffered && (
+                            <div>
+                              <label className="field-label" htmlFor={`event-extra-${index}-offered`}>
+                                {t(fields.quantityOfferedLabelKey)}
+                              </label>
+                              <QuantityStepper
+                                id={`event-extra-${index}-offered`}
+                                value={item.quantityOffered}
+                                onChange={(v) => updateExtraItem(index, { quantityOffered: v })}
+                                steps={itemSteps}
+                                extraStep={itemExtraStep}
+                                disabled={busy}
+                                placeholder="100"
+                                decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                                increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityOfferedLabelKey) })}
+                                formatStep={formatQtyStep}
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <label className="field-label" htmlFor={`event-extra-${index}-qty`}>
+                              {t(fields.quantityLabelKey)}
+                            </label>
+                            <QuantityStepper
+                              id={`event-extra-${index}-qty`}
+                              value={item.quantity}
+                              onChange={(v) => updateExtraItem(index, { quantity: v })}
+                              steps={itemSteps}
+                              extraStep={itemExtraStep}
+                              disabled={busy}
+                              placeholder={quantityPlaceholder(draft.eventTypeKey, fields.quantityOffered)}
+                              decreaseLabel={t("qtyDecreaseField", { field: t(fields.quantityLabelKey) })}
+                              increaseLabel={t("qtyIncreaseField", { field: t(fields.quantityLabelKey) })}
+                              formatStep={formatQtyStep}
+                            />
+                          </div>
+                        </div>
+                        <label className="field-label" htmlFor={`event-extra-${index}-unit`}>
+                          {t("eventDetailUnit")}
+                        </label>
+                        <input
+                          id={`event-extra-${index}-unit`}
+                          type="text"
+                          className="event-detail-unit"
+                          placeholder={fields.defaultUnit ?? "g"}
+                          maxLength={32}
+                          value={item.unit}
+                          disabled={busy}
+                          onChange={(e) => updateExtraItem(index, { unit: e.target.value })}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
               {isObservation && renderScale3Field()}

@@ -49,3 +49,18 @@ export async function fetchTimelinePage(
     timelineEventsPath(petId, cursor, limit, period, eventTypeKey, medicationCourseId),
   );
 }
+
+/**
+ * 같은 `entryId`로 한 번에 만들어진 이벤트가 바로 위 행에 이어지는지 — 여러 제품을 한 번에
+ * 먹인 기록(§7.22)이나 텍스트 한 줄에서 나온 여러 건은 시각을 반복하지 않고 위 행에 붙인다.
+ * 행은 그대로 행이다(수정·삭제는 건별). 표시만 붙인다.
+ */
+export function isGroupedWithPrevious(
+  events: readonly { entryId?: string | null }[],
+  index: number,
+): boolean {
+  if (index <= 0) return false;
+  const entryId = events[index]?.entryId;
+  if (!entryId) return false;
+  return events[index - 1]?.entryId === entryId;
+}

@@ -167,6 +167,8 @@ export interface CreatedEvent {
   unit: string | null;
   scaleValue?: number | null;
   productName: string | null;
+  /** 한 번에 만든 여러 이벤트를 묶는 id — 텍스트 파싱, 여러 제품 동시 기록 (§7.22) */
+  entryId?: string | null;
   costKrw: number | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;
@@ -285,6 +287,8 @@ export interface TimelineEvent {
   productId?: string | null;
   product?: Product | null;
   productName: string | null;
+  /** 한 번에 만든 여러 이벤트를 묶는 id — 텍스트 파싱, 여러 제품 동시 기록 (§7.22) */
+  entryId?: string | null;
   costKrw: number | null;
   note: string | null;
   createdBy?: { id: string; name: string } | null;

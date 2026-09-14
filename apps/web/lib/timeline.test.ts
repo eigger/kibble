@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
-import { timelineEventsPath } from "./timeline";
+import { isGroupedWithPrevious, timelineEventsPath } from "./timeline";
 
 vi.mock("./api", () => ({
   apiJson: vi.fn(),
@@ -43,5 +43,22 @@ describe("timelineEventsPath — 종류 필터", () => {
     expect(path).toContain("eventTypeKey=poop");
     expect(path).toContain("period=2026-09");
     expect(path).toContain("beforeId=e1");
+  });
+});
+
+describe("isGroupedWithPrevious — 같은 entryId의 연속 행 (§7.22)", () => {
+  it("첫 행·entryId 없는 행은 묶이지 않는다", () => {
+    const rows = [{ entryId: "a" }, { entryId: null }, { entryId: undefined }];
+    expect(isGroupedWithPrevious(rows, 0)).toBe(false);
+    expect(isGroupedWithPrevious(rows, 1)).toBe(false);
+    expect(isGroupedWithPrevious(rows, 2)).toBe(false);
+  });
+
+  it("바로 위 행과 entryId가 같을 때만 묶인다", () => {
+    const rows = [{ entryId: "a" }, { entryId: "a" }, { entryId: "b" }, { entryId: "a" }];
+    expect(isGroupedWithPrevious(rows, 1)).toBe(true);
+    expect(isGroupedWithPrevious(rows, 2)).toBe(false);
+    // 사이에 다른 기록이 끼면 다시 시각을 보여준다
+    expect(isGroupedWithPrevious(rows, 3)).toBe(false);
   });
 });
