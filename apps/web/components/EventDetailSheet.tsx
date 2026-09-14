@@ -534,6 +534,11 @@ export function EventDetailSheet({
       const prefs = loadEventDetailPrefs(draft.petId, draft.eventTypeKey);
       if (prefs) {
         if (!draft.productName?.trim() && prefs.productName) applyStoredProductName(prefs.productName);
+        // 제품 연결(productId)도 같이 — 이름만 복원하면 두 번째 저장부터 FK가 빠진다.
+        // 옛 저장값(이름만)이면 서버 lastProductId가 채운다
+        if (!draft.productName?.trim() && !draft.productId && prefs.productId) {
+          setProductId(prefs.productId);
+        }
         if (prefs.quantityOffered) setQuantityOffered(prefs.quantityOffered);
         if (prefs.quantity) setQuantity(prefs.quantity);
         if (prefs.unit) setUnit(prefs.unit);
@@ -599,14 +604,22 @@ export function EventDetailSheet({
                 ),
               );
             }
-          } else if (fields.multiProduct && prefs.extraItems === undefined) {
+          } else if (prefs.productId === undefined && data.lastProductId) {
+            // 이 기능 전에 저장된 로컬값(제품 이름만) — 서버가 아는 마지막 제품 연결을 붙인다.
+            // 태그 타입(체온)은 그대로, 이름 타입은 로컬 이름과 서버 마지막 제품 이름이 같을 때만
+            if (fields.detailTags || data.lastProduct === prefs.productName) {
+              setProductId((prev) => prev ?? data.lastProductId);
+              if (data.lastProductDosage) setProductDosage((prev) => prev ?? data.lastProductDosage ?? null);
+            }
+          }
+          if (prefs?.productName && fields.multiProduct && prefs.extraItems === undefined) {
             // 이 기능 전에 저장된 로컬값(첫 제품만) — 서버의 지난 세트가 같은 제품으로 시작하면
             // 둘째 이후를 거기서 가져온다. 다른 제품이면 로컬값을 존중해 한 제품으로 둔다
             const [first, ...rest] = data.lastItems ?? [];
             if (first && rest.length > 0 && first.productName === prefs.productName) {
               setExtraItems((prev) => (prev.length > 0 ? prev : dedupeExtras(rest.map(lastItemToExtra))));
             }
-          } else if (fields.multiProduct && prefs.extraItems?.length) {
+          } else if (prefs?.productName && fields.multiProduct && prefs.extraItems?.length) {
             // 로컬 저장값의 둘째 이후에 복용법 힌트를 서버 제품 목록에서 붙인다
             const dosageById = new Map((data.activeProducts ?? []).map((p) => [p.id, p.dosage ?? null]));
             setExtraItems((prev) =>
@@ -937,6 +950,7 @@ export function EventDetailSheet({
       // 저장한 값 그대로 기억한다 — 첫 칸이 승격됐으면 승격된 뒤의 모양이다
       saveEventDetailPrefs(draft.petId, draft.eventTypeKey, {
         productName: savedProductName,
+        productId: fields.productName ? savedProductId : null,
         quantity: fields.quantity ? numberToInput(consumed) : undefined,
         quantityOffered: fields.quantityOffered ? numberToInput(offered) : undefined,
         unit: fields.showUnitInput ? unitForSave : undefined,
