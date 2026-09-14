@@ -20,6 +20,11 @@ export type EventDetailFieldFlags = {
    * 영양·사료·간식만 — 상비는 처방·투약 축과 얽혀 따로 본다.
    */
   multiProduct: boolean;
+  /**
+   * 마지막 제품 연결(productId)을 다음 기록에 그대로 채우는 타입. 관리는 false — 지난 관리(모래)와
+   * 이번 관리(양치)는 다른 일이라 엉뚱한 제품이 붙는다 (R149). 체온은 하는 일이 하나라 true (§7.23)
+   */
+  rememberLastProduct: boolean;
   fecalScale: boolean;
   scale3: boolean;
   note: boolean;
@@ -49,6 +54,7 @@ const NOTE_ONLY: EventDetailFieldFlags = {
   quantity: false,
   showUnitInput: false,
   multiProduct: false,
+  rememberLastProduct: false,
   fecalScale: false,
   scale3: false,
   note: true,
@@ -139,6 +145,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: true,
       multiProduct: key !== "remedy",
+      rememberLastProduct: true,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -172,6 +179,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -195,6 +203,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -220,6 +229,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: true,
       fecalScale: false,
       scale3: false,
       note: true,
@@ -243,6 +253,7 @@ export function eventDetailFields(
       quantity: true,
       showUnitInput: false,
       multiProduct: false,
+      rememberLastProduct: false,
       fecalScale: false,
       scale3: false,
       note: true,

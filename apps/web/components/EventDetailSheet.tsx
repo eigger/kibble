@@ -535,8 +535,8 @@ export function EventDetailSheet({
       if (prefs) {
         if (!draft.productName?.trim() && prefs.productName) applyStoredProductName(prefs.productName);
         // 제품 연결(productId)도 같이 — 이름만 복원하면 두 번째 저장부터 FK가 빠진다.
-        // 옛 저장값(이름만)이면 서버 lastProductId가 채운다
-        if (!draft.productName?.trim() && !draft.productId && prefs.productId) {
+        // 옛 저장값(이름만)이면 서버 lastProductId가 채운다. 관리는 기억하지 않는다 (R149)
+        if (fields.rememberLastProduct && !draft.productName?.trim() && !draft.productId && prefs.productId) {
           setProductId(prefs.productId);
         }
         if (prefs.quantityOffered) setQuantityOffered(prefs.quantityOffered);
@@ -604,7 +604,7 @@ export function EventDetailSheet({
                 ),
               );
             }
-          } else if (prefs.productId === undefined && data.lastProductId) {
+          } else if (fields.rememberLastProduct && prefs.productId === undefined && data.lastProductId) {
             // 이 기능 전에 저장된 로컬값(제품 이름만) — 서버가 아는 마지막 제품 연결을 붙인다.
             // 태그 타입(체온)은 그대로, 이름 타입은 로컬 이름과 서버 마지막 제품 이름이 같을 때만
             if (fields.detailTags || data.lastProduct === prefs.productName) {
@@ -950,7 +950,7 @@ export function EventDetailSheet({
       // 저장한 값 그대로 기억한다 — 첫 칸이 승격됐으면 승격된 뒤의 모양이다
       saveEventDetailPrefs(draft.petId, draft.eventTypeKey, {
         productName: savedProductName,
-        productId: fields.productName ? savedProductId : null,
+        productId: fields.rememberLastProduct ? savedProductId : undefined,
         quantity: fields.quantity ? numberToInput(consumed) : undefined,
         quantityOffered: fields.quantityOffered ? numberToInput(offered) : undefined,
         unit: fields.showUnitInput ? unitForSave : undefined,

@@ -433,3 +433,15 @@ describe("eventDetailFields — temperature (§7.23)", () => {
     expect(quantityPlaceholder("temperature", false)).toBe("38.5");
   });
 });
+
+describe("eventDetailFields — rememberLastProduct (R149·§7.23)", () => {
+  it("이름 타입과 체온은 마지막 제품을 기억하고, 관리·태그 타입은 기억하지 않는다", () => {
+    expect(eventDetailFields("meal", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("supplement", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("remedy", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("temperature", null).rememberLastProduct).toBe(true);
+    expect(eventDetailFields("care", null).rememberLastProduct).toBe(false);
+    expect(eventDetailFields("observation", null).rememberLastProduct).toBe(false);
+    expect(eventDetailFields("vomit", null).rememberLastProduct).toBe(false);
+  });
+});
