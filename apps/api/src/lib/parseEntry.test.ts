@@ -92,6 +92,13 @@ describe("parseEntryText — 체온 (§7.23)", () => {
     expect(line?.occurredAt).not.toBeNull();
   });
 
+  it("체온 모양이 아닌 숫자는 값으로 읽지 않는다 — 열 10일째", () => {
+    const [line] = parseEntryText("열 10일째", withTemperature, "note-id");
+    expect(line?.eventTypeKey).toBe("temperature");
+    expect(line?.quantity).toBeNull();
+    expect(line?.note).toBe("10일째");
+  });
+
   it("체온 타입이 없는 가구에서는 메모로 떨어진다 (K-12)", () => {
     const [line] = parseEntryText("38.5도", targets, "note-id");
     expect(line?.eventTypeKey).toBe("note");

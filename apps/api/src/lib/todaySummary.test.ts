@@ -55,18 +55,22 @@ function fakeDb(options: {
   scaleEvents?: { eventTypeId: string; scaleValue: number | null }[];
   quantityEvents?: { eventTypeId: string; quantity: unknown; unit: string | null }[];
 }) {
-  return {
+  const calls: { quantityWhere?: Record<string, unknown> } = {};
+  const db = {
+    calls,
     event: {
       groupBy: async () => options.grouped,
-      findMany: async (args: { where?: { scaleValue?: unknown; quantity?: unknown } }) =>
-        args.where?.scaleValue !== undefined
-          ? (options.scaleEvents ?? [])
-          : (options.quantityEvents ?? []),
+      findMany: async (args: { where?: { scaleValue?: unknown; quantity?: unknown } }) => {
+        if (args.where?.scaleValue !== undefined) return options.scaleEvents ?? [];
+        calls.quantityWhere = args.where as Record<string, unknown>;
+        return options.quantityEvents ?? [];
+      },
     },
     eventType: {
       findMany: async () => EVENT_TYPES,
     },
-  } as never;
+  };
+  return db as typeof db & Parameters<typeof todaySummaryForPet>[0];
 }
 
 describe("todaySummaryForPet", () => {
@@ -235,6 +239,7 @@ describe("todaySummaryForPet — 측정값의 마지막 값 (§7.23)", () => {
     });
 
     const rows = await todaySummaryForPet(db, "hh_1", "pet_1");
+    expect(db.calls.quantityWhere?.eventType).toEqual({ category: "HEALTH" });
     expect(rows[0].category).toBe("HEALTH");
     expect(rows[0].totals[0].quantity).toBe(77.5);
     expect(rows[0].lastQuantity).toBe(38.9);

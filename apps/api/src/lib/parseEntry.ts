@@ -65,8 +65,11 @@ const OFFERED_CONSUMED_RE = new RegExp(
   "i",
 );
 const WEIGHT_INLINE_RE = /^(\d+(?:\.\d+)?)\s*(kg|g)\s*$/i;
-/** 단위 없는 "체온 38.5" — 별칭이 잡힌 줄에서만 맨 숫자를 값으로 읽는다 (§7.23) */
-const BARE_NUMBER_RE = /(?<![\d.])(\d{2}(?:\.\d+)?)(?![\d.])/;
+/**
+ * 단위 없는 "체온 38.5" — 별칭이 잡힌 줄에서만 맨 숫자를 값으로 읽는다 (§7.23).
+ * 체온 모양(3x.x·4x.x)만 — "열 10일째"의 10을 값으로 읽지 않기 위해서다. 나머지는 메모에 남는다 (K-12)
+ */
+const BARE_TEMPERATURE_RE = /(?<![\d.])([34]\d(?:\.\d+)?)(?![\d.])/;
 
 const TIME_PM_RE = /오후\s*(\d{1,2})\s*시(?:\s*(?:(\d{1,2})\s*분)?)?/;
 const TIME_AM_RE = /오전\s*(\d{1,2})\s*시(?:\s*(?:(\d{1,2})\s*분)?)?/;
@@ -371,7 +374,7 @@ function parseLine(
   // "체온 38.5" — 별칭으로 체온이 잡혔는데 단위가 없으면 맨 숫자를 값으로. 시각(8시)은 이미 떼어낸 뒤다
   let bareQuantity: number | null = null;
   if (chosen.eventTypeKey === "temperature" && qty.quantity == null) {
-    const bare = working.match(BARE_NUMBER_RE);
+    const bare = working.match(BARE_TEMPERATURE_RE);
     if (bare) {
       bareQuantity = Number(bare[1]);
       working = stripMatch(working, bare);

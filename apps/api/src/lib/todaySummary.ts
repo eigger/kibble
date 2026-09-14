@@ -112,9 +112,10 @@ export async function todaySummaryForPet(
       take: SCALE_LOOKBACK,
       select: { eventTypeId: true, scaleValue: true },
     }),
-    // 측정값용 — 타입별 마지막 양. 합계는 위 groupBy가 내고, 어느 쪽을 보여줄지는 화면이 카테고리로 정한다
+    // 측정값용 — HEALTH 타입별 마지막 양(§7.23). 합계는 위 groupBy가 내고 화면이 카테고리로 가른다.
+    // 급여·급수는 자동 입력이 하루 수백 건일 수 있어 여기서 카테고리를 좁혀야 창(100건)이 안 밀린다
     db.event.findMany({
-      where: { ...scope, quantity: { not: null } },
+      where: { ...scope, quantity: { not: null }, eventType: { category: "HEALTH" } },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: SCALE_LOOKBACK,
       select: { eventTypeId: true, quantity: true, unit: true },
