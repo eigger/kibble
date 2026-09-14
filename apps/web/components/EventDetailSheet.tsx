@@ -177,6 +177,17 @@ function numberToInput(value: number | null | undefined): string {
   return value != null ? String(value) : "";
 }
 
+/** 같은 제품이 두 번 오면(파싱으로 같은 제품 두 줄) 첫 것만 — 칩 토글·키가 제품 id 기준이라 */
+function dedupeExtras(items: ExtraProductItem[]): ExtraProductItem[] {
+  const seen = new Set<string>();
+  return items.filter((x) => {
+    if (!x.productId) return true;
+    if (seen.has(x.productId)) return false;
+    seen.add(x.productId);
+    return true;
+  });
+}
+
 function lastItemToExtra(item: LastProductItem): ExtraProductItem {
   return {
     productId: item.productId,
@@ -529,14 +540,16 @@ export function EventDetailSheet({
         // 지난 세트의 둘째 이후. 복용법 힌트는 서버 제품 목록이 오면 붙는다
         if (fields.multiProduct && !draft.productName?.trim() && prefs.extraItems?.length) {
           setExtraItems(
-            prefs.extraItems.map((x) => ({
-              productId: x.productId ?? null,
-              productName: x.productName ?? "",
-              dosage: null,
-              quantity: x.quantity ?? "",
-              quantityOffered: x.quantityOffered ?? "",
-              unit: x.unit ?? "",
-            })),
+            dedupeExtras(
+              prefs.extraItems.map((x) => ({
+                productId: x.productId ?? null,
+                productName: x.productName ?? "",
+                dosage: null,
+                quantity: x.quantity ?? "",
+                quantityOffered: x.quantityOffered ?? "",
+                unit: x.unit ?? "",
+              })),
+            ),
           );
         }
       }
@@ -578,14 +591,20 @@ export function EventDetailSheet({
               if (first.quantity != null) setQuantity(numberToInput(first.quantity));
               if (first.quantityOffered != null) setQuantityOffered(numberToInput(first.quantityOffered));
               if (first.unit) setUnit(first.unit);
-              setExtraItems((prev) => (prev.length > 0 ? prev : rest.map(lastItemToExtra)));
+              // 첫 칸에 들어간 제품이 둘째 이후에도 있으면 걷어낸다 — 로컬 prefs가 둘째만 기억한 경우
+              const primaryId = data.lastProductId ?? first.productId;
+              setExtraItems((prev) =>
+                dedupeExtras(prev.length > 0 ? prev : rest.map(lastItemToExtra)).filter(
+                  (x) => !x.productId || x.productId !== primaryId,
+                ),
+              );
             }
           } else if (fields.multiProduct && prefs.extraItems === undefined) {
             // 이 기능 전에 저장된 로컬값(첫 제품만) — 서버의 지난 세트가 같은 제품으로 시작하면
             // 둘째 이후를 거기서 가져온다. 다른 제품이면 로컬값을 존중해 한 제품으로 둔다
             const [first, ...rest] = data.lastItems ?? [];
             if (first && rest.length > 0 && first.productName === prefs.productName) {
-              setExtraItems((prev) => (prev.length > 0 ? prev : rest.map(lastItemToExtra)));
+              setExtraItems((prev) => (prev.length > 0 ? prev : dedupeExtras(rest.map(lastItemToExtra))));
             }
           } else if (fields.multiProduct && prefs.extraItems?.length) {
             // 로컬 저장값의 둘째 이후에 복용법 힌트를 서버 제품 목록에서 붙인다
@@ -849,7 +868,10 @@ export function EventDetailSheet({
     // 둘째 제품부터 — 제품도 이름도 없는 빈 줄은 조용히 버린다 (K-12). 숫자가 아닌 양만 막는다
     const extras: ExtraProductSave[] = [];
     if (multiProduct) {
-      let items = extraItems.filter((x) => x.productId || x.productName.trim());
+      // 첫 칸과 같은 제품이 둘째 이후에도 있으면 한 번만 — 같은 제품이 두 건 저장되지 않게
+      let items = extraItems.filter(
+        (x) => (x.productId || x.productName.trim()) && !(x.productId && x.productId === savedProductId),
+      );
       // 첫 칸이 비었는데(제품·이름·양 전부 없음) 둘째가 있으면 둘째를 첫 칸으로 올린다 —
       // 안 그러면 내용 없는 이벤트가 한 건 앞에 붙는다
       if (!savedProductId && !savedProductName && consumed == null && offered == null && items.length > 0) {
@@ -1444,7 +1466,7 @@ export function EventDetailSheet({
                     const itemUnit = item.unit || fields.defaultUnit;
                     const itemSteps = quantityStepperSteps(itemUnit, draft.eventTypeKey);
                     const itemExtraStep = quantityExtraStep(itemUnit, draft.eventTypeKey);
-                    const key = item.productId ?? `custom-${index}`;
+                    const key = `${item.productId ?? "custom"}-${index}`;
                     return (
                       <div key={key} className="event-detail-extra-item">
                         <div className="event-detail-extra-item-head">
