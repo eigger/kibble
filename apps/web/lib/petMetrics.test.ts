@@ -120,6 +120,15 @@ describe("petMetrics — 체온 측정값 (§7.23)", () => {
     expect(points.map((p) => p.value)).toEqual([38.6, 38.9]);
   });
 
+  it("measurementChartPoints: 측정 방법(productName)을 점에 싣는다 — 툴팁용", () => {
+    const points = measurementChartPoints(
+      [{ ...ev("temperature", "2026-09-10T01:00:00.000Z", 38.6), productName: "ear" }],
+      "temperature",
+      "ko-KR",
+    );
+    expect(points[0].productName).toBe("ear");
+  });
+
   it("measurementDomain: 데이터 범위 ±0.5를 0.1 단위로 — 0부터 그리지 않는다", () => {
     expect(measurementDomain([{ value: 38.6 }, { value: 39.2 }])).toEqual([38.1, 39.7]);
     expect(measurementDomain([{ value: 38.55 }])).toEqual([38, 39.1]);

@@ -22,6 +22,7 @@ function toMetricEvent(event: TimelineEvent): MetricEvent {
     occurredAt: event.occurredAt,
     quantity: event.quantity,
     quantityOffered: event.quantityOffered,
+    productName: event.productName ?? null,
     scaleValue: event.scaleValue,
     costKrw: event.costKrw,
     eventType: {

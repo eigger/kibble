@@ -204,13 +204,14 @@ export function eventDetailFields(
     };
   }
 
-  // 체온 — 체중과 같은 측정값. 값 한 칸, 단위는 °C 고정 (§7.23)
+  // 체온 — 체중과 같은 측정값. 값 한 칸, 단위는 °C 고정. 측정 방법은 태그(하나), 체온계는
+  // 등록 기기(DEVICE)를 productId로 — 관리가 위생용품을 다는 것과 같은 구조 (§7.23)
   if (key === "temperature") {
     return {
-      productName: false,
-      detailTags: false,
-      productCustomInput: true,
-      productNameLabelKey: "eventDetailProductName",
+      productName: true,
+      detailTags: true,
+      productCustomInput: false,
+      productNameLabelKey: productNameFieldLabelKey(key),
       noteLabelKey: "eventDetailNote",
       clinicName: false,
       clinicAddress: false,

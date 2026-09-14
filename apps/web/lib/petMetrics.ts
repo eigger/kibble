@@ -7,6 +7,8 @@ export type AnalyticsPeriod = "1w" | "1m" | "6m" | "1y" | "all";
 export type ChartGranularity = "day" | "week" | "month";
 
 export type MetricEvent = {
+  /** 태그 타입(체온 측정 방법)의 slug CSV — 그래프 툴팁에 방법을 같이 보여준다 (§7.23) */
+  productName?: string | null;
   id: string;
   occurredAt: string;
   quantity: number | null;
@@ -94,7 +96,7 @@ export function measurementChartPoints(
   events: MetricEvent[],
   eventTypeKey: string,
   localeTag: string,
-): { label: string; value: number }[] {
+): { label: string; value: number; productName: string | null }[] {
   return events
     .filter((e) => e.eventType.key === eventTypeKey && decimalToNumber(e.quantity) != null)
     .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
@@ -103,6 +105,7 @@ export function measurementChartPoints(
         new Date(e.occurredAt),
       ),
       value: decimalToNumber(e.quantity)!,
+      productName: e.productName ?? null,
     }));
 }
 

@@ -419,12 +419,15 @@ describe("eventDetailFields — multiProduct (§7.22)", () => {
 });
 
 describe("eventDetailFields — temperature (§7.23)", () => {
-  it("체중처럼 값 한 칸, 단위 °C 고정, 제품 없음", () => {
+  it("값 한 칸(°C 고정) + 측정 방법 태그 + 체온계 연결, 직접 입력 없음", () => {
     const f = eventDetailFields("temperature", null);
     expect(f.quantity).toBe(true);
     expect(f.quantityOffered).toBe(false);
     expect(f.showUnitInput).toBe(false);
-    expect(f.productName).toBe(false);
+    expect(f.productName).toBe(true);
+    expect(f.detailTags).toBe(true);
+    expect(f.productCustomInput).toBe(false);
+    expect(f.productNameLabelKey).toBe("eventDetailTemperatureMethod");
     expect(f.defaultUnit).toBe("°C");
     expect(f.quantityLabelKey).toBe("eventDetailTemperature");
     expect(quantityPlaceholder("temperature", false)).toBe("38.5");

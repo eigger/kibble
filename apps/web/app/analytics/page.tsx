@@ -19,6 +19,7 @@ import {
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { fetchAnalyticsEvents } from "../../lib/fetchAnalyticsEvents";
+import { formatProductNameDisplay } from "../../lib/eventDetailTags";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { intlLocale, type TranslationKey } from "../../lib/i18n/translations";
 import {
@@ -365,7 +366,15 @@ export default function AnalyticsPage() {
                     tickMargin={4}
                   />
                   <Tooltip
-                    formatter={(value) => [`${value}°C`, t("analyticsTemperatureChartTitle")]}
+                    // 방법이 섞이면 선이 거짓말한다(귀 38.2 → 직장 38.9는 "올랐다"가 아닐 수 있다) — 툴팁에 방법을 같이 (§7.23)
+                    formatter={(value, _name, item) => {
+                      const method = formatProductNameDisplay(
+                        "temperature",
+                        (item?.payload as { productName?: string | null } | undefined)?.productName,
+                        t,
+                      );
+                      return [method ? `${value}°C · ${method}` : `${value}°C`, t("analyticsTemperatureChartTitle")];
+                    }}
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     cursor={TOOLTIP_CURSOR}
                   />

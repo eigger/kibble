@@ -8,14 +8,20 @@ export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat", "supplement", "
  * `productName`이 이름이 아니라 태그 slug CSV인 타입. 이름 제안·빈도는 의미가 없고, 서버가
  * 빈 `productName`을 제품 이름으로 채워서도 안 된다 — 태그 자리를 제품 이름이 차지한다.
  */
-export const TAG_VALUED_PRODUCT_NAME_KEYS = new Set(["vomit", "observation", "care"]);
+export const TAG_VALUED_PRODUCT_NAME_KEYS = new Set(["vomit", "observation", "care", "temperature"]);
 
 /**
- * 태그 타입 중 등록 제품(`productId`)만 잇는 타입 — 관리는 위생용품(모래·샴푸·치약)을 단다.
- * 이름 제안은 주지 않는다: 지난 관리(모래)와 이번 관리(양치)는 다른 일이라 엉뚱한 제품이
- * 붙는다 (§7.20). 사용자가 칩을 1탭으로 고른다.
+ * 태그 타입 중 등록 제품(`productId`)만 잇는 타입 — 관리는 위생용품(모래·샴푸·치약)을,
+ * 체온은 체온계(DEVICE)를 단다. 자주 쓰는 이름은 세지 않는다 (태그 CSV라 의미가 없다).
  */
-export const PRODUCT_LINK_ONLY_EVENT_KEYS = new Set(["care"]);
+export const PRODUCT_LINK_ONLY_EVENT_KEYS = new Set(["care", "temperature"]);
+
+/**
+ * 마지막 기록의 태그·제품을 그대로 다시 여는 태그 타입. 관리는 안 준다 — 지난 관리(모래)와
+ * 이번 관리(양치)는 다른 일이라 엉뚱한 제품이 붙는다 (R149). 체온은 하는 일이 하나라
+ * 마지막 방법·마지막 체온계가 다음번에도 맞다 (§7.23)
+ */
+export const LAST_TAGS_AND_PRODUCT_KEYS = new Set(["temperature"]);
 
 export function eventTypeSupportsProductName(key: string): boolean {
   return PRODUCT_NAME_EVENT_KEYS.has(key) || PRODUCT_LINK_ONLY_EVENT_KEYS.has(key);
@@ -96,10 +102,11 @@ type LastEventRow = {
   product: { id: string; name: string; dosage: string | null } | null;
 };
 
-function toLastItem(row: LastEventRow): LastProductItem {
+function toLastItem(row: LastEventRow, fillNameFromProduct: boolean): LastProductItem {
   return {
     productId: row.productId || null,
-    productName: row.productName?.trim() || row.product?.name || null,
+    // 태그 타입의 productName은 slug 목록이라 제품 이름으로 채우면 웹이 그걸 커스텀 태그로 읽는다 (R150)
+    productName: row.productName?.trim() || (fillNameFromProduct ? row.product?.name : null) || null,
     dosage: row.product?.dosage || null,
     quantity: toNumber(row.quantity),
     quantityOffered: toNumber(row.quantityOffered),
@@ -129,13 +136,13 @@ export async function productSuggestionsForPet(
   });
   if (!eventType) return EMPTY_SUGGESTIONS;
 
-  const baseWhere = {
+  const scopeWhere = {
     ...householdWhere(params.householdId),
     petId: params.petId,
     eventTypeId: eventType.id,
     deletedAt: null,
-    productName: { not: "" },
   };
+  const baseWhere = { ...scopeWhere, productName: { not: "" } };
 
   const selectEvent = {
     id: true,
@@ -149,18 +156,23 @@ export async function productSuggestionsForPet(
   };
 
   const suggestNames = PRODUCT_NAME_EVENT_KEYS.has(params.eventTypeKey);
+  const suggestLast = suggestNames || LAST_TAGS_AND_PRODUCT_KEYS.has(params.eventTypeKey);
+  // 태그 타입은 방법(태그)만 있고 기기가 없거나 그 반대일 수 있다 — 어느 쪽이든 마지막 기록이다
+  const lastWhere = suggestNames
+    ? baseWhere
+    : { ...scopeWhere, OR: [{ productName: { not: "" } }, { productId: { not: null } }] };
 
   let lastEvent: LastEventRow | null = null;
-  if (suggestNames && params.userId) {
+  if (suggestLast && params.userId) {
     lastEvent = await db.event.findFirst({
-      where: { ...baseWhere, createdById: params.userId },
+      where: { ...lastWhere, createdById: params.userId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: selectEvent,
     });
   }
-  if (suggestNames && !lastEvent) {
+  if (suggestLast && !lastEvent) {
     lastEvent = await db.event.findFirst({
-      where: baseWhere,
+      where: lastWhere,
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: selectEvent,
     });
@@ -171,16 +183,16 @@ export async function productSuggestionsForPet(
   // 타임라인 맨 위에 오게 하므로, 그 순서로 읽어야 첫 항목이 다시 첫 칸이 된다.
   // 묶음 조회도 가구·반려동물·타입 스코프다 (K-1).
   let lastItems: LastProductItem[] = [];
-  if (lastEvent?.entryId) {
+  if (lastEvent?.entryId && suggestNames) {
     const grouped = await db.event.findMany({
       where: { ...baseWhere, entryId: lastEvent.entryId },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 20,
       select: selectEvent,
     });
-    lastItems = grouped.map(toLastItem);
+    lastItems = grouped.map((row) => toLastItem(row, true));
   } else if (lastEvent) {
-    lastItems = [toLastItem(lastEvent)];
+    lastItems = [toLastItem(lastEvent, suggestNames)];
   }
 
   const lastProduct = lastItems[0]?.productName ?? null;
@@ -188,12 +200,16 @@ export async function productSuggestionsForPet(
   const lastProductDosage = lastItems[0]?.dosage ?? null;
 
   // Active products matching this event type's category
-  const categoryByKey: Record<string, "MEAL" | "SUPPLEMENT" | "TREAT" | "MEDICATION" | "HYGIENE"> = {
+  const categoryByKey: Record<
+    string,
+    "MEAL" | "SUPPLEMENT" | "TREAT" | "MEDICATION" | "HYGIENE" | "DEVICE"
+  > = {
     meal: "MEAL",
     supplement: "SUPPLEMENT",
     treat: "TREAT",
     remedy: "MEDICATION",
     care: "HYGIENE",
+    temperature: "DEVICE",
   };
   const category = categoryByKey[params.eventTypeKey];
 

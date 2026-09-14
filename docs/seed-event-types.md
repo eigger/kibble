@@ -62,7 +62,7 @@ CREATE UNIQUE INDEX "EventType_system_key_key"
 | `observation` | `eventType.observation` | `eye` | `teal` | HEALTH | — | **ENERGY_3** | 72 | 관찰(활력·특이사항). 구 `energy` 키는 시드가 통합. 태그는 몸 / 증상·행동 두 묶음 |
 | `medication` | `eventType.medication` | `pill` | `violet` | MEDICAL | — | — | 115 | 투약 |
 | `weight` | `eventType.weight` | `scale` | `slate` | HEALTH | `kg` | — | 80 | 체중 |
-| `temperature` | `eventType.temperature` | `thermometer` | `red` | HEALTH | `°C` | — | 85 | 체온. 측정값 — 홈 카드는 합계가 아니라 마지막 값 (§7.23) |
+| `temperature` | `eventType.temperature` | `thermometer` | `red` | HEALTH | `°C` | — | 85 | 체온. 측정값 — 홈 카드는 합계가 아니라 마지막 값. 측정 방법 태그(직장·귀·겨드랑이·비접촉, 하나만) + 체온계(`DEVICE`)를 `productId`로 (§7.23) |
 | `symptom` | `eventType.symptom` | `stethoscope` | `red` | HEALTH | — | — | 90 | 기침·통증 등. `scaleType`은 Phase 2 |
 | `play` | `eventType.play` | `gamepad-2` | `green` | ACTIVITY | `min` | — | 100 | 놀이 |
 | `care` | `eventType.care` | `hand-heart` | `pink` | CARE | — | — | 110 | 관리 — 태그 두 묶음. 몸: 양치·눈 닦기·귀 청소·발톱·목욕·빗질·만져주기 / 화장실: 청소·모래 보충·모래 갈이·패드 교체·세척 (종별 노출). 등록 제품(`HYGIENE`)을 `productId`로 잇는다. 구 `grooming`·`dental`·`litter_change` 키는 시드가 통합 (§7.18·§7.20) |
