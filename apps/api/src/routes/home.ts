@@ -9,6 +9,7 @@ import {
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
 import { medicationCoursesWithProgress } from "../lib/medicationCourseProgress.js";
+import { routineSelect, serializeRoutine } from "./routines.js";
 
 const recentEventSelect = {
   id: true,
@@ -64,6 +65,7 @@ export async function homeRoutes(app: FastifyInstance) {
         pets,
         activePet: null,
         presets: [],
+        routines: [],
         todaySummary: [],
         recentEvents: [],
         activeMedicationCourses: [],
@@ -82,7 +84,7 @@ export async function homeRoutes(app: FastifyInstance) {
       if (!(err instanceof SystemEventTypesNotSeededError)) throw err;
     }
 
-    const [presets, todaySummary, recentEvents, journalStats, medicationCourses] =
+    const [presets, routines, todaySummary, recentEvents, journalStats, medicationCourses] =
       await Promise.all([
       prisma.preset.findMany({
         where: {
@@ -100,6 +102,12 @@ export async function homeRoutes(app: FastifyInstance) {
           sortOrder: true,
           eventType: { select: { key: true, scaleType: true, category: true } },
         },
+      }),
+      // 루틴 — /q 루틴 패널 (§7.24). 사용자가 만든 것만 있으므로 보통 비어 있다
+      prisma.routine.findMany({
+        where: { ...householdWhere(householdId), petId: activePet.id, archivedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: routineSelect,
       }),
       todaySummaryForPet(prisma, householdId, activePet.id),
       prisma.event.findMany({
@@ -125,6 +133,7 @@ export async function homeRoutes(app: FastifyInstance) {
       pets,
       activePet,
       presets,
+      routines: routines.map(serializeRoutine),
       todaySummary,
       recentEvents,
       activeMedicationCourses,

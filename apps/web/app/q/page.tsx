@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -33,6 +33,14 @@ import {
 } from "../../components/EventDetailSheet";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PresetChip } from "../../components/PresetChip";
+import { RoutineButton } from "../../components/RoutineButton";
+import {
+  QUICK_MODE_TOGGLE_EVENT,
+  buildRoutineEventBodies,
+  loadQuickMode,
+  saveQuickMode,
+  type QuickMode,
+} from "../../lib/routines";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
@@ -42,7 +50,15 @@ import { startBackgroundUpload, cancelUploadsForEvent } from "../../lib/backgrou
 import { useMergeUploadedAttachments } from "../../lib/useMergeUploadedAttachments";
 import { useVideoPosterRefresh } from "../../lib/useVideoPosterRefresh";
 import { groupPresetsByCategory, presetCategoryShortKey } from "../../lib/presetGroups";
-import type { CreatedEvent, DoseSlotToday, EventAttachment, Pet, Preset, TimelineEvent } from "../../lib/types";
+import type {
+  CreatedEvent,
+  DoseSlotToday,
+  EventAttachment,
+  Pet,
+  Preset,
+  Routine,
+  TimelineEvent,
+} from "../../lib/types";
 
 interface ActiveMedicationCourse {
   id: string;
@@ -56,6 +72,7 @@ interface ActiveMedicationCourse {
 interface QuickHomePayload {
   activePet: Pet | null;
   presets: Preset[];
+  routines: Routine[];
   recentEvents: TimelineEvent[];
   activeMedicationCourses: ActiveMedicationCourse[];
 }
@@ -117,6 +134,7 @@ export default function QuickRecordPage() {
   const localeTag = intlLocale(locale);
   const [pet, setPet] = useState<Pet | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
   const [recentEvents, setRecentEvents] = useState<TimelineEvent[]>([]);
   const [activeMedicationCourses, setActiveMedicationCourses] = useState<ActiveMedicationCourse[]>(
     [],
@@ -138,6 +156,12 @@ export default function QuickRecordPage() {
   const [medSlotPickOpen, setMedSlotPickOpen] = useState(false);
   const [pendingMedPreset, setPendingMedPreset] = useState<Preset | null>(null);
   const [pendingMedCourse, setPendingMedCourse] = useState<ActiveMedicationCourse | null>(null);
+
+  // 입력 바 모드 — 기록 칩 / 루틴 (§7.24). 루틴이 없으면 세그먼트도 없고 칩만 보인다.
+  const [quickMode, setQuickMode] = useState<QuickMode>("chips");
+  const [runningRoutineId, setRunningRoutineId] = useState<string | null>(null);
+  const panelsRef = useRef<HTMLDivElement>(null);
+  const hasRoutines = routines.length > 0;
 
   const presetGroups = useMemo(() => groupPresetsByCategory(presets), [presets]);
   const previewEvents = useMemo(
@@ -161,12 +185,14 @@ export default function QuickRecordPage() {
       const data = await apiJson<QuickHomePayload>("/api/home");
       setPet(data.activePet);
       setPresets(data.presets);
+      setRoutines(data.routines ?? []);
       setRecentEvents(data.recentEvents);
       setActiveMedicationCourses(data.activeMedicationCourses ?? []);
     } catch {
       setLoadError(t("quickRecordLoadError"));
       setPet(null);
       setPresets([]);
+      setRoutines([]);
       setRecentEvents([]);
       setActiveMedicationCourses([]);
     } finally {
@@ -181,6 +207,71 @@ export default function QuickRecordPage() {
 
   useMergeUploadedAttachments(setRecentEvents);
   useVideoPosterRefresh(recentEvents, setRecentEvents);
+
+  useEffect(() => {
+    setQuickMode(loadQuickMode());
+  }, []);
+
+  /** 세그먼트·내비 재탭 → 패널을 스크롤. 스크롤이 끝나면 아래 observer가 모드를 확정한다 */
+  const scrollToMode = useCallback((mode: QuickMode) => {
+    const panels = panelsRef.current;
+    if (!panels) return;
+    // 패널은 각각 컨테이너 폭 100%라 둘째 패널의 위치는 곧 폭이다
+    const left = mode === "chips" ? 0 : panels.clientWidth;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    panels.scrollTo({ left, behavior: reduce ? "auto" : "smooth" });
+  }, []);
+
+  const selectMode = useCallback(
+    (mode: QuickMode) => {
+      setQuickMode(mode);
+      saveQuickMode(mode);
+      scrollToMode(mode);
+    },
+    [scrollToMode],
+  );
+
+  // 처음 그릴 때와 루틴이 생겼을 때 — 기억한 모드로 맞춘다 (스크롤 없이)
+  useEffect(() => {
+    if (!hasRoutines) return;
+    const panels = panelsRef.current;
+    if (panels) panels.scrollLeft = quickMode === "chips" ? 0 : panels.clientWidth;
+    // quickMode를 의존성에 넣으면 사용자가 드래그한 직후에도 되돌린다 — 처음/루틴 생김에만
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRoutines]);
+
+  // 드래그로 넘겼을 때 — 어느 패널에 멈췄는지 보고 세그먼트·기억을 맞춘다
+  useEffect(() => {
+    const panels = panelsRef.current;
+    if (!panels || !hasRoutines) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const mode = (entry.target as HTMLElement).dataset.quickMode as QuickMode | undefined;
+          if (!mode) continue;
+          setQuickMode((prev) => {
+            if (prev !== mode) saveQuickMode(mode);
+            return mode;
+          });
+        }
+      },
+      { root: panels, threshold: 0.6 },
+    );
+    panels.querySelectorAll<HTMLElement>("[data-quick-mode]").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [hasRoutines]);
+
+  // 하단 내비의 기록 탭을 여기서 다시 누르면 토글 (BottomNav). 시트가 열려 있으면 무시
+  useEffect(() => {
+    if (!hasRoutines) return;
+    function onToggle() {
+      if (detailOpen || medPickOpen || medSlotPickOpen) return;
+      selectMode(quickMode === "chips" ? "routines" : "chips");
+    }
+    window.addEventListener(QUICK_MODE_TOGGLE_EVENT, onToggle);
+    return () => window.removeEventListener(QUICK_MODE_TOGGLE_EVENT, onToggle);
+  }, [hasRoutines, quickMode, detailOpen, medPickOpen, medSlotPickOpen, selectMode]);
 
   function openDetailFromEvent(event: TimelineEvent, edit = false) {
     if (!pet) return;
@@ -513,6 +604,69 @@ export default function QuickRecordPage() {
     requestDelete(event.id);
   }
 
+  /** 실행취소 — 방금 만든 N건을 전부 지운다. 토스트 하나로 끝낸다 */
+  async function undoRoutine(eventIds: string[]) {
+    try {
+      await Promise.all(eventIds.map((id) => apiJson(`/api/events/${id}`, { method: "DELETE" })));
+      setRecentEvents((prev) => prev.filter((e) => !eventIds.includes(e.id)));
+      show(t("recordUndone"), "info");
+    } catch (err) {
+      show(formatApiErrorMessage(err, t("recordError"), locale), "error");
+    }
+  }
+
+  /**
+   * 루틴 1탭 — 항목마다 `POST /api/events` (K-4). 시트의 여러 제품 저장과 같은 순서·묶음 규칙(§7.22).
+   * 중간에 실패해도 들어간 것은 타임라인에 넣는다 — 서버에 있는 것을 화면만 모르면 안 된다.
+   */
+  async function runRoutine(routine: Routine) {
+    if (!user || !pet || runningRoutineId || detailSaving) return;
+    if (routine.items.length === 0) return;
+    setRunningRoutineId(routine.id);
+
+    const bodies = buildRoutineEventBodies(
+      routine,
+      pet.id,
+      new Date().toISOString(),
+      randomSuffix(),
+    );
+    const created: CreatedEvent[] = [];
+    let queued = false;
+    let failed = false;
+    try {
+      for (const body of bodies) {
+        const outcome = await createEventWithOfflineFallback({
+          userId: user.id,
+          labelKey: routine.label,
+          body,
+        });
+        if (outcome.status === "queued") queued = true;
+        else created.push(outcome.event);
+      }
+    } catch (err) {
+      failed = true;
+      show(formatApiErrorMessage(err, t("recordError"), locale), "error");
+    } finally {
+      if (created.length > 0) {
+        setRecentEvents((prev) =>
+          created.reduce((acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)), prev),
+        );
+      }
+      setRunningRoutineId(null);
+    }
+
+    if (failed || (created.length === 0 && !queued)) return;
+    if (queued) {
+      show(t("offlineQueuedToast"), "info");
+      return;
+    }
+    const ids = created.map((e) => e.id);
+    show(t("routineSavedToast", { label: routine.label, count: ids.length }), "success", {
+      label: t("undo"),
+      onClick: () => void undoRoutine(ids),
+    });
+  }
+
   function onPresetTap(preset: Preset) {
     if (!pet || detailSaving) return;
     if (preset.eventType?.key === "medication") {
@@ -609,7 +763,46 @@ export default function QuickRecordPage() {
 
       <footer className="home-input-bar quick-record-input-bar">
         <div className="home-input-bar-inner">
-          <section className="home-quick-section" aria-label={t("homeQuickRecord")}>
+          {hasRoutines && (
+            <div className="quick-mode-bar">
+              <div className="quick-mode-switch" role="tablist" aria-label={t("quickModeLabel")}>
+                <button
+                  type="button"
+                  role="tab"
+                  id="quick-mode-tab-chips"
+                  aria-selected={quickMode === "chips"}
+                  aria-controls="quick-panel-chips"
+                  className={quickMode === "chips" ? "active" : ""}
+                  onClick={() => selectMode("chips")}
+                >
+                  {t("quickModeChips")}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="quick-mode-tab-routines"
+                  aria-selected={quickMode === "routines"}
+                  aria-controls="quick-panel-routines"
+                  className={quickMode === "routines" ? "active" : ""}
+                  onClick={() => selectMode("routines")}
+                >
+                  {t("quickModeRoutines")}
+                </button>
+              </div>
+              <Link href="/routines" className="quick-mode-manage">
+                {t("routinesManageLink")}
+              </Link>
+            </div>
+          )}
+          <div ref={panelsRef} className={`quick-panels${hasRoutines ? " quick-panels-snap" : ""}`}>
+          <section
+            id="quick-panel-chips"
+            className="home-quick-section quick-panel"
+            data-quick-mode="chips"
+            role={hasRoutines ? "tabpanel" : undefined}
+            aria-labelledby={hasRoutines ? "quick-mode-tab-chips" : undefined}
+            aria-label={hasRoutines ? undefined : t("homeQuickRecord")}
+          >
             {presets.length > 0 ? (
               <div className="quick-chip-grid" role="group" aria-label={t("homeQuickRecord")}>
                 {presetGroups.map((group) => (
@@ -640,6 +833,34 @@ export default function QuickRecordPage() {
               !dataLoading && !loadError && <p className="meta home-no-chips">{t("homeNoPresets")}</p>
             )}
           </section>
+          {hasRoutines && (
+            <section
+              id="quick-panel-routines"
+              className="quick-panel quick-routine-panel"
+              data-quick-mode="routines"
+              role="tabpanel"
+              aria-labelledby="quick-mode-tab-routines"
+            >
+              <div className="routine-grid">
+                {routines.map((routine) => (
+                  <RoutineButton
+                    key={routine.id}
+                    routine={routine}
+                    tLabel={tLabel}
+                    disabled={
+                      !pet ||
+                      detailSaving ||
+                      (runningRoutineId != null && runningRoutineId !== routine.id)
+                    }
+                    running={runningRoutineId === routine.id}
+                    runningLabel={t("saving")}
+                    onTap={(r) => void runRoutine(r)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+          </div>
         </div>
       </footer>
 

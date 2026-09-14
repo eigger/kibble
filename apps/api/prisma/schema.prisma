@@ -44,6 +44,8 @@ model Household {
   events           Event[]
   eventTypeAliases EventTypeAlias[]
   products         Product[]
+  routines         Routine[]
+  routineItems     RoutineItem[]
 }
 
 model HouseholdMember {
@@ -89,6 +91,7 @@ model Pet {
   courses   MedicationCourse[]
   apiTokens ApiToken[]
   products  Product[]
+  routines  Routine[]
 
   @@index([householdId, archivedAt])
 }
@@ -123,9 +126,10 @@ model EventType {
 
   household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
   events    Event[]
-  presets   Preset[]
-  reminders Reminder[]
-  apiTokens ApiToken[]
+  presets      Preset[]
+  reminders    Reminder[]
+  apiTokens    ApiToken[]
+  routineItems RoutineItem[]
 
   @@unique([householdId, key])
 }
@@ -166,9 +170,10 @@ model Preset {
   household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
   pet       Pet?         @relation(fields: [petId], references: [id], onDelete: Cascade)
   eventType EventType    @relation(fields: [eventTypeId], references: [id])
-  codes     PresetCode[]
-  events    Event[]
-  tokens    ApiToken[]
+  codes        PresetCode[]
+  events       Event[]
+  tokens       ApiToken[]
+  routineItems RoutineItem[]
 
   // 활성 행만 유니크 — 부분 인덱스 Preset_householdId_petId_eventTypeId_active_key (migration)
   @@index([householdId, archivedAt, sortOrder])
@@ -217,6 +222,48 @@ enum CodeSymbology {
 enum CodeSource {
   GENERATED
   PRODUCT
+}
+
+// ---------- 루틴 — 미리 정한 값으로 1탭 저장 (WORKPLAN §7.24) ----------
+// 칩(Preset)은 타입당 하나이고 시트를 연다. 루틴은 사용자가 만든 것만 있고 누르면 바로 저장된다.
+// 항목이 여럿이면 이벤트 N건을 같은 entryId로 묶는다 (§7.22).
+model Routine {
+  id          String    @id @default(cuid())
+  householdId String
+  petId       String
+  label       String
+  sortOrder   Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  household Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  items     RoutineItem[]
+
+  @@index([householdId, petId, archivedAt, sortOrder])
+}
+
+model RoutineItem {
+  id          String   @id @default(cuid())
+  routineId   String
+  householdId String
+  sortOrder   Int      @default(0)
+  eventTypeId String
+  /// 같은 타입의 칩. 이벤트에 그대로 실려 타임라인 라벨이 칩과 같아진다
+  presetId    String?
+  productId   String?
+  productName String?
+  quantity    Decimal? @db.Decimal(10, 2)
+  unit        String?
+
+  routine   Routine   @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  eventType EventType @relation(fields: [eventTypeId], references: [id])
+  preset    Preset?   @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([routineId, sortOrder])
 }
 
 // ---------- 제품 (사료, 영양제, 간식, 용품 등) ----------
@@ -268,8 +315,9 @@ model Product {
 
   household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
   pet       Pet?           @relation(fields: [petId], references: [id], onDelete: SetNull)
-  events    Event[]
-  photos    ProductPhoto[]
+  events       Event[]
+  photos       ProductPhoto[]
+  routineItems RoutineItem[]
 
   @@index([householdId, category, archivedAt])
   @@index([householdId, isActive, archivedAt])

@@ -9,6 +9,7 @@ const USER_A = "user_a";
 const PET_OTHER = "pet_other_hh";
 const EVENT_OTHER = "event_other_hh";
 const PRESET_OTHER = "preset_other_hh";
+const ROUTINE_OTHER = "routine_other_hh";
 
 const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn() },
@@ -16,6 +17,9 @@ const mockPrisma = vi.hoisted(() => ({
   pet: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), count: vi.fn(), aggregate: vi.fn() },
   preset: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
   eventTypeAlias: { findMany: vi.fn(), upsert: vi.fn() },
+  routine: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+  routineItem: { deleteMany: vi.fn(), createMany: vi.fn() },
+  product: { count: vi.fn() },
   attachment: { findFirst: vi.fn(), create: vi.fn(), delete: vi.fn() },
   event: {
     findMany: vi.fn(),
@@ -242,6 +246,90 @@ describe("household isolation (K-3)", () => {
     expect(mockPrisma.preset.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: PRESET_OTHER, householdId: HH_A }),
+      }),
+    );
+  });
+
+  it("POST /api/routines returns 404 when the pet belongs to another household", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/routines",
+      headers: authHeaders(token),
+      payload: { petId: PET_OTHER, label: "아침", items: [{ eventTypeId: "et_meal", quantity: 10 }] },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.pet.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: PET_OTHER, householdId: HH_A }),
+      }),
+    );
+    expect(mockPrisma.routine.create).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/routines returns 404 when an item's preset belongs to another household", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue({ id: "pet_a" });
+    mockPrisma.eventType.findMany.mockResolvedValue([{ id: "et_meal" }]);
+    mockPrisma.preset.findMany.mockResolvedValue([]);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/routines",
+      headers: authHeaders(token),
+      payload: {
+        petId: "pet_a",
+        label: "아침",
+        items: [{ eventTypeId: "et_meal", presetId: PRESET_OTHER, quantity: 10 }],
+      },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.preset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ householdId: HH_A, petId: "pet_a" }),
+      }),
+    );
+    expect(mockPrisma.routine.create).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /api/routines/:id returns 404 for another household's routine", async () => {
+    mockPrisma.routine.findFirst.mockResolvedValue(null);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/routines/${ROUTINE_OTHER}`,
+      headers: authHeaders(token),
+      payload: { label: "x" },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.routine.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: ROUTINE_OTHER, householdId: HH_A }),
+      }),
+    );
+    expect(mockPrisma.routine.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("DELETE /api/routines/:id returns 404 for another household's routine", async () => {
+    mockPrisma.routine.updateMany.mockResolvedValue({ count: 0 });
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/routines/${ROUTINE_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.routine.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: ROUTINE_OTHER, householdId: HH_A }),
       }),
     );
   });
