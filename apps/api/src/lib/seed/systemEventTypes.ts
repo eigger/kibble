@@ -129,6 +129,16 @@ export const SYSTEM_EVENT_TYPES: SystemEventTypeSeed[] = [
     sortOrder: 80,
   },
   {
+    key: "temperature",
+    label: "eventType.temperature",
+    icon: "thermometer",
+    color: "red",
+    category: "HEALTH",
+    defaultUnit: "°C",
+    aliases: ["체온", "열"],
+    sortOrder: 85,
+  },
+  {
     key: "symptom",
     label: "eventType.symptom",
     icon: "stethoscope",

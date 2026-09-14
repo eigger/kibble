@@ -11,14 +11,14 @@ export const COST_KRW_STEP_LARGE = 10000;
  */
 export function quantityStep(unit: string | null | undefined, eventTypeKey?: string | null): number {
   const u = (unit ?? "").trim().toLowerCase();
-  if (u === "kg") return 0.1;
+  if (u === "kg" || u === "°c") return 0.1;
   if (u === "g" || u === "ml") return 10;
   if (u === "min") return 5;
   if (u === "개" || u === "회") return 1;
   // 사용자가 쓴 단위를 모르면 타입 기본값(사료 10g)을 들이대지 않는다.
   if (u !== "") return 1;
   const key = eventTypeKey ?? "";
-  if (key === "weight") return 0.1;
+  if (key === "weight" || key === "temperature") return 0.1;
   if (key === "water" || key === "meal" || key === "treat" || key === "supplement") return 10;
   if (key === "walk" || key === "play") return 5;
   return 1;
@@ -33,12 +33,12 @@ export function quantityExtraStep(
   eventTypeKey?: string | null,
 ): number | null {
   const u = (unit ?? "").trim().toLowerCase();
-  if (u === "kg") return 1;
+  if (u === "kg" || u === "°c") return 1;
   if (u === "g" || u === "ml") return 1;
   if (u === "min") return 1;
   if (u !== "") return null;
   const key = eventTypeKey ?? "";
-  if (key === "weight") return 1;
+  if (key === "weight" || key === "temperature") return 1;
   if (key === "water" || key === "meal" || key === "treat" || key === "supplement") return 1;
   if (key === "walk" || key === "play") return 1;
   return null;

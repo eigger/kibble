@@ -52,3 +52,56 @@ describe("parseEntryText — keyword tags", () => {
     expect(meal?.productName).toBeNull();
   });
 });
+
+describe("parseEntryText — 체온 (§7.23)", () => {
+  const withTemperature = [
+    ...targets,
+    {
+      eventTypeId: "temperature-id",
+      eventTypeKey: "temperature",
+      label: "eventType.temperature",
+      aliases: ["체온", "열"],
+      presetId: "preset-temperature",
+      defaultUnit: "°C",
+      sortOrder: 85,
+    },
+  ];
+
+  it("단위만 있어도 체온이다 — 38.5도 / 38.5℃ / 38.5°C", () => {
+    for (const text of ["38.5도", "38.5℃", "38.5°C"]) {
+      const [line] = parseEntryText(text, withTemperature, "note-id");
+      expect(line?.eventTypeKey).toBe("temperature");
+      expect(line?.quantity).toBe(38.5);
+      expect(line?.unit).toBe("°C");
+      expect(line?.note).toBeNull();
+    }
+  });
+
+  it("별칭 + 단위 없는 숫자 — 체온 38.5", () => {
+    const [line] = parseEntryText("체온 38.5", withTemperature, "note-id");
+    expect(line?.eventTypeKey).toBe("temperature");
+    expect(line?.quantity).toBe(38.5);
+    expect(line?.unit).toBe("°C");
+    expect(line?.note).toBeNull();
+  });
+
+  it("시각은 값으로 읽지 않는다 — 8시 체온 39.1", () => {
+    const [line] = parseEntryText("8시 체온 39.1", withTemperature, "note-id");
+    expect(line?.eventTypeKey).toBe("temperature");
+    expect(line?.quantity).toBe(39.1);
+    expect(line?.occurredAt).not.toBeNull();
+  });
+
+  it("체온 타입이 없는 가구에서는 메모로 떨어진다 (K-12)", () => {
+    const [line] = parseEntryText("38.5도", targets, "note-id");
+    expect(line?.eventTypeKey).toBe("note");
+    expect(line?.quantity).toBe(38.5);
+  });
+
+  it("사료 40g정도는 여전히 사료 40g이다", () => {
+    const [line] = parseEntryText("사료 40g정도", withTemperature, "note-id");
+    expect(line?.eventTypeKey).toBe("meal");
+    expect(line?.quantity).toBe(40);
+    expect(line?.unit).toBe("g");
+  });
+});

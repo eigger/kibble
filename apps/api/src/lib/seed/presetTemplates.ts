@@ -21,7 +21,8 @@ const CAT_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "care", label: "eventType.care", sortOrder: 9, isStarter: false },
   { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 10, isStarter: false },
   { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 11, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 12, isStarter: false },
+  { eventTypeKey: "temperature", label: "eventType.temperature", sortOrder: 12, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 13, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.3 */
@@ -38,7 +39,8 @@ const DOG_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "care", label: "eventType.care", sortOrder: 9, isStarter: false },
   { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 10, isStarter: false },
   { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 11, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 12, isStarter: false },
+  { eventTypeKey: "temperature", label: "eventType.temperature", sortOrder: 12, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 13, isStarter: false },
 ];
 
 /** docs/seed-event-types.md §4.4 */
@@ -54,7 +56,8 @@ const OTHER_TEMPLATES: PresetTemplateRow[] = [
   { eventTypeKey: "care", label: "eventType.care", sortOrder: 8, isStarter: false },
   { eventTypeKey: "observation", label: "eventType.observation", sortOrder: 9, isStarter: false },
   { eventTypeKey: "weight", label: "eventType.weight", sortOrder: 10, isStarter: false },
-  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "temperature", label: "eventType.temperature", sortOrder: 11, isStarter: false },
+  { eventTypeKey: "vet_visit", label: "eventType.vet_visit", sortOrder: 12, isStarter: false },
 ];
 
 export function presetTemplatesForSpecies(species: Species): PresetTemplateRow[] {

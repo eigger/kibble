@@ -3,12 +3,12 @@ import { presetTemplatesForSpecies, selectPresetsToInsert } from "./presetTempla
 
 describe("presetTemplatesForSpecies", () => {
   it("returns 13 templates for CAT and DOG", () => {
-    expect(presetTemplatesForSpecies("CAT")).toHaveLength(13);
-    expect(presetTemplatesForSpecies("DOG")).toHaveLength(13);
+    expect(presetTemplatesForSpecies("CAT")).toHaveLength(14);
+    expect(presetTemplatesForSpecies("DOG")).toHaveLength(14);
   });
 
   it("returns 12 templates for OTHER", () => {
-    expect(presetTemplatesForSpecies("OTHER")).toHaveLength(12);
+    expect(presetTemplatesForSpecies("OTHER")).toHaveLength(13);
   });
 
   it("includes vet_visit and remedy in all species", () => {
@@ -36,7 +36,7 @@ describe("selectPresetsToInsert", () => {
 
   it("inserts all templates for first household pet with starters", () => {
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, new Set(), true);
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
     expect(rows.filter((r) => r.applyStarter)).toHaveLength(3);
   });
 
@@ -52,15 +52,22 @@ describe("selectPresetsToInsert", () => {
       "id-medication",
     ]);
     const rows = selectPresetsToInsert(templates, eventTypeIdByKey, existing, true);
-    expect(rows).toHaveLength(5);
-    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual(["care", "observation", "remedy", "vet_visit", "weight"]);
+    expect(rows).toHaveLength(6);
+    expect(rows.map((r) => r.eventTypeKey).sort()).toEqual([
+      "care",
+      "observation",
+      "remedy",
+      "temperature",
+      "vet_visit",
+      "weight",
+    ]);
   });
 
   it("creates full species set for second pet without starters", () => {
     const dogTemplates = presetTemplatesForSpecies("DOG");
     const dogIds = new Map(dogTemplates.map((t) => [t.eventTypeKey, `id-${t.eventTypeKey}`]));
     const rows = selectPresetsToInsert(dogTemplates, dogIds, new Set(), false);
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(14);
     expect(rows.some((r) => r.eventTypeKey === "walk")).toBe(true);
     expect(rows.every((r) => !r.applyStarter)).toBe(true);
   });

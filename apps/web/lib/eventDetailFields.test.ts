@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   eventDetailFields,
   formatEventDetailLine,
+  quantityPlaceholder,
   resolveEventUnit,
 } from "./eventDetailFields";
 
@@ -414,5 +415,18 @@ describe("eventDetailFields — multiProduct (§7.22)", () => {
     expect(eventDetailFields("care", null).multiProduct).toBe(false);
     expect(eventDetailFields("water", null).multiProduct).toBe(false);
     expect(eventDetailFields("vet_visit", null).multiProduct).toBe(false);
+  });
+});
+
+describe("eventDetailFields — temperature (§7.23)", () => {
+  it("체중처럼 값 한 칸, 단위 °C 고정, 제품 없음", () => {
+    const f = eventDetailFields("temperature", null);
+    expect(f.quantity).toBe(true);
+    expect(f.quantityOffered).toBe(false);
+    expect(f.showUnitInput).toBe(false);
+    expect(f.productName).toBe(false);
+    expect(f.defaultUnit).toBe("°C");
+    expect(f.quantityLabelKey).toBe("eventDetailTemperature");
+    expect(quantityPlaceholder("temperature", false)).toBe("38.5");
   });
 });

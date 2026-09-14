@@ -4,7 +4,10 @@ import {
   filterEventsByPeriod,
   groupedCostSums,
   groupedQuantitySums,
+  latestQuantity,
   latestWeight,
+  measurementChartPoints,
+  measurementDomain,
   periodStartDate,
   totalCost,
   weightChartPoints,
@@ -99,5 +102,40 @@ describe("petMetrics", () => {
   it("totalCost returns null when no cost recorded", () => {
     const events = [ev("vet_visit", "2026-08-01T10:00:00+09:00", null)];
     expect(totalCost(events, "vet_visit")).toBeNull();
+  });
+});
+
+describe("petMetrics — 체온 측정값 (§7.23)", () => {
+  it("measurementChartPoints: 기록 하나가 점 하나, 시간 순", () => {
+    const points = measurementChartPoints(
+      [
+        ev("temperature", "2026-09-10T10:00:00.000Z", 38.9),
+        ev("temperature", "2026-09-10T01:00:00.000Z", 38.6),
+        ev("weight", "2026-09-10T02:00:00.000Z", 4.2),
+        ev("temperature", "2026-09-11T01:00:00.000Z", null),
+      ],
+      "temperature",
+      "ko-KR",
+    );
+    expect(points.map((p) => p.value)).toEqual([38.6, 38.9]);
+  });
+
+  it("measurementDomain: 데이터 범위 ±0.5를 0.1 단위로 — 0부터 그리지 않는다", () => {
+    expect(measurementDomain([{ value: 38.6 }, { value: 39.2 }])).toEqual([38.1, 39.7]);
+    expect(measurementDomain([{ value: 38.55 }])).toEqual([38, 39.1]);
+    expect(measurementDomain([])).toBeNull();
+  });
+
+  it("latestQuantity: 가장 최근 값", () => {
+    expect(
+      latestQuantity(
+        [
+          ev("temperature", "2026-09-10T01:00:00.000Z", 38.6),
+          ev("temperature", "2026-09-10T10:00:00.000Z", 38.9),
+        ],
+        "temperature",
+      ),
+    ).toBe(38.9);
+    expect(latestQuantity([], "temperature")).toBeNull();
   });
 });

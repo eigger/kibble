@@ -32,6 +32,9 @@ import {
   totalCost,
   type AnalyticsPeriod,
   weightChartPoints,
+  measurementChartPoints,
+  measurementDomain,
+  latestQuantity,
 } from "../../lib/petMetrics";
 import type { Pet } from "../../lib/types";
 import "./analytics.css";
@@ -184,6 +187,11 @@ export default function AnalyticsPage() {
     () => weightChartPoints(filtered, localeTag),
     [filtered, localeTag],
   );
+  const temperaturePoints = useMemo(
+    () => measurementChartPoints(filtered, "temperature", localeTag),
+    [filtered, localeTag],
+  );
+  const temperatureDomain = useMemo(() => measurementDomain(temperaturePoints), [temperaturePoints]);
   const mealGrouped = useMemo(
     () => groupedQuantitySums(filtered, "meal", granularity, localeTag, { includeOffered: true }),
     [filtered, granularity, localeTag],
@@ -216,6 +224,7 @@ export default function AnalyticsPage() {
   );
 
   const summaryWeight = latestWeight(filtered);
+  const summaryTemperature = latestQuantity(filtered, "temperature");
   const summaryMeal = avgDailyQuantity(filtered, "meal");
   const summaryWater = avgDailyQuantity(filtered, "water");
   const summaryCost = totalCost(filtered, "vet_visit");
@@ -290,6 +299,12 @@ export default function AnalyticsPage() {
                   {summaryCost != null ? `${summaryCost.toLocaleString()}${t("eventDetailCostUnit")}` : "—"}
                 </div>
               </div>
+              {summaryTemperature != null && (
+                <div>
+                  <div className="analytics-summary-label">{t("analyticsLatestTemperature")}</div>
+                  <div className="analytics-summary-value">{`${summaryTemperature}°C`}</div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -331,6 +346,40 @@ export default function AnalyticsPage() {
               </AnalyticsChart>
             )}
           </section>
+
+          {/* 체온 — 기록이 있을 때만 그린다. 대부분의 날은 재지 않으니 빈 카드로 자리를 먹지 않는다 */}
+          {temperaturePoints.length > 0 && temperatureDomain && (
+            <section className="card analytics-chart-card">
+              <h2 className="analytics-chart-title">{t("analyticsTemperatureChartTitle")}</h2>
+              <AnalyticsChart>
+                <ComposedChart
+                  data={temperaturePoints}
+                  margin={{ ...CHART_MARGIN, bottom: temperaturePoints.length > 6 ? 8 : 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="label" {...chartXAxisProps(temperaturePoints.length)} />
+                  <YAxis
+                    domain={temperatureDomain}
+                    tick={{ fontSize: 10, fill: "var(--color-text-muted)" }}
+                    width={40}
+                    tickMargin={4}
+                  />
+                  <Tooltip
+                    formatter={(value) => [`${value}°C`, t("analyticsTemperatureChartTitle")]}
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    cursor={TOOLTIP_CURSOR}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="var(--color-primary)"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </ComposedChart>
+              </AnalyticsChart>
+            </section>
+          )}
 
           <section className="card analytics-chart-card">
             <h2 className="analytics-chart-title">{t("analyticsMealChartTitle")}</h2>

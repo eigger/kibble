@@ -4,6 +4,7 @@ import type { TimelineEvent } from "./types";
 
 const ANALYTICS_EVENT_KEYS = [
   "weight",
+  "temperature",
   "meal",
   "water",
   "treat",

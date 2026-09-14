@@ -32,6 +32,7 @@ export type EventDetailQuantityLabelKey =
   | "eventDetailQuantity"
   | "eventDetailQuantityConsumed"
   | "eventDetailWeight"
+  | "eventDetailTemperature"
   | "eventDetailVolume"
   | "eventDetailDuration";
 
@@ -203,6 +204,30 @@ export function eventDetailFields(
     };
   }
 
+  // 체온 — 체중과 같은 측정값. 값 한 칸, 단위는 °C 고정 (§7.23)
+  if (key === "temperature") {
+    return {
+      productName: false,
+      detailTags: false,
+      productCustomInput: true,
+      productNameLabelKey: "eventDetailProductName",
+      noteLabelKey: "eventDetailNote",
+      clinicName: false,
+      clinicAddress: false,
+      cost: false,
+      quantityOffered: false,
+      quantity: true,
+      showUnitInput: false,
+      multiProduct: false,
+      fecalScale: false,
+      scale3: false,
+      note: true,
+      quantityLabelKey: "eventDetailTemperature",
+      quantityOfferedLabelKey: "eventDetailQuantityOffered",
+      defaultUnit: "°C",
+    };
+  }
+
   if (key === "walk" || key === "play") {
     return {
       productName: false,
@@ -261,6 +286,7 @@ export function quantityPlaceholder(
 ): string {
   const key = eventTypeKey ?? "";
   if (key === "weight") return "4.2";
+  if (key === "temperature") return "38.5";
   if (key === "water") return "100";
   if (key === "walk" || key === "play") return "30";
   if (hasOffered) return "30";
