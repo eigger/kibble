@@ -96,7 +96,7 @@ describe("productSuggestionsForPet — query path", () => {
     expect(result.frequent[0]).toEqual({ productName: "dental,bath", count: 1 });
   });
 
-  it("마지막 이벤트가 묶음이면 lastItems는 그 묶음 전부를 기록 순으로 준다 (§7.22)", async () => {
+  it("마지막 이벤트가 묶음이면 lastItems는 그 묶음 전부를 타임라인 순(id 내림차순)으로 준다 (§7.22)", async () => {
     const db = mockDb();
     db.event.findFirst = vi.fn(async () => ({
       id: "e2",
@@ -147,9 +147,10 @@ describe("productSuggestionsForPet — query path", () => {
       (c) => (c[0] as { where?: { entryId?: string } }).where?.entryId === "entry-1",
     );
     expect(groupedCall).toBeDefined();
-    const where = (groupedCall![0] as { where: Record<string, unknown> }).where;
-    expect(where.householdId).toBe("hh");
-    expect(where.petId).toBe("pet");
+    const args = groupedCall![0] as { where: Record<string, unknown>; orderBy: unknown };
+    expect(args.where.householdId).toBe("hh");
+    expect(args.where.petId).toBe("pet");
+    expect(args.orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
 
     expect(result.lastItems).toEqual([
       { productId: "p-lacto", productName: "유산균", dosage: null, quantity: 2, quantityOffered: null, unit: "g" },

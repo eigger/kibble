@@ -322,58 +322,79 @@ export default function QuickRecordPage() {
           entryId,
         };
 
-        const outcome = await createEventWithOfflineFallback({
-          userId: user.id,
-          labelKey,
-          attachments: filesToUpload,
-          body: {
-            ...shared,
-            dedupeKey: draft.dedupeKey,
-            quantity: draft.quantity ?? undefined,
-            quantityOffered: draft.quantityOffered ?? undefined,
-            unit: draft.unit ?? undefined,
-            productId: draft.productId ?? undefined,
-            productName: draft.productName ?? undefined,
-            clinicName: draft.clinicName ?? undefined,
-            clinicAddress: draft.clinicAddress ?? undefined,
-            clinicLatitude: draft.clinicLatitude ?? undefined,
-            clinicLongitude: draft.clinicLongitude ?? undefined,
-            clinicPlaceUrl: draft.clinicPlaceUrl ?? undefined,
-            costKrw: draft.costKrw ?? undefined,
-            note: draft.note ?? undefined,
-            scaleValue: draft.scaleValue ?? undefined,
-            medicationCourseId: draft.medicationCourseId ?? undefined,
-            doseSlotIndex: draft.doseSlotIndex ?? undefined,
-          },
-        });
+        // 둘째 제품부터 **먼저**, 첫 제품은 마지막에 만든다. 타임라인은 같은 시각이면 id 내림차순
+        // (나중 것이 위)이라 이렇게 해야 시트에 보이던 순서(첫 제품 · 메모 · 첨부가 맨 위)로 읽힌다.
+        // 메모·첨부는 첫 건에만. dedupeKey는 항목별이라 중간에 끊겨 다시 눌러도 이미 들어간 건은 그대로 돌아온다.
+        const created: CreatedEvent[] = [];
+        let queued = false;
+        // 하나라도 만들어졌으면 실패해도 타임라인에는 넣는다 — 서버에 이미 있는 것을 화면만 모르면 안 된다
+        const flushCreated = () => {
+          if (created.length === 0) return;
+          setRecentEvents((prev) =>
+            created.reduce((acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)), prev),
+          );
+        };
 
-        // 둘째 제품부터 — 메모·첨부는 첫 건에만 붙는다. 첨부는 없어도 큐 항목 소유자는 필요하다.
-        // dedupeKey는 항목별이라 중간에 끊겨 다시 눌러도 이미 들어간 건은 그대로 돌아온다.
-        const created: CreatedEvent[] = outcome.status === "created" ? [outcome.event] : [];
-        let queued = outcome.status === "queued";
-        for (const [i, item] of extras.entries()) {
-          const extraOutcome = await createEventWithOfflineFallback({
+        try {
+          for (let i = extras.length - 1; i >= 0; i -= 1) {
+            const item = extras[i];
+            const extraOutcome = await createEventWithOfflineFallback({
+              userId: user.id,
+              labelKey,
+              body: {
+                ...shared,
+                dedupeKey: draft.dedupeKey ? `${draft.dedupeKey}:${i + 1}` : undefined,
+                quantity: item.quantity ?? undefined,
+                quantityOffered: item.quantityOffered ?? undefined,
+                unit: item.unit ?? undefined,
+                productId: item.productId ?? undefined,
+                productName: item.productName || undefined,
+              },
+            });
+            if (extraOutcome.status === "queued") queued = true;
+            else created.push(extraOutcome.event);
+          }
+        } catch (err) {
+          flushCreated();
+          throw err;
+        }
+
+        let outcome;
+        try {
+          outcome = await createEventWithOfflineFallback({
             userId: user.id,
             labelKey,
+            attachments: filesToUpload,
             body: {
               ...shared,
-              dedupeKey: draft.dedupeKey ? `${draft.dedupeKey}:${i + 1}` : undefined,
-              quantity: item.quantity ?? undefined,
-              quantityOffered: item.quantityOffered ?? undefined,
-              unit: item.unit ?? undefined,
-              productId: item.productId ?? undefined,
-              productName: item.productName || undefined,
+              dedupeKey: draft.dedupeKey,
+              quantity: draft.quantity ?? undefined,
+              quantityOffered: draft.quantityOffered ?? undefined,
+              unit: draft.unit ?? undefined,
+              productId: draft.productId ?? undefined,
+              productName: draft.productName ?? undefined,
+              clinicName: draft.clinicName ?? undefined,
+              clinicAddress: draft.clinicAddress ?? undefined,
+              clinicLatitude: draft.clinicLatitude ?? undefined,
+              clinicLongitude: draft.clinicLongitude ?? undefined,
+              clinicPlaceUrl: draft.clinicPlaceUrl ?? undefined,
+              costKrw: draft.costKrw ?? undefined,
+              note: draft.note ?? undefined,
+              scaleValue: draft.scaleValue ?? undefined,
+              medicationCourseId: draft.medicationCourseId ?? undefined,
+              doseSlotIndex: draft.doseSlotIndex ?? undefined,
             },
           });
-          if (extraOutcome.status === "queued") queued = true;
-          else created.push(extraOutcome.event);
+        } catch (err) {
+          flushCreated();
+          throw err;
         }
+        if (outcome.status === "queued") queued = true;
+        else created.push(outcome.event);
 
         // 첨부보다 먼저 타임라인에 넣는다 — 업로드는 뒤에서 돌고, 끝나면
         // kibble-attachments-uploaded로 썸네일을 붙인다.
-        setRecentEvents((prev) =>
-          created.reduce((acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)), prev),
-        );
+        flushCreated();
         setDetailOpen(false);
         setDetailDraft(null);
         setDetailAttachments([]);

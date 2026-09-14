@@ -166,13 +166,15 @@ export async function productSuggestionsForPet(
     });
   }
 
-  // 마지막 이벤트가 묶음(entryId)의 일부면 묶음 전부를 기록 순으로 — 여러 제품을 한 번에
-  // 먹인 세트를 다음번에 그대로 다시 연다 (§7.22). 묶음 조회도 가구·반려동물·타입 스코프다 (K-1).
+  // 마지막 이벤트가 묶음(entryId)의 일부면 묶음 전부 — 여러 제품을 한 번에 먹인 세트를 다음번에
+  // 그대로 다시 연다 (§7.22). 순서는 타임라인과 같은 id 내림차순: 시트는 첫 제품을 마지막에 만들어
+  // 타임라인 맨 위에 오게 하므로, 그 순서로 읽어야 첫 항목이 다시 첫 칸이 된다.
+  // 묶음 조회도 가구·반려동물·타입 스코프다 (K-1).
   let lastItems: LastProductItem[] = [];
   if (lastEvent?.entryId) {
     const grouped = await db.event.findMany({
       where: { ...baseWhere, entryId: lastEvent.entryId },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 20,
       select: selectEvent,
     });

@@ -571,20 +571,21 @@ export function EventDetailSheet({
             } else if (data.lastProduct) {
               applyStoredProductName(data.lastProduct);
             }
-            // 이 기기에 저장값이 없으면 지난 세트(양·단위까지)를 서버에서 그대로 연다 (§7.22)
+            // 이 기기에 저장값이 없으면 지난 세트(양·단위까지)를 서버에서 그대로 연다 (§7.22).
+            // 응답이 오기 전에 사용자가 칩을 골랐으면 그쪽이 우선 — 덮어쓰지 않는다
             const [first, ...rest] = data.lastItems ?? [];
             if (fields.multiProduct && first) {
               if (first.quantity != null) setQuantity(numberToInput(first.quantity));
               if (first.quantityOffered != null) setQuantityOffered(numberToInput(first.quantityOffered));
               if (first.unit) setUnit(first.unit);
-              setExtraItems(rest.map(lastItemToExtra));
+              setExtraItems((prev) => (prev.length > 0 ? prev : rest.map(lastItemToExtra)));
             }
           } else if (fields.multiProduct && prefs.extraItems === undefined) {
             // 이 기능 전에 저장된 로컬값(첫 제품만) — 서버의 지난 세트가 같은 제품으로 시작하면
             // 둘째 이후를 거기서 가져온다. 다른 제품이면 로컬값을 존중해 한 제품으로 둔다
             const [first, ...rest] = data.lastItems ?? [];
             if (first && rest.length > 0 && first.productName === prefs.productName) {
-              setExtraItems(rest.map(lastItemToExtra));
+              setExtraItems((prev) => (prev.length > 0 ? prev : rest.map(lastItemToExtra)));
             }
           } else if (fields.multiProduct && prefs.extraItems?.length) {
             // 로컬 저장값의 둘째 이후에 복용법 힌트를 서버 제품 목록에서 붙인다
@@ -841,18 +842,39 @@ export function EventDetailSheet({
       ordinal = parsed.value != null ? Math.round(parsed.value) : null;
     }
 
-    const savedProductName = fields.productName ? resolvedProductName() || null : null;
+    let savedProductName = fields.productName ? resolvedProductName() || null : null;
+    let savedProductId = productId;
+    let unitForSave = unit;
 
     // 둘째 제품부터 — 제품도 이름도 없는 빈 줄은 조용히 버린다 (K-12). 숫자가 아닌 양만 막는다
     const extras: ExtraProductSave[] = [];
     if (multiProduct) {
-      for (const item of extraItems) {
-        if (!item.productId && !item.productName.trim()) continue;
+      let items = extraItems.filter((x) => x.productId || x.productName.trim());
+      // 첫 칸이 비었는데(제품·이름·양 전부 없음) 둘째가 있으면 둘째를 첫 칸으로 올린다 —
+      // 안 그러면 내용 없는 이벤트가 한 건 앞에 붙는다
+      if (!savedProductId && !savedProductName && consumed == null && offered == null && items.length > 0) {
+        const [first, ...rest] = items;
+        const qty = parseOptionalNumber(first.quantity);
+        const off = fields.quantityOffered
+          ? parseOptionalNumber(first.quantityOffered)
+          : { ok: true as const, value: null };
+        if (!qty.ok || !off.ok) {
+          onValidationError(t("eventDetailQuantityInvalid"));
+          return;
+        }
+        savedProductId = first.productId;
+        savedProductName = first.productName.trim() || null;
+        consumed = qty.value;
+        offered = fields.quantityOffered ? off.value : null;
+        unitForSave = first.unit;
+        items = rest;
+      }
+      for (const item of items) {
         const qty = parseOptionalNumber(item.quantity);
-        const offered = fields.quantityOffered
+        const off = fields.quantityOffered
           ? parseOptionalNumber(item.quantityOffered)
           : { ok: true as const, value: null };
-        if (!qty.ok || !offered.ok) {
+        if (!qty.ok || !off.ok) {
           onValidationError(t("eventDetailQuantityInvalid"));
           return;
         }
@@ -860,7 +882,7 @@ export function EventDetailSheet({
           productId: item.productId,
           productName: item.productName.trim(),
           quantity: qty.value,
-          quantityOffered: fields.quantityOffered ? offered.value : null,
+          quantityOffered: fields.quantityOffered ? off.value : null,
           unit: resolveEventUnit(fields, item.unit),
         });
       }
@@ -872,8 +894,8 @@ export function EventDetailSheet({
         occurredAt,
         quantityOffered: fields.quantityOffered ? offered : null,
         quantity: fields.quantity ? consumed : null,
-        unit: resolveEventUnit(fields, unit),
-        productId: fields.productName ? productId : null,
+        unit: resolveEventUnit(fields, unitForSave),
+        productId: fields.productName ? savedProductId : null,
         productName: savedProductName,
         clinicName: fields.clinicName ? clinicName.trim() || null : null,
         clinicAddress: fields.clinicAddress ? clinicAddress.trim() || null : null,
@@ -890,22 +912,21 @@ export function EventDetailSheet({
     );
 
     if (draft.petId && draft.eventTypeKey) {
+      // 저장한 값 그대로 기억한다 — 첫 칸이 승격됐으면 승격된 뒤의 모양이다
       saveEventDetailPrefs(draft.petId, draft.eventTypeKey, {
         productName: savedProductName,
-        quantity: fields.quantity ? quantity : undefined,
-        quantityOffered: fields.quantityOffered ? quantityOffered : undefined,
-        unit: fields.showUnitInput ? unit : undefined,
+        quantity: fields.quantity ? numberToInput(consumed) : undefined,
+        quantityOffered: fields.quantityOffered ? numberToInput(offered) : undefined,
+        unit: fields.showUnitInput ? unitForSave : undefined,
         ...(fields.multiProduct
           ? {
-              extraItems: extraItems
-                .filter((x) => x.productId || x.productName.trim())
-                .map((x) => ({
-                  productId: x.productId,
-                  productName: x.productName.trim(),
-                  quantity: x.quantity,
-                  quantityOffered: x.quantityOffered,
-                  unit: x.unit,
-                })),
+              extraItems: extras.map((x) => ({
+                productId: x.productId,
+                productName: x.productName,
+                quantity: numberToInput(x.quantity),
+                quantityOffered: numberToInput(x.quantityOffered),
+                unit: x.unit ?? "",
+              })),
             }
           : {}),
       });
