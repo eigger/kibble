@@ -39,10 +39,25 @@ export type ActiveProductSuggestion = {
   isActive: boolean;
 };
 
+/** 마지막 묶음의 한 항목 — 시트가 지난 세트를 그대로 다시 연다 (§7.22) */
+export type LastProductItem = {
+  productId: string | null;
+  productName: string | null;
+  dosage: string | null;
+  quantity: number | null;
+  quantityOffered: number | null;
+  unit: string | null;
+};
+
 export type ProductSuggestions = {
   lastProduct: string | null;
   lastProductId: string | null;
   lastProductDosage?: string | null;
+  /**
+   * 마지막으로 기록한 묶음의 항목들. 마지막 이벤트에 `entryId`가 있으면 그 묶음 전부(기록 순),
+   * 없으면 그 한 건. `lastProduct*`는 이 배열의 첫 항목과 같다 — 옛 필드는 남겨 둔다.
+   */
+  lastItems: LastProductItem[];
   activeProducts: ActiveProductSuggestion[];
   frequent: FrequentProduct[];
 };
@@ -50,9 +65,47 @@ export type ProductSuggestions = {
 const EMPTY_SUGGESTIONS: ProductSuggestions = {
   lastProduct: null,
   lastProductId: null,
+  lastItems: [],
   activeProducts: [],
   frequent: [],
 };
+
+/** Prisma Decimal · number · null을 하나로 받는다. 0은 값이므로 살린다. */
+function toNumber(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value === "object" && "toNumber" in (value as Record<string, unknown>)) {
+    const parsed = (value as { toNumber: () => number }).toNumber();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+type LastEventRow = {
+  id: string;
+  entryId: string | null;
+  productName: string | null;
+  productId: string | null;
+  quantity: unknown;
+  quantityOffered: unknown;
+  unit: string | null;
+  product: { id: string; name: string; dosage: string | null } | null;
+};
+
+function toLastItem(row: LastEventRow): LastProductItem {
+  return {
+    productId: row.productId || null,
+    productName: row.productName?.trim() || row.product?.name || null,
+    dosage: row.product?.dosage || null,
+    quantity: toNumber(row.quantity),
+    quantityOffered: toNumber(row.quantityOffered),
+    unit: row.unit?.trim() || null,
+  };
+}
 
 export async function productSuggestionsForPet(
   db: PrismaClient,
@@ -84,42 +137,53 @@ export async function productSuggestionsForPet(
     productName: { not: "" },
   };
 
-  let lastProduct: string | null = null;
-  let lastProductId: string | null = null;
-  let lastProductDosage: string | null = null;
-
   const selectEvent = {
+    id: true,
+    entryId: true,
     productName: true,
     productId: true,
+    quantity: true,
+    quantityOffered: true,
+    unit: true,
     product: { select: { id: true, name: true, dosage: true } },
   };
 
   const suggestNames = PRODUCT_NAME_EVENT_KEYS.has(params.eventTypeKey);
 
+  let lastEvent: LastEventRow | null = null;
   if (suggestNames && params.userId) {
-    const mine = await db.event.findFirst({
+    lastEvent = await db.event.findFirst({
       where: { ...baseWhere, createdById: params.userId },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: selectEvent,
     });
-    if (mine) {
-      lastProduct = mine.productName?.trim() || mine.product?.name || null;
-      lastProductId = mine.productId || null;
-      lastProductDosage = mine.product?.dosage || null;
-    }
   }
-  if (suggestNames && !lastProduct && !lastProductId) {
-    const latest = await db.event.findFirst({
+  if (suggestNames && !lastEvent) {
+    lastEvent = await db.event.findFirst({
       where: baseWhere,
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       select: selectEvent,
     });
-    if (latest) {
-      lastProduct = latest.productName?.trim() || latest.product?.name || null;
-      lastProductId = latest.productId || null;
-      lastProductDosage = latest.product?.dosage || null;
-    }
   }
+
+  // 마지막 이벤트가 묶음(entryId)의 일부면 묶음 전부를 기록 순으로 — 여러 제품을 한 번에
+  // 먹인 세트를 다음번에 그대로 다시 연다 (§7.22). 묶음 조회도 가구·반려동물·타입 스코프다 (K-1).
+  let lastItems: LastProductItem[] = [];
+  if (lastEvent?.entryId) {
+    const grouped = await db.event.findMany({
+      where: { ...baseWhere, entryId: lastEvent.entryId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: 20,
+      select: selectEvent,
+    });
+    lastItems = grouped.map(toLastItem);
+  } else if (lastEvent) {
+    lastItems = [toLastItem(lastEvent)];
+  }
+
+  const lastProduct = lastItems[0]?.productName ?? null;
+  const lastProductId = lastItems[0]?.productId ?? null;
+  const lastProductDosage = lastItems[0]?.dosage ?? null;
 
   // Active products matching this event type's category
   const categoryByKey: Record<string, "MEAL" | "SUPPLEMENT" | "TREAT" | "MEDICATION" | "HYGIENE"> = {
@@ -181,5 +245,5 @@ export async function productSuggestionsForPet(
     .sort((a, b) => b.count - a.count)
     .slice(0, limit);
 
-  return { lastProduct, lastProductId, lastProductDosage, activeProducts, frequent };
+  return { lastProduct, lastProductId, lastProductDosage, lastItems, activeProducts, frequent };
 }

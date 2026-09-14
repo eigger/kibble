@@ -401,3 +401,18 @@ describe("formatEventDetailLine", () => {
     expect(line).toBe("100g / 30g");
   });
 });
+
+describe("eventDetailFields — multiProduct (§7.22)", () => {
+  it("영양·사료·간식만 여러 제품을 받는다", () => {
+    expect(eventDetailFields("supplement", null).multiProduct).toBe(true);
+    expect(eventDetailFields("meal", null).multiProduct).toBe(true);
+    expect(eventDetailFields("treat", null).multiProduct).toBe(true);
+  });
+
+  it("상비·관리·그 밖의 타입은 한 제품이다", () => {
+    expect(eventDetailFields("remedy", null).multiProduct).toBe(false);
+    expect(eventDetailFields("care", null).multiProduct).toBe(false);
+    expect(eventDetailFields("water", null).multiProduct).toBe(false);
+    expect(eventDetailFields("vet_visit", null).multiProduct).toBe(false);
+  });
+});
