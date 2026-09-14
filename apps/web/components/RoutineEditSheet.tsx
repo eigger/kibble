@@ -86,11 +86,14 @@ function draftsFromRoutine(
       },
     ];
   }
+  const known = new Set(presets.map((p) => p.id));
   return routine.items.map((item) => ({
     key: newKey(),
-    // 칩이 없어졌으면(보관) 같은 타입의 칩으로 되돌린다
+    // 칩이 없어졌거나(보관) 목록에 없으면 같은 타입의 칩으로 되돌린다 — 옛 id를 들고 있으면 저장 때 항목이 조용히 빠진다
     presetId:
-      item.presetId ?? presets.find((p) => p.eventTypeId === item.eventTypeId)?.id ?? "",
+      (item.presetId && known.has(item.presetId) ? item.presetId : null) ??
+      presets.find((p) => p.eventTypeId === item.eventTypeId)?.id ??
+      "",
     quantity: item.quantity != null ? String(item.quantity) : "",
     unit: item.unit ?? "",
     productId: item.productId ?? "",

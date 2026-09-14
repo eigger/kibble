@@ -645,7 +645,13 @@ export default function QuickRecordPage() {
       }
     } catch (err) {
       failed = true;
-      show(formatApiErrorMessage(err, t("recordError"), locale), "error");
+      // 중간에 끊겼어도 들어간 건은 되돌릴 수 있어야 한다 — 실패 토스트에 실행취소를 붙인다
+      const ids = created.map((e) => e.id);
+      show(
+        formatApiErrorMessage(err, t("recordError"), locale),
+        "error",
+        ids.length > 0 ? { label: t("undo"), onClick: () => void undoRoutine(ids) } : undefined,
+      );
     } finally {
       if (created.length > 0) {
         setRecentEvents((prev) =>

@@ -28,7 +28,7 @@ export const routineSelect = {
       quantity: true,
       unit: true,
       eventType: { select: { key: true, label: true, category: true, defaultUnit: true } },
-      preset: { select: { id: true, label: true } },
+      preset: { select: { id: true, label: true, archivedAt: true } },
       product: { select: { id: true, name: true } },
     },
   },
@@ -42,19 +42,23 @@ export function serializeRoutine(row: RoutineRow) {
     petId: row.petId,
     label: row.label,
     sortOrder: row.sortOrder,
-    items: row.items.map((item) => ({
-      id: item.id,
-      sortOrder: item.sortOrder,
-      eventTypeId: item.eventTypeId,
-      presetId: item.presetId,
-      productId: item.productId,
-      productName: item.productName,
-      quantity: item.quantity != null ? item.quantity.toNumber() : null,
-      unit: item.unit,
-      eventType: item.eventType,
-      preset: item.preset,
-      product: item.product,
-    })),
+    items: row.items.map((item) => {
+      // 칩은 소프트 보관이라 FK SetNull이 안 걸린다 — 보관된 칩이면 없는 셈 치고 타입으로 저장하게 한다
+      const preset = item.preset && !item.preset.archivedAt ? item.preset : null;
+      return {
+        id: item.id,
+        sortOrder: item.sortOrder,
+        eventTypeId: item.eventTypeId,
+        presetId: preset?.id ?? null,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity != null ? item.quantity.toNumber() : null,
+        unit: item.unit,
+        eventType: item.eventType,
+        preset: preset ? { id: preset.id, label: preset.label } : null,
+        product: item.product,
+      };
+    }),
   };
 }
 
