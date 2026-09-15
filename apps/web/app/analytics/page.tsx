@@ -234,8 +234,10 @@ export default function AnalyticsPage() {
 
   return (
     <main className="container analytics-page">
-      <header className="care-header">
-        <h1>{t("analyticsHeading")}</h1>
+      <header className="care-header page-header">
+        <div className="page-header-row">
+          <h1>{t("analyticsHeading")}</h1>
+        </div>
         {pets.length >= 2 && activePet && (
           <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
             {pets.map((pet) => (

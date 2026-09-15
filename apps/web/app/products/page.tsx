@@ -153,15 +153,15 @@ export default function ProductsPage() {
 
   return (
     <main className="container sub-page products-page">
-      <header className="products-header">
-        <div className="products-header-row">
-          <div>
+      <header className="page-header products-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
             <h1>{t("navProducts")}</h1>
             <p className="meta">{t("productEmptyDesc")}</p>
           </div>
           <button
             type="button"
-            className="btn-action primary product-add-btn"
+            className="page-add-btn"
             onClick={() => setEditSheet({ mode: "add" })}
           >
             + {t("productAddBtn")}

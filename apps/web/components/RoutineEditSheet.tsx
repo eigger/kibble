@@ -7,6 +7,7 @@ import { formatApiErrorMessage } from "../lib/apiErrorMessage";
 import { useLocale } from "../lib/i18n/locale-context";
 import type { TranslationKey } from "../lib/i18n/translations";
 import { useToast } from "../lib/toast-context";
+import { ConfirmDialog } from "./ConfirmDialog";
 import type {
   EventTypeAliasesRow,
   PresetDetail,
@@ -26,6 +27,8 @@ interface RoutineEditSheetProps {
   products: Product[];
   onClose: () => void;
   onSaved: (routine: Routine) => void;
+  /** 시트 안 삭제 버튼 — 제품 편집 시트의 보관 버튼 자리와 같다 */
+  onDeleted: (id: string) => void;
 }
 
 interface ItemDraft {
@@ -110,12 +113,14 @@ export function RoutineEditSheet({
   products,
   onClose,
   onSaved,
+  onDeleted,
 }: RoutineEditSheetProps) {
   const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
   const [label, setLabel] = useState("");
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const defaultUnitByKey = useMemo(
     () => new Map(eventTypes.map((et) => [et.key, et.defaultUnit ?? null])),
@@ -141,6 +146,7 @@ export function RoutineEditSheet({
     setLabel(routine?.label ?? "");
     setItems(draftsFromRoutine(routine, presets, defaultUnitByKey));
     setSaving(false);
+    setDeleteOpen(false);
   }, [open, routine, presets, defaultUnitByKey]);
 
   if (!open) return null;
@@ -172,6 +178,21 @@ export function RoutineEditSheet({
 
   function removeItem(key: string) {
     setItems((prev) => (prev.length <= 1 ? prev : prev.filter((it) => it.key !== key)));
+  }
+
+  async function handleDelete() {
+    if (!routine || saving) return;
+    setSaving(true);
+    try {
+      await apiJson(`/api/routines/${routine.id}`, { method: "DELETE" });
+      show(t("routinesDeletedToast"), "success");
+      onDeleted(routine.id);
+    } catch (err) {
+      show(formatApiErrorMessage(err, t("saveError"), locale), "error");
+    } finally {
+      setSaving(false);
+      setDeleteOpen(false);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -218,6 +239,7 @@ export function RoutineEditSheet({
   }
 
   return (
+    <>
     <div className="sheet-backdrop" role="presentation" onClick={saving ? undefined : onClose}>
       <div
         className="sheet-card routine-edit-sheet"
@@ -251,99 +273,112 @@ export function RoutineEditSheet({
           <p className="meta routine-items-hint">{t("routineItemsHint")}</p>
 
           <ul className="routine-item-list">
-            {items.map((item, index) => (
-              <li key={item.key} className="routine-item-row">
-                <div className="field-row">
-                  <div className="field-group flex-1">
-                    <label className="field-label" htmlFor={`routine-item-type-${index}`}>
-                      {t("routineItemType")}
-                    </label>
-                    <select
-                      id={`routine-item-type-${index}`}
-                      className="select-input"
-                      value={item.presetId}
-                      onChange={(e) => changePreset(item.key, e.target.value)}
-                      disabled={saving}
-                    >
-                      {presets.map((preset) => (
-                        <option key={preset.id} value={preset.id}>
-                          {tLabel(preset.label)}
-                        </option>
-                      ))}
-                    </select>
+            {items.map((item, index) => {
+              const presetLabel = tLabel(presetById.get(item.presetId)?.label ?? "");
+              return (
+                <li key={item.key} className="routine-item-row">
+                  <div className="routine-item-head">
+                    <span className="routine-item-title">
+                      {t("routineItemNumber", { n: index + 1 })}
+                      {presetLabel ? ` · ${presetLabel}` : ""}
+                    </span>
+                    {/* 하나뿐이면 뺄 수 없다 — 흐린 버튼 대신 아예 그리지 않는다 */}
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        className="sheet-item-remove"
+                        aria-label={t("eventDetailExtraItemRemove", { name: presetLabel })}
+                        title={t("eventDetailExtraItemRemove", { name: presetLabel })}
+                        disabled={saving}
+                        onClick={() => removeItem(item.key)}
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
-                  <div className="field-group flex-1">
-                    <label className="field-label" htmlFor={`routine-item-product-${index}`}>
-                      {t("routineItemProduct")}
-                    </label>
-                    <select
-                      id={`routine-item-product-${index}`}
-                      className="select-input"
-                      value={item.productId}
-                      onChange={(e) => updateItem(item.key, { productId: e.target.value })}
-                      disabled={saving}
-                    >
-                      <option value="">{t("routineItemProductNone")}</option>
-                      {productGroups.map((group) => (
-                        <optgroup key={group.category} label={t(CATEGORY_LABEL_KEY[group.category])}>
-                          {group.products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                  <div className="field-row">
+                    <div className="field-group flex-1">
+                      <label className="field-label" htmlFor={`routine-item-type-${index}`}>
+                        {t("routineItemType")}
+                      </label>
+                      <select
+                        id={`routine-item-type-${index}`}
+                        className="select-input"
+                        value={item.presetId}
+                        onChange={(e) => changePreset(item.key, e.target.value)}
+                        disabled={saving}
+                      >
+                        {presets.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {tLabel(preset.label)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field-group flex-1">
+                      <label className="field-label" htmlFor={`routine-item-product-${index}`}>
+                        {t("routineItemProduct")}
+                      </label>
+                      <select
+                        id={`routine-item-product-${index}`}
+                        className="select-input"
+                        value={item.productId}
+                        onChange={(e) => updateItem(item.key, { productId: e.target.value })}
+                        disabled={saving}
+                      >
+                        <option value="">{t("routineItemProductNone")}</option>
+                        {productGroups.map((group) => (
+                          <optgroup key={group.category} label={t(CATEGORY_LABEL_KEY[group.category])}>
+                            {group.products.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {product.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                </div>
-                <div className="field-row routine-item-amount-row">
-                  <div className="field-group flex-1">
-                    <label className="field-label" htmlFor={`routine-item-qty-${index}`}>
-                      {t("routineItemQuantity")}
-                    </label>
-                    <input
-                      id={`routine-item-qty-${index}`}
-                      type="number"
-                      inputMode="decimal"
-                      step="any"
-                      min={0}
-                      className="text-input"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.key, { quantity: e.target.value })}
-                      disabled={saving}
-                    />
+                  <div className="field-row routine-item-amount">
+                    <div className="field-group flex-1">
+                      <label className="field-label" htmlFor={`routine-item-qty-${index}`}>
+                        {t("routineItemQuantity")}
+                      </label>
+                      <input
+                        id={`routine-item-qty-${index}`}
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min={0}
+                        className="text-input"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.key, { quantity: e.target.value })}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="field-group">
+                      <label className="field-label" htmlFor={`routine-item-unit-${index}`}>
+                        {t("routineItemUnit")}
+                      </label>
+                      <input
+                        id={`routine-item-unit-${index}`}
+                        type="text"
+                        className="text-input"
+                        maxLength={32}
+                        value={item.unit}
+                        onChange={(e) => updateItem(item.key, { unit: e.target.value })}
+                        disabled={saving}
+                      />
+                    </div>
                   </div>
-                  <div className="field-group routine-item-unit">
-                    <label className="field-label" htmlFor={`routine-item-unit-${index}`}>
-                      {t("routineItemUnit")}
-                    </label>
-                    <input
-                      id={`routine-item-unit-${index}`}
-                      type="text"
-                      className="text-input"
-                      maxLength={32}
-                      value={item.unit}
-                      onChange={(e) => updateItem(item.key, { unit: e.target.value })}
-                      disabled={saving}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary small routine-item-remove"
-                    onClick={() => removeItem(item.key)}
-                    disabled={saving || items.length <= 1}
-                    aria-label={t("remove")}
-                  >
-                    {t("remove")}
-                  </button>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
 
           <button
             type="button"
-            className="secondary small routine-add-item"
+            className="routine-add-item"
             onClick={addItem}
             disabled={saving || presets.length === 0 || items.length >= 20}
           >
@@ -351,6 +386,16 @@ export function RoutineEditSheet({
           </button>
 
           <div className="form-actions">
+            {routine && (
+              <button
+                type="button"
+                className="danger"
+                onClick={() => setDeleteOpen(true)}
+                disabled={saving}
+              >
+                {t("delete")}
+              </button>
+            )}
             <button type="button" className="secondary" onClick={onClose} disabled={saving}>
               {t("cancel")}
             </button>
@@ -361,5 +406,18 @@ export function RoutineEditSheet({
         </form>
       </div>
     </div>
+
+      {/* 시트 backdrop 바깥에 둔다 — 안에 두면 대화상자 바깥 탭이 backdrop까지 올라가 시트도 닫힌다 */}
+      <ConfirmDialog
+        open={deleteOpen}
+        title={t("routineDeleteConfirmTitle")}
+        confirmLabel={t("delete")}
+        cancelLabel={t("cancel")}
+        danger
+        busy={saving}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => (saving ? undefined : setDeleteOpen(false))}
+      />
+    </>
   );
 }

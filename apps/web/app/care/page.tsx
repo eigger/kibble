@@ -230,13 +230,13 @@ export default function CarePage() {
 
   return (
     <main className="container care-page">
-      <header className="care-header">
-        <div className="care-header-row">
+      <header className="care-header page-header">
+        <div className="page-header-row">
           <h1>{t("careTitle")}</h1>
           {activePet && (
             <button
               type="button"
-              className="care-add-course-btn"
+              className="page-add-btn"
               onClick={() => setCourseSheet({ mode: "add" })}
             >
               {t("careAddCourse")}
