@@ -239,6 +239,7 @@ export function RoutineEditSheet({
   }
 
   return (
+    <>
     <div className="sheet-backdrop" role="presentation" onClick={saving ? undefined : onClose}>
       <div
         className="sheet-card routine-edit-sheet"
@@ -404,7 +405,9 @@ export function RoutineEditSheet({
           </div>
         </form>
       </div>
+    </div>
 
+      {/* 시트 backdrop 바깥에 둔다 — 안에 두면 대화상자 바깥 탭이 backdrop까지 올라가 시트도 닫힌다 */}
       <ConfirmDialog
         open={deleteOpen}
         title={t("routineDeleteConfirmTitle")}
@@ -415,6 +418,6 @@ export function RoutineEditSheet({
         onConfirm={() => void handleDelete()}
         onCancel={() => (saving ? undefined : setDeleteOpen(false))}
       />
-    </div>
+    </>
   );
 }
