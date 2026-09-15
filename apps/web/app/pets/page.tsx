@@ -56,8 +56,14 @@ export default function PetsPage() {
 
   return (
     <main className="container sub-page">
-      <h1>{t("petsTitle")}</h1>
-      <p className="meta">{t("petsIntro")}</p>
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <h1>{t("petsTitle")}</h1>
+            <p className="meta">{t("petsIntro")}</p>
+          </div>
+        </div>
+      </header>
 
       <ul className="pet-list">
         {pets.map((pet) => (

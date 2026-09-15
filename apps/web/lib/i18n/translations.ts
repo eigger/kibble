@@ -193,6 +193,7 @@ const dict = {
     en: "Each item becomes one event at the moment you tap. Medication is left out — it needs a course and a dose slot.",
   },
   routineAddItem: { ko: "항목 추가", en: "Add item" },
+  routineItemNumber: { ko: "항목 {n}", en: "Item {n}" },
   routineItemType: { ko: "종류", en: "Type" },
   routineItemProduct: { ko: "제품", en: "Product" },
   routineItemProductNone: { ko: "제품 없음", en: "No product" },

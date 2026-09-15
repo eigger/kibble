@@ -877,12 +877,53 @@ h1 {
   margin: 0 0 12px;
 }
 
+/* 관리 화면 공통 머리 — 제목 + 한 줄 설명은 왼쪽, 추가 버튼은 같은 줄 오른쪽 (투약·제품·칩·루틴) */
 .page-header {
+  margin-bottom: 12px;
+}
+
+.page-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  margin-bottom: 6px;
+}
+
+.page-header h1 {
+  margin: 0 0 2px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.page-header-row > .meta,
+.page-header-text > .meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* 머리줄의 추가 버튼 — primary 전면 채움은 하단 내비 기록 버튼 하나뿐이라, 여기는 테두리만 */
+.page-add-btn,
+.care-add-course-btn {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.page-add-btn:hover:not(:disabled),
+.care-add-course-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
 }
 
 .item-name-input {
@@ -1381,17 +1422,9 @@ button:disabled {
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 16px);
 }
 
-.care-header h1 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.care-header-row {
-  display: flex;
+/* 머리줄은 .page-header 공통. 투약·추세는 제목만 있어 세로 가운데 */
+.care-header .page-header-row {
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
 }
 
 .care-manage-link {
@@ -1401,16 +1434,6 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.care-add-course-btn {
-  flex-shrink: 0;
-  font-size: 0.82rem;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--color-primary);
-  background: transparent;
-  color: var(--color-primary);
-  font-weight: 600;
-}
 
 .med-course-sheet,
 .med-course-pick-sheet {
@@ -1547,7 +1570,8 @@ button:disabled {
   font-size: 0.8rem;
 }
 
-.care-med-actions {
+.care-med-actions,
+.manage-card-actions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -1555,6 +1579,7 @@ button:disabled {
 }
 
 .care-med-actions .btn-action,
+.manage-card-actions .btn-action,
 .care-med-actions .care-log-btn {
   min-height: 32px;
   height: 32px;
@@ -1664,7 +1689,8 @@ button:disabled {
 }
 
 .care-med-list,
-.care-reminder-list {
+.care-reminder-list,
+.manage-card-list {
   list-style: none;
   margin: 0 0 12px;
   padding: 0;
@@ -1746,7 +1772,9 @@ button:disabled {
   opacity: 0.55;
 }
 
-.care-med-card {
+/* 관리 카드 공통 — 투약 처방 카드가 원형. 칩·루틴 카드도 같은 클래스를 쓴다 */
+.care-med-card,
+.manage-card {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
@@ -1757,18 +1785,21 @@ button:disabled {
   background: var(--color-surface);
 }
 
-.care-med-main {
+.care-med-main,
+.manage-card-main {
   flex: 1;
   min-width: 0;
 }
 
-.care-med-name {
+.care-med-name,
+.manage-card-name {
   margin: 0 0 4px;
   font-weight: 600;
 }
 
 .care-med-meta,
-.care-med-note {
+.care-med-note,
+.manage-card-meta {
   margin: 0;
 }
 
@@ -2290,41 +2321,26 @@ button:disabled {
   margin: 12px auto 0;
 }
 
-.preset-manage-list {
-  list-style: none;
-  margin: 16px 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* 기록 칩 관리 — 카드는 .manage-card 공통, 칸은 카드 안에서 바로 고친다 */
+.preset-card-hidden {
+  opacity: 0.7;
 }
 
-.preset-manage-item {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* .field-row는 grid이고 480px 위에서 auto-fit으로 바뀐다 — 좁은 칸(순서·단위)은 열 폭을 못 박는다 */
+.field-row.preset-card-fields,
+.field-row.routine-item-amount {
+  grid-template-columns: minmax(0, 1fr) 96px;
 }
 
-.preset-manage-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.preset-sort-input {
-  width: 88px;
+.preset-card-fields {
+  margin-top: 4px;
 }
 
 .preset-hidden-badge {
   margin-left: 8px;
   font-size: 12px;
+  font-weight: 400;
   color: var(--color-text-muted);
-}
-
-.presets-pet-select {
-  width: 100%;
-  margin-bottom: 12px;
-  padding: 10px 12px;
 }
 
 .preset-alias-list {
@@ -4339,51 +4355,7 @@ th {
   padding-bottom: calc(var(--nav-height) + 24px + env(safe-area-inset-bottom));
 }
 
-.products-header {
-  margin-bottom: 12px;
-}
-
-.products-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: 6px;
-}
-
-.products-header-row h1 {
-  margin: 0 0 2px;
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.products-header-row .meta {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-
-.product-add-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  border-radius: var(--radius-pill);
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  white-space: nowrap;
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  border: none;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.product-add-btn:hover {
-  opacity: 0.9;
-}
+/* 제품 머리는 .page-header 공통을 쓴다 — 요약 줄만 여기 */
 
 /* Summary Bar (Matching Kibble's .home-summary-line and .meta) */
 .product-summary-bar {
@@ -5253,7 +5225,8 @@ th {
   white-space: nowrap;
 }
 
-.event-detail-extra-item-remove {
+.event-detail-extra-item-remove,
+.sheet-item-remove {
   position: relative;
   flex-shrink: 0;
   width: 26px;
@@ -5270,7 +5243,8 @@ th {
 }
 
 /* 44px 터치 타깃은 보이지 않는 ::before가 확보한다 (.chip-info-btn과 같은 방식) */
-.event-detail-extra-item-remove::before {
+.event-detail-extra-item-remove::before,
+.sheet-item-remove::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -5280,7 +5254,8 @@ th {
   transform: translate(-50%, -50%);
 }
 
-.event-detail-extra-item-remove:hover:not(:disabled) {
+.event-detail-extra-item-remove:hover:not(:disabled),
+.sheet-item-remove:hover:not(:disabled) {
   background: var(--color-surface-hover);
   color: var(--color-text);
 }
@@ -5752,7 +5727,7 @@ th {
 .quick-mode-manage {
   flex: 0 0 auto;
   font-size: 0.78rem;
-  color: var(--color-text-muted);
+  color: var(--color-primary);
   text-decoration: none;
 }
 
@@ -5794,7 +5769,7 @@ th {
   width: 100%;
 }
 
-/* 칩과 확 다르게 — 채움색, 두 줄(이름 + 요약). 누르면 바로 저장된다는 뜻 */
+/* 두 줄(이름 + 요약) 카드. 전면 채움은 하단 내비 기록 버튼 하나뿐이라 여기는 옅은 primary 틴트 + 테두리 */
 .routine-button {
   display: flex;
   flex-direction: column;
@@ -5802,13 +5777,17 @@ th {
   gap: 2px;
   min-height: 48px;
   padding: 7px 10px;
-  border: 1px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
   border-radius: var(--radius-lg);
-  background: var(--color-primary);
-  color: var(--color-primary-text);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  color: var(--color-text);
   text-align: left;
   box-shadow: none;
-  transition: transform 0.1s ease, opacity 0.15s ease;
+  transition: transform 0.1s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.routine-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface));
 }
 
 .routine-button:active:not(:disabled) {
@@ -5841,37 +5820,66 @@ th {
   font-size: 0.7rem;
   font-weight: 400;
   line-height: 1.2;
-  opacity: 0.85;
-}
-
-/* /routines 관리 */
-.routines-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin: 12px 0 4px;
-}
-
-.routine-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.routine-card-title {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.routine-card-items {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 0.9rem;
   color: var(--color-text-secondary);
 }
 
-.routines-hint {
-  margin-top: 16px;
+/* /routines 관리 — 머리·카드는 .page-header / .manage-card 공통, 여기는 시트 항목만 */
+.routine-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* 상세 시트의 여러 제품 항목(.event-detail-extra-item)과 같은 모양 */
+.routine-item-row {
+  padding: 4px 12px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.routine-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 32px;
+}
+
+.routine-item-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routine-item-row .field-group {
+  margin-top: 8px;
+}
+
+/* 항목 추가 — 점선 한 줄. 채움 버튼은 저장 하나로 족하다 */
+.routine-add-item {
+  width: 100%;
+  margin-top: var(--space-2);
+  min-height: 40px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.routine-add-item:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-surface));
 }
 
 .routine-items-heading {
@@ -5880,36 +5888,4 @@ th {
 
 .routine-items-hint {
   margin: 0 0 8px;
-}
-
-.routine-item-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.routine-item-row {
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.routine-item-amount-row {
-  align-items: flex-end;
-}
-
-.routine-item-unit {
-  flex: 0 0 84px;
-}
-
-.routine-item-remove {
-  flex: 0 0 auto;
-  align-self: flex-end;
-}
-
-.routine-add-item {
-  margin-top: 10px;
 }

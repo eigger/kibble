@@ -4,21 +4,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiJson } from "../../lib/api";
-import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { routineItemSummary } from "../../lib/routines";
-import { useToast } from "../../lib/toast-context";
 import type { EventTypeAliasesRow, Pet, PresetDetail, Product, Routine } from "../../lib/types";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { RoutineEditSheet } from "../../components/RoutineEditSheet";
 
 /** 루틴 관리 — 더보기 → 루틴 (§7.24). 누르는 곳은 /q의 루틴 패널이다 */
 export default function RoutinesPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
-  const { t, tLabel, locale } = useLocale();
-  const { show } = useToast();
+  const { t, tLabel } = useLocale();
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState("");
@@ -31,8 +27,6 @@ export default function RoutinesPage() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Routine | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push("/login");
@@ -100,95 +94,88 @@ export default function RoutinesPage() {
     setSheetOpen(true);
   }
 
+  function closeSheet() {
+    setSheetOpen(false);
+    setEditing(null);
+  }
+
   function handleSaved(saved: Routine) {
     setRoutines((prev) => {
       const exists = prev.some((r) => r.id === saved.id);
       return exists ? prev.map((r) => (r.id === saved.id ? saved : r)) : [...prev, saved];
     });
-    setSheetOpen(false);
-    setEditing(null);
+    closeSheet();
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget || deleting) return;
-    setDeleting(true);
-    try {
-      await apiJson(`/api/routines/${deleteTarget.id}`, { method: "DELETE" });
-      setRoutines((prev) => prev.filter((r) => r.id !== deleteTarget.id));
-      show(t("routinesDeletedToast"), "success");
-      setDeleteTarget(null);
-    } catch (err) {
-      show(formatApiErrorMessage(err, t("recordError"), locale), "error");
-    } finally {
-      setDeleting(false);
-    }
+  function handleDeleted(id: string) {
+    setRoutines((prev) => prev.filter((r) => r.id !== id));
+    closeSheet();
   }
 
   if (loading || !user) return null;
 
   return (
     <main className="container sub-page">
-      <h1>{t("routinesTitle")}</h1>
-      <p className="meta">{t("routinesIntro")}</p>
-
-      {pets.length >= 2 && (
-        <>
-          <label className="field-label" htmlFor="routines-pet">
-            {t("presetsPetLabel")}
-          </label>
-          <select
-            id="routines-pet"
-            value={petId}
-            onChange={(e) => setPetId(e.target.value)}
-            className="presets-pet-select"
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <h1>{t("routinesTitle")}</h1>
+            <p className="meta">{t("routinesIntro")}</p>
+          </div>
+          <button
+            type="button"
+            className="page-add-btn"
+            onClick={openNew}
+            disabled={!petId || dataLoading}
           >
+            + {t("routinesNew")}
+          </button>
+        </div>
+        {pets.length >= 2 && (
+          <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
             {pets.map((pet) => (
-              <option key={pet.id} value={pet.id}>
+              <button
+                key={pet.id}
+                type="button"
+                role="tab"
+                aria-selected={pet.id === petId}
+                className={`pet-tab${pet.id === petId ? " pet-tab-active" : ""}`}
+                onClick={() => setPetId(pet.id)}
+              >
                 {pet.name}
-              </option>
+              </button>
             ))}
-          </select>
-        </>
-      )}
-
-      <div className="routines-toolbar">
-        <button type="button" className="primary" onClick={openNew} disabled={!petId || dataLoading}>
-          + {t("routinesNew")}
-        </button>
-      </div>
+          </div>
+        )}
+      </header>
 
       {dataLoading ? (
         <p className="meta">{t("loading")}</p>
       ) : loadError ? (
         <p className="error-text">{loadError}</p>
       ) : routines.length === 0 ? (
-        <p className="meta">{t("routinesEmpty")}</p>
+        <p className="meta">
+          {t("routinesEmpty")} {t("routinesHint")}
+        </p>
       ) : (
-        <ul className="preset-manage-list">
+        <ul className="manage-card-list">
           {routines.map((routine) => (
-            <li key={routine.id} className="preset-manage-item card routine-card">
-              <div className="routine-card-head">
-                <h2 className="routine-card-title">{routine.label}</h2>
+            <li key={routine.id} className="manage-card">
+              <div className="manage-card-main">
+                <p className="manage-card-name">{routine.label}</p>
+                <p className="manage-card-meta meta">
+                  {routine.items.map((item) => routineItemSummary(item, tLabel)).join(" · ")}
+                </p>
               </div>
-              <ul className="routine-card-items">
-                {routine.items.map((item) => (
-                  <li key={item.id}>{routineItemSummary(item, tLabel)}</li>
-                ))}
-              </ul>
-              <div className="preset-manage-actions">
-                <button type="button" onClick={() => openEdit(routine)}>
+              <div className="manage-card-actions">
+                <button type="button" className="btn-action" onClick={() => openEdit(routine)}>
                   {t("edit")}
-                </button>
-                <button type="button" className="secondary" onClick={() => setDeleteTarget(routine)}>
-                  {t("delete")}
                 </button>
               </div>
             </li>
           ))}
         </ul>
       )}
-
-      <p className="meta routines-hint">{t("routinesHint")}</p>
 
       <RoutineEditSheet
         open={sheetOpen}
@@ -197,22 +184,9 @@ export default function RoutinesPage() {
         presets={routinePresets}
         eventTypes={eventTypes}
         products={products}
-        onClose={() => {
-          setSheetOpen(false);
-          setEditing(null);
-        }}
+        onClose={closeSheet}
         onSaved={handleSaved}
-      />
-
-      <ConfirmDialog
-        open={deleteTarget != null}
-        title={t("routineDeleteConfirmTitle")}
-        confirmLabel={t("delete")}
-        cancelLabel={t("cancel")}
-        danger
-        busy={deleting}
-        onConfirm={() => void confirmDelete()}
-        onCancel={() => (deleting ? undefined : setDeleteTarget(null))}
+        onDeleted={handleDeleted}
       />
     </main>
   );

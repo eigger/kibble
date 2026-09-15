@@ -102,72 +102,83 @@ export default function PresetsPage() {
 
   return (
     <main className="container sub-page">
-      <h1>{t("presetsTitle")}</h1>
-      <p className="meta">{t("presetsIntro")}</p>
-
-      {pets.length >= 2 && (
-        <>
-          <label className="field-label" htmlFor="presets-pet">
-            {t("presetsPetLabel")}
-          </label>
-          <select
-            id="presets-pet"
-            value={petId}
-            onChange={(e) => setPetId(e.target.value)}
-            className="presets-pet-select"
-          >
+      <header className="page-header">
+        <div className="page-header-row">
+          <div className="page-header-text">
+            <h1>{t("presetsTitle")}</h1>
+            <p className="meta">{t("presetsIntro")}</p>
+          </div>
+        </div>
+        {pets.length >= 2 && (
+          <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
             {pets.map((pet) => (
-              <option key={pet.id} value={pet.id}>
+              <button
+                key={pet.id}
+                type="button"
+                role="tab"
+                aria-selected={pet.id === petId}
+                className={`pet-tab${pet.id === petId ? " pet-tab-active" : ""}`}
+                onClick={() => setPetId(pet.id)}
+              >
                 {pet.name}
-              </option>
+              </button>
             ))}
-          </select>
-        </>
-      )}
+          </div>
+        )}
+      </header>
 
-      <ul className="preset-manage-list">
+      <ul className="manage-card-list">
         {presets.map((preset) => (
-          <li key={preset.id} className="preset-manage-item card">
-            <div className="preset-manage-row">
-              <label className="field-label" htmlFor={`preset-label-${preset.id}`}>
+          <li key={preset.id} className={`manage-card${preset.hiddenAt ? " preset-card-hidden" : ""}`}>
+            <div className="manage-card-main">
+              <p className="manage-card-name">
                 {tLabel(preset.eventType.label)}
                 {preset.hiddenAt && (
                   <span className="preset-hidden-badge">{t("presetsHiddenBadge")}</span>
                 )}
-              </label>
-              <input
-                id={`preset-label-${preset.id}`}
-                value={tLabel(preset.label)}
-                onChange={(e) =>
-                  setPresets((rows) =>
-                    rows.map((r) => (r.id === preset.id ? { ...r, label: e.target.value } : r)),
-                  )
-                }
-              />
+              </p>
+              <div className="field-row preset-card-fields">
+                <div className="field-group flex-1">
+                  <label className="field-label" htmlFor={`preset-label-${preset.id}`}>
+                    {t("presetsLabelField")}
+                  </label>
+                  <input
+                    id={`preset-label-${preset.id}`}
+                    className="text-input"
+                    value={tLabel(preset.label)}
+                    onChange={(e) =>
+                      setPresets((rows) =>
+                        rows.map((r) => (r.id === preset.id ? { ...r, label: e.target.value } : r)),
+                      )
+                    }
+                  />
+                </div>
+                <div className="field-group preset-card-sort">
+                  <label className="field-label" htmlFor={`preset-sort-${preset.id}`}>
+                    {t("presetsSortOrder")}
+                  </label>
+                  <input
+                    id={`preset-sort-${preset.id}`}
+                    type="number"
+                    min={0}
+                    max={9999}
+                    className="text-input"
+                    value={preset.sortOrder}
+                    onChange={(e) =>
+                      setPresets((rows) =>
+                        rows.map((r) =>
+                          r.id === preset.id ? { ...r, sortOrder: Number(e.target.value) } : r,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              </div>
             </div>
-            <div className="preset-manage-row preset-manage-row-inline">
-              <label className="field-label" htmlFor={`preset-sort-${preset.id}`}>
-                {t("presetsSortOrder")}
-              </label>
-              <input
-                id={`preset-sort-${preset.id}`}
-                type="number"
-                min={0}
-                max={9999}
-                className="preset-sort-input"
-                value={preset.sortOrder}
-                onChange={(e) =>
-                  setPresets((rows) =>
-                    rows.map((r) =>
-                      r.id === preset.id ? { ...r, sortOrder: Number(e.target.value) } : r,
-                    ),
-                  )
-                }
-              />
-            </div>
-            <div className="preset-manage-actions">
+            <div className="manage-card-actions">
               <button
                 type="button"
+                className="btn-action"
                 disabled={savingId === preset.id}
                 onClick={() => void savePreset(preset)}
               >
@@ -175,7 +186,7 @@ export default function PresetsPage() {
               </button>
               <button
                 type="button"
-                className="secondary"
+                className="btn-action"
                 disabled={savingId === preset.id}
                 onClick={() => void toggleHidden(preset)}
               >
