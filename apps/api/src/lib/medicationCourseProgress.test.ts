@@ -92,6 +92,14 @@ describe("resolveCourseEndedAt", () => {
     expect(resolveCourseEndedAt({ endDate, archivedAt }, null, now)).toBe(endDate);
   });
 
+  it("does not treat today's endDate as already passed in the afternoon", () => {
+    const todayNoon = new Date("2026-09-11T12:00:00+09:00");
+    const afternoon = new Date("2026-09-11T15:00:00+09:00");
+    expect(resolveCourseEndedAt({ endDate: todayNoon, archivedAt: afternoon }, null, afternoon)).toBe(
+      afternoon,
+    );
+  });
+
   it("ignores a future endDate on a course ended early and uses archivedAt", () => {
     const future = new Date("2026-12-01T12:00:00+09:00");
     expect(resolveCourseEndedAt({ endDate: future, archivedAt }, null, now)).toBe(archivedAt);
@@ -106,7 +114,7 @@ describe("pastMedicationCourseWhere", () => {
   it("is the complement of the active list: archived OR endDate passed", () => {
     const now = new Date("2026-09-11T09:00:00+09:00");
     expect(pastMedicationCourseWhere(now)).toEqual({
-      OR: [{ archivedAt: { not: null } }, { endDate: { lt: now } }],
+      OR: [{ archivedAt: { not: null } }, { endDate: { lt: new Date("2026-09-10T15:00:00.000Z") } }],
     });
   });
 });

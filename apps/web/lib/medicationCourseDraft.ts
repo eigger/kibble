@@ -14,7 +14,7 @@ export type MedicationCourseDraft = {
 };
 
 export function toDateInputValue(iso: string): string {
-  return iso.slice(0, 10);
+  return kstDayKey(new Date(iso));
 }
 
 export function dateInputToIso(date: string): string {

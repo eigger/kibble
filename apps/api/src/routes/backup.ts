@@ -1,3 +1,4 @@
+import { kstDayKey } from "@kibble/shared";
 import { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
@@ -250,7 +251,7 @@ export async function backupRoutes(app: FastifyInstance) {
       .header("Content-Length", String(archiveStat.size))
       .header(
         "Content-Disposition",
-        `attachment; filename="kibble_backup_${new Date().toISOString().slice(0, 10)}.tar.gz"`,
+        `attachment; filename="kibble_backup_${kstDayKey(new Date())}.tar.gz"`,
       )
       .send(stream);
   });

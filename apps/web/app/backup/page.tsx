@@ -6,6 +6,7 @@ import { apiFetch, apiJson, API_URL } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useToast } from "../../lib/toast-context";
 import { useLocale } from "../../lib/i18n/locale-context";
+import { kstDayKey } from "@kibble/shared";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { OneTimeSecrets, type OneTimeSecret } from "../../components/OneTimeSecrets";
 
@@ -285,7 +286,7 @@ export default function BackupPage() {
           title={t("restoreRecoveryTitle")}
           hint={t("restoreRecoveryHint")}
           secrets={recoverySecrets}
-          downloadFilename={`kibble-restore-passwords_${new Date().toISOString().slice(0, 10)}.txt`}
+          downloadFilename={`kibble-restore-passwords_${kstDayKey(new Date())}.txt`}
           onClose={() => setRecoverySecrets(null)}
         />
       )}

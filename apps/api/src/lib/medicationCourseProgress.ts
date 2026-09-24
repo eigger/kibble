@@ -144,7 +144,9 @@ export async function listMedicationCourses(
  * 정확한 여집합이다.
  */
 export function pastMedicationCourseWhere(now: Date) {
-  return { OR: [{ archivedAt: { not: null } }, { endDate: { lt: now } }] };
+  // endDate는 그날 정오에 저장된다. now와 비교하면 종료일 오후부터 지난 처방이 된다.
+  const startOfToday = startOfTodayBoundary(now);
+  return { OR: [{ archivedAt: { not: null } }, { endDate: { lt: startOfToday } }] };
 }
 
 export function resolveCourseEndedAt(
@@ -153,7 +155,7 @@ export function resolveCourseEndedAt(
   now: Date,
 ): Date | null {
   if (lastDoseAt) return lastDoseAt;
-  if (course.endDate && course.endDate.getTime() < now.getTime()) return course.endDate;
+  if (course.endDate && kstDayKey(course.endDate) < kstDayKey(now)) return course.endDate;
   return course.archivedAt ?? course.endDate;
 }
 
@@ -224,7 +226,7 @@ export async function medicationCoursesWithProgress(
       ...householdWhere(householdId),
       petId,
       archivedAt: null,
-      OR: [{ endDate: null }, { endDate: { gte: now } }],
+      OR: [{ endDate: null }, { endDate: { gte: since } }],
     },
     orderBy: [{ startDate: "desc" }, { name: "asc" }],
   });

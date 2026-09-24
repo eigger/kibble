@@ -10,7 +10,7 @@ import type {
   KibbleSize,
   ProductPhotoMeta,
 } from "../lib/types";
-import { hasFormDetails, weightToGrams } from "@kibble/shared";
+import { hasFormDetails, kstDayKey, weightToGrams } from "@kibble/shared";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson, apiFetch } from "../lib/api";
 import { MAX_PRODUCT_PHOTOS, weightToInput } from "@kibble/shared";
@@ -115,7 +115,7 @@ export function ProductEditSheet({
       setRegistrationNo(product.ingredientRegistrationNo ?? "");
       setRegisteredIngredients(product.registeredIngredients ?? "");
       setImporter(product.importer ?? "");
-      setManufacturedAt(product.manufacturedAt ? product.manufacturedAt.slice(0, 10) : "");
+      setManufacturedAt(product.manufacturedAt ? kstDayKey(new Date(product.manufacturedAt)) : "");
       setStorage(product.storage ?? "");
       setUsage(product.usage ?? "");
       if (
@@ -127,9 +127,9 @@ export function ProductEditSheet({
       ) {
         setShowLabelInfo(true);
       }
-      setExpiryDate(product.expiryDate ? product.expiryDate.slice(0, 10) : "");
-      setOpenedAt(product.openedAt ? product.openedAt.slice(0, 10) : "");
-      setPurchaseDate(product.purchaseDate ? product.purchaseDate.slice(0, 10) : "");
+      setExpiryDate(product.expiryDate ? kstDayKey(new Date(product.expiryDate)) : "");
+      setOpenedAt(product.openedAt ? kstDayKey(new Date(product.openedAt)) : "");
+      setPurchaseDate(product.purchaseDate ? kstDayKey(new Date(product.purchaseDate)) : "");
       setCostKrw(product.costKrw != null ? String(product.costKrw) : "");
       setPurchaseUrl(product.purchaseUrl ?? "");
       setIsActive(product.isActive ?? true);
@@ -281,7 +281,7 @@ export function ProductEditSheet({
   }
 
   function handleMarkOpenedToday() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = kstDayKey(new Date());
     setOpenedAt(today);
   }
 
@@ -312,14 +312,14 @@ export function ProductEditSheet({
         registeredIngredients: registeredIngredients.trim() || null,
         importer: importer.trim() || null,
         manufacturedAt: manufacturedAt
-          ? new Date(`${manufacturedAt}T00:00:00.000Z`).toISOString()
+          ? new Date(`${manufacturedAt}T12:00:00+09:00`).toISOString()
           : null,
         storage: storage.trim() || null,
         usage: usage.trim() || null,
         ingredients: ingredients.trim() || null,
-        expiryDate: expiryDate ? new Date(`${expiryDate}T00:00:00.000Z`).toISOString() : null,
-        openedAt: openedAt ? new Date(`${openedAt}T00:00:00.000Z`).toISOString() : null,
-        purchaseDate: purchaseDate ? new Date(`${purchaseDate}T00:00:00.000Z`).toISOString() : null,
+        expiryDate: expiryDate ? new Date(`${expiryDate}T12:00:00+09:00`).toISOString() : null,
+        openedAt: openedAt ? new Date(`${openedAt}T12:00:00+09:00`).toISOString() : null,
+        purchaseDate: purchaseDate ? new Date(`${purchaseDate}T12:00:00+09:00`).toISOString() : null,
         costKrw: costKrw ? Number(costKrw) : null,
         purchaseUrl: normalizedUrl,
         isActive,

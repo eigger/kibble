@@ -101,9 +101,11 @@ export function measurementChartPoints(
     .filter((e) => e.eventType.key === eventTypeKey && decimalToNumber(e.quantity) != null)
     .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
     .map((e) => ({
-      label: new Intl.DateTimeFormat(localeTag, { month: "numeric", day: "numeric" }).format(
-        new Date(e.occurredAt),
-      ),
+      label: new Intl.DateTimeFormat(localeTag, {
+        month: "numeric",
+        day: "numeric",
+        timeZone: "Asia/Seoul",
+      }).format(new Date(e.occurredAt)),
       value: decimalToNumber(e.quantity)!,
       productName: e.productName ?? null,
     }));

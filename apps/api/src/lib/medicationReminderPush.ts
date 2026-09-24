@@ -64,7 +64,7 @@ export async function processMedicationReminderPushes(
         householdId,
         archivedAt: null,
         doseTimes: { isEmpty: false },
-        OR: [{ endDate: null }, { endDate: { gte: now } }],
+        OR: [{ endDate: null }, { endDate: { gte: since } }],
       },
       include: { pet: { select: { name: true } } },
     });
