@@ -18,7 +18,7 @@ import type {
   MedicationCourseRow,
   Pet,
 } from "../../lib/types";
-import { formatDoseTime, intlLocale } from "@kibble/shared";
+import { formatDoseTime, intlLocale, kstCalendarParts } from "@kibble/shared";
 import { formatEventTime } from "../../lib/eventDisplay";
 import { groupCourseHistory, type CourseHistoryEntry } from "../../lib/medicationCourseHistory";
 
@@ -39,13 +39,14 @@ function formatDueDate(iso: string, locale: "ko" | "en"): string {
   return new Date(iso).toLocaleDateString(intlLocale(locale), {
     month: "numeric",
     day: "numeric",
+    timeZone: "Asia/Seoul",
   });
 }
 
 /** 지난 처방의 기간 표기. 올해가 아니면 연도를 붙인다 — 몇 달 전 처방이 흔하다 */
 function formatCourseDate(iso: string, locale: "ko" | "en", now: Date): string {
   const date = new Date(iso);
-  const sameYear = date.getFullYear() === now.getFullYear();
+  const sameYear = kstCalendarParts(date).year === kstCalendarParts(now).year;
   return date.toLocaleDateString(intlLocale(locale), {
     ...(sameYear ? {} : { year: "2-digit" }),
     month: "numeric",

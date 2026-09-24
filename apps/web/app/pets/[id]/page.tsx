@@ -7,6 +7,7 @@ import { apiFetch, apiJson } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth-context";
 import { useLocale } from "../../../lib/i18n/locale-context";
 import { useToast } from "../../../lib/toast-context";
+import { kstDayKey } from "@kibble/shared";
 import type { PetDetail, Species } from "../../../lib/types";
 import { PetPhoto } from "../../../components/PetPhoto";
 
@@ -14,7 +15,7 @@ const SPECIES_OPTIONS: Species[] = ["CAT", "DOG", "OTHER"];
 
 function isoToDateInput(iso: string | null): string {
   if (!iso) return "";
-  return iso.slice(0, 10);
+  return kstDayKey(new Date(iso));
 }
 
 export default function PetEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,8 +58,8 @@ export default function PetEditPage({ params }: { params: Promise<{ id: string }
           breed: pet.breed || null,
           sex: pet.sex,
           neutered: pet.neutered,
-          birthDate: pet.birthDate ? `${isoToDateInput(pet.birthDate)}T00:00:00.000Z` : null,
-          adoptionDate: pet.adoptionDate ? `${isoToDateInput(pet.adoptionDate)}T00:00:00.000Z` : null,
+          birthDate: pet.birthDate ? `${isoToDateInput(pet.birthDate)}T12:00:00+09:00` : null,
+          adoptionDate: pet.adoptionDate ? `${isoToDateInput(pet.adoptionDate)}T12:00:00+09:00` : null,
           registrationNo: pet.registrationNo || null,
           microchipNo: pet.microchipNo || null,
           color: pet.color || null,
@@ -210,7 +211,7 @@ export default function PetEditPage({ params }: { params: Promise<{ id: string }
           onChange={(e) =>
             setPet({
               ...pet,
-              birthDate: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
+              birthDate: e.target.value ? `${e.target.value}T12:00:00+09:00` : null,
             })
           }
         />
@@ -225,7 +226,7 @@ export default function PetEditPage({ params }: { params: Promise<{ id: string }
           onChange={(e) =>
             setPet({
               ...pet,
-              adoptionDate: e.target.value ? `${e.target.value}T00:00:00.000Z` : null,
+              adoptionDate: e.target.value ? `${e.target.value}T12:00:00+09:00` : null,
             })
           }
         />

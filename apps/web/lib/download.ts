@@ -1,3 +1,5 @@
+import { kstDayKey } from "@kibble/shared";
+
 /** apiFetch로 받은 응답을 브라우저 다운로드로 저장한다. */
 export async function downloadBlob(res: Response, fallbackFilename: string): Promise<void> {
   const blob = await res.blob();
@@ -13,5 +15,5 @@ export async function downloadBlob(res: Response, fallbackFilename: string): Pro
 }
 
 export function todayStamp(): string {
-  return new Date().toISOString().slice(0, 10);
+  return kstDayKey(new Date());
 }
