@@ -60,6 +60,7 @@ export function serializeRoutine(row: RoutineRow, now = new Date()) {
         eventType: item.eventType,
         preset: preset ? { id: preset.id, label: preset.label } : null,
         product: item.product,
+        medicationCourseId: item.medicationCourseId,
         // 처방이 끝났거나 지워졌으면 실행 때 이 항목을 건너뛴다 (§7.24)
         course: item.course
           ? {
