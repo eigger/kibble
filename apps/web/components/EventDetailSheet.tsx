@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import type { QuickTimeKey } from "@kibble/shared";
-import { resolveQuickTime } from "@kibble/shared";
+import { formatDoseTime, resolveQuickTime } from "@kibble/shared";
 import {
   cancelUploadsForEvent,
   dismissFailedUploadFile,
@@ -113,6 +113,8 @@ export interface EventDetailDraft {
   doseOrdinal?: number | null;
   /** 처방에 입력한 총 횟수. 회차 옆 "n/N"과 남은 횟수의 근거 */
   doseTotal?: number | null;
+  /** 채운 슬롯의 예정 시각("08:00"). 기록 시각과 따로 보여 준다 — 읽기 전용 */
+  doseScheduledTime?: string | null;
   needsReview?: boolean;
   /** 조회용 메타 — 수정 대상이 아니다. view 모드 하단에 "작성자 · 최종 수정"으로만 쓰인다. */
   createdAt?: string;
@@ -1048,6 +1050,10 @@ export function EventDetailSheet({
                   )}
                 {renderViewValue(t("eventDetailDoseAmountLabel"), draft.doseAmount)}
                 {renderViewValue(t("eventDetailDoseOrdinalLabel"), doseOrdinalView)}
+                {renderViewValue(
+                  t("eventDetailDoseScheduledLabel"),
+                  draft.doseScheduledTime ? formatDoseTime(draft.doseScheduledTime, intlLocale(locale)) : null,
+                )}
                 {fields.fecalScale &&
                   renderViewValue(
                     t("eventDetailFecalScore"),

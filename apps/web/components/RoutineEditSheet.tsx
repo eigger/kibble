@@ -10,6 +10,7 @@ import { useToast } from "../lib/toast-context";
 import { ConfirmDialog } from "./ConfirmDialog";
 import type {
   EventTypeAliasesRow,
+  MedicationCourseRow,
   PresetDetail,
   Product,
   ProductCategory,
@@ -21,8 +22,10 @@ interface RoutineEditSheetProps {
   petId: string;
   /** null이면 새 루틴 */
   routine: Routine | null;
-  /** 이 반려동물의 칩 — 숨긴 것 포함. 투약은 호출 쪽에서 뺀다 */
+  /** 이 반려동물의 칩 — 숨긴 것 포함 */
   presets: PresetDetail[];
+  /** 이 반려동물의 진행 중인 처방 — 투약 항목이 고른다 (§7.24) */
+  courses: MedicationCourseRow[];
   eventTypes: EventTypeAliasesRow[];
   products: Product[];
   onClose: () => void;
@@ -37,6 +40,12 @@ interface ItemDraft {
   quantity: string;
   unit: string;
   productId: string;
+  /** 투약 칩일 때만 — 슬롯은 실행 때 서버가 고른다 */
+  courseId: string;
+}
+
+function isMedicationPreset(preset: PresetDetail | undefined): boolean {
+  return preset?.eventType.key === "medication";
 }
 
 const CATEGORY_LABEL_KEY: Record<ProductCategory, TranslationKey> = {
@@ -86,6 +95,7 @@ function draftsFromRoutine(
         quantity: "",
         unit: unitForPreset(first, defaultUnitByKey),
         productId: "",
+        courseId: "",
       },
     ];
   }
@@ -100,15 +110,17 @@ function draftsFromRoutine(
     quantity: item.quantity != null ? String(item.quantity) : "",
     unit: item.unit ?? "",
     productId: item.productId ?? "",
+    courseId: item.medicationCourseId ?? "",
   }));
 }
 
-/** 루틴 정의 시트 — 이름 + 항목(칩·제품·양·단위) 목록 (§7.24) */
+/** 루틴 정의 시트 — 이름 + 항목(칩·제품·양·단위, 투약이면 처방) 목록 (§7.24) */
 export function RoutineEditSheet({
   open,
   petId,
   routine,
   presets,
+  courses,
   eventTypes,
   products,
   onClose,
@@ -158,8 +170,29 @@ export function RoutineEditSheet({
   }
 
   function changePreset(key: string, presetId: string) {
-    updateItem(key, { presetId, unit: unitForPreset(presetById.get(presetId), defaultUnitByKey) });
+    const preset = presetById.get(presetId);
+    updateItem(key, {
+      presetId,
+      unit: unitForPreset(preset, defaultUnitByKey),
+      courseId: isMedicationPreset(preset) ? (courses[0]?.id ?? "") : "",
+    });
   }
+
+  /** 끝난 처방도 이 루틴이 이미 들고 있었으면 목록에 남긴다 — 지울지는 사용자가 정한다 */
+  function courseOptions(courseId: string): { id: string; label: string }[] {
+    const options = courses.map((course) => ({ id: course.id, label: course.name }));
+    if (courseId && !courses.some((course) => course.id === courseId)) {
+      const saved = routine?.items.find((item) => item.medicationCourseId === courseId)?.course;
+      if (saved) {
+        options.unshift({ id: saved.id, label: t("routineItemCourseEnded", { name: saved.name }) });
+      }
+    }
+    return options;
+  }
+
+  const missingCourse = items.some(
+    (it) => isMedicationPreset(presetById.get(it.presetId)) && !it.courseId,
+  );
 
   function addItem() {
     const last = items[items.length - 1];
@@ -172,6 +205,7 @@ export function RoutineEditSheet({
         quantity: "",
         unit: last ? last.unit : unitForPreset(first, defaultUnitByKey),
         productId: "",
+        courseId: last?.courseId ?? "",
       },
     ]);
   }
@@ -199,12 +233,16 @@ export function RoutineEditSheet({
     e.preventDefault();
     if (saving) return;
     const name = label.trim();
-    if (!name) return;
+    if (!name || missingCourse) return;
 
     const payloadItems = items
       .map((it) => {
         const preset = presetById.get(it.presetId);
         if (!preset) return null;
+        if (isMedicationPreset(preset)) {
+          // 투약은 처방만 — 용량은 처방에 적혀 있고 슬롯은 실행 때 정해진다
+          return { eventTypeId: preset.eventTypeId, presetId: preset.id, medicationCourseId: it.courseId };
+        }
         const quantityRaw = it.quantity.trim();
         const quantity = quantityRaw ? Number(quantityRaw) : null;
         return {
@@ -275,6 +313,8 @@ export function RoutineEditSheet({
           <ul className="routine-item-list">
             {items.map((item, index) => {
               const presetLabel = tLabel(presetById.get(item.presetId)?.label ?? "");
+              const medication = isMedicationPreset(presetById.get(item.presetId));
+              const options = medication ? courseOptions(item.courseId) : [];
               return (
                 <li key={item.key} className="routine-item-row">
                   <div className="routine-item-head">
@@ -315,6 +355,31 @@ export function RoutineEditSheet({
                         ))}
                       </select>
                     </div>
+                    {medication ? (
+                      <div className="field-group flex-1">
+                        <label className="field-label" htmlFor={`routine-item-course-${index}`}>
+                          {t("routineItemCourse")}
+                        </label>
+                        {options.length > 0 ? (
+                          <select
+                            id={`routine-item-course-${index}`}
+                            className="select-input"
+                            value={item.courseId}
+                            onChange={(e) => updateItem(item.key, { courseId: e.target.value })}
+                            disabled={saving}
+                          >
+                            {!item.courseId && <option value="" />}
+                            {options.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="meta">{t("routineItemNoActiveCourse")}</p>
+                        )}
+                      </div>
+                    ) : (
                     <div className="field-group flex-1">
                       <label className="field-label" htmlFor={`routine-item-product-${index}`}>
                         {t("routineItemProduct")}
@@ -338,7 +403,9 @@ export function RoutineEditSheet({
                         ))}
                       </select>
                     </div>
+                    )}
                   </div>
+                  {!medication && (
                   <div className="field-row routine-item-amount">
                     <div className="field-group flex-1">
                       <label className="field-label" htmlFor={`routine-item-qty-${index}`}>
@@ -371,6 +438,7 @@ export function RoutineEditSheet({
                       />
                     </div>
                   </div>
+                  )}
                 </li>
               );
             })}
@@ -399,7 +467,11 @@ export function RoutineEditSheet({
             <button type="button" className="secondary" onClick={onClose} disabled={saving}>
               {t("cancel")}
             </button>
-            <button type="submit" className="primary" disabled={saving || presets.length === 0}>
+            <button
+              type="submit"
+              className="primary"
+              disabled={saving || presets.length === 0 || missingCourse}
+            >
               {saving ? t("saving") : t("save")}
             </button>
           </div>

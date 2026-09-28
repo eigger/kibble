@@ -17,6 +17,8 @@ function item(overrides: Partial<RoutineItem>): RoutineItem {
     eventType: { key: "meal", label: "eventType.meal", category: "HEALTH", defaultUnit: "g" },
     preset: null,
     product: null,
+    medicationCourseId: null,
+    course: null,
     ...overrides,
   };
 }
@@ -63,7 +65,14 @@ describe("buildRoutineEventBodies", () => {
   };
 
   it("emits items last-first with a shared entryId and per-item dedupeKeys", () => {
-    const bodies = buildRoutineEventBodies(routine, "pet", "2026-09-15T00:00:00.000Z", "s");
+    const { events, skipped } = buildRoutineEventBodies(
+      routine,
+      "pet",
+      "2026-09-15T00:00:00.000Z",
+      "s",
+    );
+    const bodies = events.map((e) => e.body);
+    expect(skipped).toEqual([]);
     expect(bodies).toHaveLength(2);
     expect(bodies[0]).toMatchObject({
       eventTypeId: "et_water",
@@ -85,8 +94,62 @@ describe("buildRoutineEventBodies", () => {
 
   it("skips entryId for a single item", () => {
     const single: Routine = { ...routine, items: [routine.items[0]] };
-    const bodies = buildRoutineEventBodies(single, "pet", "2026-09-15T00:00:00.000Z", "s");
+    const bodies = buildRoutineEventBodies(single, "pet", "2026-09-15T00:00:00.000Z", "s").events.map(
+      (e) => e.body,
+    );
     expect(bodies).toHaveLength(1);
     expect(bodies[0].entryId).toBeUndefined();
+  });
+
+  const medType = { key: "medication", label: "eventType.medication", category: "HEALTH", defaultUnit: null };
+
+  it("sends a medication item with its course and no slot, amount or product", () => {
+    const withMed: Routine = {
+      ...routine,
+      items: [
+        routine.items[0],
+        item({
+          id: "m",
+          eventTypeId: "et_med",
+          eventType: medType,
+          quantity: 1,
+          productId: "p",
+          medicationCourseId: "c1",
+          course: { id: "c1", name: "아침약", ended: false },
+        }),
+      ],
+    };
+    const { events, skipped } = buildRoutineEventBodies(withMed, "pet", "2026-09-15T00:00:00.000Z", "s");
+    expect(skipped).toEqual([]);
+    expect(events[0].body).toMatchObject({ eventTypeId: "et_med", medicationCourseId: "c1" });
+    expect(events[0].body.doseSlotIndex).toBeUndefined();
+    expect(events[0].body.quantity).toBeUndefined();
+    expect(events[0].body.productId).toBeUndefined();
+  });
+
+  it("skips a medication item whose course ended and keeps the dedupeKey index stable", () => {
+    const ended = item({
+      id: "m",
+      eventTypeId: "et_med",
+      eventType: medType,
+      medicationCourseId: "c1",
+      course: { id: "c1", name: "아침약", ended: true },
+    });
+    const withEnded: Routine = { ...routine, items: [ended, routine.items[0]] };
+    const { events, skipped } = buildRoutineEventBodies(withEnded, "pet", "2026-09-15T00:00:00.000Z", "s");
+    expect(skipped).toEqual([ended]);
+    expect(events).toHaveLength(1);
+    // 하나만 남으면 묶음 id가 없다
+    expect(events[0].body).toMatchObject({ presetId: "ps_meal", dedupeKey: "routine:pet:r1:s:1" });
+    expect(events[0].body.entryId).toBeUndefined();
+  });
+
+  it("uses the course name as the summary of a medication item", () => {
+    expect(
+      routineItemSummary(
+        item({ eventType: medType, course: { id: "c1", name: "아침약", ended: false } }),
+        tLabel,
+      ),
+    ).toBe("아침약");
   });
 });

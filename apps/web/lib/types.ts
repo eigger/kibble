@@ -62,6 +62,10 @@ export interface RoutineItem {
   eventType: { key: string; label: string; category: string; defaultUnit: string | null };
   preset: { id: string; label: string } | null;
   product: { id: string; name: string } | null;
+  /** 투약 항목의 처방. 슬롯은 실행 때 서버가 고른다 (§7.24) */
+  medicationCourseId: string | null;
+  /** `ended`면 실행 때 이 항목을 건너뛴다 — 처방이 끝났거나(보관·endDate 경과) 지워졌다 */
+  course: { id: string; name: string; ended: boolean } | null;
 }
 
 /** 루틴 — 누르면 항목 전부가 지금 시각으로 저장된다 */
@@ -206,9 +210,18 @@ export interface CreatedEvent {
     longitude?: number | null;
     placeUrl?: string | null;
   } | null;
-  course?: { id: string; name: string; totalDoses?: number | null; dosage?: string | null } | null;
+  course?: {
+    id: string;
+    name: string;
+    totalDoses?: number | null;
+    dosage?: string | null;
+    dosesPerDay?: number;
+    doseTimes?: string[];
+  } | null;
   /** 투약 회차 — 기록하는 순간 찍힌다. 그 이전 기록·투약이 아닌 기록은 null */
   doseOrdinal?: number | null;
+  /** 채운 복약 슬롯. 기록 시각과 별개로 "언제 먹여야 했나"를 가리킨다 (§3.10) */
+  doseSlotIndex?: number | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];
@@ -329,9 +342,18 @@ export interface TimelineEvent {
     longitude?: number | null;
     placeUrl?: string | null;
   } | null;
-  course?: { id: string; name: string; totalDoses?: number | null; dosage?: string | null } | null;
+  course?: {
+    id: string;
+    name: string;
+    totalDoses?: number | null;
+    dosage?: string | null;
+    dosesPerDay?: number;
+    doseTimes?: string[];
+  } | null;
   /** 투약 회차 — 기록하는 순간 찍힌다. 그 이전 기록·투약이 아닌 기록은 null */
   doseOrdinal?: number | null;
+  /** 채운 복약 슬롯. 기록 시각과 별개로 "언제 먹여야 했나"를 가리킨다 (§3.10) */
+  doseSlotIndex?: number | null;
   preset: { id: string; label: string } | null;
   eventType: { key: string; label: string; icon: string | null; scaleType?: string | null; category?: string | null };
   attachments?: EventAttachment[];

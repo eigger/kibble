@@ -354,7 +354,9 @@ export const eventWithRelationsSelect = {
   contact: {
     select: { id: true, name: true, address: true, latitude: true, longitude: true, placeUrl: true },
   },
-  course: { select: { id: true, name: true, totalDoses: true, dosage: true } },
+  course: {
+    select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
+  },
   createdBy: { select: { id: true, name: true } },
   updatedBy: { select: { id: true, name: true } },
   attachments: {
