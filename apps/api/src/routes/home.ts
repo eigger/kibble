@@ -133,7 +133,7 @@ export async function homeRoutes(app: FastifyInstance) {
       pets,
       activePet,
       presets,
-      routines: routines.map(serializeRoutine),
+      routines: routines.map((row) => serializeRoutine(row)),
       todaySummary,
       recentEvents,
       activeMedicationCourses,

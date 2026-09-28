@@ -59,12 +59,8 @@ describe("resolveMedicationDoseLog", () => {
       undefined,
       now,
     );
-    expect(result).toMatchObject({ doseSlotIndex: 0 });
-    if ("occurredAt" in result) {
-      expect(result.occurredAt.getTime()).toBe(
-        new Date("2026-09-01T08:00:00+09:00").getTime(),
-      );
-    }
+    // 기록 시각은 슬롯 시각이 아니라 누른 시각이다 (WORKPLAN §3.10)
+    expect(result).toEqual({ doseSlotIndex: 0, occurredAt: now });
   });
 
   it("rejects duplicate slot", () => {

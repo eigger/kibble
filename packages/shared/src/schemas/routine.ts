@@ -14,6 +14,8 @@ export const routineItemSchema = z.object({
   productName: z.string().trim().max(120).optional().nullable(),
   quantity: decimalOptional,
   unit: z.string().trim().max(32).optional().nullable(),
+  /** 투약 항목의 처방. `medication` 타입이면 필수다 — 슬롯은 실행 때 서버가 고른다 */
+  medicationCourseId: z.string().trim().min(1).optional().nullable(),
 });
 
 const itemsField = z.array(routineItemSchema).min(1).max(ROUTINE_ITEM_MAX);

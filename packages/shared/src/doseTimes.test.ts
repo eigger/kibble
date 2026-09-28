@@ -4,6 +4,7 @@ import {
   defaultDoseTimes,
   formatDoseTime,
   normalizeDoseTimes,
+  pickDoseSlot,
   resolveDoseTimeOccurredAt,
 } from "./doseTimes.js";
 
@@ -51,5 +52,30 @@ describe("formatDoseTime", () => {
   it("formats HH:mm input", () => {
     expect(coerceDoseTime("09:30")).toBe("09:30");
     expect(formatDoseTime("09:30", "ko-KR")).toMatch(/9:30/);
+  });
+});
+
+describe("pickDoseSlot", () => {
+  const times = ["08:00", "19:00"];
+
+  it("picks the empty slot nearest to the record time", () => {
+    expect(pickDoseSlot(times, [], new Date("2026-09-01T09:10:00+09:00"))).toBe(0);
+    expect(pickDoseSlot(times, [], new Date("2026-09-01T18:00:00+09:00"))).toBe(1);
+  });
+
+  it("leaves a missed morning slot empty when recording in the evening", () => {
+    expect(pickDoseSlot(times, [], new Date("2026-09-01T20:30:00+09:00"))).toBe(1);
+  });
+
+  it("skips filled slots", () => {
+    expect(pickDoseSlot(times, [1], new Date("2026-09-01T20:30:00+09:00"))).toBe(0);
+  });
+
+  it("prefers the earlier slot on a tie", () => {
+    expect(pickDoseSlot(["08:00", "10:00"], [], new Date("2026-09-01T09:00:00+09:00"))).toBe(0);
+  });
+
+  it("returns null when every slot is filled", () => {
+    expect(pickDoseSlot(times, [0, 1], new Date("2026-09-01T12:00:00+09:00"))).toBeNull();
   });
 });

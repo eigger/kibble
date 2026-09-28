@@ -4,6 +4,7 @@ import { createRoutineSchema, updateRoutineSchema, type RoutineItemInput } from 
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
+import { isMedicationCourseEnded } from "../lib/medicationCourseProgress.js";
 
 /**
  * 루틴 — 미리 정한 값으로 1탭 저장 (WORKPLAN §7.24).
@@ -27,16 +28,18 @@ export const routineSelect = {
       productName: true,
       quantity: true,
       unit: true,
+      medicationCourseId: true,
       eventType: { select: { key: true, label: true, category: true, defaultUnit: true } },
       preset: { select: { id: true, label: true, archivedAt: true } },
       product: { select: { id: true, name: true } },
+      course: { select: { id: true, name: true, endDate: true, archivedAt: true } },
     },
   },
 } as const;
 
 type RoutineRow = Prisma.RoutineGetPayload<{ select: typeof routineSelect }>;
 
-export function serializeRoutine(row: RoutineRow) {
+export function serializeRoutine(row: RoutineRow, now = new Date()) {
   return {
     id: row.id,
     petId: row.petId,
@@ -57,6 +60,14 @@ export function serializeRoutine(row: RoutineRow) {
         eventType: item.eventType,
         preset: preset ? { id: preset.id, label: preset.label } : null,
         product: item.product,
+        // 처방이 끝났거나 지워졌으면 실행 때 이 항목을 건너뛴다 (§7.24)
+        course: item.course
+          ? {
+              id: item.course.id,
+              name: item.course.name,
+              ended: isMedicationCourseEnded(item.course, now),
+            }
+          : null,
       };
     }),
   };
@@ -69,28 +80,51 @@ async function findActiveRoutine(householdId: string, id: string) {
   });
 }
 
-type ItemCheckError = "eventTypeNotFound" | "presetNotFound" | "productNotFound";
+type ItemCheckError =
+  | "eventTypeNotFound"
+  | "presetNotFound"
+  | "productNotFound"
+  | "medicationCourseNotFound";
 
 /**
- * 항목이 가리키는 타입·칩·제품이 전부 이 가구·이 반려동물의 것인지 (K-1).
- * 투약은 처방·회차가 끼어 1탭이 안 되므로 받지 않는다 (§7.24).
+ * 항목이 가리키는 타입·칩·제품·처방이 전부 이 가구·이 반려동물의 것인지 (K-1).
+ * 투약 항목은 진행 중인 처방이 필수다 — 회차 슬롯은 실행 때 서버가 고른다 (§7.24).
  */
 async function checkItems(
   householdId: string,
   petId: string,
   items: RoutineItemInput[],
-): Promise<ItemCheckError | null> {
+  /** 이 루틴이 이미 들고 있는 처방 — 끝났어도 그대로 둘 수 있다. 지울지는 사용자가 정한다 */
+  keptCourseIds: ReadonlySet<string> = new Set(),
+): Promise<{ error: ItemCheckError } | { medicationTypeIds: Set<string> }> {
   const eventTypeIds = [...new Set(items.map((i) => i.eventTypeId))];
   const eventTypes = await prisma.eventType.findMany({
-    where: {
-      id: { in: eventTypeIds },
-      householdId: null,
-      archivedAt: null,
-      key: { not: "medication" },
-    },
-    select: { id: true },
+    where: { id: { in: eventTypeIds }, householdId: null, archivedAt: null },
+    select: { id: true, key: true },
   });
-  if (eventTypes.length !== eventTypeIds.length) return "eventTypeNotFound";
+  if (eventTypes.length !== eventTypeIds.length) return { error: "eventTypeNotFound" };
+  const medicationTypeIds = new Set(
+    eventTypes.filter((type) => type.key === "medication").map((type) => type.id),
+  );
+
+  const courseIds: string[] = [];
+  for (const item of items) {
+    if (!medicationTypeIds.has(item.eventTypeId)) continue;
+    if (!item.medicationCourseId) return { error: "medicationCourseNotFound" };
+    courseIds.push(item.medicationCourseId);
+  }
+  const uniqueCourseIds = [...new Set(courseIds)];
+  if (uniqueCourseIds.length > 0) {
+    const courses = await prisma.medicationCourse.findMany({
+      where: { id: { in: uniqueCourseIds }, ...householdWhere(householdId), petId },
+      select: { id: true, endDate: true, archivedAt: true },
+    });
+    const now = new Date();
+    const usable = courses.filter(
+      (course) => keptCourseIds.has(course.id) || !isMedicationCourseEnded(course, now),
+    );
+    if (usable.length !== uniqueCourseIds.length) return { error: "medicationCourseNotFound" };
+  }
 
   const presetIds = [...new Set(items.map((i) => i.presetId).filter((v): v is string => !!v))];
   if (presetIds.length > 0) {
@@ -98,10 +132,12 @@ async function checkItems(
       where: { id: { in: presetIds }, ...householdWhere(householdId), petId, archivedAt: null },
       select: { id: true, eventTypeId: true },
     });
-    if (presets.length !== presetIds.length) return "presetNotFound";
+    if (presets.length !== presetIds.length) return { error: "presetNotFound" };
     const byId = new Map(presets.map((p) => [p.id, p.eventTypeId]));
     for (const item of items) {
-      if (item.presetId && byId.get(item.presetId) !== item.eventTypeId) return "presetNotFound";
+      if (item.presetId && byId.get(item.presetId) !== item.eventTypeId) {
+        return { error: "presetNotFound" };
+      }
     }
   }
 
@@ -115,13 +151,17 @@ async function checkItems(
         OR: [{ petId: null }, { petId }],
       },
     });
-    if (count !== productIds.length) return "productNotFound";
+    if (count !== productIds.length) return { error: "productNotFound" };
   }
 
-  return null;
+  return { medicationTypeIds };
 }
 
-function itemRows(householdId: string, items: RoutineItemInput[]) {
+function itemRows(
+  householdId: string,
+  items: RoutineItemInput[],
+  medicationTypeIds: ReadonlySet<string>,
+) {
   return items.map((item, index) => ({
     householdId,
     sortOrder: index,
@@ -131,6 +171,9 @@ function itemRows(householdId: string, items: RoutineItemInput[]) {
     productName: item.productName?.trim() || null,
     quantity: item.quantity ?? null,
     unit: item.unit?.trim() || null,
+    medicationCourseId: medicationTypeIds.has(item.eventTypeId)
+      ? (item.medicationCourseId ?? null)
+      : null,
   }));
 }
 
@@ -148,7 +191,7 @@ export async function routineRoutes(app: FastifyInstance) {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: routineSelect,
     });
-    return rows.map(serializeRoutine);
+    return rows.map((row) => serializeRoutine(row));
   });
 
   app.post("/", { preHandler: [app.authenticate] }, async (request, reply) => {
@@ -165,8 +208,8 @@ export async function routineRoutes(app: FastifyInstance) {
     });
     if (!pet) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
-    const itemError = await checkItems(householdId, petId, items);
-    if (itemError) return reply.code(404).send({ error: t(itemError, request.locale) });
+    const checked = await checkItems(householdId, petId, items);
+    if ("error" in checked) return reply.code(404).send({ error: t(checked.error, request.locale) });
 
     const maxSort = await prisma.routine.aggregate({
       where: { ...householdWhere(householdId), petId, archivedAt: null },
@@ -179,7 +222,7 @@ export async function routineRoutes(app: FastifyInstance) {
         petId,
         label,
         sortOrder: sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
-        items: { create: itemRows(householdId, items) },
+        items: { create: itemRows(householdId, items, checked.medicationTypeIds) },
       },
       select: routineSelect,
     });
@@ -197,13 +240,20 @@ export async function routineRoutes(app: FastifyInstance) {
 
     const existing = await prisma.routine.findFirst({
       where: { id, ...householdWhere(householdId), archivedAt: null },
-      select: { id: true, petId: true },
+      select: { id: true, petId: true, items: { select: { medicationCourseId: true } } },
     });
     if (!existing) return reply.code(404).send({ error: t("routineNotFound", request.locale) });
 
+    let medicationTypeIds: Set<string> = new Set();
     if (data.items) {
-      const itemError = await checkItems(householdId, existing.petId, data.items);
-      if (itemError) return reply.code(404).send({ error: t(itemError, request.locale) });
+      const kept = new Set(
+        existing.items.map((item) => item.medicationCourseId).filter((id): id is string => !!id),
+      );
+      const checked = await checkItems(householdId, existing.petId, data.items, kept);
+      if ("error" in checked) {
+        return reply.code(404).send({ error: t(checked.error, request.locale) });
+      }
+      medicationTypeIds = checked.medicationTypeIds;
     }
 
     await prisma.$transaction(async (tx) => {
@@ -220,7 +270,10 @@ export async function routineRoutes(app: FastifyInstance) {
           where: { routineId: id, ...householdWhere(householdId) },
         });
         await tx.routineItem.createMany({
-          data: itemRows(householdId, data.items).map((row) => ({ ...row, routineId: id })),
+          data: itemRows(householdId, data.items, medicationTypeIds).map((row) => ({
+            ...row,
+            routineId: id,
+          })),
         });
       }
     });
