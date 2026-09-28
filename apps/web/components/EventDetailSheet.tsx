@@ -444,7 +444,9 @@ export function EventDetailSheet({
       if (multiProduct && next) {
         setProductId(next.productId);
         setProductDosage(next.dosage);
-        setProductName(next.productName);
+        // 태그 타입(관리)은 productName을 쓰지 않는다 — 남으면 첫 칸이 빈 뒤에도 "차 있다"로 읽혀
+        // 다음에 고른 제품이 둘째 이후로 붙는다
+        if (!fields.detailTags) setProductName(next.productName);
         setQuantity(next.quantity);
         setQuantityOffered(next.quantityOffered);
         setUnit(next.unit);
