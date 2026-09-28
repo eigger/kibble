@@ -17,8 +17,9 @@ export type EventDetailFieldFlags = {
   /** 단위 입력란 노출 (기본 단위만 쓰는 타입은 false) */
   showUnitInput: boolean;
   /**
-   * 등록 제품을 여러 개 골라 항목마다 양·단위를 적고 이벤트 N건을 같은 `entryId`로 만든다 (§7.22).
-   * 영양·사료·간식만 — 상비는 처방·투약 축과 얽혀 따로 본다.
+   * 등록 제품을 여러 개 골라 이벤트 N건을 같은 `entryId`로 만든다 (§7.22). 영양·사료·간식은
+   * 항목마다 양·단위를 적는다. 관리는 양이 없어 칩 토글만이고 태그는 첫 건에만 싣는다.
+   * 상비는 처방·투약 축과 얽혀 따로 본다.
    */
   multiProduct: boolean;
   /**
@@ -121,6 +122,8 @@ export function eventDetailFields(
       detailTags: true,
       productCustomInput: false,
       productNameLabelKey: productNameFieldLabelKey(key),
+      // 목욕엔 샴푸+린스, 양치엔 치약+칫솔 — 제품만 여러 개, 태그는 첫 건에만 (§7.22)
+      multiProduct: true,
     };
   }
 

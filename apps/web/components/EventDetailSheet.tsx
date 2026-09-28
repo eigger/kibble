@@ -410,6 +410,8 @@ export function EventDetailSheet({
   const qtyExtraStep = quantityExtraStep(qtyUnit, draft?.eventTypeKey);
   // 여러 제품은 새 기록에서만 — 이미 저장된 행은 각자 한 제품이라 그 행만 고친다
   const multiProduct = fields.multiProduct && draft?.mode === "create";
+  // 지난 세트를 다시 여는 건 영양·사료·간식뿐 — 관리는 여러 개를 골라도 매번 새로 고른다 (R149)
+  const rememberSet = fields.multiProduct && fields.rememberLastProduct;
 
   function formatQtyStep(step: number, steps: number[]): string {
     if (step === 10000) return t("qtyStep10000");
@@ -545,7 +547,7 @@ export function EventDetailSheet({
         if (prefs.quantity) setQuantity(prefs.quantity);
         if (prefs.unit) setUnit(prefs.unit);
         // 지난 세트의 둘째 이후. 복용법 힌트는 서버 제품 목록이 오면 붙는다
-        if (fields.multiProduct && !draft.productName?.trim() && prefs.extraItems?.length) {
+        if (rememberSet && !draft.productName?.trim() && prefs.extraItems?.length) {
           setExtraItems(
             dedupeExtras(
               prefs.extraItems.map((x) => ({
@@ -594,7 +596,7 @@ export function EventDetailSheet({
             // 이 기기에 저장값이 없으면 지난 세트(양·단위까지)를 서버에서 그대로 연다 (§7.22).
             // 응답이 오기 전에 사용자가 칩을 골랐으면 그쪽이 우선 — 덮어쓰지 않는다
             const [first, ...rest] = data.lastItems ?? [];
-            if (fields.multiProduct && first) {
+            if (rememberSet && first) {
               if (first.quantity != null) setQuantity(numberToInput(first.quantity));
               if (first.quantityOffered != null) setQuantityOffered(numberToInput(first.quantityOffered));
               if (first.unit) setUnit(first.unit);
@@ -614,14 +616,14 @@ export function EventDetailSheet({
               if (data.lastProductDosage) setProductDosage((prev) => prev ?? data.lastProductDosage ?? null);
             }
           }
-          if (prefs?.productName && fields.multiProduct && prefs.extraItems === undefined) {
+          if (prefs?.productName && rememberSet && prefs.extraItems === undefined) {
             // 이 기능 전에 저장된 로컬값(첫 제품만) — 서버의 지난 세트가 같은 제품으로 시작하면
             // 둘째 이후를 거기서 가져온다. 다른 제품이면 로컬값을 존중해 한 제품으로 둔다
             const [first, ...rest] = data.lastItems ?? [];
             if (first && rest.length > 0 && first.productName === prefs.productName) {
               setExtraItems((prev) => (prev.length > 0 ? prev : dedupeExtras(rest.map(lastItemToExtra))));
             }
-          } else if (prefs?.productName && fields.multiProduct && prefs.extraItems?.length) {
+          } else if (prefs?.productName && rememberSet && prefs.extraItems?.length) {
             // 로컬 저장값의 둘째 이후에 복용법 힌트를 서버 제품 목록에서 붙인다
             const dosageById = new Map((data.activeProducts ?? []).map((p) => [p.id, p.dosage ?? null]));
             setExtraItems((prev) =>
@@ -900,7 +902,8 @@ export function EventDetailSheet({
           return;
         }
         savedProductId = first.productId;
-        savedProductName = first.productName.trim() || null;
+        // 태그 타입(관리)의 productName은 slug 목록이라 제품 이름을 넣지 않는다 (§7.20)
+        if (!fields.detailTags) savedProductName = first.productName.trim() || null;
         consumed = qty.value;
         offered = fields.quantityOffered ? off.value : null;
         unitForSave = first.unit;
@@ -917,7 +920,9 @@ export function EventDetailSheet({
         }
         extras.push({
           productId: item.productId,
-          productName: item.productName.trim(),
+          // 관리는 태그를 첫 건에만 싣고 나머지는 제품 연결만 — 태그를 복사하면 횟수가 부풀고
+          // 나중에 한 건만 고쳤을 때 서로 어긋난다 (R166). 제품 이름도 slug 자리라 넣지 않는다
+          productName: fields.detailTags ? "" : item.productName.trim(),
           quantity: qty.value,
           quantityOffered: fields.quantityOffered ? off.value : null,
           unit: resolveEventUnit(fields, item.unit),
@@ -956,7 +961,7 @@ export function EventDetailSheet({
         quantity: fields.quantity ? numberToInput(consumed) : undefined,
         quantityOffered: fields.quantityOffered ? numberToInput(offered) : undefined,
         unit: fields.showUnitInput ? unitForSave : undefined,
-        ...(fields.multiProduct
+        ...(rememberSet
           ? {
               extraItems: extras.map((x) => ({
                 productId: x.productId,
@@ -1479,7 +1484,8 @@ export function EventDetailSheet({
                 </>
               )}
 
-              {multiProduct && extraItems.length > 0 && (
+              {/* 관리는 양이 없어 항목 줄 없이 칩 토글만 — 고른 제품은 칩 선택 상태로 보인다 */}
+              {multiProduct && fields.quantity && extraItems.length > 0 && (
                 <div className="event-detail-extra-items">
                   <span className="event-detail-chip-hint">{t("eventDetailExtraItemsHint")}</span>
                   {extraItems.map((item, index) => {
