@@ -5,8 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { routePath } from "../../lib/base-path";
-import { formatDoseTime, insertTimelineEvent, intlLocale, resolveDoseTimeOccurredAt } from "@kibble/shared";
-import { apiJson } from "../../lib/api";
+import { formatDoseTime, insertTimelineEvent, intlLocale } from "@kibble/shared";
+import { apiJson, isApiError } from "../../lib/api";
+import { scheduledDoseTime } from "../../lib/eventDetailFields";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
 import { isGroupedWithPrevious } from "../../lib/timeline";
@@ -37,7 +38,9 @@ import { RoutineButton } from "../../components/RoutineButton";
 import {
   QUICK_MODE_TOGGLE_EVENT,
   buildRoutineEventBodies,
+  isMedicationItem,
   loadQuickMode,
+  routineItemSummary,
   saveQuickMode,
   type QuickMode,
 } from "../../lib/routines";
@@ -57,6 +60,7 @@ import type {
   Pet,
   Preset,
   Routine,
+  RoutineItem,
   TimelineEvent,
 } from "../../lib/types";
 
@@ -301,6 +305,7 @@ export default function QuickRecordPage() {
       doseAmount: event.course?.dosage ?? null,
       doseOrdinal: event.doseOrdinal ?? null,
       doseTotal: event.course?.totalDoses ?? null,
+      doseScheduledTime: scheduledDoseTime(event),
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
       createdByName: event.createdBy?.name ?? null,
@@ -373,14 +378,8 @@ export default function QuickRecordPage() {
       return;
     }
 
-    let occurredAt = new Date().toISOString();
-    if (
-      doseSlotIndex != null &&
-      course.doseTimes[doseSlotIndex] &&
-      course.doseSlotsToday.length > 0
-    ) {
-      occurredAt = resolveDoseTimeOccurredAt(course.doseTimes[doseSlotIndex]).toISOString();
-    }
+    // 기록 시각은 누른 시각 — 슬롯 시각은 "언제 먹여야 하나"일 뿐이다 (§3.10)
+    const occurredAt = new Date().toISOString();
 
     openDetailForNewPreset(preset, {
       medicationCourseId: course.id,
@@ -622,26 +621,52 @@ export default function QuickRecordPage() {
   async function runRoutine(routine: Routine) {
     if (!user || !pet || runningRoutineId || detailSaving) return;
     if (routine.items.length === 0) return;
-    setRunningRoutineId(routine.id);
 
-    const bodies = buildRoutineEventBodies(
+    const { events, skipped } = buildRoutineEventBodies(
       routine,
       pet.id,
       new Date().toISOString(),
       randomSuffix(),
     );
+    // 오늘 몫을 이미 먹였다 — 서버가 409로 거절한다. 실패가 아니라 건너뜀이다 (§7.24)
+    const alreadyGiven: RoutineItem[] = [];
+    const skipNotes = () => {
+      const notes: string[] = [];
+      const names = (items: RoutineItem[]) =>
+        items.map((item) => routineItemSummary(item, tLabel)).join(", ");
+      if (skipped.length > 0) notes.push(t("routineSkippedEnded", { names: names(skipped) }));
+      if (alreadyGiven.length > 0) {
+        notes.push(t("routineSkippedGiven", { names: names(alreadyGiven) }));
+      }
+      return notes;
+    };
+
+    if (events.length === 0) {
+      show(skipNotes().join(" · "), "info");
+      return;
+    }
+    setRunningRoutineId(routine.id);
+
     const created: CreatedEvent[] = [];
     let queued = false;
     let failed = false;
     try {
-      for (const body of bodies) {
-        const outcome = await createEventWithOfflineFallback({
-          userId: user.id,
-          labelKey: routine.label,
-          body,
-        });
-        if (outcome.status === "queued") queued = true;
-        else created.push(outcome.event);
+      for (const { item, body } of events) {
+        try {
+          const outcome = await createEventWithOfflineFallback({
+            userId: user.id,
+            labelKey: routine.label,
+            body,
+          });
+          if (outcome.status === "queued") queued = true;
+          else created.push(outcome.event);
+        } catch (err) {
+          if (isMedicationItem(item) && isApiError(err) && err.status === 409) {
+            alreadyGiven.push(item);
+            continue;
+          }
+          throw err;
+        }
       }
     } catch (err) {
       failed = true;
@@ -661,13 +686,19 @@ export default function QuickRecordPage() {
       setRunningRoutineId(null);
     }
 
-    if (failed || (created.length === 0 && !queued)) return;
+    if (failed) return;
     if (queued) {
       show(t("offlineQueuedToast"), "info");
       return;
     }
+    const notes = skipNotes();
+    if (created.length === 0) {
+      if (notes.length > 0) show(notes.join(" · "), "info");
+      return;
+    }
     const ids = created.map((e) => e.id);
-    show(t("routineSavedToast", { label: routine.label, count: ids.length }), "success", {
+    const saved = t("routineSavedToast", { label: routine.label, count: ids.length });
+    show([saved, ...notes].join(" "), "success", {
       label: t("undo"),
       onClick: () => void undoRoutine(ids),
     });

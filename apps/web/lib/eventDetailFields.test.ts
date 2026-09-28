@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   eventDetailFields,
+  scheduledDoseTime,
   formatEventDetailLine,
   quantityPlaceholder,
   resolveEventUnit,
@@ -443,5 +444,18 @@ describe("eventDetailFields — rememberLastProduct (R149·§7.23)", () => {
     expect(eventDetailFields("care", null).rememberLastProduct).toBe(false);
     expect(eventDetailFields("observation", null).rememberLastProduct).toBe(false);
     expect(eventDetailFields("vomit", null).rememberLastProduct).toBe(false);
+  });
+});
+
+describe("scheduledDoseTime", () => {
+  it("returns the filled slot's scheduled time, not the record time", () => {
+    expect(
+      scheduledDoseTime({ doseSlotIndex: 1, course: { dosesPerDay: 2, doseTimes: ["08:00", "19:00"] } }),
+    ).toBe("19:00");
+  });
+
+  it("is null without a slot or slot times", () => {
+    expect(scheduledDoseTime({ doseSlotIndex: null, course: { doseTimes: ["08:00"] } })).toBeNull();
+    expect(scheduledDoseTime({ doseSlotIndex: 0, course: { doseTimes: [] } })).toBeNull();
   });
 });

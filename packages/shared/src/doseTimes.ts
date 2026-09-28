@@ -70,6 +70,33 @@ export function resolveDoseTimeOccurredAt(time: string, now = new Date()): Date 
   return slotTime.getTime() > now.getTime() ? now : slotTime;
 }
 
+/**
+ * 슬롯을 지정하지 않은 복약이 채울 회차. 그날(KST) 비어 있는 슬롯 중 기록 시각에 가장
+ * 가까운 것 — 아침을 놓치고 저녁에 누르면 저녁이 채워지고 아침은 빈칸으로 남는다.
+ * 같은 거리면 앞 회차. 다 찼으면 null (WORKPLAN §7.24).
+ */
+export function pickDoseSlot(
+  doseTimes: string[],
+  filled: Iterable<number>,
+  at: Date,
+): number | null {
+  const taken = new Set(filled);
+  const dayKey = kstDayKey(at);
+  let best: number | null = null;
+  let bestDistance = Infinity;
+  doseTimes.forEach((time, index) => {
+    if (taken.has(index)) return;
+    const coerced = coerceDoseTime(time) ?? "12:00";
+    const slotAt = new Date(`${dayKey}T${coerced}:00+09:00`).getTime();
+    const distance = Math.abs(slotAt - at.getTime());
+    if (distance < bestDistance) {
+      best = index;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
+
 export function formatDoseTime(time: string, localeTag = "ko-KR"): string {
   const coerced = coerceDoseTime(time);
   if (!coerced) return time;

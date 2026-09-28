@@ -124,8 +124,8 @@ model EventType {
   sortOrder   Int           @default(0)
   archivedAt  DateTime?
 
-  household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  events    Event[]
+  household    Household?    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  events       Event[]
   presets      Preset[]
   reminders    Reminder[]
   apiTokens    ApiToken[]
@@ -167,9 +167,9 @@ model Preset {
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
 
-  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet       Pet?         @relation(fields: [petId], references: [id], onDelete: Cascade)
-  eventType EventType    @relation(fields: [eventTypeId], references: [id])
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet          Pet?          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  eventType    EventType     @relation(fields: [eventTypeId], references: [id])
   codes        PresetCode[]
   events       Event[]
   tokens       ApiToken[]
@@ -245,76 +245,80 @@ model Routine {
 }
 
 model RoutineItem {
-  id          String   @id @default(cuid())
-  routineId   String
-  householdId String
-  sortOrder   Int      @default(0)
-  eventTypeId String
+  id                 String   @id @default(cuid())
+  routineId          String
+  householdId        String
+  sortOrder          Int      @default(0)
+  eventTypeId        String
   /// 같은 타입의 칩. 이벤트에 그대로 실려 타임라인 라벨이 칩과 같아진다
-  presetId    String?
-  productId   String?
-  productName String?
-  quantity    Decimal? @db.Decimal(10, 2)
-  unit        String?
+  presetId           String?
+  productId          String?
+  productName        String?
+  quantity           Decimal? @db.Decimal(10, 2)
+  unit               String?
+  /// 투약 항목의 처방. "이어가기"가 새 처방으로 옮긴다. 처방이 끝나면 실행 때 건너뛴다 (§7.24)
+  medicationCourseId String?
 
-  routine   Routine   @relation(fields: [routineId], references: [id], onDelete: Cascade)
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  eventType EventType @relation(fields: [eventTypeId], references: [id])
-  preset    Preset?   @relation(fields: [presetId], references: [id], onDelete: SetNull)
-  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  routine   Routine           @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  household Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  eventType EventType         @relation(fields: [eventTypeId], references: [id])
+  preset    Preset?           @relation(fields: [presetId], references: [id], onDelete: SetNull)
+  product   Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  course    MedicationCourse? @relation(fields: [medicationCourseId], references: [id], onDelete: SetNull)
 
   @@index([routineId, sortOrder])
+  @@index([medicationCourseId])
 }
 
 // ---------- 제품 (사료, 영양제, 간식, 용품 등) ----------
 model Product {
-  id               String          @id @default(cuid())
-  householdId      String
-  petId            String?
-  name             String
-  brand            String?
-  category         ProductCategory @default(MEAL)
+  id                       String          @id @default(cuid())
+  householdId              String
+  petId                    String?
+  name                     String
+  brand                    String?
+  category                 ProductCategory @default(MEAL)
   /// 대표 사진 경로. 여러 장을 올려도 목록·기록 화면은 이 한 장만 본다.
   /// ProductPhoto가 사진 전부를 들고, 이 컬럼은 그중 하나를 가리키는 포인터다.
-  photoPath        String?
-  purchaseUrl      String?
+  photoPath                String?
+  purchaseUrl              String?
   /// 원산지. 나라 이름이든 "국내산"이든 사용자가 적은 그대로 (K-12)
-  origin           String?
+  origin                   String?
   /// 제형. 사료는 건식·습식, 영양제는 캡슐·정제·파우더·액상
-  form             ProductForm?
+  form                     ProductForm?
   /// 알갱이 크기. 건식(DRY)에서만 의미가 있어 그 외에는 null
-  kibbleSize       KibbleSize?
+  kibbleSize               KibbleSize?
   /// 구매 중량(g). 2kg이면 2000. 입력은 kg/g을 골라서 하고 저장은 g으로 통일한다
-  weightG          Int?
+  weightG                  Int?
   /// 맛. 기호성(palatability)이 "잘 먹나"라면 이건 "무슨 맛인가"다
-  flavor           String?
+  flavor                   String?
   /// 사료 라벨 표기사항 — 사료관리법이 요구하는 항목들이다
   ingredientRegistrationNo String?
   /// 등록성분(보장분석치). 조단백질 30% 이상처럼 % 목록이라 원재료(ingredients)와 다르다
   registeredIngredients    String?
-  importer         String?
-  manufacturedAt   DateTime?
-  storage          String?
+  importer                 String?
+  manufacturedAt           DateTime?
+  storage                  String?
   /// 전연령용·성묘용·급성 제제처럼 "언제 무엇에 쓰는가"
-  usage            String?
-  dosage           String?
+  usage                    String?
+  dosage                   String?
   /// 주성분. 전성분(ingredients)과 달리 "이게 뭘로 만든 물건인가"를 한 줄로 말한다
-  mainIngredients  String?
-  ingredients      String?
-  expiryDate       DateTime?
-  openedAt         DateTime?
-  purchaseDate     DateTime?
-  costKrw          Int?
-  isActive         Boolean         @default(true)
-  palatability     Palatability?
-  adverseReactions String[]        @default([])
-  notes            String?
-  archivedAt       DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  mainIngredients          String?
+  ingredients              String?
+  expiryDate               DateTime?
+  openedAt                 DateTime?
+  purchaseDate             DateTime?
+  costKrw                  Int?
+  isActive                 Boolean         @default(true)
+  palatability             Palatability?
+  adverseReactions         String[]        @default([])
+  notes                    String?
+  archivedAt               DateTime?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
 
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet       Pet?           @relation(fields: [petId], references: [id], onDelete: SetNull)
+  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet          Pet?           @relation(fields: [petId], references: [id], onDelete: SetNull)
   events       Event[]
   photos       ProductPhoto[]
   routineItems RoutineItem[]
@@ -444,25 +448,25 @@ enum EventSource {
 }
 
 model Attachment {
-  id              String   @id @default(cuid())
-  eventId         String
-  path            String
-  mime            String
-  size            Int
-  width           Int?
-  height          Int?
+  id                String   @id @default(cuid())
+  eventId           String
+  path              String
+  mime              String
+  size              Int
+  width             Int?
+  height            Int?
   /// 영상 목록용 대표 프레임 JPEG. 목록이 <img>로 이걸 쓰면 영상 바이트를 받지 않는다.
   /// 이 컬럼이 생기기 전에 올라온 영상과 ffmpeg 없는 설치에서는 null이다.
-  posterPath      String?
+  posterPath        String?
   /// 영상 백그라운드 720p 변환. pending/processing/skipped/ready/failed. 사진은 null.
-  transcodeStatus String?
+  transcodeStatus   String?
   /// 변환을 집은 횟수. 상한을 넘으면 failed로 굳는다 — ffmpeg가 프로세스째 죽어도
   /// 세지도록 실패 시점이 아니라 **집는 순간** 올린다.
-  transcodeAttempts Int    @default(0)
+  transcodeAttempts Int      @default(0)
   /// 저장된 바이트의 sha256. 같은 가구에 같은 해시가 있으면 새로 쓰지 않고 하드링크한다.
   /// 이 컬럼 이전 첨부는 null이다.
-  contentHash     String?
-  createdAt       DateTime @default(now())
+  contentHash       String?
+  createdAt         DateTime @default(now())
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
@@ -495,11 +499,12 @@ model MedicationCourse {
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
 
-  household Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet       Pet                  @relation(fields: [petId], references: [id], onDelete: Cascade)
-  contact   Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  events    Event[]
-  pushSent  MedicationPushSent[]
+  household    Household            @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet          Pet                  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  contact      Contact?             @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  events       Event[]
+  pushSent     MedicationPushSent[]
+  routineItems RoutineItem[]
 
   @@index([householdId, petId, archivedAt])
 }

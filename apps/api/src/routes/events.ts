@@ -17,6 +17,7 @@ import {
 } from "../lib/authenticate.js";
 import {
   createEvent,
+  CreateEventDoseConflictError,
   CreateEventNotFoundError,
   CreateEventValidationError,
   eventSelect,
@@ -163,6 +164,11 @@ export async function eventRoutes(app: FastifyInstance) {
                 ? "presetNotFound"
                 : "eventTypeNotFound";
           return reply.code(404).send({ error: t(key, request.locale) });
+        }
+        if (err instanceof CreateEventDoseConflictError) {
+          const key =
+            err.message === "DOSE_SLOT_TAKEN" ? "medicationDoseSlotTaken" : "medicationDoseLimitReached";
+          return reply.code(409).send({ error: t(key, request.locale) });
         }
         if (err instanceof CreateEventValidationError) {
           if (
@@ -316,7 +322,9 @@ export async function eventRoutes(app: FastifyInstance) {
             placeUrl: true,
           },
         },
-        course: { select: { id: true, name: true, totalDoses: true, dosage: true } },
+        course: {
+          select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
+        },
         createdBy: { select: { id: true, name: true } },
         updatedBy: { select: { id: true, name: true } },
         attachments: {

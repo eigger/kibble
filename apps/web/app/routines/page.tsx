@@ -1,13 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
-import { routineItemSummary } from "../../lib/routines";
-import type { EventTypeAliasesRow, Pet, PresetDetail, Product, Routine } from "../../lib/types";
+import { kstDayKey } from "@kibble/shared";
+import { isRoutineItemSkipped, routineItemSummary } from "../../lib/routines";
+import type {
+  EventTypeAliasesRow,
+  MedicationCourseRow,
+  Pet,
+  PresetDetail,
+  Product,
+  Routine,
+  RoutineItem,
+} from "../../lib/types";
 import { RoutineEditSheet } from "../../components/RoutineEditSheet";
 
 /** 루틴 관리 — 더보기 → 루틴 (§7.24). 누르는 곳은 /q의 루틴 패널이다 */
@@ -22,6 +31,7 @@ export default function RoutinesPage() {
   const [presets, setPresets] = useState<PresetDetail[]>([]);
   const [eventTypes, setEventTypes] = useState<EventTypeAliasesRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [courses, setCourses] = useState<MedicationCourseRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -57,14 +67,22 @@ export default function RoutinesPage() {
       setLoadError(null);
       try {
         const qs = `petId=${encodeURIComponent(selectedPetId)}`;
-        const [routineRows, presetRows, productRows] = await Promise.all([
+        const [routineRows, presetRows, productRows, courseRows] = await Promise.all([
           apiJson<Routine[]>(`/api/routines?${qs}`),
           apiJson<PresetDetail[]>(`/api/presets?${qs}&includeHidden=1`),
           apiJson<Product[]>(`/api/products?${qs}&isActive=true`),
+          apiJson<{ courses: MedicationCourseRow[] }>(`/api/care/medication-courses?${qs}`),
         ]);
         setRoutines(routineRows);
         setPresets(presetRows);
         setProducts(productRows);
+        // 진행 중만 — endDate가 지난 처방은 보관 전이어도 "지난 처방"이다 (§7.19)
+        const today = kstDayKey(new Date());
+        setCourses(
+          courseRows.courses.filter(
+            (c) => !c.archivedAt && !(c.endDate && kstDayKey(new Date(c.endDate)) < today),
+          ),
+        );
       } catch {
         setLoadError(t("routinesLoadError"));
       } finally {
@@ -78,11 +96,12 @@ export default function RoutinesPage() {
     if (petId) void loadForPet(petId);
   }, [petId, loadForPet]);
 
-  // 투약은 처방·회차가 끼어 1탭이 안 된다 — 서버도 거부한다
-  const routinePresets = useMemo(
-    () => presets.filter((p) => p.eventType.key !== "medication"),
-    [presets],
-  );
+  function itemMeta(item: RoutineItem): string {
+    if (!isRoutineItemSkipped(item)) return routineItemSummary(item, tLabel);
+    return t("routineCourseEndedMeta", {
+      name: item.course?.name ?? tLabel(item.preset?.label ?? item.eventType.label),
+    });
+  }
 
   function openNew() {
     setEditing(null);
@@ -164,7 +183,7 @@ export default function RoutinesPage() {
               <div className="manage-card-main">
                 <p className="manage-card-name">{routine.label}</p>
                 <p className="manage-card-meta meta">
-                  {routine.items.map((item) => routineItemSummary(item, tLabel)).join(" · ")}
+                  {routine.items.map(itemMeta).join(" · ")}
                 </p>
               </div>
               <div className="manage-card-actions">
@@ -181,7 +200,8 @@ export default function RoutinesPage() {
         open={sheetOpen}
         petId={petId}
         routine={editing}
-        presets={routinePresets}
+        presets={presets}
+        courses={courses}
         eventTypes={eventTypes}
         products={products}
         onClose={closeSheet}

@@ -25,6 +25,7 @@ import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { sessionUserId } from "../lib/authenticate.js";
 import {
   createEvent,
+  CreateEventDoseConflictError,
   CreateEventNotFoundError,
   CreateEventValidationError,
 } from "../services/createEvent.js";
@@ -213,6 +214,14 @@ export async function careRoutes(app: FastifyInstance) {
             data: { archivedAt: new Date() },
           });
         }
+        if (previous) {
+          // 이어가기는 명시적 연결이다 — 이전 처방을 들고 있던 루틴 투약 항목이 새 처방을
+          // 따라간다. 이름으로 찾아 붙이지는 않는다 (§7.24, R164).
+          await tx.routineItem.updateMany({
+            where: { medicationCourseId: previous.id, ...householdWhere(householdId) },
+            data: { medicationCourseId: created.id },
+          });
+        }
         return created;
       });
 
@@ -355,6 +364,10 @@ export async function careRoutes(app: FastifyInstance) {
         });
         return reply.code(201).send({ eventId: event.id });
       } catch (err) {
+        if (err instanceof CreateEventDoseConflictError) {
+          // 확인과 기록 사이에 다른 가족이 먼저 기록했다
+          return reply.code(400).send({ error: t("medicationDoseSlotTaken", request.locale) });
+        }
         if (err instanceof CreateEventNotFoundError || err instanceof CreateEventValidationError) {
           return reply.code(400).send({ error: t("eventTargetRequired", request.locale) });
         }

@@ -1,5 +1,5 @@
 import type { MedicationCourse, PrismaClient } from "@prisma/client";
-import { kstDayKey, normalizeDoseTimes, resolveDoseTimeOccurredAt } from "@kibble/shared";
+import { kstDayKey, normalizeDoseTimes } from "@kibble/shared";
 import { householdWhere } from "./householdScope.js";
 import { startOfTodayBoundary } from "./kstClock.js";
 
@@ -147,6 +147,15 @@ export function pastMedicationCourseWhere(now: Date) {
   // endDate는 그날 정오에 저장된다. now와 비교하면 종료일 오후부터 지난 처방이 된다.
   const startOfToday = startOfTodayBoundary(now);
   return { OR: [{ archivedAt: { not: null } }, { endDate: { lt: startOfToday } }] };
+}
+
+/** `pastMedicationCourseWhere`와 같은 판정을 행 하나에 — 루틴 투약 항목이 건너뛸지 (§7.24) */
+export function isMedicationCourseEnded(
+  course: Pick<MedicationCourse, "endDate" | "archivedAt">,
+  now: Date,
+): boolean {
+  if (course.archivedAt) return true;
+  return !!course.endDate && course.endDate < startOfTodayBoundary(now);
 }
 
 export function resolveCourseEndedAt(
@@ -373,10 +382,8 @@ export function resolveMedicationDoseLog(
     doseSlotIndex = pending;
   }
 
-  return {
-    doseSlotIndex,
-    occurredAt: resolveDoseTimeOccurredAt(doseTimes[doseSlotIndex], now),
-  };
+  // 기록 시각은 누른 시각 — 슬롯 시각은 "언제 먹여야 하나"일 뿐이다 (WORKPLAN §3.10)
+  return { doseSlotIndex, occurredAt: now };
 }
 
 export { serializeCourse };

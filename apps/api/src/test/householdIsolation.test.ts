@@ -10,6 +10,7 @@ const PET_OTHER = "pet_other_hh";
 const EVENT_OTHER = "event_other_hh";
 const PRESET_OTHER = "preset_other_hh";
 const ROUTINE_OTHER = "routine_other_hh";
+const COURSE_OTHER = "course_other_hh";
 
 const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn() },
@@ -20,6 +21,7 @@ const mockPrisma = vi.hoisted(() => ({
   routine: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
   routineItem: { deleteMany: vi.fn(), createMany: vi.fn() },
   product: { count: vi.fn() },
+  medicationCourse: { findMany: vi.fn() },
   attachment: { findFirst: vi.fn(), create: vi.fn(), delete: vi.fn() },
   event: {
     findMany: vi.fn(),
@@ -293,6 +295,48 @@ describe("household isolation (K-3)", () => {
         where: expect.objectContaining({ householdId: HH_A, petId: "pet_a" }),
       }),
     );
+    expect(mockPrisma.routine.create).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/routines returns 404 when a medication item's course belongs to another household", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue({ id: "pet_a" });
+    mockPrisma.eventType.findMany.mockResolvedValue([{ id: "et_med", key: "medication" }]);
+    mockPrisma.medicationCourse.findMany.mockResolvedValue([]);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/routines",
+      headers: authHeaders(token),
+      payload: {
+        petId: "pet_a",
+        label: "아침",
+        items: [{ eventTypeId: "et_med", medicationCourseId: COURSE_OTHER }],
+      },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.medicationCourse.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ householdId: HH_A, petId: "pet_a" }),
+      }),
+    );
+    expect(mockPrisma.routine.create).not.toHaveBeenCalled();
+  });
+
+  it("POST /api/routines returns 404 for a medication item without a course", async () => {
+    mockPrisma.pet.findFirst.mockResolvedValue({ id: "pet_a" });
+    mockPrisma.eventType.findMany.mockResolvedValue([{ id: "et_med", key: "medication" }]);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/routines",
+      headers: authHeaders(token),
+      payload: { petId: "pet_a", label: "아침", items: [{ eventTypeId: "et_med" }] },
+    });
+
+    expect(res.statusCode).toBe(404);
     expect(mockPrisma.routine.create).not.toHaveBeenCalled();
   });
 

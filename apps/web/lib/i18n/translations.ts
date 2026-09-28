@@ -189,8 +189,23 @@ const dict = {
   routineLabelPlaceholder: { ko: "예: 아침 밥", en: "e.g. Breakfast" },
   routineItemsLabel: { ko: "항목", en: "Items" },
   routineItemsHint: {
-    ko: "누르면 항목마다 기록 한 건이 그 시각으로 들어갑니다. 투약은 처방·회차가 있어 루틴에 넣지 않습니다.",
-    en: "Each item becomes one event at the moment you tap. Medication is left out — it needs a course and a dose slot.",
+    ko: "누르면 항목마다 기록 한 건이 그 시각으로 들어갑니다. 투약은 처방을 고르면 그날 남은 회차에 들어가고, 이미 먹였으면 건너뜁니다.",
+    en: "Each item becomes one event at the moment you tap. Medication fills that day's next open dose of the chosen course, and is skipped if already given.",
+  },
+  routineItemCourse: { ko: "처방", en: "Course" },
+  routineItemCourseEnded: { ko: "{name} (처방 종료)", en: "{name} (ended)" },
+  routineItemNoActiveCourse: {
+    ko: "진행 중인 처방이 없습니다. 케어에서 처방을 먼저 추가하세요.",
+    en: "No active course. Add one in Care first.",
+  },
+  routineCourseEndedMeta: { ko: "{name} 처방 종료", en: "{name} course ended" },
+  routineSkippedEnded: {
+    ko: "{names} 처방 종료 · 건너뜀",
+    en: "{names}: course ended, skipped",
+  },
+  routineSkippedGiven: {
+    ko: "{names} 오늘 이미 기록됨",
+    en: "{names}: already logged today",
   },
   routineAddItem: { ko: "항목 추가", en: "Add item" },
   routineItemNumber: { ko: "항목 {n}", en: "Item {n}" },
@@ -253,6 +268,7 @@ const dict = {
   eventDetailCostUnit: { ko: "원", en: " KRW" },
   eventDetailDoseAmountLabel: { ko: "1회 용량", en: "Dose amount" },
   eventDetailDoseOrdinalLabel: { ko: "투약 회차", en: "Dose number" },
+  eventDetailDoseScheduledLabel: { ko: "복용 예정", en: "Scheduled for" },
   eventDetailDoseOrdinal: { ko: "{n}회차", en: "Dose {n}" },
   eventDetailDoseOrdinalOfTotal: { ko: "{n}/{total}회차", en: "Dose {n} of {total}" },
   eventDetailDoseOrdinalInvalid: {

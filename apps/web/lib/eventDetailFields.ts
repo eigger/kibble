@@ -1,3 +1,4 @@
+import { normalizeDoseTimes } from "@kibble/shared";
 import { formatProductNameDisplay, productNameFieldLabelKey } from "./eventDetailTags";
 import type { TranslationKey } from "./i18n/translations";
 export type EventDetailFieldFlags = {
@@ -434,4 +435,18 @@ export function formatEventDetailLine(
   // 메모는 목록 요약에 넣지 않는다. 한 줄로 이어 붙이면 수량·척도가 밀리고,
   // 긴 메모는 행을 눌러 상세에서 본다.
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * 복약 기록이 채운 슬롯의 예정 시각("08:00"). 기록 시각은 입력한 시각이라 이 값과 다를 수
+ * 있다 — 예정은 "언제 먹여야 했나"이지 "그때 먹였다"가 아니다 (WORKPLAN §3.10).
+ */
+export function scheduledDoseTime(event: {
+  doseSlotIndex?: number | null;
+  course?: { dosesPerDay?: number; doseTimes?: string[] } | null;
+}): string | null {
+  const index = event.doseSlotIndex;
+  const times = event.course?.doseTimes;
+  if (index == null || !times || times.length === 0) return null;
+  return normalizeDoseTimes(times, event.course?.dosesPerDay ?? times.length)[index] ?? null;
 }

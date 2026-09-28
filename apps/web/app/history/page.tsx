@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, apiJson } from "../../lib/api";
+import { scheduledDoseTime } from "../../lib/eventDetailFields";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
@@ -316,6 +317,7 @@ export default function HistoryPage() {
       doseAmount: event.course?.dosage ?? null,
       doseOrdinal: event.doseOrdinal ?? null,
       doseTotal: event.course?.totalDoses ?? null,
+      doseScheduledTime: scheduledDoseTime(event),
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
       createdByName: event.createdBy?.name ?? null,

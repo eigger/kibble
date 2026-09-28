@@ -1,8 +1,5 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
-import {
-  normalizeDoseTimes,
-  resolveDoseTimeOccurredAt,
-} from "@kibble/shared";
+import { normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import { productNameIsTagList } from "../lib/frequentProducts.js";
 import { householdWhere } from "../lib/householdScope.js";
@@ -24,6 +21,17 @@ export class CreateEventValidationError extends Error {
   constructor(message = "CREATE_EVENT_VALIDATION") {
     super(message);
     this.name = "CreateEventValidationError";
+  }
+}
+
+/**
+ * 그날 몫의 복약이 이미 기록됐다 — 슬롯이 찼거나, 슬롯 없는 처방이 하루 횟수에 닿았다.
+ * 라우트는 409로 돌려주고 루틴은 그 항목을 건너뜀으로 센다 (WORKPLAN §7.24).
+ */
+export class CreateEventDoseConflictError extends Error {
+  constructor(message: "DOSE_SLOT_TAKEN" | "DOSE_LIMIT_REACHED") {
+    super(message);
+    this.name = "CreateEventDoseConflictError";
   }
 }
 
@@ -199,7 +207,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
   const medicationCourseId: string | null = params.medicationCourseId ?? null;
   let doseSlotIndex: number | null = params.doseSlotIndex ?? null;
   let doseOrdinal: number | null = null;
-  let occurredAt = params.occurredAt ?? new Date();
+  const occurredAt = params.occurredAt ?? new Date();
 
   if (medicationCourseId) {
     const course = await db.medicationCourse.findFirst({
@@ -213,34 +221,42 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     });
     if (!course) throw new CreateEventNotFoundError("eventType");
 
+    // 복약 시각은 입력한 시각이다. 처방의 doseTimes는 "언제 먹여야 하나"이지 "그때
+    // 먹였다"가 아니다 — 슬롯은 doseSlotIndex로만 매인다 (WORKPLAN §3.10, R165).
+    const dayStart = startOfTodayBoundary(occurredAt);
+    const sameDayDoses = await db.event.findMany({
+      where: {
+        ...householdWhere(params.householdId),
+        petId: params.petId,
+        medicationCourseId: course.id,
+        deletedAt: null,
+        occurredAt: { gte: dayStart, lt: new Date(dayStart.getTime() + 86_400_000) },
+      },
+      select: { doseSlotIndex: true },
+    });
+
     if (course.doseTimes.length > 0) {
       const doseTimes = normalizeDoseTimes(course.doseTimes, course.dosesPerDay);
+      const filled = sameDayDoses
+        .map((e) => e.doseSlotIndex)
+        .filter((index): index is number => index != null);
       if (doseSlotIndex == null) {
-        throw new CreateEventValidationError("DOSE_SLOT_REQUIRED");
-      }
-      if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
-        throw new CreateEventValidationError("DOSE_SLOT_INVALID");
-      }
-
-      const since = startOfTodayBoundary(occurredAt);
-      const existing = await db.event.findFirst({
-        where: {
-          ...householdWhere(params.householdId),
-          petId: params.petId,
-          medicationCourseId: course.id,
-          doseSlotIndex,
-          deletedAt: null,
-          occurredAt: { gte: since },
-        },
-        select: { id: true },
-      });
-      if (existing) throw new CreateEventValidationError("DOSE_SLOT_TAKEN");
-
-      if (!params.occurredAt) {
-        occurredAt = resolveDoseTimeOccurredAt(doseTimes[doseSlotIndex], occurredAt);
+        // 슬롯을 고르지 않은 복약(루틴 등) — 비어 있는 슬롯 중 기록 시각에 가장 가까운 것
+        doseSlotIndex = pickDoseSlot(doseTimes, filled, occurredAt);
+        if (doseSlotIndex == null) throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
+      } else {
+        if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
+          throw new CreateEventValidationError("DOSE_SLOT_INVALID");
+        }
+        if (filled.includes(doseSlotIndex)) {
+          throw new CreateEventDoseConflictError("DOSE_SLOT_TAKEN");
+        }
       }
     } else {
       doseSlotIndex = null;
+      if (sameDayDoses.length >= course.dosesPerDay) {
+        throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
+      }
     }
 
     // 회차는 기록하는 순간 찍는다 — 이력은 "그때 몇 번째였나"를 남기는 자리이므로
@@ -338,7 +354,9 @@ export const eventWithRelationsSelect = {
   contact: {
     select: { id: true, name: true, address: true, latitude: true, longitude: true, placeUrl: true },
   },
-  course: { select: { id: true, name: true, totalDoses: true, dosage: true } },
+  course: {
+    select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
+  },
   createdBy: { select: { id: true, name: true } },
   updatedBy: { select: { id: true, name: true } },
   attachments: {
