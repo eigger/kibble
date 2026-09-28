@@ -405,15 +405,21 @@ describe("formatEventDetailLine", () => {
 });
 
 describe("eventDetailFields — multiProduct (§7.22)", () => {
-  it("영양·사료·간식만 여러 제품을 받는다", () => {
+  it("영양·사료·간식·관리는 여러 제품을 받는다", () => {
     expect(eventDetailFields("supplement", null).multiProduct).toBe(true);
     expect(eventDetailFields("meal", null).multiProduct).toBe(true);
     expect(eventDetailFields("treat", null).multiProduct).toBe(true);
+    expect(eventDetailFields("care", null).multiProduct).toBe(true);
   });
 
-  it("상비·관리·그 밖의 타입은 한 제품이다", () => {
+  it("관리는 양이 없고 지난 세트를 다시 열지 않는다 — 칩 토글만", () => {
+    const f = eventDetailFields("care", null);
+    expect(f.quantity).toBe(false);
+    expect(f.rememberLastProduct).toBe(false);
+  });
+
+  it("상비·그 밖의 타입은 한 제품이다", () => {
     expect(eventDetailFields("remedy", null).multiProduct).toBe(false);
-    expect(eventDetailFields("care", null).multiProduct).toBe(false);
     expect(eventDetailFields("water", null).multiProduct).toBe(false);
     expect(eventDetailFields("vet_visit", null).multiProduct).toBe(false);
   });
