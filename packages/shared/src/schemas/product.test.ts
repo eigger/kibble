@@ -213,7 +213,7 @@ describe("weightToInput", () => {
 });
 
 describe("제형 목록", () => {
-  it("펠릿형·겔형·츄르형·츄잉형을 받는다", () => {
+  it("펠릿·겔·츄르·츄잉·안약·연고·패치·스프레이 제형을 받는다", () => {
     for (const form of ["PELLET", "GEL", "LICKABLE", "CHEWY", "EYE_DROP", "OINTMENT", "PATCH", "SPRAY"] as const) {
       expect(createProductSchema.safeParse({ name: "a", form }).success).toBe(true);
     }
