@@ -112,13 +112,18 @@ export type ProductForm =
   | "DRY"
   | "WET"
   | "SEMI_MOIST"
+  | "PELLET"
   | "GEL"
   | "LICKABLE"
   | "CHEWY"
   | "POWDER"
   | "CAPSULE"
   | "TABLET"
-  | "LIQUID";
+  | "LIQUID"
+  | "EYE_DROP"
+  | "OINTMENT"
+  | "PATCH"
+  | "SPRAY";
 export type KibbleSize = "SMALL" | "MEDIUM" | "LARGE";
 
 export interface ProductSummary {

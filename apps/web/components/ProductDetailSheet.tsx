@@ -114,6 +114,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     DRY: t("productFormDry"),
     WET: t("productFormWet"),
     SEMI_MOIST: t("productFormSemiMoist"),
+    PELLET: t("productFormPellet"),
     GEL: t("productFormGel"),
     LICKABLE: t("productFormLickable"),
     CHEWY: t("productFormChewy"),
@@ -121,6 +122,10 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     CAPSULE: t("productFormCapsule"),
     TABLET: t("productFormTablet"),
     LIQUID: t("productFormLiquid"),
+    EYE_DROP: t("productFormEyeDrop"),
+    OINTMENT: t("productFormOintment"),
+    PATCH: t("productFormPatch"),
+    SPRAY: t("productFormSpray"),
   };
 
   const kibbleSizeMap: Record<string, string> = {

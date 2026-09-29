@@ -365,6 +365,8 @@ enum ProductForm {
   DRY
   WET
   SEMI_MOIST
+  /// 펠릿형 — 압축 성형한 알갱이. 건식과 달리 알갱이 크기는 묻지 않는다
+  PELLET
   /// 겔형 — 젤리·양갱
   GEL
   /// 츄르형 — 짜서 핥아 먹이는 퓨레
@@ -375,6 +377,13 @@ enum ProductForm {
   CAPSULE
   TABLET
   LIQUID
+  /// 안약 — 점안액
+  EYE_DROP
+  /// 연고·크림
+  OINTMENT
+  /// 패치 — 피부에 붙이는 것
+  PATCH
+  SPRAY
 }
 
 /// 건식 사료 알갱이 크기

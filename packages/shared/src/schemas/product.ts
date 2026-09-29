@@ -24,6 +24,7 @@ export const PRODUCT_FORMS = [
   "DRY",
   "WET",
   "SEMI_MOIST",
+  "PELLET",
   "GEL",
   "LICKABLE",
   "CHEWY",
@@ -31,6 +32,10 @@ export const PRODUCT_FORMS = [
   "CAPSULE",
   "TABLET",
   "LIQUID",
+  "EYE_DROP",
+  "OINTMENT",
+  "PATCH",
+  "SPRAY",
 ] as const;
 export const productFormSchema = z.enum(PRODUCT_FORMS);
 export type ProductForm = z.infer<typeof productFormSchema>;
