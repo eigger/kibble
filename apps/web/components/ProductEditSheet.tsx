@@ -932,16 +932,25 @@ export function ProductEditSheet({
                           disabled={saving}
                         >
                           <option value="">{t("statusUnset")}</option>
-                          <option value="DRY">{t("productFormDry")}</option>
-                          <option value="WET">{t("productFormWet")}</option>
-                          <option value="SEMI_MOIST">{t("productFormSemiMoist")}</option>
-                          <option value="GEL">{t("productFormGel")}</option>
-                          <option value="LICKABLE">{t("productFormLickable")}</option>
-                          <option value="CHEWY">{t("productFormChewy")}</option>
-                          <option value="POWDER">{t("productFormPowder")}</option>
-                          <option value="CAPSULE">{t("productFormCapsule")}</option>
-                          <option value="TABLET">{t("productFormTablet")}</option>
-                          <option value="LIQUID">{t("productFormLiquid")}</option>
+                          <optgroup label={t("productFormGroupFood")}>
+                            <option value="DRY">{t("productFormDry")}</option>
+                            <option value="WET">{t("productFormWet")}</option>
+                            <option value="SEMI_MOIST">{t("productFormSemiMoist")}</option>
+                            <option value="PELLET">{t("productFormPellet")}</option>
+                            <option value="GEL">{t("productFormGel")}</option>
+                            <option value="LICKABLE">{t("productFormLickable")}</option>
+                            <option value="CHEWY">{t("productFormChewy")}</option>
+                          </optgroup>
+                          <optgroup label={t("productFormGroupSupplement")}>
+                            <option value="POWDER">{t("productFormPowder")}</option>
+                            <option value="CAPSULE">{t("productFormCapsule")}</option>
+                            <option value="TABLET">{t("productFormTablet")}</option>
+                            <option value="LIQUID">{t("productFormLiquid")}</option>
+                            <option value="EYE_DROP">{t("productFormEyeDrop")}</option>
+                            <option value="OINTMENT">{t("productFormOintment")}</option>
+                            <option value="PATCH">{t("productFormPatch")}</option>
+                            <option value="SPRAY">{t("productFormSpray")}</option>
+                          </optgroup>
                         </select>
                       </div>
                       {/* 알갱이 크기는 건식에만 있는 개념이다 — 습식을 고르면 칸 자체를 숨긴다 */}

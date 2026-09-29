@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatWeightG, intlLocale, kstDayDiff } from "@kibble/shared";
-import type { Product, ProductPhotoMeta } from "../lib/types";
+import type { Product, ProductForm, ProductPhotoMeta } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { apiJson } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
@@ -110,10 +110,11 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     LOW: t("productPalatabilityLow"),
   };
 
-  const formMap: Record<string, string> = {
+  const formMap: Record<ProductForm, string> = {
     DRY: t("productFormDry"),
     WET: t("productFormWet"),
     SEMI_MOIST: t("productFormSemiMoist"),
+    PELLET: t("productFormPellet"),
     GEL: t("productFormGel"),
     LICKABLE: t("productFormLickable"),
     CHEWY: t("productFormChewy"),
@@ -121,6 +122,10 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     CAPSULE: t("productFormCapsule"),
     TABLET: t("productFormTablet"),
     LIQUID: t("productFormLiquid"),
+    EYE_DROP: t("productFormEyeDrop"),
+    OINTMENT: t("productFormOintment"),
+    PATCH: t("productFormPatch"),
+    SPRAY: t("productFormSpray"),
   };
 
   const kibbleSizeMap: Record<string, string> = {

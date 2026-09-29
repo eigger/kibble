@@ -19,11 +19,12 @@ export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 
-/** 제형. 사료(건식·습식·반습식)와 영양제(파우더·캡슐·정제·액상)를 한 목록으로 덮는다. */
+/** 제형. 사료·간식(건식·습식·반습식·펠릿·겔·츄르·츄잉), 영양제(파우더·캡슐·정제·액상), 상비약 외용(안약·연고·패치·스프레이)을 한 목록으로 덮는다. */
 export const PRODUCT_FORMS = [
   "DRY",
   "WET",
   "SEMI_MOIST",
+  "PELLET",
   "GEL",
   "LICKABLE",
   "CHEWY",
@@ -31,6 +32,10 @@ export const PRODUCT_FORMS = [
   "CAPSULE",
   "TABLET",
   "LIQUID",
+  "EYE_DROP",
+  "OINTMENT",
+  "PATCH",
+  "SPRAY",
 ] as const;
 export const productFormSchema = z.enum(PRODUCT_FORMS);
 export type ProductForm = z.infer<typeof productFormSchema>;

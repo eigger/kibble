@@ -1,0 +1,6 @@
+-- 펠릿형 + 상비약용 제형(안약·연고·패치·스프레이) 추가. 값만 더하므로 기존 행에는 영향이 없다.
+ALTER TYPE "ProductForm" ADD VALUE IF NOT EXISTS 'PELLET';
+ALTER TYPE "ProductForm" ADD VALUE IF NOT EXISTS 'EYE_DROP';
+ALTER TYPE "ProductForm" ADD VALUE IF NOT EXISTS 'OINTMENT';
+ALTER TYPE "ProductForm" ADD VALUE IF NOT EXISTS 'PATCH';
+ALTER TYPE "ProductForm" ADD VALUE IF NOT EXISTS 'SPRAY';
