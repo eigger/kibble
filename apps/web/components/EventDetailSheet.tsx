@@ -613,9 +613,11 @@ export function EventDetailSheet({
         if (data.activeProducts) {
           setActiveProducts(data.activeProducts);
         }
-        if (draft.mode === "create" && !draft.productName?.trim() && !draft.productId && !productTouchedRef.current) {
+        if (draft.mode === "create" && !draft.productName?.trim() && !draft.productId) {
           const prefs = loadEventDetailPrefs(draft.petId, eventTypeKey);
-          if (!prefs?.productName) {
+          if (!prefs?.productName && productTouchedRef.current) {
+            // 사용자가 이미 제품을 골랐다 — 지난 세트로 덮거나 덧붙이지 않는다. 옛 저장값 보충은 아래에서 계속
+          } else if (!prefs?.productName) {
             if (data.lastProductId) {
               setProductId(data.lastProductId);
               if (data.lastProduct) applyStoredProductName(data.lastProduct);
@@ -918,6 +920,9 @@ export function EventDetailSheet({
       // 첫 칸과 같은 제품이 둘째 이후에도 있으면 한 번만 — 같은 제품이 두 건 저장되지 않게
       // 이름만 있는 첫 칸(자동 채움)과 같은 제품인 둘째도 같은 제품이다 — 이름으로도 거른다
       const primary = { productId: savedProductId, productName: fields.detailTags ? null : savedProductName };
+      const matched = extraItems.filter((x) => (x.productId || x.productName.trim()) && sameProduct(x, primary));
+      // 이름만 있던 첫 칸에 같은 제품 둘째의 id를 넘겨 제품 연결을 잃지 않게 한다
+      if (!savedProductId) savedProductId = matched.find((x) => x.productId)?.productId ?? null;
       let items = extraItems
         .filter((x) => (x.productId || x.productName.trim()) && !sameProduct(x, primary))
         .filter((x, i, all) => all.findIndex((y) => sameProduct(x, y)) === i);
