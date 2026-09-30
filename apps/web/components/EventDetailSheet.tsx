@@ -190,6 +190,23 @@ function dedupeExtras(items: ExtraProductItem[]): ExtraProductItem[] {
   });
 }
 
+function normalizeProductName(name: string | null | undefined): string {
+  return (name ?? "").trim().toLowerCase();
+}
+
+/**
+ * 같은 제품인가 — id가 둘 다 있으면 id로, 한쪽이라도 없으면(자동 채움·직접 입력은 이름만 있다) 이름으로.
+ * id만 비교하면 "이름만 채워진 첫 칸"과 "같은 제품의 칩/둘째 항목"이 서로 다른 제품이 되어 두 건이 저장된다.
+ */
+function sameProduct(
+  a: { productId: string | null; productName: string | null | undefined },
+  b: { productId: string | null; productName: string | null | undefined },
+): boolean {
+  if (a.productId && b.productId) return a.productId === b.productId;
+  const an = normalizeProductName(a.productName);
+  return an !== "" && an === normalizeProductName(b.productName);
+}
+
 function lastItemToExtra(item: LastProductItem): ExtraProductItem {
   return {
     productId: item.productId,
@@ -383,6 +400,8 @@ export function EventDetailSheet({
   const [isEditing, setIsEditing] = useState(false);
   const [lightboxAtt, setLightboxAtt] = useState<EventAttachment | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  // 사용자가 제품을 직접 만졌는가 — 늦게 도착한 추천 응답이 그 선택 위에 지난 세트를 덮거나 덧붙이지 않게
+  const productTouchedRef = useRef(false);
   const busy = saving || deleting;
   const syncKey = draftSyncKey(draft);
   const wantsMaps = open && draft?.eventTypeKey === "vet_visit";
@@ -438,6 +457,7 @@ export function EventDetailSheet({
   }
 
   function selectActiveProduct(item: ActiveProductSuggestion) {
+    productTouchedRef.current = true;
     if (productId === item.id) {
       // 첫 제품을 빼면 둘째가 첫 칸으로 올라온다 — 값(양·단위)도 같이 옮겨서 칸이 비지 않는다
       const [next, ...rest] = extraItems;
@@ -458,8 +478,15 @@ export function EventDetailSheet({
       if (!fields.detailTags) setProductName("");
       return;
     }
-    if (multiProduct && extraItems.some((x) => x.productId === item.id)) {
-      setExtraItems((prev) => prev.filter((x) => x.productId !== item.id));
+    const chip = { productId: item.id, productName: item.name };
+    // 자동 채움으로 이름만 들어 있는 첫 칸이 이 칩과 같은 제품이면 새로 붙이지 않고 연결만 한다
+    if (!fields.detailTags && !productId && sameProduct({ productId: null, productName }, chip)) {
+      setProductId(item.id);
+      setProductDosage(item.dosage ?? null);
+      return;
+    }
+    if (multiProduct && extraItems.some((x) => sameProduct(x, chip))) {
+      setExtraItems((prev) => prev.filter((x) => !sameProduct(x, chip)));
       return;
     }
     // 첫 칸이 차 있으면 둘째 이후로 붙는다. 첫 칸의 양·단위는 그대로 — 각 제품의 양은 따로다 (§7.22)
@@ -530,6 +557,7 @@ export function EventDetailSheet({
       fields.detailTags,
     );
     setExtraItems([]);
+    productTouchedRef.current = false;
     setFrequentProducts([]);
     setFrequentClinics([]);
     setClinicSearchOpen(false);
@@ -587,7 +615,9 @@ export function EventDetailSheet({
         }
         if (draft.mode === "create" && !draft.productName?.trim() && !draft.productId) {
           const prefs = loadEventDetailPrefs(draft.petId, eventTypeKey);
-          if (!prefs?.productName) {
+          if (!prefs?.productName && productTouchedRef.current) {
+            // 사용자가 이미 제품을 골랐다 — 지난 세트로 덮거나 덧붙이지 않는다. 옛 저장값 보충은 아래에서 계속
+          } else if (!prefs?.productName) {
             if (data.lastProductId) {
               setProductId(data.lastProductId);
               if (data.lastProduct) applyStoredProductName(data.lastProduct);
@@ -888,9 +918,14 @@ export function EventDetailSheet({
     const extras: ExtraProductSave[] = [];
     if (multiProduct) {
       // 첫 칸과 같은 제품이 둘째 이후에도 있으면 한 번만 — 같은 제품이 두 건 저장되지 않게
-      let items = extraItems.filter(
-        (x) => (x.productId || x.productName.trim()) && !(x.productId && x.productId === savedProductId),
-      );
+      // 이름만 있는 첫 칸(자동 채움)과 같은 제품인 둘째도 같은 제품이다 — 이름으로도 거른다
+      const primary = { productId: savedProductId, productName: fields.detailTags ? null : savedProductName };
+      const matched = extraItems.filter((x) => (x.productId || x.productName.trim()) && sameProduct(x, primary));
+      // 이름만 있던 첫 칸에 같은 제품 둘째의 id를 넘겨 제품 연결을 잃지 않게 한다
+      if (!savedProductId) savedProductId = matched.find((x) => x.productId)?.productId ?? null;
+      let items = extraItems
+        .filter((x) => (x.productId || x.productName.trim()) && !sameProduct(x, primary))
+        .filter((x, i, all) => all.findIndex((y) => sameProduct(x, y)) === i);
       // 첫 칸이 비었는데(제품·이름·양 전부 없음) 둘째가 있으면 둘째를 첫 칸으로 올린다 —
       // 안 그러면 내용 없는 이벤트가 한 건 앞에 붙는다
       if (!savedProductId && !savedProductName && consumed == null && offered == null && items.length > 0) {
@@ -1235,7 +1270,8 @@ export function EventDetailSheet({
                         {activeProducts.map((p) => {
                           const isSelected =
                             productId === p.id ||
-                            (multiProduct && extraItems.some((x) => x.productId === p.id));
+                            (multiProduct && extraItems.some((x) => sameProduct(x, { productId: p.id, productName: p.name }))) ||
+                            (!fields.detailTags && !productId && sameProduct({ productId: null, productName }, { productId: p.id, productName: p.name }));
                           return (
                             <div key={p.id} className="product-quick-chip-wrap">
                               <button
@@ -1282,6 +1318,7 @@ export function EventDetailSheet({
                       value={fields.detailTags ? customProductName : productName}
                       disabled={busy}
                       onChange={(e) => {
+                        productTouchedRef.current = true;
                         setProductId(null);
                         setProductDosage(null);
                         if (fields.detailTags) {
@@ -1301,6 +1338,7 @@ export function EventDetailSheet({
                             key={item.productName}
                             disabled={busy}
                             onClick={() => {
+                              productTouchedRef.current = true;
                               setProductId(null);
                               setProductDosage(null);
                               applyStoredProductName(item.productName);
