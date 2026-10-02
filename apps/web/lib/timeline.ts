@@ -1,6 +1,6 @@
 import { apiJson } from "./api";
 import { TIMELINE_PAGE_SIZE } from "@kibble/shared";
-import type { TimelineEvent } from "./types";
+import type { CreatedEvent, TimelineEvent } from "./types";
 
 export { TIMELINE_PAGE_SIZE };
 
@@ -63,4 +63,34 @@ export function isGroupedWithPrevious(
   const entryId = events[index]?.entryId;
   if (!entryId) return false;
   return events[index - 1]?.entryId === entryId;
+}
+
+export function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
+  return {
+    id: event.id,
+    occurredAt: event.occurredAt,
+    createdAt: event.createdAt,
+    updatedAt: event.updatedAt,
+    quantity: event.quantity,
+    quantityOffered: event.quantityOffered,
+    unit: event.unit,
+    scaleValue: event.scaleValue ?? null,
+    productId: event.productId ?? null,
+    product: event.product ?? null,
+    productName: event.productName ?? null,
+    entryId: event.entryId ?? null,
+    costKrw: event.costKrw ?? null,
+    contact: event.contact ?? null,
+    course: event.course ?? null,
+    doseOrdinal: event.doseOrdinal ?? null,
+    note: event.note,
+    preset: event.preset,
+    eventType: {
+      ...event.eventType,
+      scaleType: event.eventType.scaleType ?? null,
+    },
+    attachments: event.attachments,
+    createdBy: event.createdBy ?? null,
+    updatedBy: event.updatedBy ?? null,
+  };
 }
