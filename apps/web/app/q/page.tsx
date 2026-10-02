@@ -10,7 +10,7 @@ import { apiJson, isApiError } from "../../lib/api";
 import { scheduledDoseTime } from "../../lib/eventDetailFields";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { createEventWithOfflineFallback } from "../../lib/createEventOffline";
-import { isGroupedWithPrevious } from "../../lib/timeline";
+import { createdEventToTimeline, isGroupedWithPrevious } from "../../lib/timeline";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import type { TranslationKey } from "../../lib/i18n/translations";
@@ -98,34 +98,6 @@ function newDedupeKey(petId: string, presetId: string): string {
  */
 function newEntryId(): string {
   return `entry:${randomSuffix()}`;
-}
-
-function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
-  return {
-    id: event.id,
-    occurredAt: event.occurredAt,
-    createdAt: event.createdAt,
-    updatedAt: event.updatedAt,
-    quantity: event.quantity,
-    quantityOffered: event.quantityOffered,
-    unit: event.unit,
-    scaleValue: event.scaleValue ?? null,
-    productName: event.productName ?? null,
-    entryId: event.entryId ?? null,
-    costKrw: event.costKrw ?? null,
-    contact: event.contact ?? null,
-    course: event.course ?? null,
-    doseOrdinal: event.doseOrdinal ?? null,
-    note: event.note,
-    preset: event.preset,
-    eventType: {
-      ...event.eventType,
-      scaleType: event.eventType.scaleType ?? null,
-    },
-    attachments: event.attachments,
-    createdBy: event.createdBy ?? null,
-    updatedBy: event.updatedBy ?? null,
-  };
 }
 
 export default function QuickRecordPage() {
