@@ -150,7 +150,9 @@ curl -sS -X DELETE "$BASE/api/routines/<id>" -H "$AUTH"
 응답에는 간단한 `today` 집계와 상세한 `todaySummary`가 함께 들어간다. `today`는 타입별
 횟수·합계이며, `todaySummary`는 단위별 합계(`totals`), 마지막 기록 시각, 마지막 척도값과
 측정 수량을 제공한다. 여러 단위가 섞인 기록도 `totals` 항목별로 분리된다. 양쪽 모두 KST
-자정 기준이다. 기존 필드는 그대로 유지된다.
+자정 기준이다. `todayEvents`는 개별 기록을 최신순으로 최대 100건 제공하며, 초과 시
+`todayEventsTruncated`가 `true`가 된다. 제공·섭취량, 품목·프리셋, 케어/복약 기록 표시용
+정보를 포함한다. 기존 필드는 그대로 유지된다.
 
 ```bash
 # 세션으로
@@ -168,8 +170,10 @@ curl -sS "$BASE/api/states" -H "Authorization: Bearer kbl_..."
 | `lastEvents[]` | 이벤트 타입별 **마지막 기록** — 시각, 수량·단위, 척도값, `hoursSince`(경과 시간) |
 | `today[]` | 오늘(KST 기준) 타입별 **건수와 합계** — 급여량·음수량 등 |
 | `todaySummary[]` | 오늘 이벤트 타입별 **단위 분리 합계와 마지막 값** — `totals`, `lastOccurredAt`, `lastScaleValue`, `lastQuantity` 등 |
+| `todayEvents[]` | 오늘 개별 기록 최신순 최대 100건 — 종류, 시각, 제공량·섭취량, 품목·프리셋, 메모, 복약 과정 |
+| `todayEventsTruncated` | 오늘 기록이 100건을 초과해 일부가 생략됐는지 여부 |
 | `todaySince` | 오늘 합계의 시작 경계 |
-| `medication` | 진행 중 과정 수, 오늘 먹인/계획된 횟수, **시각이 지난 슬롯** |
+| `medication` | 진행 중 과정·회차별 오늘 복약 슬롯 상태, 오늘 먹인/계획된 횟수, **시각이 지난 슬롯** |
 | `reminders[]` | 예정일과 지남 여부 |
 
 이벤트 타입을 코드에 나열하지 않으므로(K-8), **프리셋·타입을 늘리면 응답이 저절로 따라온다.**

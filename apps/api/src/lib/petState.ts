@@ -35,6 +35,21 @@ export type PetState = {
     activeCourses: number;
     dosesGivenToday: number;
     dosesPlannedToday: number;
+    courses: {
+      id: string;
+      name: string;
+      dosage: string | null;
+      dosesPerDay: number;
+      dosesGivenToday: number;
+      dosesRemaining: number | null;
+      todayComplete: boolean;
+      doseSlotsToday: {
+        index: number;
+        time: string;
+        eventId: string | null;
+        occurredAt: string | null;
+      }[];
+    }[];
     /** 시각이 지났는데 아직 안 먹인 슬롯 */
     overdueDoses: { courseId: string; courseName: string; time: string }[];
   };
@@ -176,7 +191,7 @@ export async function petStateFor(
   const [lastEvents, today, courses, reminders] = await Promise.all([
     lastEventPerType(db, params.householdId, pet.id, now),
     todayPerType(db, params.householdId, pet.id, since),
-    medicationCoursesWithProgress(db, params.householdId, pet.id),
+    medicationCoursesWithProgress(db, params.householdId, pet.id, now),
     db.reminder.findMany({
       where: { petId: pet.id, active: true },
       orderBy: { nextDueAt: "asc" },
@@ -215,6 +230,16 @@ export async function petStateFor(
       activeCourses: courses.length,
       dosesGivenToday,
       dosesPlannedToday,
+      courses: courses.map((course) => ({
+        id: course.id,
+        name: course.name,
+        dosage: course.dosage,
+        dosesPerDay: course.dosesPerDay,
+        dosesGivenToday: course.dosesGivenToday,
+        dosesRemaining: course.dosesRemaining,
+        todayComplete: course.todayComplete,
+        doseSlotsToday: course.doseSlotsToday,
+      })),
       overdueDoses,
     },
     reminders: reminders.map((row) => ({
