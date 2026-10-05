@@ -10,6 +10,7 @@ import { ThemeToggle } from "../../components/ThemeToggle";
 import { AccentColorToggle } from "../../components/AccentColorToggle";
 import { LanguageToggle } from "../../components/LanguageToggle";
 import { PushNotificationSettings } from "../../components/PushNotificationSettings";
+import { ApiTokenManager } from "../../components/ApiTokenManager";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -124,6 +125,7 @@ export default function SettingsPage() {
       </div>
 
       <PushNotificationSettings isAdmin={isAdmin} />
+      <ApiTokenManager isHouseholdOwner={user.householdRole === "OWNER"} />
     </main>
   );
 }

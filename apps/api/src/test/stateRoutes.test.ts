@@ -82,7 +82,10 @@ describe("GET /api/states — 역방향 읽기 (WORKPLAN P2-04)", () => {
       headers: { authorization: `Bearer ${jwt(app)}` },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ pet: { id: PET, name: "콩" } });
+    expect(res.json()).toMatchObject({
+      pet: { id: PET, name: "콩" },
+      todaySummary: [],
+    });
   });
 
   // 기존 토큰은 event:create만 갖고 있다 — 배포만으로 읽기 권한이 생기면 안 된다.

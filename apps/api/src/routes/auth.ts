@@ -157,6 +157,7 @@ export async function authRoutes(app: FastifyInstance) {
       email: user.email,
       role: user.role,
       householdId,
+      householdRole: request.householdRole,
       needsPet,
     };
   });

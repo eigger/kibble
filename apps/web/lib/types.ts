@@ -1,4 +1,5 @@
 export type UserRole = "ADMIN" | "GENERAL";
+export type HouseholdRole = "OWNER" | "MEMBER" | "VIEWER";
 export type Species = "DOG" | "CAT" | "OTHER";
 export type Sex = "MALE" | "FEMALE" | "UNKNOWN";
 
@@ -8,6 +9,7 @@ export interface User {
   email: string;
   role: UserRole;
   householdId: string | null;
+  householdRole?: HouseholdRole | null;
   needsPet: boolean;
   inSharedHousehold?: boolean;
 }
