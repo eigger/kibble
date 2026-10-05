@@ -4,11 +4,14 @@ import { t } from "../lib/i18n.js";
 import { householdWhere } from "../lib/householdScope.js";
 import { petStateFor } from "../lib/petState.js";
 import { todaySummaryForPet } from "../lib/todaySummary.js";
+import { startOfTodayBoundary } from "../lib/kstClock.js";
 import {
   requireStateReadAccess,
   resolveTokenScopedField,
   touchApiTokenLastUsed,
 } from "../lib/authenticate.js";
+
+const TODAY_EVENT_LIMIT = 100;
 
 async function defaultPetId(householdId: string): Promise<string | null> {
   const pet = await prisma.pet.findFirst({
@@ -50,9 +53,36 @@ export async function stateRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("petNotFound", request.locale) });
       }
 
-      const [state, todaySummary] = await Promise.all([
-        petStateFor(prisma, { householdId, petId }),
-        todaySummaryForPet(prisma, householdId, petId),
+      const now = new Date();
+      const since = startOfTodayBoundary(now);
+      const [state, todaySummary, events] = await Promise.all([
+        petStateFor(prisma, { householdId, petId, now }),
+        todaySummaryForPet(prisma, householdId, petId, now),
+        prisma.event.findMany({
+          where: {
+            ...householdWhere(householdId),
+            petId,
+            deletedAt: null,
+            occurredAt: { gte: since },
+          },
+          orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+          take: TODAY_EVENT_LIMIT + 1,
+          select: {
+            id: true,
+            occurredAt: true,
+            quantity: true,
+            quantityOffered: true,
+            unit: true,
+            scaleValue: true,
+            productName: true,
+            note: true,
+            doseSlotIndex: true,
+            eventType: { select: { key: true, label: true } },
+            preset: { select: { label: true } },
+            product: { select: { name: true } },
+            course: { select: { name: true } },
+          },
+        }),
       ]);
       if (!state) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
@@ -60,9 +90,30 @@ export async function stateRoutes(app: FastifyInstance) {
         void touchApiTokenLastUsed(request.apiTokenContext.id);
       }
 
-      // `today` stays as the compact, backwards-compatible view. `todaySummary`
-      // adds unit-separated totals and last recorded values for richer clients.
-      return { ...state, todaySummary };
+      // Keep the aggregate fields backwards compatible. `todayEvents` is a
+      // bounded, newest-first list for dashboards that need individual entries.
+      const todayEvents = events.slice(0, TODAY_EVENT_LIMIT).map((event) => ({
+        id: event.id,
+        occurredAt: event.occurredAt.toISOString(),
+        eventTypeKey: event.eventType.key,
+        label: event.eventType.label,
+        quantity: event.quantity == null ? null : Number(event.quantity),
+        quantityOffered:
+          event.quantityOffered == null ? null : Number(event.quantityOffered),
+        unit: event.unit,
+        scaleValue: event.scaleValue,
+        productName: event.productName ?? event.product?.name ?? null,
+        presetName: event.preset?.label ?? null,
+        note: event.note,
+        medicationCourseName: event.course?.name ?? null,
+        doseSlotIndex: event.doseSlotIndex,
+      }));
+      return {
+        ...state,
+        todaySummary,
+        todayEvents,
+        todayEventsTruncated: events.length > TODAY_EVENT_LIMIT,
+      };
     },
   );
 }
