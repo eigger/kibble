@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ApiTokenManager } from "../../components/ApiTokenManager";
 import { API_URL, apiFetch } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
@@ -98,7 +99,7 @@ export default function ApiExplorerPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) router.replace("/login");
-    else if (!isAdmin) router.replace("/settings");
+    else if (!isAdmin && user.householdRole !== "OWNER") router.replace("/settings");
   }, [authLoading, user, isAdmin, router]);
 
   useEffect(() => {
@@ -181,66 +182,76 @@ export default function ApiExplorerPage() {
     ];
   }, [petId]);
 
-  if (authLoading || !user || !isAdmin) return null;
+  if (authLoading || !user || (!isAdmin && user.householdRole !== "OWNER")) return null;
 
   return (
     <main className="container api-explorer">
       <h1>{t("apiExplorerTitle")}</h1>
-      <p className="meta">{t("apiExplorerIntro")}</p>
-      <p className="meta">
-        {t("apiExplorerBaseUrl")} <code className="api-explorer-inline-code">{API_URL}</code>
-      </p>
+      {isAdmin && (
+        <>
+          <p className="meta">{t("apiExplorerIntro")}</p>
+          <p className="meta">
+            {t("apiExplorerBaseUrl")} <code className="api-explorer-inline-code">{API_URL}</code>
+          </p>
+        </>
+      )}
 
-      <section className="card api-explorer-pet">
-        <label className="field-label" htmlFor="api-explorer-pet">
-          {t("apiExplorerPetLabel")}
-        </label>
-        {pets.length > 0 ? (
-          <select id="api-explorer-pet" value={petId} onChange={(e) => setPetId(e.target.value)}>
-            {pets.map((pet) => (
-              <option key={pet.id} value={pet.id}>
-                {pet.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p className="meta">{t("apiExplorerNoPets")}</p>
-        )}
-      </section>
+      <ApiTokenManager isHouseholdOwner={user.householdRole === "OWNER"} />
 
-      <h2 className="api-explorer-section-title">{t("apiExplorerReadHeading")}</h2>
-      <p className="meta">{t("apiExplorerReadHint")}</p>
-      <div className="api-explorer-list">
-        {readEndpoints.map((ep) => (
-          <EndpointCard
-            key={ep.key}
-            method="GET"
-            path={ep.path ?? t("apiExplorerNeedsPet")}
-            desc={t(ep.descKey)}
-            disabled={!ep.path}
-            running={runningKey === ep.key}
-            result={results[ep.key]}
-            onRun={() => ep.path && void run(ep.key, ep.path)}
-          />
-        ))}
-      </div>
-
-      <h2 className="api-explorer-section-title">{t("apiExplorerCurlHeading")}</h2>
-      <p className="meta">{t("apiExplorerCurlHint")}</p>
-      <div className="api-explorer-list">
-        {writeEndpoints(petId).map((ep) => (
-          <section key={`${ep.method}:${ep.path}:${ep.descKey}`} className="card api-explorer-card">
-            <div className="api-explorer-head">
-              <span className={`api-explorer-method ${ep.method === "GET" ? "" : "api-explorer-method-write"}`}>
-                {ep.method}
-              </span>
-              <code className="api-explorer-path">{ep.path}</code>
-            </div>
-            <p className="meta api-explorer-desc">{t(ep.descKey)}</p>
-            <pre className="api-explorer-pre">{ep.curl}</pre>
+      {isAdmin && (
+        <>
+          <section className="card api-explorer-pet">
+            <label className="field-label" htmlFor="api-explorer-pet">
+              {t("apiExplorerPetLabel")}
+            </label>
+            {pets.length > 0 ? (
+              <select id="api-explorer-pet" value={petId} onChange={(e) => setPetId(e.target.value)}>
+                {pets.map((pet) => (
+                  <option key={pet.id} value={pet.id}>
+                    {pet.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="meta">{t("apiExplorerNoPets")}</p>
+            )}
           </section>
-        ))}
-      </div>
+
+          <h2 className="api-explorer-section-title">{t("apiExplorerReadHeading")}</h2>
+          <p className="meta">{t("apiExplorerReadHint")}</p>
+          <div className="api-explorer-list">
+            {readEndpoints.map((ep) => (
+              <EndpointCard
+                key={ep.key}
+                method="GET"
+                path={ep.path ?? t("apiExplorerNeedsPet")}
+                desc={t(ep.descKey)}
+                disabled={!ep.path}
+                running={runningKey === ep.key}
+                result={results[ep.key]}
+                onRun={() => ep.path && void run(ep.key, ep.path)}
+              />
+            ))}
+          </div>
+
+          <h2 className="api-explorer-section-title">{t("apiExplorerCurlHeading")}</h2>
+          <p className="meta">{t("apiExplorerCurlHint")}</p>
+          <div className="api-explorer-list">
+            {writeEndpoints(petId).map((ep) => (
+              <section key={`${ep.method}:${ep.path}:${ep.descKey}`} className="card api-explorer-card">
+                <div className="api-explorer-head">
+                  <span className={`api-explorer-method ${ep.method === "GET" ? "" : "api-explorer-method-write"}`}>
+                    {ep.method}
+                  </span>
+                  <code className="api-explorer-path">{ep.path}</code>
+                </div>
+                <p className="meta api-explorer-desc">{t(ep.descKey)}</p>
+                <pre className="api-explorer-pre">{ep.curl}</pre>
+              </section>
+            ))}
+          </div>
+        </>
+      )}
     </main>
   );
 }

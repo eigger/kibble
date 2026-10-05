@@ -364,7 +364,7 @@ const dict = {
   },
   appPublicUrlPlaceholder: { ko: "https://kibble.example.com", en: "https://kibble.example.com" },
 
-  // API 탐색기 (관리자, /api-explorer)
+  // API 탐색기 (관리자 및 가구 소유자, /api-explorer)
   apiExplorerTitle: { ko: "API 탐색기", en: "API explorer" },
   apiExplorerIntro: {
     ko: "kibble이 제공하는 REST API를 직접 호출해 응답을 확인합니다. 지금 로그인한 관리자 세션으로 나갑니다.",
