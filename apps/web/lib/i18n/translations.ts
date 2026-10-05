@@ -377,6 +377,27 @@ const dict = {
     en: "No pets yet — endpoints that need one cannot run.",
   },
   apiExplorerNeedsPet: { ko: "반려동물을 먼저 고르세요", en: "Pick a pet first" },
+  apiTokenManagerTitle: { ko: "외부 연동 토큰", en: "Integration tokens" },
+  apiTokenManagerHint: {
+    ko: "Home Assistant용 읽기 전용 토큰을 선택한 반려동물에 고정해 발급합니다. 원문은 발급할 때 한 번만 표시되고 서버에는 해시만 저장됩니다.",
+    en: "Issue a read-only Home Assistant token bound to the selected pet. The secret is shown once; only its hash is stored on the server.",
+  },
+  apiTokenCreateReadOnly: { ko: "이 반려동물 읽기 토큰 발급", en: "Create read-only pet token" },
+  apiTokenCreatedCopyNow: { ko: "토큰을 발급했습니다. 지금 복사해 안전한 곳에 저장하세요.", en: "Token created. Copy it now and store it somewhere safe." },
+  apiTokenOneTimeWarning: { ko: "이 토큰은 다시 표시되지 않습니다. 복사한 뒤 HA 설정에 붙여넣으세요.", en: "This token cannot be shown again. Copy it into your Home Assistant setup now." },
+  apiTokenCopied: { ko: "토큰을 클립보드에 복사했습니다.", en: "Token copied to clipboard." },
+  apiTokenSelectToCopy: { ko: "아래 토큰을 선택해 복사하세요.", en: "Select the token below and copy it." },
+  apiTokenLoadError: { ko: "토큰 목록을 불러오지 못했습니다.", en: "Could not load the token list." },
+  apiTokenCreateError: { ko: "토큰을 발급하지 못했습니다 (HTTP {status}). 가구 소유자 권한을 확인하세요.", en: "Could not create token (HTTP {status}). Check that you are a household owner." },
+  apiTokenRevokeConfirm: { ko: "'{name}' 토큰을 폐기할까요? 연결된 HA에서 더 이상 사용할 수 없습니다.", en: "Revoke '{name}'? Home Assistant will no longer be able to use it." },
+  apiTokenRevoked: { ko: "토큰을 폐기했습니다.", en: "Token revoked." },
+  apiTokenRevokeError: { ko: "토큰을 폐기하지 못했습니다 (HTTP {status}).", en: "Could not revoke token (HTTP {status})." },
+  apiTokenAnyPet: { ko: "기본 반려동물", en: "Default pet" },
+  apiTokenLastUsed: { ko: "마지막 사용", en: "Last used" },
+  apiTokenNone: { ko: "발급된 토큰이 없습니다.", en: "No API tokens have been issued." },
+  copyButton: { ko: "복사", en: "Copy" },
+  revokeButton: { ko: "폐기", en: "Revoke" },
+  neverLabel: { ko: "없음", en: "Never" },
   apiExplorerRun: { ko: "실행", en: "Run" },
   apiExplorerRunning: { ko: "요청 중…", en: "Running…" },
 
@@ -1277,4 +1298,3 @@ export function getStoredLocale(): Locale {
   }
   return "ko";
 }
-

@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere } from "../lib/householdScope.js";
 import { petStateFor } from "../lib/petState.js";
+import { todaySummaryForPet } from "../lib/todaySummary.js";
 import {
   requireStateReadAccess,
   resolveTokenScopedField,
@@ -49,14 +50,19 @@ export async function stateRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("petNotFound", request.locale) });
       }
 
-      const state = await petStateFor(prisma, { householdId, petId });
+      const [state, todaySummary] = await Promise.all([
+        petStateFor(prisma, { householdId, petId }),
+        todaySummaryForPet(prisma, householdId, petId),
+      ]);
       if (!state) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
       if (request.authMethod === "apiToken" && request.apiTokenContext) {
         void touchApiTokenLastUsed(request.apiTokenContext.id);
       }
 
-      return state;
+      // `today` stays as the compact, backwards-compatible view. `todaySummary`
+      // adds unit-separated totals and last recorded values for richer clients.
+      return { ...state, todaySummary };
     },
   );
 }

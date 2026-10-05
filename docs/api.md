@@ -46,6 +46,12 @@ AUTH="Authorization: Bearer $TOKEN"
 `scopes`를 생략하면 `["event:create"]`만 발급된다. **기존 토큰은 `state:read`가 없으므로 상태 조회를 하려면 새로 발급해야 한다.**
 
 ```bash
+# 읽기 전용 상태 토큰 — 한 반려동물로 고정
+curl -sS -X POST "$BASE/api/tokens" \
+  -H "Content-Type: application/json" \
+  -H "$AUTH" \
+  -d '{"name":"Home Assistant · 보리","scopes":["state:read"],"petId":"<pet-id>"}'
+
 # 토큰 발급 (plaintext는 이 응답에서만 한 번 노출)
 curl -sS -X POST "$BASE/api/tokens" \
   -H "Content-Type: application/json" \
@@ -139,7 +145,12 @@ curl -sS -X DELETE "$BASE/api/routines/<id>" -H "$AUTH"
 
 ## 상태 조회 (역방향)
 
-밖에서 kibble의 현재 상태를 읽는다. 세션 또는 `state:read` 토큰. **읽기 전용이다 (K-7).**
+밖에서 Kibble의 현재 상태를 읽는다. 세션 또는 `state:read` 토큰. **읽기 전용이다 (K-7).**
+
+응답에는 간단한 `today` 집계와 상세한 `todaySummary`가 함께 들어간다. `today`는 타입별
+횟수·합계이며, `todaySummary`는 단위별 합계(`totals`), 마지막 기록 시각, 마지막 척도값과
+측정 수량을 제공한다. 여러 단위가 섞인 기록도 `totals` 항목별로 분리된다. 양쪽 모두 KST
+자정 기준이다. 기존 필드는 그대로 유지된다.
 
 ```bash
 # 세션으로
@@ -156,6 +167,7 @@ curl -sS "$BASE/api/states" -H "Authorization: Bearer kbl_..."
 | `pet` | 대상 반려동물 |
 | `lastEvents[]` | 이벤트 타입별 **마지막 기록** — 시각, 수량·단위, 척도값, `hoursSince`(경과 시간) |
 | `today[]` | 오늘(KST 기준) 타입별 **건수와 합계** — 급여량·음수량 등 |
+| `todaySummary[]` | 오늘 이벤트 타입별 **단위 분리 합계와 마지막 값** — `totals`, `lastOccurredAt`, `lastScaleValue`, `lastQuantity` 등 |
 | `todaySince` | 오늘 합계의 시작 경계 |
 | `medication` | 진행 중 과정 수, 오늘 먹인/계획된 횟수, **시각이 지난 슬롯** |
 | `reminders[]` | 예정일과 지남 여부 |

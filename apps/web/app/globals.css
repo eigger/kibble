@@ -4244,6 +4244,56 @@ th {
   margin-top: 6px;
 }
 
+.api-token-manager {
+  margin-top: 12px;
+}
+
+.api-token-manager h2 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.api-token-issued {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 8px;
+}
+
+.api-token-issued p {
+  margin: 0;
+}
+
+.api-token-issued code {
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--color-surface-hover);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.api-token-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.api-token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.api-token-row p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .api-explorer-inline-code {
   padding: 2px 6px;
   border-radius: 4px;
