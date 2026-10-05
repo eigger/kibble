@@ -405,13 +405,15 @@ export function BottomNav() {
                     </span>
                     {t("integrationsTitle")}
                   </button>
-                  <button type="button" className="sheet-item" onClick={() => go("/api-explorer")}>
-                    <span className="sheet-item-icon">
-                      <ApiExplorerMenuIcon />
-                    </span>
-                    {t("apiExplorerTitle")}
-                  </button>
                 </>
+              )}
+              {(isAdmin || user?.householdRole === "OWNER") && (
+                <button type="button" className="sheet-item" onClick={() => go("/api-explorer")}>
+                  <span className="sheet-item-icon">
+                    <ApiExplorerMenuIcon />
+                  </span>
+                  {t("apiExplorerTitle")}
+                </button>
               )}
               <button
                 type="button"
