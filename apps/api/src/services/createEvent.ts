@@ -1,5 +1,6 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
 import { normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
+import { doseConflict } from "../lib/doseCapacity.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import { productNameIsTagList } from "../lib/frequentProducts.js";
 import { householdWhere } from "../lib/householdScope.js";
@@ -8,9 +9,9 @@ import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
 export class CreateEventNotFoundError extends Error {
-  readonly field: "pet" | "preset" | "eventType" | "course";
+  readonly field: "pet" | "preset" | "eventType" | "course" | "event";
 
-  constructor(field: "pet" | "preset" | "eventType" | "course") {
+  constructor(field: "pet" | "preset" | "eventType" | "course" | "event") {
     super(`CREATE_EVENT_NOT_FOUND_${field.toUpperCase()}`);
     this.name = "CreateEventNotFoundError";
     this.field = field;
@@ -177,10 +178,23 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
  */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (!params.medicationCourseId) return createEventUnlocked(db, params);
+  return withMedicationCourseLock(db, params.medicationCourseId, (tx) =>
+    createEventUnlocked(tx, params),
+  );
+}
 
+/**
+ * 처방 단위 advisory lock 아래에서 `fn`을 실행한다 — 복약 슬롯·회차 판정과 쓰기를 직렬화하는
+ * 유일한 자리다. 기록(`createEvent`)과 복원(`restoreEvent`)이 같은 락을 쓴다.
+ */
+export async function withMedicationCourseLock<T>(
+  db: Db,
+  courseId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
   const run = async (tx: Prisma.TransactionClient) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${params.medicationCourseId}`}, 0))`;
-    return createEventUnlocked(tx, params);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+    return fn(tx);
   };
   // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
   // Prisma 7.10에서는 트랜잭션 클라이언트에도 런타임에 $transaction이 있어(타입에서만
@@ -303,28 +317,32 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
       select: { doseSlotIndex: true },
     });
 
-    if (course.doseTimes.length > 0) {
-      const doseTimes = normalizeDoseTimes(course.doseTimes, course.dosesPerDay);
-      const filled = sameDayDoses
-        .map((e) => e.doseSlotIndex)
-        .filter((index): index is number => index != null);
+    const doseTimes =
+      course.doseTimes.length > 0 ? normalizeDoseTimes(course.doseTimes, course.dosesPerDay) : [];
+    if (doseTimes.length > 0 && doseSlotIndex != null) {
+      if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
+        throw new CreateEventValidationError("DOSE_SLOT_INVALID");
+      }
+    }
+    // 슬롯·하루 한도 판정은 복원(`restoreEvent`)과 같은 함수를 쓴다
+    const conflict = doseConflict({
+      doseSlotCount: doseTimes.length,
+      dosesPerDay: course.dosesPerDay,
+      sameDay: sameDayDoses,
+      requestedSlot: doseTimes.length > 0 ? doseSlotIndex : null,
+    });
+    if (conflict) throw new CreateEventDoseConflictError(conflict);
+    if (doseTimes.length > 0) {
       if (doseSlotIndex == null) {
         // 슬롯을 고르지 않은 복약(루틴 등) — 비어 있는 슬롯 중 기록 시각에 가장 가까운 것
+        const filled = sameDayDoses
+          .map((e) => e.doseSlotIndex)
+          .filter((index): index is number => index != null);
         doseSlotIndex = pickDoseSlot(doseTimes, filled, occurredAt);
         if (doseSlotIndex == null) throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-      } else {
-        if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
-          throw new CreateEventValidationError("DOSE_SLOT_INVALID");
-        }
-        if (filled.includes(doseSlotIndex)) {
-          throw new CreateEventDoseConflictError("DOSE_SLOT_TAKEN");
-        }
       }
     } else {
       doseSlotIndex = null;
-      if (sameDayDoses.length >= course.dosesPerDay) {
-        throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-      }
     }
 
     // 회차는 기록하는 순간 찍는다 — 이력은 "그때 몇 번째였나"를 남기는 자리이므로

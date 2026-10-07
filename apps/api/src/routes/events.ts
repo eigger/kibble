@@ -22,6 +22,7 @@ import {
   eventWithRelationsSelect,
   validateScaleValue,
 } from "../services/createEvent.js";
+import { restoreEvent } from "../services/restoreEvent.js";
 import type { EventSource } from "@prisma/client";
 
 async function resolveDefaultPetId(householdId: string): Promise<string | null> {
@@ -146,7 +147,7 @@ export async function eventRoutes(app: FastifyInstance) {
         });
 
         if (request.authMethod === "apiToken" && request.apiTokenContext) {
-          void touchApiTokenLastUsed(request.apiTokenContext.id);
+          void touchApiTokenLastUsed(request.apiTokenContext);
         }
 
         const enriched = await prisma.event.findFirst({
@@ -460,17 +461,12 @@ export async function eventRoutes(app: FastifyInstance) {
     if (!householdId) return;
 
     const { id } = request.params as { id: string };
-    const existing = await prisma.event.findFirst({
-      where: { id, ...householdWhere(householdId), deletedAt: { not: null } },
-      select: { id: true },
-    });
-    if (!existing) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-
-    const event = await prisma.event.update({
-      where: { id },
-      data: { deletedAt: null },
-      select: eventSelect,
-    });
-    return event;
+    try {
+      return await restoreEvent(prisma, { householdId, eventId: id });
+    } catch (err) {
+      const mapped = mapCreateEventError(err);
+      if (mapped) return reply.code(mapped.status).send({ error: t(mapped.key, request.locale) });
+      throw err;
+    }
   });
 }

@@ -88,7 +88,7 @@ export async function stateRoutes(app: FastifyInstance) {
       if (!state) return reply.code(404).send({ error: t("petNotFound", request.locale) });
 
       if (request.authMethod === "apiToken" && request.apiTokenContext) {
-        void touchApiTokenLastUsed(request.apiTokenContext.id);
+        void touchApiTokenLastUsed(request.apiTokenContext);
       }
 
       // Keep the aggregate fields backwards compatible. `todayEvents` is a
