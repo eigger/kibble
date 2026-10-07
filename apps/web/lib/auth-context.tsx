@@ -1,5 +1,6 @@
 "use client";
 
+import { clearQuickHomeCache } from "./quickHomeCache";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getToken, setToken, clearToken } from "./api";
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (res.status === 401) {
           clearToken();
           localStorage.removeItem(CACHED_USER_KEY);
+          clearQuickHomeCache();
           setUser(null);
         } else {
           // 5xx·파싱 실패 등 — 로그인 상태로 오인하지 않도록 캐시를 지운다.
@@ -100,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 서비스워커 캐시에 로그인 상태로 받은 페이지가 남는다 — 공용 기기에서 다음 사용자가
     // 이전 사용자의 화면을 보지 않도록 함께 비운다.
     await clearAppCaches();
+    // 오프라인 시작용 칩·루틴 스냅샷도 — 공용 기기에서 다음 사용자가 보면 안 된다
+    clearQuickHomeCache();
     setUser(null);
     router.push("/login");
   }
