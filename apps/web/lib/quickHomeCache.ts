@@ -154,6 +154,18 @@ export function loadQuickHomeCache<TPreset, TRoutine, TCourse>(
   }
 }
 
+/**
+ * 이 사용자의 가장 최근 스냅샷에 든 반려동물 목록 — 요청한 아이의 스냅샷이 없어 화면이 오류가
+ * 될 때도 탭만은 채워, 사용자가 스냅샷이 있는 다른 아이로 전환할 수 있게 한다. 기록은 탭으로 고른
+ * 아이의 스냅샷으로만 나가므로 엉뚱한 아이에게 쓰이지 않는다.
+ */
+export function loadCachedPetList(
+  who: { userId: string; householdId: string | null },
+  options: { now?: number; storage?: QuickHomeStorage } = {},
+): CachedPet[] {
+  return loadQuickHomeCache<unknown, unknown, unknown>(who, null, options)?.pets ?? [];
+}
+
 /** 로그아웃·계정 전환 — 모든 사용자의 스냅샷을 지운다. */
 export function clearQuickHomeCache(storage: QuickHomeStorage | undefined = defaultStorage()): void {
   if (!storage) return;

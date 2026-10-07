@@ -46,6 +46,7 @@ import {
   type QuickMode,
 } from "../../lib/routines";
 import {
+  loadCachedPetList,
   loadQuickHomeCache,
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
@@ -185,6 +186,8 @@ export default function QuickRecordPage() {
         setRecentEvents(data.recentEvents);
         setActiveMedicationCourses(data.activeMedicationCourses ?? []);
         setCachedAt(null);
+        // 탭으로 직접 고른 아이는 불러온 뒤에 기억한다 — 못 불러왔는데 기억하면 다음 시작이 막힌다
+        if (explicit && data.activePet) saveQuickPetId(data.activePet.id);
         // 다음에 오프라인으로 열 때 쓸 스냅샷 — 칩·루틴·처방·반려동물만 (타임라인은 일부러 뺀다)
         if (userId && data.activePet) {
           saveQuickHomeCache(
@@ -219,9 +222,16 @@ export default function QuickRecordPage() {
             cached.courses.map((c) => ({ ...c, doseSlotsToday: [], dosesGivenToday: 0 })),
           );
           setCachedAt(cached.savedAt);
+          if (explicit) saveQuickPetId(cached.activePet.id);
         } else {
           setLoadError(t("quickRecordLoadError"));
           setCachedAt(null);
+          // 요청한 아이의 스냅샷만 없을 수 있다 — 탭은 채워 스냅샷이 있는 다른 아이로 옮길 수 있게 한다
+          setPets(
+            userId && shouldUseQuickHomeCache(err)
+              ? (loadCachedPetList({ userId, householdId }) as Pet[])
+              : [],
+          );
           setPet(null);
           setPresets([]);
           setRoutines([]);
@@ -238,7 +248,6 @@ export default function QuickRecordPage() {
   function selectPet(next: Pet) {
     // 저장 진행 중에는 전환하지 않는다 — 끝난 POST의 결과가 다른 아이의 타임라인에 섞인다
     if (next.id === pet?.id || dataLoading || runningRoutineId || detailSaving) return;
-    saveQuickPetId(next.id);
     void loadQuickData(next.id, true);
   }
 

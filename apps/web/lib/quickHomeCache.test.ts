@@ -3,6 +3,7 @@ import { ApiError } from "./api";
 import {
   QUICK_HOME_CACHE_TTL_MS,
   clearQuickHomeCache,
+  loadCachedPetList,
   loadQuickHomeCache,
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
@@ -77,6 +78,15 @@ describe("quickHomeCache", () => {
     expect(loadQuickHomeCache(me, "a", { now: NOW + 1, storage: s })).toBeNull();
     // 목록에 없는 id(보관·삭제)는 최근 스냅샷으로 시작한다
     expect(loadQuickHomeCache(me, "gone", { now: NOW + 1, storage: s })?.activePet.id).toBe("b");
+  });
+
+  it("lists pets from the newest snapshot so tabs can be shown after a miss", () => {
+    const s = memory();
+    expect(loadCachedPetList(me, { storage: s })).toEqual([]);
+    saveQuickHomeCache(me, snap("b"), NOW, s);
+    expect(loadCachedPetList(me, { now: NOW + 1, storage: s }).map((p) => p.id)).toEqual(["a", "b"]);
+    expect(loadCachedPetList({ userId: "u2", householdId: "h1" }, { now: NOW + 1, storage: s })).toEqual([]);
+    expect(loadCachedPetList(me, { now: NOW + QUICK_HOME_CACHE_TTL_MS + 1, storage: s })).toEqual([]);
   });
 
   it("treats entries with missing arrays or another version as absent", () => {
