@@ -1,5 +1,13 @@
 # 작업 기록
 
+### 2026-10-07 — 토큰 스코프 우회·createEvent 오류 매핑 수정
+
+**결정**: 고정 `eventTypeId` 토큰은 프리셋 해석 후 타입이 다르면 403(`forbidden`)으로 거절한다. 검사는 K-4에 따라 `createEvent()` 안(`scopedEventTypeId`)에서 하고, 오류→HTTP 매핑은 `lib/createEventErrors.ts` 한 곳에서 events·care 라우트가 공유한다. `medicationCourseId`는 `medication` 타입에서만 허용(400).
+
+**알아낸 것**: 처방 미존재가 `eventTypeNotFound`로, 프리셋 반려동물 불일치·슬롯 오류가 모두 `eventTargetRequired`로 나가고 있었다. 전용 키(`medicationCourseNotFound`, `presetPetMismatch`, `medicationDoseSlotInvalid`, `doseSlotWithoutCourse`, `medicationCourseNotAllowed`)로 분리.
+
+**해결**: `dedupeKey` 선조회·경합 재조회 경로도 기존 기록의 eventTypeId/petId를 토큰 스코프(`scopedEventTypeId`, `scopedPetId`)와 비교해 어긋나면 403이다. soft-delete 복원도 이 검사를 먼저 통과해야 한다.
+
 ### 2026-10-07 — 루틴 사료 항목 제공량/섭취량 분리
 
 **결정**: `RoutineItem`에 `quantityOffered`(제공량)를 추가한다. 기존 `quantity`는 섭취량으로 유지해 이미 만든 루틴은 그대로 동작한다. 제공량은 사료(`meal`) 타입만 저장하고 서버가 다른 타입의 값은 버린다 — 일반 기록 시트가 사료에만 제공량 칸을 두는 규칙과 같다. 요약 표기는 앱 전반처럼 `제공 / 섭취` 순서.

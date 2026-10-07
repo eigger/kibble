@@ -102,6 +102,18 @@ const MESSAGES = {
     ko: "복약 시간대가 올바르지 않습니다",
     en: "Invalid dose slot",
   },
+  doseSlotWithoutCourse: {
+    ko: "복약 시간대는 투약 과정과 함께만 지정할 수 있습니다",
+    en: "A dose slot can only be set together with a medication course",
+  },
+  medicationCourseNotAllowed: {
+    ko: "투약 기록에만 투약 과정을 연결할 수 있습니다",
+    en: "A medication course can only be linked to a medication event",
+  },
+  presetPetMismatch: {
+    ko: "이 프리셋은 다른 반려동물의 것입니다",
+    en: "This preset belongs to a different pet",
+  },
   cannotArchiveLastPet: {
     ko: "마지막 반려동물은 보관 처리할 수 없습니다",
     en: "Cannot archive the only pet",

@@ -26,9 +26,8 @@ import { sessionUserId } from "../lib/authenticate.js";
 import {
   createEvent,
   CreateEventDoseConflictError,
-  CreateEventNotFoundError,
-  CreateEventValidationError,
 } from "../services/createEvent.js";
+import { mapCreateEventError } from "../lib/createEventErrors.js";
 
 async function resolveActivePet(householdId: string, requestedPetId?: string) {
   const pets = await prisma.pet.findMany({
@@ -368,9 +367,8 @@ export async function careRoutes(app: FastifyInstance) {
           // 확인과 기록 사이에 다른 가족이 먼저 기록했다
           return reply.code(400).send({ error: t("medicationDoseSlotTaken", request.locale) });
         }
-        if (err instanceof CreateEventNotFoundError || err instanceof CreateEventValidationError) {
-          return reply.code(400).send({ error: t("eventTargetRequired", request.locale) });
-        }
+        const mapped = mapCreateEventError(err);
+        if (mapped) return reply.code(mapped.status).send({ error: t(mapped.key, request.locale) });
         throw err;
       }
     },

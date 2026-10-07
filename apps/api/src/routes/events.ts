@@ -7,6 +7,7 @@ import { periodRangeFromQuery } from "../lib/kstPeriodRange.js";
 import { assertPetInHousehold, listEventHistoryPeriods } from "../lib/historyPeriods.js";
 import { productNameIsTagList, productSuggestionsForPet } from "../lib/frequentProducts.js";
 import { clinicSuggestionsForPet } from "../lib/frequentClinics.js";
+import { mapCreateEventError } from "../lib/createEventErrors.js";
 import { upsertVetContact, type VetContactDetails } from "../lib/upsertVetContact.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import {
@@ -17,9 +18,6 @@ import {
 } from "../lib/authenticate.js";
 import {
   createEvent,
-  CreateEventDoseConflictError,
-  CreateEventNotFoundError,
-  CreateEventValidationError,
   eventSelect,
   eventWithRelationsSelect,
   validateScaleValue,
@@ -125,6 +123,8 @@ export async function eventRoutes(app: FastifyInstance) {
           petId,
           presetId: presetId ?? null,
           eventTypeId,
+          scopedEventTypeId: tokenCtx?.eventTypeId ?? null,
+          scopedPetId: tokenCtx?.petId ?? null,
           occurredAt: body.occurredAt ? new Date(body.occurredAt) : undefined,
           quantity: body.quantity,
           quantityOffered: body.quantityOffered,
@@ -156,30 +156,8 @@ export async function eventRoutes(app: FastifyInstance) {
 
         return reply.code(201).send(enriched ?? event);
       } catch (err) {
-        if (err instanceof CreateEventNotFoundError) {
-          const key =
-            err.field === "pet"
-              ? "petNotFound"
-              : err.field === "preset"
-                ? "presetNotFound"
-                : "eventTypeNotFound";
-          return reply.code(404).send({ error: t(key, request.locale) });
-        }
-        if (err instanceof CreateEventDoseConflictError) {
-          const key =
-            err.message === "DOSE_SLOT_TAKEN" ? "medicationDoseSlotTaken" : "medicationDoseLimitReached";
-          return reply.code(409).send({ error: t(key, request.locale) });
-        }
-        if (err instanceof CreateEventValidationError) {
-          if (
-            err.message === "SCALE_VALUE_OUT_OF_RANGE" ||
-            err.message === "SCALE_VALUE_NOT_ALLOWED" ||
-            err.message === "SCALE_VALUE_INVALID"
-          ) {
-            return reply.code(400).send({ error: t("scaleValueInvalid", request.locale) });
-          }
-          return reply.code(400).send({ error: t("eventTargetRequired", request.locale) });
-        }
+        const mapped = mapCreateEventError(err);
+        if (mapped) return reply.code(mapped.status).send({ error: t(mapped.key, request.locale) });
         throw err;
       }
     },
