@@ -50,6 +50,7 @@ import {
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
 } from "../../lib/quickHomeCache";
+import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
 import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
@@ -91,6 +92,8 @@ interface QuickHomePayload {
 }
 
 const QUICK_RECENT_COUNT = 5;
+/** 실행취소 토스트(3초)가 닫힌 뒤에 업로드를 정리한다 */
+const UNDO_GRACE_MS = 3500;
 
 function randomSuffix(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -150,6 +153,8 @@ export default function QuickRecordPage() {
   const [quickMode, setQuickMode] = useState<QuickMode>("chips");
   const [runningRoutineId, setRunningRoutineId] = useState<string | null>(null);
   const panelsRef = useRef<HTMLDivElement>(null);
+  // 지운 행의 업로드 정리 — 실행취소 유예가 끝나면(또는 화면을 떠나면) 한 번 실행된다
+  const pendingUploadCancels = useRef(new Map<string, DeferredAction>());
   const hasRoutines = routines.length > 0;
 
   const presetGroups = useMemo(() => groupPresetsByCategory(presets), [presets]);
@@ -166,6 +171,14 @@ export default function QuickRecordPage() {
   useEffect(() => {
     if (!loading && needsPet) router.push("/onboarding");
   }, [loading, needsPet, router]);
+
+  // 화면을 떠나면 유예 중인 정리를 지금 한다 — 토스트도 함께 사라지므로 되돌릴 길이 없다
+  useEffect(() => {
+    const pending = pendingUploadCancels.current;
+    return () => {
+      [...pending.values()].forEach((action) => action.flush());
+    };
+  }, []);
 
   const userId = user?.id;
   const householdId = user?.householdId ?? null;
@@ -622,9 +635,18 @@ export default function QuickRecordPage() {
     if (deletingEventId) return;
     const removed = recentEvents.find((e) => e.id === eventId) ?? null;
     setDeletingEventId(eventId);
-    cancelUploadsForEvent(eventId);
     try {
       await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
+      // 업로드 정리는 실행취소 토스트가 닫힌 뒤로 미룬다 — 실수로 지운 행을 되돌리면
+      // 아직 안 올라간 첨부가 이어서 올라가야 한다. 토스트(3초)보다 조금 길게 잡는다
+      pendingUploadCancels.current.get(eventId)?.flush();
+      pendingUploadCancels.current.set(
+        eventId,
+        deferOnce(() => {
+          pendingUploadCancels.current.delete(eventId);
+          cancelUploadsForEvent(eventId);
+        }, UNDO_GRACE_MS),
+      );
       setRecentEvents((prev) => prev.filter((e) => e.id !== eventId));
       if (detailDraft?.eventId === eventId) {
         setDetailOpen(false);
@@ -646,14 +668,20 @@ export default function QuickRecordPage() {
   }
 
   async function restoreEvent(event: TimelineEvent) {
+    const pending = pendingUploadCancels.current.get(event.id);
     try {
       await apiJson(`/api/events/${event.id}/restore`, { method: "POST" });
+      // 되돌렸다 — 업로드는 취소하지 않고 이어간다
+      pending?.cancel();
+      pendingUploadCancels.current.delete(event.id);
       setRecentEvents((prev) =>
         prev.some((e) => e.id === event.id) ? prev : insertTimelineEvent(prev, event),
       );
       show(t("eventRestored"), "success");
     } catch (err) {
-      // 오프라인·휴지통 만료(404) — 삭제는 이미 서버에 있다. 복원 실패를 그대로 알린다
+      // 오프라인·휴지통 만료(404) — 삭제는 이미 서버에 있다. 업로드는 이제 정리한다
+      pending?.flush();
+      // 복원 실패를 그대로 알린다
       show(formatApiErrorMessage(err, t("eventRestoreError"), locale), "error");
     }
   }
