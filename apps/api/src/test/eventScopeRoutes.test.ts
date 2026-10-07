@@ -76,6 +76,37 @@ describe("이벤트 생성 라우트 — 오류 매핑·토큰 스코프 배선"
     expect(mockPrisma.event.create).not.toHaveBeenCalled();
   });
 
+  it("고정 petId 토큰이 다른 반려동물 기록의 dedupeKey를 보내면 403, 반환도 복원도 없다", async () => {
+    mockPrisma.apiToken.findFirst.mockImplementation(async ({ where }: { where: { tokenHash: string } }) =>
+      where.tokenHash === hashApiToken(TOKEN)
+        ? {
+            id: "token_1",
+            householdId: HH,
+            scopes: ["event:create"],
+            presetId: null,
+            petId: PET,
+            eventTypeId: null,
+          }
+        : null,
+    );
+    mockPrisma.event.findFirst.mockResolvedValue({
+      id: "event_other",
+      petId: "pet_other",
+      eventTypeId: TYPE_A,
+      deletedAt: new Date(),
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/events",
+      headers: { authorization: `Bearer ${TOKEN}` },
+      payload: { eventTypeId: TYPE_A, dedupeKey: "shared-key" },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(mockPrisma.event.create).not.toHaveBeenCalled();
+  });
+
   it("보관된(없는) 반려동물로 복약을 기록하면 petNotFound 404", async () => {
     const jwt = app.jwt.sign({ sub: USER, role: "ADMIN", tv: 1 }, { expiresIn: "1h" });
     mockPrisma.medicationCourse.findFirst.mockResolvedValue({
