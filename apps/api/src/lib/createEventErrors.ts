@@ -1,4 +1,5 @@
 import {
+  CreateEventDedupeDeletedError,
   CreateEventDoseConflictError,
   CreateEventNotFoundError,
   CreateEventScopeError,
@@ -10,6 +11,7 @@ export type CreateEventErrorReply = { status: number; key: ApiMessageKey };
 
 /** createEvent가 던지는 도메인 오류를 HTTP 상태와 i18n 키로 옮긴다. 모르는 오류는 null. */
 export function mapCreateEventError(err: unknown): CreateEventErrorReply | null {
+  if (err instanceof CreateEventDedupeDeletedError) return { status: 409, key: "eventDedupeDeleted" };
   if (err instanceof CreateEventScopeError) return { status: 403, key: "forbidden" };
   if (err instanceof CreateEventNotFoundError) {
     const key: ApiMessageKey =

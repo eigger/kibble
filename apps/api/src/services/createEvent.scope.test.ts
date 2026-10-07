@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import {
   createEvent,
+  CreateEventDedupeDeletedError,
   CreateEventNotFoundError,
   CreateEventScopeError,
   CreateEventValidationError,
@@ -84,16 +85,42 @@ describe("createEvent dedupe scope", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("restores an in-scope soft-deleted event", async () => {
-    const { db, update } = fakeDb({ existing });
-    await createEvent(db, {
-      ...base,
-      eventTypeId: "type-b",
-      scopedEventTypeId: "type-b",
-      scopedPetId: "pet1",
-      dedupeKey: "k",
-    });
-    expect(update).toHaveBeenCalledOnce();
+  it("does not resurrect an in-scope soft-deleted event", async () => {
+    const { db, update, create } = fakeDb({ existing });
+    await expect(
+      createEvent(db, {
+        ...base,
+        eventTypeId: "type-b",
+        scopedEventTypeId: "type-b",
+        scopedPetId: "pet1",
+        dedupeKey: "k",
+      }),
+    ).rejects.toBeInstanceOf(CreateEventDedupeDeletedError);
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a deleted event found by the post-conflict lookup too", async () => {
+    // 선조회는 비었고(경합), insert가 unique 오류를 낸 뒤 재조회가 삭제된 행을 찾는다
+    const { db, create } = fakeDb({});
+    let calls = 0;
+    (db.event.findFirst as unknown as ReturnType<typeof vi.fn>) = vi.fn(async () =>
+      calls++ === 0 ? null : existing,
+    );
+    create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "test" }),
+    );
+    await expect(
+      createEvent(db, { ...base, eventTypeId: "type-b", dedupeKey: "k" }),
+    ).rejects.toBeInstanceOf(CreateEventDedupeDeletedError);
+  });
+
+  it("returns a live in-scope event for the same key (idempotent retry)", async () => {
+    const { db, update, create } = fakeDb({ existing: { ...existing, deletedAt: null } });
+    const out = await createEvent(db, { ...base, eventTypeId: "type-b", dedupeKey: "k" });
+    expect(out.id).toBe("e0");
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 });
 
@@ -126,5 +153,9 @@ describe("mapCreateEventError", () => {
     expect(v("DOSE_SLOT_WITHOUT_COURSE")?.key).toBe("doseSlotWithoutCourse");
     expect(v("MEDICATION_COURSE_NOT_ALLOWED")).toEqual({ status: 400, key: "medicationCourseNotAllowed" });
     expect(v("EVENT_TYPE_REQUIRED")?.key).toBe("eventTargetRequired");
+    expect(mapCreateEventError(new CreateEventDedupeDeletedError())).toEqual({
+      status: 409,
+      key: "eventDedupeDeleted",
+    });
   });
 });
