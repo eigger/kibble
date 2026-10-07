@@ -10,6 +10,7 @@ import {
 } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
+import { emailInUse, findLoginCandidates } from "../lib/userEmail.js";
 import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersion.js";
 import { clearMediaCookie, setMediaCookie } from "../lib/mediaAuth.js";
 import { isRecordNotFoundError, isUniqueConstraintError } from "../lib/prismaErrors.js";
@@ -96,11 +97,19 @@ export async function authRoutes(app: FastifyInstance) {
       if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
       const { email, password } = parsed.data;
-      const user = await prisma.user.findUnique({ where: { email } });
+      const candidates = await findLoginCandidates(prisma, email);
+      if (candidates.length === 0) {
+        return reply.code(401).send({ error: t("invalidCredentials", request.locale) });
+      }
+      // 보통 한 행이다. 대소문자만 다른 중복이 이미 있으면 비밀번호가 맞는 첫(오래된) 행으로 로그인한다
+      let user = null;
+      for (const candidate of candidates) {
+        if (await bcrypt.compare(password, candidate.passwordHash)) {
+          user = candidate;
+          break;
+        }
+      }
       if (!user) return reply.code(401).send({ error: t("invalidCredentials", request.locale) });
-
-      const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) return reply.code(401).send({ error: t("invalidCredentials", request.locale) });
 
       // tv 클레임으로 비밀번호 변경/로그아웃 시 기존 토큰을 무효화한다.
       const token = app.jwt.sign(
@@ -177,6 +186,9 @@ export async function authRoutes(app: FastifyInstance) {
         householdMode === "JOIN" ? requireHouseholdId(request, reply) : undefined;
       if (householdMode === "JOIN" && !adminHouseholdId) return;
 
+      if (await emailInUse(prisma, email)) {
+        return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
+      }
       const passwordHash = await bcrypt.hash(password, 10);
       try {
         const user = await prisma.$transaction(async (tx) => {
@@ -313,7 +325,13 @@ export async function authRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: t("userNotFound", request.locale) });
 
     const emailChanged = Boolean(email) && email !== existing.email;
-    if (emailChanged) updateData.email = email;
+    if (emailChanged) {
+      // 대소문자만 다른 남의 이메일도 이미 쓰는 것으로 본다
+      if (await emailInUse(prisma, email!, userId)) {
+        return reply.code(409).send({ error: t("emailAlreadyInUse", request.locale) });
+      }
+      updateData.email = email;
+    }
 
     if (emailChanged || newPassword) {
       if (!currentPassword) {
