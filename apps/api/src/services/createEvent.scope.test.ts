@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 import {
   createEvent,
+  CreateEventDedupeDeletedError,
   CreateEventNotFoundError,
   CreateEventScopeError,
   CreateEventValidationError,
@@ -84,16 +85,27 @@ describe("createEvent dedupe scope", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("restores an in-scope soft-deleted event", async () => {
-    const { db, update } = fakeDb({ existing });
-    await createEvent(db, {
-      ...base,
-      eventTypeId: "type-b",
-      scopedEventTypeId: "type-b",
-      scopedPetId: "pet1",
-      dedupeKey: "k",
-    });
-    expect(update).toHaveBeenCalledOnce();
+  it("does not resurrect an in-scope soft-deleted event", async () => {
+    const { db, update, create } = fakeDb({ existing });
+    await expect(
+      createEvent(db, {
+        ...base,
+        eventTypeId: "type-b",
+        scopedEventTypeId: "type-b",
+        scopedPetId: "pet1",
+        dedupeKey: "k",
+      }),
+    ).rejects.toBeInstanceOf(CreateEventDedupeDeletedError);
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("returns a live in-scope event for the same key (idempotent retry)", async () => {
+    const { db, update, create } = fakeDb({ existing: { ...existing, deletedAt: null } });
+    const out = await createEvent(db, { ...base, eventTypeId: "type-b", dedupeKey: "k" });
+    expect(out.id).toBe("e0");
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 });
 
@@ -126,5 +138,9 @@ describe("mapCreateEventError", () => {
     expect(v("DOSE_SLOT_WITHOUT_COURSE")?.key).toBe("doseSlotWithoutCourse");
     expect(v("MEDICATION_COURSE_NOT_ALLOWED")).toEqual({ status: 400, key: "medicationCourseNotAllowed" });
     expect(v("EVENT_TYPE_REQUIRED")?.key).toBe("eventTargetRequired");
+    expect(mapCreateEventError(new CreateEventDedupeDeletedError())).toEqual({
+      status: 409,
+      key: "eventDedupeDeleted",
+    });
   });
 });

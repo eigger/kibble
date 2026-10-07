@@ -33,6 +33,18 @@ export class CreateEventScopeError extends Error {
 }
 
 /**
+ * 같은 `dedupeKey`의 기록이 이미 있지만 삭제됐다. 되살리지 않는다 — 응답이 유실돼 큐에 남은
+ * 요청이 늦게 도착했을 때, 그 사이 사용자가 일부러 지운 기록이 다시 나타나면 안 된다.
+ * 라우트는 409로 돌려주고 오프라인 큐는 영구 거부로 알린다 (WORKLOG 2026-10-07).
+ */
+export class CreateEventDedupeDeletedError extends Error {
+  constructor() {
+    super("DEDUPE_KEY_DELETED");
+    this.name = "CreateEventDedupeDeletedError";
+  }
+}
+
+/**
  * 그날 몫의 복약이 이미 기록됐다 — 슬롯이 찼거나, 슬롯 없는 처방이 하루 횟수에 닿았다.
  * 라우트는 409로 돌려주고 루틴은 그 항목을 건너뜀으로 센다 (WORKPLAN §7.24).
  */
@@ -140,16 +152,10 @@ async function findByDedupeKey(
   });
 }
 
-async function restoreOrReturnDedupe(
-  db: Db,
-  existing: CreatedEvent,
-): Promise<CreatedEvent> {
-  if (!existing.deletedAt) return existing;
-  return db.event.update({
-    where: { id: existing.id },
-    data: { deletedAt: null },
-    select: eventSelect,
-  });
+/** 삭제된 기록은 복원하지 않고 거절한다. 살아 있는 기록만 그대로 돌려준다(멱등). */
+function returnLiveDedupe(existing: CreatedEvent): CreatedEvent {
+  if (existing.deletedAt) throw new CreateEventDedupeDeletedError();
+  return existing;
 }
 
 /** 스코프 밖 기록은 dedupe로도 반환·복원하지 않는다. */
@@ -195,7 +201,7 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
     if (existing) {
       assertDedupeInScope(existing, params);
-      return restoreOrReturnDedupe(db, existing);
+      return returnLiveDedupe(existing);
     }
   }
 
@@ -392,7 +398,7 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
       const raced = await findByDedupeKey(db, params.householdId, params.dedupeKey);
       if (raced) {
         assertDedupeInScope(raced, params);
-        return restoreOrReturnDedupe(db, raced);
+        return returnLiveDedupe(raced);
       }
     }
     throw err;

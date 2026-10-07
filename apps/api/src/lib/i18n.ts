@@ -94,6 +94,10 @@ const MESSAGES = {
     ko: "오늘 기록한 복약이 없습니다",
     en: "No dose logged today",
   },
+  eventDedupeDeleted: {
+    ko: "이미 삭제한 기록이라 다시 저장하지 않았습니다",
+    en: "This entry was already deleted, so it was not saved again",
+  },
   medicationDoseSlotTaken: {
     ko: "이 시간대 복약은 이미 기록했습니다",
     en: "This dose slot is already logged",
