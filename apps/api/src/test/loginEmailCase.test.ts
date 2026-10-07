@@ -41,10 +41,25 @@ describe("로그인 이메일 대소문자", () => {
     app.inject({ method: "POST", url: "/api/auth/login", payload: { email, password } });
 
   it("normalizes the typed email (case, spaces) before looking it up", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(row("u1", "mom@example.com", "pw-12345678", "2026-01-01"));
+    mockPrisma.user.findMany.mockResolvedValue([row("u1", "mom@example.com", "pw-12345678", "2026-01-01")]);
     const res = await login("  Mom@Example.COM ", "pw-12345678");
     expect(res.statusCode).toBe(200);
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({ where: { email: "mom@example.com" } });
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: { equals: "mom@example.com", mode: "insensitive" } } }),
+    );
+  });
+
+  it("keeps the older mixed-case account reachable when a lowercase duplicate exists", async () => {
+    // A(Mom@, 옛 계정, 예전엔 정확한 대소문자로 로그인) · B(mom@, 새 계정)
+    mockPrisma.user.findMany.mockResolvedValue([
+      row("A", "Mom@Example.com", "a-password", "2026-01-01"),
+      row("B", "mom@example.com", "b-password", "2026-03-01"),
+    ]);
+    const asA = await login("mom@example.com", "a-password");
+    expect(asA.statusCode).toBe(200);
+    expect(asA.json().user.id).toBe("A");
+    const asB = await login("Mom@Example.com", "b-password");
+    expect(asB.json().user.id).toBe("B");
   });
 
   it("finds a legacy row stored with mixed case via a case-insensitive lookup", async () => {
