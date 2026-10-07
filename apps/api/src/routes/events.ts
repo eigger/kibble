@@ -22,6 +22,7 @@ import {
   eventWithRelationsSelect,
   validateScaleValue,
 } from "../services/createEvent.js";
+import { applyEventUpdate } from "../services/updateEvent.js";
 import { restoreEvent } from "../services/restoreEvent.js";
 import type { EventSource } from "@prisma/client";
 
@@ -427,11 +428,16 @@ export async function eventRoutes(app: FastifyInstance) {
       }
     }
 
-    const updated = await prisma.event.updateMany({
-      where: { id, ...householdWhere(householdId), deletedAt: null },
-      data: updateData,
-    });
-    if (updated.count === 0) {
+    let updatedCount: number;
+    try {
+      // 처방 복약의 날짜를 옮기면 도착일 기준 슬롯·하루 한도를 같은 락 아래에서 본다
+      updatedCount = await applyEventUpdate(prisma, { householdId, eventId: id, data: updateData });
+    } catch (err) {
+      const mapped = mapCreateEventError(err);
+      if (mapped) return reply.code(mapped.status).send({ error: t(mapped.key, request.locale) });
+      throw err;
+    }
+    if (updatedCount === 0) {
       return reply.code(404).send({ error: t("eventNotFound", request.locale) });
     }
     const event = await prisma.event.findFirst({
