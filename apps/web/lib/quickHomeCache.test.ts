@@ -70,6 +70,31 @@ describe("quickHomeCache", () => {
     expect(loadQuickHomeCache(me, "gone", { strict: true, now: NOW + 20, storage: s })).toBeNull();
   });
 
+  it("does not substitute another pet when the requested pet still exists", () => {
+    const s = memory();
+    // b의 스냅샷만 있고, 그 목록에는 a도 있다 — a는 지금도 있는 아이다
+    saveQuickHomeCache(me, snap("b"), NOW, s);
+    expect(loadQuickHomeCache(me, "a", { now: NOW + 1, storage: s })).toBeNull();
+    // 목록에 없는 id(보관·삭제)는 최근 스냅샷으로 시작한다
+    expect(loadQuickHomeCache(me, "gone", { now: NOW + 1, storage: s })?.activePet.id).toBe("b");
+  });
+
+  it("treats entries with missing arrays or another version as absent", () => {
+    const s = memory();
+    saveQuickHomeCache(me, snap("a"), NOW, s);
+    const key = "kibble_quick_home:u1:a";
+    const base = JSON.parse(s.getItem(key)!);
+    for (const broken of [
+      { ...base, pets: undefined },
+      { ...base, courses: undefined },
+      { ...base, presets: "x" },
+      { ...base, v: 0 },
+    ]) {
+      s.setItem(key, JSON.stringify(broken));
+      expect(loadQuickHomeCache(me, "a", { now: NOW, storage: s })).toBeNull();
+    }
+  });
+
   it("clears every user's snapshots but nothing else", () => {
     const s = memory();
     saveQuickHomeCache(me, snap("a"), NOW, s);

@@ -11,6 +11,10 @@ import { isApiError } from "./api";
  * 다시 확인한다. 로그아웃(`clearLocalSession`)이 전부 지운다.
  */
 const PREFIX = "kibble_quick_home:";
+/**
+ * 저장 형태 버전. `/api/home` 응답에서 우리가 읽는 필드(pets·activePet·presets·routines·
+ * activeMedicationCourses)의 형태가 바뀌면 **반드시 올린다** — 옛 항목은 버려지고 새로 받는다.
+ */
 const VERSION = 1;
 /** 이보다 오래된 스냅샷은 쓰지 않는다 — 칩을 정리한 지 한 달이 지났으면 새로 받는 게 맞다. */
 export const QUICK_HOME_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -99,7 +103,15 @@ function parseEntry<TPreset, TRoutine, TCourse>(
     if (entry?.v !== VERSION) return null;
     if (entry.userId !== who.userId || entry.householdId !== who.householdId) return null;
     if (typeof entry.savedAt !== "number" || now - entry.savedAt > QUICK_HOME_CACHE_TTL_MS) return null;
-    if (!entry.activePet?.id || !Array.isArray(entry.presets) || !Array.isArray(entry.routines)) return null;
+    if (
+      !entry.activePet?.id ||
+      !Array.isArray(entry.pets) ||
+      !Array.isArray(entry.presets) ||
+      !Array.isArray(entry.routines) ||
+      !Array.isArray(entry.courses)
+    ) {
+      return null;
+    }
     return entry;
   } catch {
     return null;
@@ -107,8 +119,10 @@ function parseEntry<TPreset, TRoutine, TCourse>(
 }
 
 /**
- * 요청한 반려동물의 스냅샷. 없으면 이 사용자의 가장 최근 스냅샷 — 단 `strict`(사용자가 탭으로
- * 그 아이를 직접 골랐다)면 다른 아이로 대신하지 않는다. 엉뚱한 아이에게 기록되기 때문이다.
+ * 요청한 반려동물의 스냅샷. 없으면 이 사용자의 가장 최근 스냅샷으로 대신하되, 엉뚱한 아이에게
+ * 기록되지 않도록 둘 중 하나면 대신하지 않는다(null → 화면은 오류). (1) `strict` — 사용자가 탭으로
+ * 그 아이를 직접 골랐다. (2) 요청한 아이가 스냅샷의 반려동물 목록에 있다 — 지금도 있는 아이인데
+ * 그 아이의 스냅샷만 없는 것이다. 요청한 id가 어디에도 없을 때(보관·삭제)만 최근 스냅샷으로 시작한다.
  * 사용자·가구가 다르거나 만료·손상된 항목은 무시한다.
  */
 export function loadQuickHomeCache<TPreset, TRoutine, TCourse>(
@@ -132,7 +146,9 @@ export function loadQuickHomeCache<TPreset, TRoutine, TCourse>(
       const entry = parseEntry<TPreset, TRoutine, TCourse>(storage.getItem(key), who, now);
       if (entry && (!best || entry.savedAt > best.savedAt)) best = entry;
     }
-    return strict && petId && best && best.activePet.id !== petId ? null : best;
+    if (!best || !petId || best.activePet.id === petId) return best;
+    if (strict || best.pets.some((p) => p.id === petId)) return null;
+    return best;
   } catch {
     return null;
   }
