@@ -1,3 +1,4 @@
+import { courseStartsByTodayBefore } from "@kibble/shared";
 import { isApiError } from "./api";
 
 /**
@@ -13,9 +14,11 @@ import { isApiError } from "./api";
 const PREFIX = "kibble_quick_home:";
 /**
  * 저장 형태 버전. `/api/home` 응답에서 우리가 읽는 필드(pets·activePet·presets·routines·
- * activeMedicationCourses)의 형태가 바뀌면 **반드시 올린다** — 옛 항목은 버려지고 새로 받는다.
+ * activeMedicationCourses·upcomingMedicationCourses)의 형태가 바뀌면 **반드시 올린다** — 옛 항목은
+ * 버려지고 새로 받는다. v2: 시작 전 처방(`upcomingCourses`)을 함께 저장한다 — 어제 예정이던 처방이
+ * 시작일 아침 오프라인 스냅샷에서 빠지지 않게. v1 스냅샷은 버려진다(한 번 새로 받으면 채워지는 캐시).
  */
-const VERSION = 1;
+const VERSION = 2;
 /** 이보다 오래된 스냅샷은 쓰지 않는다 — 칩을 정리한 지 한 달이 지났으면 새로 받는 게 맞다. */
 export const QUICK_HOME_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -34,6 +37,15 @@ export interface CachedPet {
   sortOrder: number;
 }
 
+/** 시작 전 처방의 최소 필드 — 시작일이 되면 클라이언트가 활성으로 본다. */
+export interface UpcomingCourse {
+  id: string;
+  name: string;
+  dosesPerDay: number;
+  doseTimes: string[];
+  startDate: string;
+}
+
 /** `/api/home` 응답에서 캐시하는 부분. 제네릭이라 화면의 타입을 그대로 쓴다. */
 export interface QuickHomeSnapshot<TPreset, TRoutine, TCourse> {
   pets: CachedPet[];
@@ -41,6 +53,7 @@ export interface QuickHomeSnapshot<TPreset, TRoutine, TCourse> {
   presets: TPreset[];
   routines: TRoutine[];
   courses: TCourse[];
+  upcomingCourses: UpcomingCourse[];
 }
 
 interface StoredEntry<TPreset, TRoutine, TCourse> extends QuickHomeSnapshot<TPreset, TRoutine, TCourse> {
@@ -108,7 +121,8 @@ function parseEntry<TPreset, TRoutine, TCourse>(
       !Array.isArray(entry.pets) ||
       !Array.isArray(entry.presets) ||
       !Array.isArray(entry.routines) ||
-      !Array.isArray(entry.courses)
+      !Array.isArray(entry.courses) ||
+      !Array.isArray(entry.upcomingCourses)
     ) {
       return null;
     }
@@ -164,6 +178,24 @@ export function loadCachedPetList(
   options: { now?: number; storage?: QuickHomeStorage } = {},
 ): CachedPet[] {
   return loadQuickHomeCache<unknown, unknown, unknown>(who, null, options)?.pets ?? [];
+}
+
+/**
+ * 스냅샷의 처방 목록 — 저장 당시 오늘 대상이던 처방에, 그 뒤 시작일이 된 예정 처방을 더한다. 서버와
+ * 같은 KST 날짜 규칙(`courseStartsByTodayBefore`)으로 판정한다. 이미 있는 id는 중복해 넣지 않는다.
+ */
+export function coursesActiveAt<TCourse extends { id: string }>(
+  courses: TCourse[],
+  upcoming: UpcomingCourse[],
+  now: Date,
+  build: (course: UpcomingCourse) => TCourse,
+): TCourse[] {
+  const limit = courseStartsByTodayBefore(now);
+  const known = new Set(courses.map((c) => c.id));
+  const started = upcoming
+    .filter((c) => !known.has(c.id) && new Date(c.startDate) < limit)
+    .map(build);
+  return [...courses, ...started];
 }
 
 /** 로그아웃·계정 전환 — 모든 사용자의 스냅샷을 지운다. */

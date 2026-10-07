@@ -45,10 +45,12 @@ import {
   type QuickMode,
 } from "../../lib/routines";
 import {
+  coursesActiveAt,
   loadCachedPetList,
   loadQuickHomeCache,
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
+  type UpcomingCourse,
 } from "../../lib/quickHomeCache";
 import { restoredEventBelongsToView } from "../../lib/restoreView";
 import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
@@ -90,6 +92,8 @@ interface QuickHomePayload {
   routines: Routine[];
   recentEvents: TimelineEvent[];
   activeMedicationCourses: ActiveMedicationCourse[];
+  /** 시작 전 처방 최소 필드 — 오프라인 스냅샷용. 오늘 대상(`activeMedicationCourses`)과 별개다 */
+  upcomingMedicationCourses?: UpcomingCourse[];
 }
 
 const QUICK_RECENT_COUNT = 5;
@@ -214,6 +218,7 @@ export default function QuickRecordPage() {
               presets: data.presets,
               routines: data.routines ?? [],
               courses: data.activeMedicationCourses ?? [],
+              upcomingCourses: data.upcomingMedicationCourses ?? [],
             },
           );
         }
@@ -234,8 +239,16 @@ export default function QuickRecordPage() {
           setRoutines(cached.routines);
           setRecentEvents([]);
           // 오늘 몫 진행은 오래된 값이라 비운다 — 이미 먹였는지는 서버가 판정한다 (409)
+          // 저장 뒤 시작일이 된 예정 처방도 활성으로 (서버와 같은 KST 날짜 규칙)
           setActiveMedicationCourses(
-            cached.courses.map((c) => ({ ...c, doseSlotsToday: [], dosesGivenToday: 0 })),
+            coursesActiveAt(cached.courses, cached.upcomingCourses, new Date(), (c) => ({
+              id: c.id,
+              name: c.name,
+              dosesPerDay: c.dosesPerDay,
+              doseTimes: c.doseTimes,
+              doseSlotsToday: [],
+              dosesGivenToday: 0,
+            })).map((c) => ({ ...c, doseSlotsToday: [], dosesGivenToday: 0 })),
           );
           setCachedAt(cached.savedAt);
           if (explicit) saveQuickPetId(cached.activePet.id);

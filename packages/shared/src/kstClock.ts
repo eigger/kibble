@@ -12,6 +12,15 @@ export function startOfTodayBoundary(
   return new Date(Date.UTC(y, m, d) - offsetMinutes * 60_000);
 }
 
+/**
+ * 오늘(KST) 안에 시작했거나 이미 시작한 처방의 시작일 상한 — `startDate < 이 값`. 처방 시작일은 그날
+ * KST 정오로 저장되므로 시각이 아니라 날짜로 본다. 서버(진행 중 목록·리마인더)와 오프라인 스냅샷을
+ * 그리는 클라이언트가 같은 규칙을 쓴다.
+ */
+export function courseStartsByTodayBefore(now = new Date()): Date {
+  return new Date(startOfTodayBoundary(now).getTime() + 86_400_000);
+}
+
 /** KST 달력 날짜(base) + dayOffset일의 hour:minute → UTC instant */
 export function kstDateTime(
   base: Date,
