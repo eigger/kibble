@@ -44,13 +44,21 @@ export function isRoutineItemSkipped(item: RoutineItem): boolean {
 export function routineItemSummary(
   item: RoutineItem,
   tLabel: (labelOrKey: string) => string,
+  /** 주면 제공량·섭취량을 말로 구분한다 ("사료 제공 10g · 섭취 8g") — 홈 카드와 같은 낱말 */
+  amountLabels?: { offered: string; consumed: string },
 ): string {
   if (isMedicationItem(item) && item.course) return item.course.name;
   const name =
     item.product?.name ?? item.productName ?? tLabel(item.preset?.label ?? item.eventType.label);
   const unit = item.unit ?? item.eventType.defaultUnit;
   if (item.quantityOffered != null && item.quantity != null) {
+    if (amountLabels) {
+      return `${name} ${amountLabels.offered} ${formatQuantity(item.quantityOffered, unit)} · ${amountLabels.consumed} ${formatQuantity(item.quantity, unit)}`;
+    }
     return `${name} ${formatQuantity(item.quantityOffered, unit)} / ${formatQuantity(item.quantity, unit)}`;
+  }
+  if (amountLabels && item.quantityOffered != null) {
+    return `${name} ${amountLabels.offered} ${formatQuantity(item.quantityOffered, unit)}`;
   }
   const single = item.quantity ?? item.quantityOffered;
   if (single == null) return name;
@@ -62,8 +70,11 @@ export function routineSummary(
   routine: Routine,
   tLabel: (labelOrKey: string) => string,
   maxItems = 2,
+  amountLabels?: { offered: string; consumed: string },
 ): string {
-  const parts = routine.items.slice(0, maxItems).map((item) => routineItemSummary(item, tLabel));
+  const parts = routine.items
+    .slice(0, maxItems)
+    .map((item) => routineItemSummary(item, tLabel, amountLabels));
   const rest = routine.items.length - parts.length;
   if (rest > 0) parts.push(`+${rest}`);
   return parts.join(" · ");

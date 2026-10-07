@@ -2,7 +2,7 @@
 
 import type { TranslationKey } from "../lib/i18n/translations";
 
-type CourseOption = { id: string; name: string };
+type CourseOption = { id: string; name: string; done?: boolean };
 
 type Props = {
   open: boolean;
@@ -32,9 +32,11 @@ export function MedicationCoursePickSheet({ open, courses, onClose, onPick, t }:
               <button
                 type="button"
                 className="med-course-pick-item"
+                disabled={course.done}
                 onClick={() => onPick(course.id)}
               >
                 {course.name}
+                {course.done && <span className="meta"> · {t("medicationCourseDoneToday")}</span>}
               </button>
             </li>
           ))}

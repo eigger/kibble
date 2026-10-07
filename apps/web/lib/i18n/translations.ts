@@ -619,8 +619,8 @@ const dict = {
   quickRecordTitle: { ko: "빠른 기록", en: "Quick log" },
   quickRecordRecentTitle: { ko: "최근 기록", en: "Recent logs" },
   quickRecordEmpty: {
-    ko: "아래 칩을 눌러 기록하세요. 저장 후 바로 상세를 입력할 수 있습니다.",
-    en: "Tap a chip below to log. You can add details right after saving.",
+    ko: "아래 칩을 눌러 기록하세요. 눌러서 열린 창에서 저장하면 기록됩니다.",
+    en: "Tap a chip below to log. Save in the sheet that opens to record it.",
   },
   quickRecordDetailHint: {
     ko: "칩을 누르면 상세 입력 화면이 열립니다. 저장하면 기록됩니다.",
@@ -689,6 +689,7 @@ const dict = {
   },
   careLogDoseSlot: { ko: "{slot} 복약 기록", en: "Log {slot} dose" },
   medicationSlotPickTitle: { ko: "몇 시 복약인가요?", en: "Which dose time?" },
+  medicationCourseDoneToday: { ko: "오늘 완료", en: "Done today" },
   medicationTodayComplete: {
     ko: "오늘 복약을 모두 기록했습니다",
     en: "Today's doses are already logged",
@@ -878,6 +879,11 @@ const dict = {
     en: "Saved, but the list could not refresh. Pull down to refresh.",
   },
   undo: { ko: "실행 취소", en: "Undo" },
+  eventDeleted: { ko: "기록을 삭제했습니다", en: "Event deleted" },
+  eventRestoreError: {
+    ko: "되돌리지 못했습니다. 연결을 확인하세요.",
+    en: "Could not restore. Check your connection.",
+  },
   recordUndone: { ko: "기록을 취소했습니다", en: "Event removed" },
 
   // settings
