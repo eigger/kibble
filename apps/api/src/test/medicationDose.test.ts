@@ -36,7 +36,7 @@ describe("복약 기록 — 입력 시각 · 슬롯 자동 선택 · 중복 거�
     mockPrisma.householdMember.findFirst.mockResolvedValue({ householdId: HH, role: "OWNER" });
     mockPrisma.user.findUnique.mockResolvedValue({ tokenVersion: 1 });
     mockPrisma.pet.findFirst.mockResolvedValue({ id: PET });
-    mockPrisma.eventType.findFirst.mockResolvedValue({ id: MED_TYPE, scaleType: null });
+    mockPrisma.eventType.findFirst.mockResolvedValue({ id: MED_TYPE, key: "medication", scaleType: null });
     mockPrisma.event.aggregate.mockResolvedValue({ _max: { doseOrdinal: null }, _count: { _all: 0 } });
     mockPrisma.event.create.mockResolvedValue({ id: "event_1" });
     mockPrisma.event.findFirst.mockResolvedValue({ id: "event_1" });

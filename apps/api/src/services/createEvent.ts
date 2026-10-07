@@ -8,9 +8,9 @@ import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
 export class CreateEventNotFoundError extends Error {
-  readonly field: "pet" | "preset" | "eventType";
+  readonly field: "pet" | "preset" | "eventType" | "course";
 
-  constructor(field: "pet" | "preset" | "eventType") {
+  constructor(field: "pet" | "preset" | "eventType" | "course") {
     super(`CREATE_EVENT_NOT_FOUND_${field.toUpperCase()}`);
     this.name = "CreateEventNotFoundError";
     this.field = field;
@@ -21,6 +21,14 @@ export class CreateEventValidationError extends Error {
   constructor(message = "CREATE_EVENT_VALIDATION") {
     super(message);
     this.name = "CreateEventValidationError";
+  }
+}
+
+/** 토큰 스코프(고정 eventTypeId)를 벗어나는 요청 — 라우트는 403으로 돌려준다. */
+export class CreateEventScopeError extends Error {
+  constructor() {
+    super("EVENT_TYPE_SCOPE_MISMATCH");
+    this.name = "CreateEventScopeError";
   }
 }
 
@@ -40,6 +48,8 @@ export type CreateEventParams = {
   petId: string;
   presetId?: string | null;
   eventTypeId?: string;
+  /** 토큰 등으로 고정된 이벤트 타입 — 프리셋 해석 결과가 다르면 CreateEventScopeError. */
+  scopedEventTypeId?: string | null;
   occurredAt?: Date;
   quantity?: number | null;
   quantityOffered?: number | null;
@@ -170,6 +180,10 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     });
     if (!preset) throw new CreateEventNotFoundError("preset");
 
+    if (params.scopedEventTypeId && preset.eventTypeId !== params.scopedEventTypeId) {
+      throw new CreateEventScopeError();
+    }
+
     eventTypeId = preset.eventTypeId;
     presetId = preset.id;
     if (quantity == null && preset.quantity != null) quantity = Number(preset.quantity);
@@ -201,6 +215,9 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     select: { id: true, key: true, scaleType: true },
   });
   if (!eventType) throw new CreateEventNotFoundError("eventType");
+  if (params.scopedEventTypeId && eventType.id !== params.scopedEventTypeId) {
+    throw new CreateEventScopeError();
+  }
 
   validateScaleValue(eventType.scaleType, params.scaleValue);
 
@@ -210,6 +227,9 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
   const occurredAt = params.occurredAt ?? new Date();
 
   if (medicationCourseId) {
+    if (eventType.key !== "medication") {
+      throw new CreateEventValidationError("MEDICATION_COURSE_NOT_ALLOWED");
+    }
     const course = await db.medicationCourse.findFirst({
       where: {
         id: medicationCourseId,
@@ -219,7 +239,7 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
       },
       select: { id: true, dosesPerDay: true, doseTimes: true },
     });
-    if (!course) throw new CreateEventNotFoundError("eventType");
+    if (!course) throw new CreateEventNotFoundError("course");
 
     // 복약 시각은 입력한 시각이다. 처방의 doseTimes는 "언제 먹여야 하나"이지 "그때
     // 먹였다"가 아니다 — 슬롯은 doseSlotIndex로만 매인다 (WORKPLAN §3.10, R165).
