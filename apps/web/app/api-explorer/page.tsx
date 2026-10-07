@@ -187,14 +187,11 @@ export default function ApiExplorerPage() {
   return (
     <main className="container api-explorer">
       <h1>{t("apiExplorerTitle")}</h1>
-      {isAdmin && (
-        <>
-          <p className="meta">{t("apiExplorerIntro")}</p>
-          <p className="meta">
-            {t("apiExplorerBaseUrl")} <code className="api-explorer-inline-code">{API_URL}</code>
-          </p>
-        </>
-      )}
+      {isAdmin && <p className="meta">{t("apiExplorerIntro")}</p>}
+      {/* 브라우저가 이미 쓰는 공개 주소라 숨길 이유가 없다 — OWNER가 HA 설정에 넣을 주소다 */}
+      <p className="meta">
+        {t("apiExplorerBaseUrl")} <code className="api-explorer-inline-code">{API_URL}</code>
+      </p>
 
       <ApiTokenManager isHouseholdOwner={user.householdRole === "OWNER"} />
 

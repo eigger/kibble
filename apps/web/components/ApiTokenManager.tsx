@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { useLocale } from "../lib/i18n/locale-context";
 import type { Pet } from "../lib/types";
 
@@ -20,13 +21,14 @@ type IssuedToken = ApiToken & { token: string };
 
 /** Manage household API tokens; the API itself gates this section to OWNERs. */
 export function ApiTokenManager({ isHouseholdOwner }: { isHouseholdOwner: boolean }) {
-  const { t } = useLocale();
+  const { t, formatDateTime } = useLocale();
   const [pets, setPets] = useState<Pet[]>([]);
   const [petId, setPetId] = useState("");
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [issuedToken, setIssuedToken] = useState<IssuedToken | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<ApiToken | null>(null);
 
   const load = useCallback(async () => {
     if (!isHouseholdOwner) return;
@@ -78,7 +80,6 @@ export function ApiTokenManager({ isHouseholdOwner }: { isHouseholdOwner: boolea
   }, [load, petId, pets, t]);
 
   const revokeToken = useCallback(async (token: ApiToken) => {
-    if (!confirm(t("apiTokenRevokeConfirm", { name: token.name }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -93,6 +94,7 @@ export function ApiTokenManager({ isHouseholdOwner }: { isHouseholdOwner: boolea
       setMessage(t("apiTokenRevokeError", { status: err instanceof Error ? err.message : "" }));
     } finally {
       setBusy(false);
+      setRevokeTarget(null);
     }
   }, [issuedToken, load, t]);
 
@@ -141,16 +143,26 @@ export function ApiTokenManager({ isHouseholdOwner }: { isHouseholdOwner: boolea
             <div>
               <strong>{token.name}</strong>
               <p className="meta">
-                {token.pet?.name ?? t("apiTokenAnyPet")} · {token.scopes.join(", ")} · {t("apiTokenLastUsed")}: {token.lastUsedAt ?? t("neverLabel")}
+                {token.pet?.name ?? t("apiTokenAnyPet")} · {token.scopes.join(", ")} · {t("apiTokenLastUsed")}: {token.lastUsedAt ? formatDateTime(token.lastUsedAt) : t("neverLabel")}
               </p>
             </div>
-            <button type="button" className="danger" onClick={() => void revokeToken(token)} disabled={busy}>
+            <button type="button" className="danger" onClick={() => setRevokeTarget(token)} disabled={busy}>
               {t("revokeButton")}
             </button>
           </div>
         ))}
         {tokens.length === 0 && <p className="meta">{t("apiTokenNone")}</p>}
       </div>
+      <ConfirmDialog
+        open={revokeTarget != null}
+        title={revokeTarget ? t("apiTokenRevokeConfirm", { name: revokeTarget.name }) : ""}
+        confirmLabel={t("revokeButton")}
+        cancelLabel={t("cancel")}
+        danger
+        busy={busy}
+        onConfirm={() => revokeTarget && void revokeToken(revokeTarget)}
+        onCancel={() => !busy && setRevokeTarget(null)}
+      />
     </section>
   );
 }

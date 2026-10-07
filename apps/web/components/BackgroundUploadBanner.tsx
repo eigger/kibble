@@ -149,7 +149,7 @@ export function BackgroundUploadBanner() {
                       <ul className="bg-upload-file-list">
                         {item.succeededFiles.map((f, fi) => (
                           <li key={fi} className="bg-upload-file-item success">
-                            <span className="bg-upload-file-name">{f.name || `파일 #${fi + 1}`}</span>
+                            <span className="bg-upload-file-name">{f.name || t("attachmentUploadFileNumber", { n: String(fi + 1) })}</span>
                           </li>
                         ))}
                       </ul>

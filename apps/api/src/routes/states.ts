@@ -4,6 +4,7 @@ import { t } from "../lib/i18n.js";
 import { householdWhere } from "../lib/householdScope.js";
 import { petStateFor } from "../lib/petState.js";
 import { todaySummaryForPet } from "../lib/todaySummary.js";
+import { serializeTodayEvent } from "../lib/todayEvents.js";
 import { startOfTodayBoundary } from "../lib/kstClock.js";
 import {
   requireStateReadAccess,
@@ -92,22 +93,9 @@ export async function stateRoutes(app: FastifyInstance) {
 
       // Keep the aggregate fields backwards compatible. `todayEvents` is a
       // bounded, newest-first list for dashboards that need individual entries.
-      const todayEvents = events.slice(0, TODAY_EVENT_LIMIT).map((event) => ({
-        id: event.id,
-        occurredAt: event.occurredAt.toISOString(),
-        eventTypeKey: event.eventType.key,
-        label: event.eventType.label,
-        quantity: event.quantity == null ? null : Number(event.quantity),
-        quantityOffered:
-          event.quantityOffered == null ? null : Number(event.quantityOffered),
-        unit: event.unit,
-        scaleValue: event.scaleValue,
-        productName: event.productName ?? event.product?.name ?? null,
-        presetName: event.preset?.label ?? null,
-        note: event.note,
-        medicationCourseName: event.course?.name ?? null,
-        doseSlotIndex: event.doseSlotIndex,
-      }));
+      const todayEvents = events
+        .slice(0, TODAY_EVENT_LIMIT)
+        .map((event) => serializeTodayEvent(event, request.locale));
       return {
         ...state,
         todaySummary,
