@@ -4,7 +4,7 @@
 
 **결정**: `GET /api/states`의 `todayEvents[]`는 원시 필드(`label`, `presetName`, `productName`)를 그대로 두고 해석된 필드를 **추가**한다 — `eventTypeLabel`·`presetLabel`(X-Locale, 기본 ko), `productLabel`, `productTags`. 시스템 라벨 키(`eventType.*`)는 서버에 작은 사전을 둔다(`lib/i18n.ts`, 웹 사전과 값이 같아야 한다). 태그 slug의 표시 이름(`eventTag.*`, 수십 개)은 서버에 복제하지 않고 slug 목록만 구조화해 준다 — 소비자가 slug를 식별자로 쓴다. 재검토 조건: 연동에서 slug 표시 이름 요구가 반복되면 공유 패키지로 사전을 옮긴다. Base URL은 브라우저가 이미 쓰는 공개 주소(`API_URL`)라 OWNER에게도 보인다(비밀 아님).
 
-**알아둘 것**: 서버·웹 라벨 사전이 둘이라 드리프트할 수 있다(새 시스템 타입 추가 시 양쪽). 기록 `chunkedUpload` 오류 문구와 `파일 #n`은 i18n으로 옮겼다.
+**알아둘 것**: 서버·웹 라벨 사전이 둘이라 드리프트할 수 있다(새 시스템 타입 추가 시 양쪽). 서버 쪽 누락은 `resolveLabel.test.ts`가 시드의 모든 라벨을 ko/en으로 풀어 보며 잡는다(웹 사전과의 값 일치는 여전히 수동). 기록 `chunkedUpload` 오류 문구와 `파일 #n`은 i18n으로 옮겼다.
 
 ### 2026-10-07 — /q 반려동물 전환·VIEWER 읽기 전용
 
