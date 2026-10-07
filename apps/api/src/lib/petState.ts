@@ -193,7 +193,8 @@ export async function petStateFor(
     todayPerType(db, params.householdId, pet.id, since),
     medicationCoursesWithProgress(db, params.householdId, pet.id, now),
     db.reminder.findMany({
-      where: { petId: pet.id, active: true },
+      // Reminder에는 householdId 컬럼이 없다 — 관계로 가구 조건을 건다 (K-1)
+      where: { petId: pet.id, pet: { householdId: params.householdId }, active: true },
       orderBy: { nextDueAt: "asc" },
       select: { id: true, label: true, nextDueAt: true },
     }),

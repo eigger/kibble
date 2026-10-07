@@ -137,6 +137,19 @@ describe("GET /api/states — 역방향 읽기 (WORKPLAN P2-04)", () => {
     expect(res.json().medication).toMatchObject({ activeCourses: 0, dosesPlannedToday: 0, courses: [] });
   });
 
+  it("리마인더 조회에도 가구 조건이 걸린다 (K-1, 컬럼이 없어 관계로)", async () => {
+    await app.inject({
+      method: "GET",
+      url: `/api/states?petId=${PET}`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+    expect(mockPrisma.reminder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { petId: PET, pet: { householdId: HH }, active: true },
+      }),
+    );
+  });
+
   it("최근에 갱신된 토큰은 폴링마다 lastUsedAt을 쓰지 않는다 (K-7 예외 2)", async () => {
     mockPrisma.apiToken.findFirst.mockResolvedValue({
       id: "token_1",

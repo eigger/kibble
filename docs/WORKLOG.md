@@ -8,6 +8,10 @@
 
 **기각: 일회성 lowercasing 마이그레이션** — 대소문자만 다른 중복 행이 있으면 유니크 충돌로 마이그레이션이 깨지거나 계정이 합쳐진다. 재검토 조건: 중복이 실제로 확인되면 정리 도구(중복 목록 → 관리자가 선택해 하나로)를 만들고 그 뒤에 소문자 CHECK/인덱스를 건다.
 
+### 2026-10-08 — Reminder 조회에 가구 조건(K-1 문자 맞춤)
+
+`Reminder`에는 `householdId` 컬럼이 없어 `where: { petId, active }`만으로 조회했다. 펫은 이미 가구 범위에서 찾은 것이라 실제 누수는 없었지만 K-1의 문자("모든 조회의 where에 householdId")와 어긋났다. 관계 필터 `pet: { householdId }`를 `care.ts`·`petState.ts`의 두 조회에 추가했다. 다른 `reminder` 접근은 시스템 이벤트 타입 병합 시드(`mergeSystemEventType`, `migrateEnergyToObservation`)의 `updateMany({ eventTypeId })`뿐이며 가구 요청이 아니라 전역 시드 이관이라 그대로 둔다. WORKPLAN K-1에는 Reminder 예외 문구가 없어 갱신할 것이 없었다.
+
 ### 2026-10-08 — 오프라인 스냅샷에 예정 처방 포함
 
 **문제**: 어제 예정(upcoming)이던 처방은 어제 저장된 오프라인 스냅샷에 없어, 시작일 아침 오프라인으로 /q를 열면 투약 칩이 막혔다. **수정**: `/api/home`이 `upcomingMedicationCourses`(id·이름·횟수·시간대·`startDate`만)를 **별도 필드**로 더 내린다(`activeMedicationCourses`의 의미는 그대로 — 오늘 대상만). 스냅샷이 이를 함께 저장하고(`upcomingCourses`), 오프라인으로 그릴 때 클라이언트가 서버와 **같은 KST 날짜 규칙**(`courseStartsByTodayBefore`, shared로 옮겨 서버·웹이 한 구현을 쓴다)으로 시작일이 된 것을 활성에 더한다(`coursesActiveAt`). 스냅샷 `VERSION`을 2로 올렸다(#145 규칙: 읽는 필드의 형태가 바뀌었다) — v1 스냅샷은 버려지고 한 번 온라인으로 열면 다시 채워진다. 예정 처방이 이미 지난 종료일을 가졌는지는 스냅샷이 모른다(종료일은 담지 않는다; 틀려도 서버가 기록 시 거른다).

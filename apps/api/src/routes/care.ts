@@ -92,7 +92,8 @@ export async function careRoutes(app: FastifyInstance) {
       medicationCoursesWithProgress(prisma, householdId, activePet.id),
       countPastMedicationCourses(prisma, householdId, activePet.id),
       prisma.reminder.findMany({
-        where: { petId: activePet.id, active: true },
+        // Reminder에는 householdId 컬럼이 없다 — 관계로 가구 조건을 건다 (K-1)
+        where: { petId: activePet.id, pet: { householdId }, active: true },
         orderBy: { nextDueAt: "asc" },
         select: {
           id: true,
