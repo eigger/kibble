@@ -841,6 +841,10 @@ const dict = {
     ko: "기록 입력…",
     en: "Type a log entry…",
   },
+  quickViewerReadOnly: {
+    ko: "읽기 전용 계정이라 기록할 수 없습니다. 기록은 볼 수 있어요.",
+    en: "This is a read-only account, so you can't record. You can still view entries.",
+  },
   homePetTabsLabel: { ko: "반려동물 선택", en: "Select pet" },
   textSubmit: { ko: "기록", en: "Log" },
   parseSuggestionsTitle: { ko: "검토가 필요한 기록", en: "Needs review" },

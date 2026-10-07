@@ -13,7 +13,8 @@ describe("offlineSync helpers", () => {
     expect(isPermanentApiRejection(new ApiError("too large", 413))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad type", 415))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad", 401))).toBe(false);
-    expect(isPermanentApiRejection(new ApiError("bad", 403))).toBe(false);
+    // VIEWER 쓰기 거절(viewerReadOnly) — 다시 보내도 같은 결과라 큐에서 영원히 재시도하면 안 된다
+    expect(isPermanentApiRejection(new ApiError("read only", 403))).toBe(true);
     expect(isPermanentApiRejection(new ApiError("bad", 429))).toBe(false);
     expect(isPermanentApiRejection(new ApiError("bad", 500))).toBe(false);
     expect(isPermanentApiRejection(new Error("network"))).toBe(false);
