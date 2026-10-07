@@ -619,8 +619,8 @@ const dict = {
   quickRecordTitle: { ko: "빠른 기록", en: "Quick log" },
   quickRecordRecentTitle: { ko: "최근 기록", en: "Recent logs" },
   quickRecordEmpty: {
-    ko: "아래 칩을 눌러 기록하세요. 저장 후 바로 상세를 입력할 수 있습니다.",
-    en: "Tap a chip below to log. You can add details right after saving.",
+    ko: "아래 칩을 눌러 기록하세요. 눌러서 열린 창에서 저장하면 기록됩니다.",
+    en: "Tap a chip below to log. Save in the sheet that opens to record it.",
   },
   quickRecordDetailHint: {
     ko: "칩을 누르면 상세 입력 화면이 열립니다. 저장하면 기록됩니다.",

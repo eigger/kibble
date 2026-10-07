@@ -1,5 +1,6 @@
 "use client";
 
+import { historyEventHref } from "../lib/historyLink";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -319,11 +320,11 @@ export default function HomePage() {
                         className="timeline-item timeline-item-clickable"
                         role="button"
                         tabIndex={0}
-                        onClick={() => router.push("/history")}
+                        onClick={() => router.push(historyEventHref(activePet?.id, event.id))}
                         onKeyDown={(e) => {
                           if (e.key !== "Enter" && e.key !== " ") return;
                           e.preventDefault();
-                          router.push("/history");
+                          router.push(historyEventHref(activePet?.id, event.id));
                         }}
                       >
                         <time className="timeline-time" dateTime={event.occurredAt}>

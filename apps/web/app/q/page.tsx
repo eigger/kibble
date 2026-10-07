@@ -1021,6 +1021,7 @@ export default function QuickRecordPage() {
                     }
                     running={runningRoutineId === routine.id}
                     runningLabel={t("saving")}
+                    amountLabels={{ offered: t("homeTodayOffered"), consumed: t("homeTodayConsumed") }}
                     onTap={(r) => void runRoutine(r)}
                   />
                 ))}

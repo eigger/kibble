@@ -97,7 +97,10 @@ export default function RoutinesPage() {
   }, [petId, loadForPet]);
 
   function itemMeta(item: RoutineItem): string {
-    if (!isRoutineItemSkipped(item)) return routineItemSummary(item, tLabel);
+    if (!isRoutineItemSkipped(item)) return routineItemSummary(item, tLabel, {
+        offered: t("homeTodayOffered"),
+        consumed: t("homeTodayConsumed"),
+      });
     return t("routineCourseEndedMeta", {
       name: item.course?.name ?? tLabel(item.preset?.label ?? item.eventType.label),
     });

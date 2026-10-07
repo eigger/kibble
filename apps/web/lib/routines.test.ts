@@ -167,6 +167,18 @@ describe("routine meal offered/consumed", () => {
     expect(routineItemSummary(item({ quantity: 8, unit: "g" }), tLabel)).toBe("사료 8g");
   });
 
+  it("names offered and consumed when labels are given", () => {
+    const labels = { offered: "제공", consumed: "섭취" };
+    expect(
+      routineItemSummary(item({ quantity: 8, quantityOffered: 10, unit: "g" }), tLabel, labels),
+    ).toBe("사료 제공 10g · 섭취 8g");
+    expect(routineItemSummary(item({ quantityOffered: 10, unit: "g" }), tLabel, labels)).toBe(
+      "사료 제공 10g",
+    );
+    // 섭취량만 있는 기존 루틴은 그대로다
+    expect(routineItemSummary(item({ quantity: 8, unit: "g" }), tLabel, labels)).toBe("사료 8g");
+  });
+
   it("sends both quantities to the event, but not for medication", () => {
     const meal = item({ quantity: 8, quantityOffered: 10, unit: "g" });
     const { events } = buildRoutineEventBodies(routineOf([meal]), "p1", "2026-10-07T00:00:00.000Z", "s");
