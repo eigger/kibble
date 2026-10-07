@@ -50,6 +50,7 @@ import {
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
 } from "../../lib/quickHomeCache";
+import { restoredEventBelongsToView } from "../../lib/restoreView";
 import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
 import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
@@ -92,8 +93,6 @@ interface QuickHomePayload {
 }
 
 const QUICK_RECENT_COUNT = 5;
-/** 실행취소 토스트(3초)가 닫힌 뒤에 업로드를 정리한다 */
-const UNDO_GRACE_MS = 3500;
 
 function randomSuffix(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -124,6 +123,11 @@ export default function QuickRecordPage() {
   const localeTag = intlLocale(locale);
   const [pet, setPet] = useState<Pet | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
+  // 비동기 콜백(실행취소)이 "지금 보고 있는" 반려동물을 읽는다
+  const petRef = useRef<Pet | null>(null);
+  useEffect(() => {
+    petRef.current = pet;
+  }, [pet]);
   // 저장해 둔 칩으로 그리는 중이면 저장 시각 — 타임라인은 비어 있다
   const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
@@ -637,16 +641,18 @@ export default function QuickRecordPage() {
     setDeletingEventId(eventId);
     try {
       await apiJson(`/api/events/${eventId}`, { method: "DELETE" });
-      // 업로드 정리는 실행취소 토스트가 닫힌 뒤로 미룬다 — 실수로 지운 행을 되돌리면
-      // 아직 안 올라간 첨부가 이어서 올라가야 한다. 토스트(3초)보다 조금 길게 잡는다
+      // 업로드 정리는 실행취소 토스트가 닫힐 때로 미룬다 — 실수로 지운 행을 되돌리면 아직 안
+      // 올라간 첨부가 이어서 올라가야 한다. 토스트는 호버·포커스 중 멈추므로 시간으로 맞추지 않고
+      // 토스트의 닫힘(onClose)에 묶는다. 실행취소가 없는 삭제(removed 없음)는 바로 정리한다
       pendingUploadCancels.current.get(eventId)?.flush();
       pendingUploadCancels.current.set(
         eventId,
         deferOnce(() => {
           pendingUploadCancels.current.delete(eventId);
           cancelUploadsForEvent(eventId);
-        }, UNDO_GRACE_MS),
+        }, null),
       );
+      if (!removed) pendingUploadCancels.current.get(eventId)?.flush();
       setRecentEvents((prev) => prev.filter((e) => e.id !== eventId));
       if (detailDraft?.eventId === eventId) {
         setDetailOpen(false);
@@ -659,6 +665,7 @@ export default function QuickRecordPage() {
         t("eventDeleted"),
         "info",
         removed ? { label: t("undo"), onClick: () => void restoreEvent(removed) } : undefined,
+        { onClose: () => pendingUploadCancels.current.get(eventId)?.flush() },
       );
     } catch (err) {
       show(formatApiErrorMessage(err, t("recordError"), locale), "error");
@@ -672,7 +679,14 @@ export default function QuickRecordPage() {
     pendingUploadCancels.current.get(event.id)?.cancel();
     pendingUploadCancels.current.delete(event.id);
     try {
-      await apiJson(`/api/events/${event.id}/restore`, { method: "POST" });
+      const restored = await apiJson<{ petId?: string }>(`/api/events/${event.id}/restore`, {
+        method: "POST",
+      });
+      // 삭제 뒤 다른 반려동물 탭으로 옮겼다면 이 화면에 끼워 넣지 않는다 (서버 복원은 성공)
+      if (!restoredEventBelongsToView(restored?.petId, petRef.current?.id)) {
+        show(t("eventRestoredOtherPet"), "success");
+        return;
+      }
       setRecentEvents((prev) =>
         prev.some((e) => e.id === event.id) ? prev : insertTimelineEvent(prev, event),
       );

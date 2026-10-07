@@ -880,6 +880,10 @@ const dict = {
   },
   undo: { ko: "실행 취소", en: "Undo" },
   eventDeleted: { ko: "기록을 삭제했습니다", en: "Event deleted" },
+  eventRestoredOtherPet: {
+    ko: "기록을 되돌렸습니다. 다른 반려동물의 기록이라 이 화면에는 보이지 않아요.",
+    en: "Event restored. It belongs to another pet, so it isn't shown here.",
+  },
   eventRestoreError: {
     ko: "되돌리지 못했습니다. 연결을 확인하세요.",
     en: "Could not restore. Check your connection.",
