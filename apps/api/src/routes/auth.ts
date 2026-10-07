@@ -128,6 +128,8 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post("/logout-all", { preHandler: [app.authenticate] }, async (request, reply) => {
     await bumpTokenVersion(request.user.sub);
+    // 전 기기 로그아웃 — 이 사용자의 푸시 구독도 전부 거둔다(공용 기기에서 알림이 계속 오지 않게)
+    await prisma.pushSubscription.deleteMany({ where: { userId: request.user.sub } });
     clearMediaCookie(reply);
     return reply.code(204).send();
   });
@@ -284,6 +286,7 @@ export async function authRoutes(app: FastifyInstance) {
       const passwordHash = await bcrypt.hash(temporaryPassword, 10);
       await prisma.user.update({ where: { id }, data: { passwordHash } });
       await bumpTokenVersion(id);
+      await prisma.pushSubscription.deleteMany({ where: { userId: id } });
 
       return {
         id: target.id,
@@ -336,6 +339,7 @@ export async function authRoutes(app: FastifyInstance) {
     if (newPassword) {
       // 비밀번호가 바뀌면 기존 토큰을 전부 무효화한다(탈취 대응). 현재 세션도 재로그인 필요.
       await bumpTokenVersion(userId);
+      await prisma.pushSubscription.deleteMany({ where: { userId } });
       clearMediaCookie(reply);
     } else {
       invalidateTokenVersionCache(userId);

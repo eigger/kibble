@@ -14,6 +14,7 @@ const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn(), findUnique: vi.fn() },
   user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
   pet: { count: vi.fn() },
+  pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
 }));
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
