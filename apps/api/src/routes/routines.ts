@@ -27,6 +27,7 @@ export const routineSelect = {
       productId: true,
       productName: true,
       quantity: true,
+      quantityOffered: true,
       unit: true,
       medicationCourseId: true,
       eventType: { select: { key: true, label: true, category: true, defaultUnit: true } },
@@ -56,6 +57,7 @@ export function serializeRoutine(row: RoutineRow, now = new Date()) {
         productId: item.productId,
         productName: item.productName,
         quantity: item.quantity != null ? item.quantity.toNumber() : null,
+        quantityOffered: item.quantityOffered != null ? item.quantityOffered.toNumber() : null,
         unit: item.unit,
         eventType: item.eventType,
         preset: preset ? { id: preset.id, label: preset.label } : null,
@@ -171,6 +173,7 @@ function itemRows(
     productId: item.productId ?? null,
     productName: item.productName?.trim() || null,
     quantity: item.quantity ?? null,
+    quantityOffered: item.quantityOffered ?? null,
     unit: item.unit?.trim() || null,
     medicationCourseId: medicationTypeIds.has(item.eventTypeId)
       ? (item.medicationCourseId ?? null)

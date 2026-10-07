@@ -13,6 +13,7 @@ function item(overrides: Partial<RoutineItem>): RoutineItem {
     productId: null,
     productName: null,
     quantity: null,
+    quantityOffered: null,
     unit: null,
     eventType: { key: "meal", label: "eventType.meal", category: "HEALTH", defaultUnit: "g" },
     preset: null,

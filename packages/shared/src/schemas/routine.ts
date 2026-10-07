@@ -13,6 +13,8 @@ export const routineItemSchema = z.object({
   productId: z.string().trim().min(1).optional().nullable(),
   productName: z.string().trim().max(120).optional().nullable(),
   quantity: decimalOptional,
+  /** 사료 항목의 제공량. `quantity`는 섭취량이다 */
+  quantityOffered: decimalOptional,
   unit: z.string().trim().max(32).optional().nullable(),
   /** 투약 항목의 처방. `medication` 타입이면 필수다 — 슬롯은 실행 때 서버가 고른다 */
   medicationCourseId: z.string().trim().min(1).optional().nullable(),
