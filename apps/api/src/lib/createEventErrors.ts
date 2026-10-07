@@ -21,7 +21,9 @@ export function mapCreateEventError(err: unknown): CreateEventErrorReply | null 
           ? "presetNotFound"
           : err.field === "course"
             ? "medicationCourseNotFound"
-            : "eventTypeNotFound";
+            : err.field === "event"
+              ? "eventNotFound"
+              : "eventTypeNotFound";
     return { status: 404, key };
   }
   if (err instanceof CreateEventDoseConflictError) {

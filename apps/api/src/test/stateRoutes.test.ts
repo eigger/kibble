@@ -109,6 +109,35 @@ describe("GET /api/states — 역방향 읽기 (WORKPLAN P2-04)", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it("최근에 갱신된 토큰은 폴링마다 lastUsedAt을 쓰지 않는다 (K-7 예외 2)", async () => {
+    mockPrisma.apiToken.findFirst.mockResolvedValue({
+      id: "token_1",
+      householdId: HH,
+      scopes: ["state:read"],
+      presetId: null,
+      petId: null,
+      eventTypeId: null,
+      lastUsedAt: new Date(),
+    });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/states",
+      headers: { authorization: `Bearer ${PLAINTEXT_READ}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
+  });
+
+  it("오래된 토큰은 lastUsedAt을 갱신한다", async () => {
+    seedToken({ scopes: ["state:read"] });
+    await app.inject({
+      method: "GET",
+      url: "/api/states",
+      headers: { authorization: `Bearer ${PLAINTEXT_READ}` },
+    });
+    expect(mockPrisma.apiToken.update).toHaveBeenCalledTimes(1);
+  });
+
   // 개체 스코프 토큰이 다른 반려동물을 물으면 가구 안이라도 막는다.
   it("개체 스코프 토큰이 다른 petId를 물으면 403", async () => {
     seedToken({ scopes: ["state:read"], petId: PET });

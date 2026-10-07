@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveTokenScopedField } from "./authenticate.js";
+import { shouldTouchApiTokenLastUsed, resolveTokenScopedField } from "./authenticate.js";
 import { validateScaleValue, CreateEventValidationError } from "../services/createEvent.js";
 
 describe("resolveTokenScopedField", () => {
@@ -40,5 +40,20 @@ describe("validateScaleValue", () => {
 
   it("rejects scale value when type has no scale", () => {
     expect(() => validateScaleValue(null, 3)).toThrow(CreateEventValidationError);
+  });
+});
+
+describe("shouldTouchApiTokenLastUsed", () => {
+  const now = new Date("2026-10-08T12:00:00Z");
+
+  it("writes when never used or last written 5+ minutes ago", () => {
+    expect(shouldTouchApiTokenLastUsed(null, now)).toBe(true);
+    expect(shouldTouchApiTokenLastUsed(undefined, now)).toBe(true);
+    expect(shouldTouchApiTokenLastUsed(new Date("2026-10-08T11:55:00Z"), now)).toBe(true);
+  });
+
+  it("skips the write for polling inside the interval", () => {
+    expect(shouldTouchApiTokenLastUsed(new Date("2026-10-08T11:55:01Z"), now)).toBe(false);
+    expect(shouldTouchApiTokenLastUsed(new Date("2026-10-08T12:00:00Z"), now)).toBe(false);
   });
 });

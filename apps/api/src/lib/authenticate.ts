@@ -13,6 +13,8 @@ export type ApiTokenAuthContext = {
   presetId: string | null;
   petId: string | null;
   eventTypeId: string | null;
+  /** 직전 갱신 시각 — 폴링마다 쓰지 않도록 `touchApiTokenLastUsed`가 본다 */
+  lastUsedAt: Date | null;
 };
 
 function bearerToken(request: FastifyRequest): string | null {
@@ -50,6 +52,7 @@ async function authenticateApiToken(
       presetId: true,
       petId: true,
       eventTypeId: true,
+      lastUsedAt: true,
     },
   });
 
@@ -67,15 +70,34 @@ async function authenticateApiToken(
     presetId: row.presetId,
     petId: row.petId,
     eventTypeId: row.eventTypeId,
+    lastUsedAt: row.lastUsedAt ?? null,
   };
 
   return true;
 }
 
-/** 인가 통과 후에만 호출 — K-7: GET preHandler에서 DB 쓰기 금지 */
-export async function touchApiTokenLastUsed(tokenId: string): Promise<void> {
+/** 마지막 사용 표시를 이 간격보다 자주 쓰지 않는다 — HA 폴링마다 DB 쓰기가 생기지 않게 (K-7 예외 2). */
+export const TOKEN_LAST_USED_INTERVAL_MS = 5 * 60_000;
+
+export function shouldTouchApiTokenLastUsed(
+  lastUsedAt: Date | null | undefined,
+  now = new Date(),
+  intervalMs = TOKEN_LAST_USED_INTERVAL_MS,
+): boolean {
+  return !lastUsedAt || now.getTime() - lastUsedAt.getTime() >= intervalMs;
+}
+
+/**
+ * 인가 통과 후에만 호출. 토큰 메타데이터 쓰기이며 마지막 갱신 후 5분이 지났을 때만 쓴다 —
+ * "마지막 사용" 표시는 최대 5분 늦을 수 있다. 이벤트·상태 조회 경로가 같은 규칙을 쓴다.
+ */
+export async function touchApiTokenLastUsed(
+  token: Pick<ApiTokenAuthContext, "id" | "lastUsedAt">,
+  now = new Date(),
+): Promise<void> {
+  if (!shouldTouchApiTokenLastUsed(token.lastUsedAt, now)) return;
   await prisma.apiToken
-    .update({ where: { id: tokenId }, data: { lastUsedAt: new Date() } })
+    .update({ where: { id: token.id }, data: { lastUsedAt: now } })
     .catch(() => {});
 }
 

@@ -8,9 +8,9 @@ import { startOfTodayBoundary } from "../lib/kstClock.js";
 import { isUniqueConstraintError } from "../lib/prismaErrors.js";
 
 export class CreateEventNotFoundError extends Error {
-  readonly field: "pet" | "preset" | "eventType" | "course";
+  readonly field: "pet" | "preset" | "eventType" | "course" | "event";
 
-  constructor(field: "pet" | "preset" | "eventType" | "course") {
+  constructor(field: "pet" | "preset" | "eventType" | "course" | "event") {
     super(`CREATE_EVENT_NOT_FOUND_${field.toUpperCase()}`);
     this.name = "CreateEventNotFoundError";
     this.field = field;
@@ -177,10 +177,23 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
  */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (!params.medicationCourseId) return createEventUnlocked(db, params);
+  return withMedicationCourseLock(db, params.medicationCourseId, (tx) =>
+    createEventUnlocked(tx, params),
+  );
+}
 
+/**
+ * 처방 단위 advisory lock 아래에서 `fn`을 실행한다 — 복약 슬롯·회차 판정과 쓰기를 직렬화하는
+ * 유일한 자리다. 기록(`createEvent`)과 복원(`restoreEvent`)이 같은 락을 쓴다.
+ */
+export async function withMedicationCourseLock<T>(
+  db: Db,
+  courseId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
   const run = async (tx: Prisma.TransactionClient) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${params.medicationCourseId}`}, 0))`;
-    return createEventUnlocked(tx, params);
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+    return fn(tx);
   };
   // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
   // Prisma 7.10에서는 트랜잭션 클라이언트에도 런타임에 $transaction이 있어(타입에서만
