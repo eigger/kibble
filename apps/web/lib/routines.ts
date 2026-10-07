@@ -119,3 +119,35 @@ export function buildRoutineEventBodies(
   }
   return { events, skipped };
 }
+
+export interface RoutineRunOutcome<TCreated> {
+  created: TCreated[];
+  queued: boolean;
+  /** 오늘 몫을 이미 먹였다 — 서버 409. 실패가 아니라 건너뜀이다 (§7.24) */
+  alreadyGiven: RoutineItem[];
+  /** 그 외 오류 — 항목 하나가 실패해도 나머지는 계속 저장한다 */
+  failed: { item: RoutineItem; error: unknown }[];
+}
+
+/**
+ * 루틴 항목을 하나씩 실행한다. 한 항목의 실패(보관된 칩 404 등)가 남은 항목을 막지 않고,
+ * 실패는 모아서 돌려준다 — 서버에 들어간 것은 화면에도 남아야 한다.
+ */
+export async function runRoutineEvents<TCreated>(
+  events: RoutineEventBody[],
+  send: (entry: RoutineEventBody) => Promise<{ status: "queued" } | { status: "created"; event: TCreated }>,
+  isAlreadyGiven: (item: RoutineItem, error: unknown) => boolean,
+): Promise<RoutineRunOutcome<TCreated>> {
+  const out: RoutineRunOutcome<TCreated> = { created: [], queued: false, alreadyGiven: [], failed: [] };
+  for (const entry of events) {
+    try {
+      const outcome = await send(entry);
+      if (outcome.status === "queued") out.queued = true;
+      else out.created.push(outcome.event);
+    } catch (error) {
+      if (isAlreadyGiven(entry.item, error)) out.alreadyGiven.push(entry.item);
+      else out.failed.push({ item: entry.item, error });
+    }
+  }
+  return out;
+}

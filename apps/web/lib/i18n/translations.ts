@@ -211,6 +211,11 @@ const dict = {
   routineItemNumber: { ko: "항목 {n}", en: "Item {n}" },
   routineItemType: { ko: "종류", en: "Type" },
   routineItemProduct: { ko: "제품", en: "Product" },
+  routineItemProductArchived: { ko: "{name} (보관됨)", en: "{name} (archived)" },
+  routineFailedItems: {
+    ko: "{names} 저장하지 못했습니다",
+    en: "Could not save: {names}",
+  },
   routineItemProductNone: { ko: "제품 없음", en: "No product" },
   routineItemQuantity: { ko: "양", en: "Amount" },
   routineItemUnit: { ko: "단위", en: "Unit" },
