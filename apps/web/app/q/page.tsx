@@ -45,6 +45,7 @@ import {
   saveQuickMode,
   type QuickMode,
 } from "../../lib/routines";
+import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
@@ -75,6 +76,7 @@ interface ActiveMedicationCourse {
 }
 
 interface QuickHomePayload {
+  pets?: Pet[];
   activePet: Pet | null;
   presets: Preset[];
   routines: Routine[];
@@ -106,10 +108,13 @@ export default function QuickRecordPage() {
   const pathname = routePath(usePathname());
   const { user, loading } = useAuth();
   const needsPet = user?.needsPet;
+  // VIEWER는 읽기 전용 — 쓰기 컨트롤은 숨긴다 (서버가 403으로 막는 것을 눌러 보게 두지 않는다)
+  const readOnly = user?.householdRole === "VIEWER";
   const { t, tLabel, locale } = useLocale();
   const { show } = useToast();
   const localeTag = intlLocale(locale);
   const [pet, setPet] = useState<Pet | null>(null);
+  const [pets, setPets] = useState<Pet[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [recentEvents, setRecentEvents] = useState<TimelineEvent[]>([]);
@@ -155,31 +160,44 @@ export default function QuickRecordPage() {
     if (!loading && needsPet) router.push("/onboarding");
   }, [loading, needsPet, router]);
 
-  const loadQuickData = useCallback(async () => {
-    setDataLoading(true);
-    setLoadError(null);
-    try {
-      const data = await apiJson<QuickHomePayload>("/api/home");
-      setPet(data.activePet);
-      setPresets(data.presets);
-      setRoutines(data.routines ?? []);
-      setRecentEvents(data.recentEvents);
-      setActiveMedicationCourses(data.activeMedicationCourses ?? []);
-    } catch {
-      setLoadError(t("quickRecordLoadError"));
-      setPet(null);
-      setPresets([]);
-      setRoutines([]);
-      setRecentEvents([]);
-      setActiveMedicationCourses([]);
-    } finally {
-      setDataLoading(false);
-    }
-  }, [t]);
+  const loadQuickData = useCallback(
+    async (requestedPetId?: string | null) => {
+      setDataLoading(true);
+      setLoadError(null);
+      try {
+        const fetchHome = (petId?: string | null) =>
+          apiJson<QuickHomePayload>(`/api/home${petId ? `?petId=${encodeURIComponent(petId)}` : ""}`);
+        const data = await fetchQuickHome(fetchHome, requestedPetId ?? null);
+        setPets(data.pets ?? []);
+        setPet(data.activePet);
+        setPresets(data.presets);
+        setRoutines(data.routines ?? []);
+        setRecentEvents(data.recentEvents);
+        setActiveMedicationCourses(data.activeMedicationCourses ?? []);
+      } catch {
+        setLoadError(t("quickRecordLoadError"));
+        setPet(null);
+        setPresets([]);
+        setRoutines([]);
+        setRecentEvents([]);
+        setActiveMedicationCourses([]);
+      } finally {
+        setDataLoading(false);
+      }
+    },
+    [t],
+  );
+
+  function selectPet(next: Pet) {
+    // 저장 진행 중에는 전환하지 않는다 — 끝난 POST의 결과가 다른 아이의 타임라인에 섞인다
+    if (next.id === pet?.id || dataLoading || runningRoutineId || detailSaving) return;
+    saveQuickPetId(next.id);
+    void loadQuickData(next.id);
+  }
 
   useEffect(() => {
     if (!user || needsPet || pathname !== "/q") return;
-    void loadQuickData();
+    void loadQuickData(loadQuickPetId());
   }, [user, needsPet, pathname, loadQuickData]);
 
   useMergeUploadedAttachments(setRecentEvents);
@@ -698,7 +716,24 @@ export default function QuickRecordPage() {
       <div className="container quick-record-body">
         <header className="quick-record-header">
           <h1>{t("quickRecordTitle")}</h1>
-          {pet && <p className="meta quick-record-pet">{pet.name}</p>}
+          {pets.length >= 2 ? (
+            <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
+              {pets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={p.id === pet?.id}
+                  className={`pet-tab${p.id === pet?.id ? " pet-tab-active" : ""}`}
+                  onClick={() => selectPet(p)}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            pet && <p className="meta quick-record-pet">{pet.name}</p>
+          )}
         </header>
 
         <section className="quick-record-timeline" aria-label={t("quickRecordRecentTitle")}>
@@ -715,11 +750,12 @@ export default function QuickRecordPage() {
               return (
                 <li key={event.id} className={`timeline-row${grouped ? " timeline-row-grouped" : ""}`}>
                   <div
-                    className="timeline-item timeline-item-clickable"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openDetailFromEvent(event)}
+                    className={`timeline-item${readOnly ? "" : " timeline-item-clickable"}`}
+                    role={readOnly ? undefined : "button"}
+                    tabIndex={readOnly ? undefined : 0}
+                    onClick={readOnly ? undefined : () => openDetailFromEvent(event)}
                     onKeyDown={(e) => {
+                      if (readOnly) return;
                       if (e.key !== "Enter" && e.key !== " ") return;
                       e.preventDefault();
                       openDetailFromEvent(event);
@@ -737,6 +773,7 @@ export default function QuickRecordPage() {
                       )}
                     </TimelineEventBody>
                   </div>
+                  {!readOnly && (
                   <div className="timeline-row-actions">
                     <button
                       type="button"
@@ -757,6 +794,7 @@ export default function QuickRecordPage() {
                       {deletingEventId === event.id ? t("deleting") : t("delete")}
                     </button>
                   </div>
+                  )}
                 </li>
               );
             })}
@@ -767,10 +805,17 @@ export default function QuickRecordPage() {
             <Link href="/history">{t("quickRecordMoreInHistory")}</Link>
           </p>
         )}
-        <p className="meta home-timeline-hint">{t("quickRecordDetailHint")}</p>
+        {!readOnly && <p className="meta home-timeline-hint">{t("quickRecordDetailHint")}</p>}
       </section>
       </div>
 
+      {readOnly ? (
+        <footer className="home-input-bar quick-record-input-bar">
+          <div className="home-input-bar-inner">
+            <p className="meta">{t("quickViewerReadOnly")}</p>
+          </div>
+        </footer>
+      ) : (
       <footer className="home-input-bar quick-record-input-bar">
         <div className="home-input-bar-inner">
           {hasRoutines && (
@@ -873,6 +918,7 @@ export default function QuickRecordPage() {
           </div>
         </div>
       </footer>
+      )}
 
       <MedicationCoursePickSheet
         open={medPickOpen}
