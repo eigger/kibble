@@ -1,5 +1,13 @@
 # 작업 기록
 
+### 2026-10-07 — 복약 슬롯 동시 기록 직렬화
+
+**결정**: 처방 연결 기록(`medicationCourseId`)은 `createEvent()` 안에서 트랜잭션 + `pg_advisory_xact_lock`(처방 id 해시)로 직렬화한다. 슬롯 조회·판정·회차 채번·insert가 한 락 안에서 돈다. 라우트가 보는 오류 의미(`DOSE_SLOT_TAKEN` 등)는 그대로다.
+
+**기각: 부분 유니크 인덱스(dayKey+슬롯)**. (1) 이미 중복이 쌓인 DB에서 마이그레이션이 깨질 수 있어 선정리가 필요하다. (2) 슬롯 없는 처방(`doseTimes` 비어 있음)의 "하루 횟수" 한도와 `doseOrdinal` 중복은 인덱스로 막지 못한다. (3) 삭제(soft-delete) 행·KST 하루 경계를 인덱스 식으로 옮기기 어렵다. 락은 스키마 변경이 없고 위 세 경우를 모두 덮는다. 재검토 조건: 처방 단위 쓰기 경합이 실제 병목이 되면.
+
+**알아둘 것**: dedupeKey 경합 재조회(unique 오류 뒤)는 처방 기록에서 트랜잭션이 이미 중단 상태라 동작하지 않는다. 같은 처방은 락으로 직렬화돼 선조회가 먼저 잡으므로 실질 영향은 없다. 실제 Postgres에서의 락 동작은 이 세션에서 검증하지 못했고(로컬 DB 없음) 동시성 테스트는 인메모리 락 모형이다.
+
 ### 2026-10-07 — 토큰 스코프 우회·createEvent 오류 매핑 수정
 
 **결정**: 고정 `eventTypeId` 토큰은 프리셋 해석 후 타입이 다르면 403(`forbidden`)으로 거절한다. 검사는 K-4에 따라 `createEvent()` 안(`scopedEventTypeId`)에서 하고, 오류→HTTP 매핑은 `lib/createEventErrors.ts` 한 곳에서 events·care 라우트가 공유한다. `medicationCourseId`는 `medication` 타입에서만 허용(400).

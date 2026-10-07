@@ -17,6 +17,8 @@ const mockPrisma = vi.hoisted(() => ({
   eventType: { findFirst: vi.fn() },
   medicationCourse: { findFirst: vi.fn() },
   event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), aggregate: vi.fn() },
+  $executeRaw: vi.fn(async () => 0),
+  $transaction: vi.fn(),
 }));
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
@@ -33,6 +35,7 @@ describe("복약 기록 — 입력 시각 · 슬롯 자동 선택 · 중복 거�
     invalidateHouseholdCache(USER);
     invalidateTokenVersionCache(USER);
 
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
     mockPrisma.householdMember.findFirst.mockResolvedValue({ householdId: HH, role: "OWNER" });
     mockPrisma.user.findUnique.mockResolvedValue({ tokenVersion: 1 });
     mockPrisma.pet.findFirst.mockResolvedValue({ id: PET });

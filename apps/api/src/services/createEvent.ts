@@ -162,8 +162,25 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
   }
 }
 
-/** K-4: 이벤트 생성은 이 함수만 통과한다. */
+/**
+ * K-4: 이벤트 생성은 이 함수만 통과한다.
+ *
+ * 복약(처방 연결) 기록은 "그날 슬롯 조회 → 판정 → insert"라 동시에 들어오면 같은
+ * 슬롯이 두 번 찍히고 doseOrdinal이 겹친다. 처방 단위 advisory lock으로 직렬화한다
+ * (WORKPLAN §7.24, WORKLOG 2026-10-07). 락은 트랜잭션이 끝날 때 풀린다.
+ */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
+  if (!params.medicationCourseId) return createEventUnlocked(db, params);
+
+  const run = async (tx: Prisma.TransactionClient) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${params.medicationCourseId}`}, 0))`;
+    return createEventUnlocked(tx, params);
+  };
+  if ("$transaction" in db) return db.$transaction(run);
+  return run(db);
+}
+
+async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (params.dedupeKey) {
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
     if (existing) {
