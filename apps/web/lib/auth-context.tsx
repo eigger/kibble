@@ -1,5 +1,7 @@
 "use client";
 
+import { bestEffort } from "./withTimeout";
+import { unsubscribeBrowserPushOnly, unsubscribeFromPush } from "./pushNotifications";
 import { clearQuickHomeCache } from "./quickHomeCache";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -39,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearToken();
           localStorage.removeItem(CACHED_USER_KEY);
           clearQuickHomeCache();
+          // 토큰 만료 자동 로그아웃 — 서버를 부를 수 없으니 브라우저 구독만 해제한다.
+          // 다음 발송의 410으로 서버 행이 정리된다. 기다리지 않고 실패는 무시한다.
+          void bestEffort(unsubscribeBrowserPushOnly, 3000);
           setUser(null);
         } else {
           // 5xx·파싱 실패 등 — 로그인 상태로 오인하지 않도록 캐시를 지운다.
@@ -108,7 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push("/login");
   }
 
+  /**
+   * 이 기기의 푸시 구독을 거둔다 — 공용 기기에서 로그아웃해도 이전 사용자 가구의 복약 알림이
+   * 계속 오면 안 된다. 서버 삭제는 인증이 살아 있는 지금이어야 해서 로그아웃 요청보다 먼저 한다.
+   * 브라우저 구독 해제는 로컬이라 오프라인에서도 되고(서버 행은 이후 푸시 서비스의 410으로 정리된다),
+   * 실패하거나 오래 걸려도 로그아웃은 진행한다.
+   */
+  async function dropPushSubscription() {
+    await bestEffort(unsubscribeFromPush, 3000);
+  }
+
   async function logout() {
+    await dropPushSubscription();
     // 이 기기만 — 서버는 미디어 쿠키만 지우고 다른 기기 JWT는 유지한다.
     try {
       if (getToken()) {
@@ -121,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logoutAll() {
+    await dropPushSubscription();
     // 전 기기 — tokenVersion++. 비밀번호 변경과 같은 강도.
     try {
       if (getToken()) {

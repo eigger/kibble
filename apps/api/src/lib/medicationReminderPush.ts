@@ -34,6 +34,14 @@ export function pushCopy(
   return { title, body };
 }
 
+/**
+ * 이 슬롯이 알릴 만한가. 처방을 만든 시각보다 앞선 오늘의 슬롯은 알리지 않는다 — 오후에 처방을
+ * 만들었는데 아침 슬롯의 "기록이 없어요"가 바로 날아가면 안 된다(시작일을 과거로 잡아도 마찬가지).
+ */
+export function isReminderSlotEligible(course: { createdAt: Date }, doseAt: Date): boolean {
+  return doseAt.getTime() >= course.createdAt.getTime();
+}
+
 export async function processMedicationReminderPushes(
   db: Db = prisma,
   now = new Date(),
@@ -63,6 +71,9 @@ export async function processMedicationReminderPushes(
       where: {
         householdId,
         archivedAt: null,
+        // 시작 전 처방과 보관된 반려동물에는 알리지 않는다
+        startDate: { lte: now },
+        pet: { archivedAt: null },
         doseTimes: { isEmpty: false },
         OR: [{ endDate: null }, { endDate: { gte: since } }],
       },
@@ -109,6 +120,7 @@ export async function processMedicationReminderPushes(
         const logged = loggedSlots.has(slotKey);
         const sentKinds = sentBySlot.get(slotKey) ?? new Set<MedicationPushKind>();
         const doseAt = resolveDoseTimeOccurredAt(time, now);
+        if (!isReminderSlotEligible(course, doseAt)) continue;
         const kinds = dueMedicationPushKinds({
           now,
           doseAt,
@@ -119,11 +131,11 @@ export async function processMedicationReminderPushes(
         if (kinds.length === 0) continue;
 
         for (const kind of kinds) {
-          const copy = pushCopy(kind, "ko", course.pet.name, course.name, time);
-          const sent = await sendPushToHousehold(householdId, {
-            ...copy,
+          // 구독마다 그 기기의 언어로 (K-9)
+          const sent = await sendPushToHousehold(householdId, (locale) => ({
+            ...pushCopy(kind, locale, course.pet.name, course.name, time),
             url: "/care",
-          });
+          }));
           try {
             await db.medicationPushSent.create({
               data: { courseId: course.id, doseSlotIndex: index, kind, dayKey },

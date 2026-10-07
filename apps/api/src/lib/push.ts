@@ -51,13 +51,26 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   return sent;
 }
 
-export async function sendPushToHousehold(householdId: string, payload: PushPayload): Promise<number> {
+/** 구독 행의 locale — 모르는 값이면 기본 언어(ko). */
+export function pushLocale(value: string | null | undefined): "ko" | "en" {
+  return value === "en" ? "en" : "ko";
+}
+
+/**
+ * 가구 구성원 전원에게. 문구를 함수로 주면 구독마다 그 구독의 locale로 만든다 —
+ * 같은 가구라도 기기마다 고른 언어가 다르다 (K-9).
+ */
+export async function sendPushToHousehold(
+  householdId: string,
+  payload: PushPayload | ((locale: "ko" | "en") => PushPayload),
+): Promise<number> {
   const subs = await prisma.pushSubscription.findMany({
     where: { user: { memberships: { some: { householdId } } } },
   });
   let sent = 0;
   for (const sub of subs) {
-    if (await sendPushToSubscription(sub, payload)) sent += 1;
+    const body = typeof payload === "function" ? payload(pushLocale(sub.locale)) : payload;
+    if (await sendPushToSubscription(sub, body)) sent += 1;
   }
   return sent;
 }
