@@ -885,7 +885,7 @@ export default function QuickRecordPage() {
                   role="tab"
                   id={quickPetTabId(p.id)}
                   aria-selected={p.id === pet?.id}
-                  aria-controls={quickPetControls(p.id, !readOnly)}
+                  aria-controls={quickPetControls(pet?.id, !readOnly)}
                   className={`pet-tab${p.id === pet?.id ? " pet-tab-active" : ""}`}
                   onClick={() => selectPet(p)}
                 >
