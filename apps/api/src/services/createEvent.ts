@@ -176,8 +176,14 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${params.medicationCourseId}`}, 0))`;
     return createEventUnlocked(tx, params);
   };
-  if ("$transaction" in db) return db.$transaction(run);
-  return run(db);
+  // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
+  // 트랜잭션 클라이언트에는 $transaction이 없으므로 이미 트랜잭션 안이면 그대로 쓴다.
+  const root = db as PrismaClient;
+  if (typeof root.$transaction === "function") {
+    // 락을 얻은 뒤 실행하는 쿼리가 새 스냅숏을 봐야 하므로 READ COMMITTED를 명시한다.
+    return root.$transaction(run, { isolationLevel: "ReadCommitted" });
+  }
+  return run(db as Prisma.TransactionClient);
 }
 
 async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<CreatedEvent> {

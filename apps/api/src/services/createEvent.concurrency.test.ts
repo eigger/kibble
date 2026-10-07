@@ -8,10 +8,12 @@ type Row = Record<string, unknown>;
 function fakeDb(opts: { locking: boolean }) {
   const events: Row[] = [];
   const tails = new Map<string, Promise<void>>();
+  let lockCalls = 0;
   const tick = () => new Promise((r) => setTimeout(r, 1));
 
   const makeTx = (release: Array<() => void>) => ({
     $executeRaw: async (_s: TemplateStringsArray, key: string) => {
+      lockCalls += 1;
       if (!opts.locking) return 0;
       const prev = tails.get(key) ?? Promise.resolve();
       let done!: () => void;
@@ -47,8 +49,8 @@ function fakeDb(opts: { locking: boolean }) {
     },
   });
 
+  // 루트에는 $transaction만 둔다 — tx 대신 루트를 쓰면 TypeError로 드러난다.
   const db = {
-    ...makeTx([]),
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       const release: Array<() => void> = [];
       try {
@@ -58,7 +60,7 @@ function fakeDb(opts: { locking: boolean }) {
       }
     },
   };
-  return { db: db as unknown as PrismaClient, events };
+  return { db: db as unknown as PrismaClient, events, lockCalls: () => lockCalls };
 }
 
 const params = {
@@ -71,6 +73,20 @@ const params = {
 };
 
 describe("createEvent 복약 슬롯 동시성", () => {
+  it("has 트랩 없는 Proxy 클라이언트(운영 prisma 모양)에서도 $transaction과 락을 쓴다", async () => {
+    const { db, events, lockCalls } = fakeDb({ locking: true });
+    const proxied = new Proxy({} as PrismaClient, {
+      get(_t, prop, receiver) {
+        const value = Reflect.get(db, prop, receiver);
+        return typeof value === "function" ? value.bind(db) : value;
+      },
+    });
+    expect("$transaction" in proxied).toBe(false);
+    await createEvent(proxied, params);
+    expect(lockCalls()).toBe(1);
+    expect(events).toHaveLength(1);
+  });
+
   it("같은 슬롯을 동시에 기록하면 한 건만 들어가고 나머지는 DOSE_SLOT_TAKEN", async () => {
     const { db, events } = fakeDb({ locking: true });
     const results = await Promise.allSettled([createEvent(db, params), createEvent(db, params)]);
