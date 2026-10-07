@@ -317,9 +317,9 @@ export async function medicationCoursesWithProgress(
     dosesTodayByCourse.set(event.medicationCourseId, list);
   }
 
-  return courses.map((course) =>
-    toProgress(course, totalByCourse, dosesTodayByCourse, now),
-  );
+  const rows = courses.map((course) => toProgress(course, totalByCourse, dosesTodayByCourse, now));
+  // 예정(시작 전) 처방은 맨 뒤로 — 오늘 쓰는 처방이 위에 오고, 나머지 순서는 그대로다(안정 정렬)
+  return [...rows.filter((r) => !r.upcoming), ...rows.filter((r) => r.upcoming)];
 }
 
 function toProgress(

@@ -29,7 +29,7 @@ describe("findLoginCandidates", () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { email: { equals: "mom@example.com", mode: "insensitive" } },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       }),
     );
   });

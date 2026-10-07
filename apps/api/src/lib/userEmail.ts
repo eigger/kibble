@@ -12,7 +12,7 @@ type Db = Pick<PrismaClient, "user">;
 export async function findLoginCandidates(db: Db, email: string): Promise<User[]> {
   const rows = await db.user.findMany({
     where: { email: { equals: email, mode: "insensitive" } },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     take: 5,
   });
   return rows.sort((a, b) => Number(b.email === email) - Number(a.email === email));

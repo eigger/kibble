@@ -174,6 +174,17 @@ describe("medicationCoursesWithProgress — 예정 처방", () => {
     expect(where.householdId).toBe("h1");
   });
 
+  it("puts upcoming courses last and keeps the rest in query order", async () => {
+    const { db } = fakeDb([
+      course("up1", "2026-09-05T12:00:00+09:00"),
+      course("a", "2026-09-02T12:00:00+09:00"),
+      course("up2", "2026-09-03T12:00:00+09:00"),
+      course("b", "2026-09-01T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(rows.map((r) => r.id)).toEqual(["a", "b", "up1", "up2"]);
+  });
+
   it("todayDoseTargets drops upcoming courses for /q, home and states", async () => {
     const { db } = fakeDb([
       course("today", "2026-09-02T12:00:00+09:00"),
