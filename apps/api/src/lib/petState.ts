@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { householdWhere } from "./householdScope.js";
 import { kstDateTime, startOfTodayBoundary } from "./kstClock.js";
-import { medicationCoursesWithProgress } from "./medicationCourseProgress.js";
+import { medicationCoursesWithProgress, todayDoseTargets } from "./medicationCourseProgress.js";
 
 /** 마지막 기록 한 건 — 이벤트 타입별로 하나씩. */
 export type LastEventState = {
@@ -188,7 +188,7 @@ export async function petStateFor(
   });
   if (!pet) return null;
 
-  const [lastEvents, today, courses, reminders] = await Promise.all([
+  const [lastEvents, today, allCourses, reminders] = await Promise.all([
     lastEventPerType(db, params.householdId, pet.id, now),
     todayPerType(db, params.householdId, pet.id, since),
     medicationCoursesWithProgress(db, params.householdId, pet.id, now),
@@ -199,6 +199,8 @@ export async function petStateFor(
     }),
   ]);
 
+  // 시작 전 처방은 상태·오늘 집계(계획·지난 슬롯)에 넣지 않는다
+  const courses = todayDoseTargets(allCourses);
   const nowMs = now.getTime();
   const overdueDoses: PetState["medication"]["overdueDoses"] = [];
   let dosesGivenToday = 0;

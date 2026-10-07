@@ -10,6 +10,7 @@ import {
   type MedicationPushKind,
 } from "@kibble/shared";
 import type { PrismaClient } from "@prisma/client";
+import { courseStartsByTodayBefore } from "./medicationCourseProgress.js";
 import { sendPushToHousehold } from "./push.js";
 import { prisma } from "./prisma.js";
 import { t } from "./i18n.js";
@@ -42,8 +43,7 @@ export function pushCopy(
  * (종료일 당일 늦은 슬롯까지) 포함.
  */
 export function reminderCourseWindow(now: Date): { startBefore: Date; endNotBefore: Date } {
-  const todayStart = startOfTodayBoundary(now);
-  return { startBefore: new Date(todayStart.getTime() + 86_400_000), endNotBefore: todayStart };
+  return { startBefore: courseStartsByTodayBefore(now), endNotBefore: startOfTodayBoundary(now) };
 }
 
 /**

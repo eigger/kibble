@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  courseStartsByTodayBefore,
+  medicationCoursesWithProgress,
+  todayDoseTargets,
   nextDoseOrdinal,
   pastMedicationCourseWhere,
   resolveCourseEndedAt,
@@ -112,5 +115,82 @@ describe("pastMedicationCourseWhere", () => {
     expect(pastMedicationCourseWhere(now)).toEqual({
       OR: [{ archivedAt: { not: null } }, { endDate: { lt: new Date("2026-09-10T15:00:00.000Z") } }],
     });
+  });
+});
+
+describe("courseStartsByTodayBefore (시작일은 KST 정오로 저장된다)", () => {
+  const includes = (startDate: string, now: string) =>
+    new Date(startDate) < courseStartsByTodayBefore(new Date(now));
+
+  it("includes a course starting today, even in the morning before its noon timestamp", () => {
+    expect(includes("2026-09-02T12:00:00+09:00", "2026-09-02T07:55:00+09:00")).toBe(true);
+  });
+
+  it("excludes a course that starts tomorrow", () => {
+    expect(includes("2026-09-03T12:00:00+09:00", "2026-09-02T23:59:00+09:00")).toBe(false);
+  });
+});
+
+describe("medicationCoursesWithProgress — 예정 처방", () => {
+  const now = new Date("2026-09-02T07:55:00+09:00");
+  const course = (id: string, startDate: string) => ({
+    id,
+    householdId: "h1",
+    petId: "pet1",
+    name: id,
+    ingredients: null,
+    dosage: null,
+    dosesPerDay: 1,
+    doseTimes: [],
+    totalDoses: null,
+    startDate: new Date(startDate),
+    endDate: null,
+    note: null,
+    archivedAt: null,
+    createdAt: new Date("2026-08-01T00:00:00Z"),
+  });
+
+  function fakeDb(courses: ReturnType<typeof course>[]) {
+    const findMany = vi.fn(async () => courses);
+    const db = {
+      medicationCourse: { findMany },
+      event: { groupBy: vi.fn(async () => []), findMany: vi.fn(async () => []) },
+    } as never;
+    return { db, findMany };
+  }
+
+  it("keeps a future course in the list (care screen) and flags it upcoming", async () => {
+    const { db, findMany } = fakeDb([
+      course("today", "2026-09-02T12:00:00+09:00"),
+      course("tomorrow", "2026-09-03T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(rows.map((r) => [r.id, r.upcoming])).toEqual([
+      ["today", false],
+      ["tomorrow", true],
+    ]);
+    const where = (findMany.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    expect(where.startDate).toBeUndefined();
+    expect(where.householdId).toBe("h1");
+  });
+
+  it("puts upcoming courses last and keeps the rest in query order", async () => {
+    const { db } = fakeDb([
+      course("up1", "2026-09-05T12:00:00+09:00"),
+      course("a", "2026-09-02T12:00:00+09:00"),
+      course("up2", "2026-09-03T12:00:00+09:00"),
+      course("b", "2026-09-01T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(rows.map((r) => r.id)).toEqual(["a", "b", "up1", "up2"]);
+  });
+
+  it("todayDoseTargets drops upcoming courses for /q, home and states", async () => {
+    const { db } = fakeDb([
+      course("today", "2026-09-02T12:00:00+09:00"),
+      course("tomorrow", "2026-09-03T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(todayDoseTargets(rows).map((r) => r.id)).toEqual(["today"]);
   });
 });

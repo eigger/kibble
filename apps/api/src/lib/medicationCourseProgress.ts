@@ -29,6 +29,8 @@ export type MedicationCourseProgress = {
   canUndoToday: boolean;
   dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
   doseSlotsToday: DoseSlotToday[];
+  /** 시작 전(KST 날짜 규칙) — 케어 화면에는 "예정"으로 보이고, 오늘 복약 대상·선택에서는 빠진다 */
+  upcoming: boolean;
 };
 
 export type MedicationCourseRow = {
@@ -223,6 +225,29 @@ export async function listPastMedicationCourses(
   });
 }
 
+/**
+ * 오늘(KST) 시작했거나 이미 시작한 처방의 시작일 상한 — `startDate < 이 값`. 처방 시작일은 그날 KST
+ * **정오**로 저장되므로 `now`와 시각으로 비교하지 않고 날짜로 본다(시작일 당일 아침에도 진행 중).
+ * 진행 중 목록과 복약 리마인더가 같은 규칙을 쓴다.
+ */
+export function courseStartsByTodayBefore(now: Date): Date {
+  return new Date(startOfTodayBoundary(now).getTime() + 86_400_000);
+}
+
+/** 시작 전인가 — 내일 이후에 시작한다(KST 날짜 규칙). */
+export function isCourseUpcoming(startDate: Date, now: Date): boolean {
+  return startDate >= courseStartsByTodayBefore(now);
+}
+
+/**
+ * 오늘 복약 대상만. 진행 중 처방 목록(`medicationCoursesWithProgress`)은 시작 전 처방도 `upcoming`
+ * 표시와 함께 돌려주므로(케어 화면은 예정 처방을 보여 주고 수정·종료할 수 있어야 한다), 오늘 대상·
+ * 선택·집계 경로(/q 칩, 홈 오늘 복약, 상태 API)는 이 함수로 거른다.
+ */
+export function todayDoseTargets<T extends { upcoming: boolean }>(courses: T[]): T[] {
+  return courses.filter((course) => !course.upcoming);
+}
+
 export async function medicationCoursesWithProgress(
   db: Pick<PrismaClient, "medicationCourse" | "event">,
   householdId: string,
@@ -292,9 +317,9 @@ export async function medicationCoursesWithProgress(
     dosesTodayByCourse.set(event.medicationCourseId, list);
   }
 
-  return courses.map((course) =>
-    toProgress(course, totalByCourse, dosesTodayByCourse, now),
-  );
+  const rows = courses.map((course) => toProgress(course, totalByCourse, dosesTodayByCourse, now));
+  // 예정(시작 전) 처방은 맨 뒤로 — 오늘 쓰는 처방이 위에 오고, 나머지 순서는 그대로다(안정 정렬)
+  return [...rows.filter((r) => !r.upcoming), ...rows.filter((r) => r.upcoming)];
 }
 
 function toProgress(
@@ -345,6 +370,7 @@ function toProgress(
     canUndoToday: dosesGivenToday > 0,
     dosesToday,
     doseSlotsToday,
+    upcoming: isCourseUpcoming(course.startDate, now),
   };
 }
 

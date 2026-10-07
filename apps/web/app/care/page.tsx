@@ -69,9 +69,19 @@ function courseHistoryPeriod(
 function courseMetaParts(
   course: MedicationCourseProgress,
   t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+  locale: "ko" | "en",
+  now: Date,
 ): string {
   const parts: string[] = [];
   if (course.dosage?.trim()) parts.push(course.dosage.trim());
+  if (course.upcoming) {
+    // 시작 전 — 오늘 진행률·경과일은 의미가 없다
+    parts.push(t("careUpcomingStart", { date: formatCourseDate(course.startDate, locale, now) }));
+    if (course.dosesRemaining != null) {
+      parts.push(t("careDosesRemaining", { count: String(course.dosesRemaining) }));
+    }
+    return parts.join(" · ");
+  }
   parts.push(
     t("careTodayProgress", {
       done: String(course.dosesGivenToday),
@@ -283,7 +293,7 @@ export default function CarePage() {
                     <li key={course.id} className="care-med-card">
                       <div className="care-med-main">
                         <p className="care-med-name">{course.name}</p>
-                        <p className="care-med-meta meta">{courseMetaParts(course, t)}</p>
+                        <p className="care-med-meta meta">{courseMetaParts(course, t, locale, new Date())}</p>
                         {course.ingredients?.trim() && (
                           <p className="care-med-ingredients">{course.ingredients.trim()}</p>
                         )}
@@ -315,7 +325,7 @@ export default function CarePage() {
                         >
                           {t("edit")}
                         </button>
-                        {course.canUndoToday && (
+                        {!course.upcoming && course.canUndoToday && (
                           <button
                             type="button"
                             className="btn-action"
@@ -325,7 +335,7 @@ export default function CarePage() {
                             {undoingCourseId === course.id ? t("careUndoing") : t("careUndoDose")}
                           </button>
                         )}
-                        {usesSlots ? (
+                        {course.upcoming ? null : usesSlots ? (
                           <div className="care-dose-slot-actions" role="group" aria-label={t("careLogDose")}>
                             {course.doseSlotsToday.map((slot) => {
                               const done = slot.eventId != null;

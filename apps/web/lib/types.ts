@@ -280,6 +280,8 @@ export interface MedicationCourseProgress {
   canUndoToday: boolean;
   dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
   doseSlotsToday: DoseSlotToday[];
+  /** 시작 전(내일 이후 시작) — 오늘 복약 버튼 없이 "예정"으로 보인다 */
+  upcoming?: boolean;
 }
 
 export interface DoseSlotToday {

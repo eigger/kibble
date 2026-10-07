@@ -8,7 +8,7 @@ import {
   ensurePresetsForPet,
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
-import { medicationCoursesWithProgress } from "../lib/medicationCourseProgress.js";
+import { medicationCoursesWithProgress, todayDoseTargets } from "../lib/medicationCourseProgress.js";
 import { routineSelect, serializeRoutine } from "./routines.js";
 
 const recentEventSelect = {
@@ -122,7 +122,8 @@ export async function homeRoutes(app: FastifyInstance) {
       medicationCoursesWithProgress(prisma, householdId, activePet.id),
     ]);
 
-    const activeMedicationCourses = medicationCourses.map((course) => ({
+    // 시작 전 처방은 오늘 복약 대상이 아니다 (케어 화면에는 "예정"으로 보인다)
+    const activeMedicationCourses = todayDoseTargets(medicationCourses).map((course) => ({
       id: course.id,
       name: course.name,
       dosesPerDay: course.dosesPerDay,
