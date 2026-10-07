@@ -27,6 +27,7 @@ import {
   createEvent,
   CreateEventDoseConflictError,
 } from "../services/createEvent.js";
+import { planContinuation } from "../lib/courseContinuation.js";
 import { mapCreateEventError } from "../lib/createEventErrors.js";
 
 async function resolveActivePet(householdId: string, requestedPetId?: string) {
@@ -184,7 +185,7 @@ export async function careRoutes(app: FastifyInstance) {
       const previous = body.continuesCourseId
         ? await prisma.medicationCourse.findFirst({
             where: { id: body.continuesCourseId, ...householdWhere(householdId), petId: body.petId },
-            select: { id: true, archivedAt: true },
+            select: { id: true, archivedAt: true, endDate: true },
           })
         : null;
       if (body.continuesCourseId && !previous) {
@@ -208,10 +209,19 @@ export async function careRoutes(app: FastifyInstance) {
       const course = await prisma.$transaction(async (tx) => {
         const created = await tx.medicationCourse.create({ data });
         if (previous && !previous.archivedAt) {
-          await tx.medicationCourse.update({
-            where: { id: previous.id },
-            data: { archivedAt: new Date() },
-          });
+          const plan = planContinuation(previous, created.startDate, new Date());
+          if (plan.kind === "archiveNow") {
+            await tx.medicationCourse.update({
+              where: { id: previous.id },
+              data: { archivedAt: new Date() },
+            });
+          } else if (plan.kind === "endBeforeStart") {
+            // 새 처방이 내일 이후 시작 — 이전 처방은 종료일까지 오늘 대상으로 남긴다
+            await tx.medicationCourse.update({
+              where: { id: previous.id },
+              data: { endDate: plan.endDate },
+            });
+          }
         }
         if (previous) {
           // 이어가기는 명시적 연결이다 — 이전 처방을 들고 있던 루틴 투약 항목이 새 처방을
