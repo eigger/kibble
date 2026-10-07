@@ -35,7 +35,7 @@ function fakeDb(opts: Opts) {
     },
   };
   const db = { ...tx, $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) };
-  return { db: db as unknown as PrismaClient, update, lock };
+  return { db: db as unknown as PrismaClient, update, lock, findMany: tx.event.findMany };
 }
 
 const params = { householdId: "h1", eventId: "e1" };
@@ -57,6 +57,52 @@ describe("restoreEvent", () => {
       message: "DOSE_SLOT_TAKEN",
     });
     expect(lock).toHaveBeenCalledOnce();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("scopes the same-day lookup to this household, pet, course and KST day", async () => {
+    const { db, findMany } = fakeDb({ others: [] });
+    await restoreEvent(db, params);
+    const where = (findMany.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    // 2026-10-07T01:00Z = KST 10:00 → KST 10/07 00:00 = 10/06 15:00Z부터 24시간
+    const start = new Date("2026-10-06T15:00:00Z");
+    expect(where).toMatchObject({
+      householdId: "h1",
+      petId: "pet1",
+      medicationCourseId: "c1",
+      deletedAt: null,
+      id: { not: "e1" },
+      occurredAt: { gte: start, lt: new Date(start.getTime() + 86_400_000) },
+    });
+  });
+
+  it("restores a slot-less row into a slotted course while a free slot remains", async () => {
+    const { db, update } = fakeDb({
+      deleted: {
+        id: "e1",
+        petId: "pet1",
+        occurredAt: new Date("2026-10-07T01:00:00Z"),
+        medicationCourseId: "c1",
+        doseSlotIndex: null,
+      },
+      others: [{ doseSlotIndex: 0 }, { doseSlotIndex: null }],
+    });
+    await restoreEvent(db, params);
+    expect(update).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a slot-less row when every slot is already filled", async () => {
+    const { db, update } = fakeDb({
+      deleted: {
+        id: "e1",
+        petId: "pet1",
+        occurredAt: new Date("2026-10-07T01:00:00Z"),
+        medicationCourseId: "c1",
+        doseSlotIndex: null,
+      },
+      others: [{ doseSlotIndex: 0 }, { doseSlotIndex: 1 }],
+    });
+    await expect(restoreEvent(db, params)).rejects.toMatchObject({ message: "DOSE_LIMIT_REACHED" });
     expect(update).not.toHaveBeenCalled();
   });
 

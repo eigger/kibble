@@ -1,5 +1,6 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
 import { normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
+import { doseConflict } from "../lib/doseCapacity.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import { productNameIsTagList } from "../lib/frequentProducts.js";
 import { householdWhere } from "../lib/householdScope.js";
@@ -316,28 +317,32 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
       select: { doseSlotIndex: true },
     });
 
-    if (course.doseTimes.length > 0) {
-      const doseTimes = normalizeDoseTimes(course.doseTimes, course.dosesPerDay);
-      const filled = sameDayDoses
-        .map((e) => e.doseSlotIndex)
-        .filter((index): index is number => index != null);
+    const doseTimes =
+      course.doseTimes.length > 0 ? normalizeDoseTimes(course.doseTimes, course.dosesPerDay) : [];
+    if (doseTimes.length > 0 && doseSlotIndex != null) {
+      if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
+        throw new CreateEventValidationError("DOSE_SLOT_INVALID");
+      }
+    }
+    // 슬롯·하루 한도 판정은 복원(`restoreEvent`)과 같은 함수를 쓴다
+    const conflict = doseConflict({
+      doseSlotCount: doseTimes.length,
+      dosesPerDay: course.dosesPerDay,
+      sameDay: sameDayDoses,
+      requestedSlot: doseTimes.length > 0 ? doseSlotIndex : null,
+    });
+    if (conflict) throw new CreateEventDoseConflictError(conflict);
+    if (doseTimes.length > 0) {
       if (doseSlotIndex == null) {
         // 슬롯을 고르지 않은 복약(루틴 등) — 비어 있는 슬롯 중 기록 시각에 가장 가까운 것
+        const filled = sameDayDoses
+          .map((e) => e.doseSlotIndex)
+          .filter((index): index is number => index != null);
         doseSlotIndex = pickDoseSlot(doseTimes, filled, occurredAt);
         if (doseSlotIndex == null) throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-      } else {
-        if (doseSlotIndex < 0 || doseSlotIndex >= doseTimes.length) {
-          throw new CreateEventValidationError("DOSE_SLOT_INVALID");
-        }
-        if (filled.includes(doseSlotIndex)) {
-          throw new CreateEventDoseConflictError("DOSE_SLOT_TAKEN");
-        }
       }
     } else {
       doseSlotIndex = null;
-      if (sameDayDoses.length >= course.dosesPerDay) {
-        throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-      }
     }
 
     // 회차는 기록하는 순간 찍는다 — 이력은 "그때 몇 번째였나"를 남기는 자리이므로

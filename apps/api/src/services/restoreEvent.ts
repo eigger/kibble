@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { startOfTodayBoundary } from "@kibble/shared";
+import { normalizeDoseTimes, startOfTodayBoundary } from "@kibble/shared";
+import { doseConflict } from "../lib/doseCapacity.js";
 import { householdWhere } from "../lib/householdScope.js";
 import {
   CreateEventDoseConflictError,
@@ -68,19 +69,16 @@ export async function restoreEvent(
         select: { doseSlotIndex: true },
       });
 
-      if (course.doseTimes.length > 0) {
-        if (
-          deleted.doseSlotIndex != null &&
-          others.some((e) => e.doseSlotIndex === deleted.doseSlotIndex)
-        ) {
-          throw new CreateEventDoseConflictError("DOSE_SLOT_TAKEN");
-        }
-        if (deleted.doseSlotIndex == null && others.length >= course.doseTimes.length) {
-          throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-        }
-      } else if (others.length >= course.dosesPerDay) {
-        throw new CreateEventDoseConflictError("DOSE_LIMIT_REACHED");
-      }
+      const conflict = doseConflict({
+        doseSlotCount:
+          course.doseTimes.length > 0
+            ? normalizeDoseTimes(course.doseTimes, course.dosesPerDay).length
+            : 0,
+        dosesPerDay: course.dosesPerDay,
+        sameDay: others,
+        requestedSlot: deleted.doseSlotIndex,
+      });
+      if (conflict) throw new CreateEventDoseConflictError(conflict);
     }
 
     return tx.event.update({ where: { id: deleted.id }, data: { deletedAt: null }, select: eventSelect });
