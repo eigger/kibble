@@ -45,7 +45,7 @@ import {
   saveQuickMode,
   type QuickMode,
 } from "../../lib/routines";
-import { loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
+import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
 import {
@@ -167,14 +167,7 @@ export default function QuickRecordPage() {
       try {
         const fetchHome = (petId?: string | null) =>
           apiJson<QuickHomePayload>(`/api/home${petId ? `?petId=${encodeURIComponent(petId)}` : ""}`);
-        let data: QuickHomePayload;
-        try {
-          data = await fetchHome(requestedPetId);
-        } catch (err) {
-          // 기억해 둔 반려동물이 사라졌다(보관·삭제) — 첫 번째로 되돌아간다
-          if (requestedPetId && isApiError(err) && err.status === 404) data = await fetchHome(null);
-          else throw err;
-        }
+        const data = await fetchQuickHome(fetchHome, requestedPetId ?? null);
         setPets(data.pets ?? []);
         setPet(data.activePet);
         setPresets(data.presets);
@@ -196,7 +189,8 @@ export default function QuickRecordPage() {
   );
 
   function selectPet(next: Pet) {
-    if (next.id === pet?.id || dataLoading || runningRoutineId) return;
+    // 저장 진행 중에는 전환하지 않는다 — 끝난 POST의 결과가 다른 아이의 타임라인에 섞인다
+    if (next.id === pet?.id || dataLoading || runningRoutineId || detailSaving) return;
     saveQuickPetId(next.id);
     void loadQuickData(next.id);
   }
