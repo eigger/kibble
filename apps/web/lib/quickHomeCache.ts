@@ -1,4 +1,4 @@
-import { courseStartsByTodayBefore } from "@kibble/shared";
+import { courseStartsByTodayBefore, startOfTodayBoundary } from "@kibble/shared";
 import { isApiError } from "./api";
 
 /**
@@ -16,9 +16,9 @@ const PREFIX = "kibble_quick_home:";
  * 저장 형태 버전. `/api/home` 응답에서 우리가 읽는 필드(pets·activePet·presets·routines·
  * activeMedicationCourses·upcomingMedicationCourses)의 형태가 바뀌면 **반드시 올린다** — 옛 항목은
  * 버려지고 새로 받는다. v2: 시작 전 처방(`upcomingCourses`)을 함께 저장한다 — 어제 예정이던 처방이
- * 시작일 아침 오프라인 스냅샷에서 빠지지 않게. v1 스냅샷은 버려진다(한 번 새로 받으면 채워지는 캐시).
+ * 시작일 아침 오프라인 스냅샷에서 빠지지 않게. v3: 활성 처방 항목에 `endDate`를 담는다 — D-1에 저장한 스냅샷을 시작일 D 아침에 열 때 어제 끝난 이전 처방이 새 처방과 함께 활성이 되지 않게. 옛 버전 스냅샷은 버려진다(한 번 새로 받으면 채워지는 캐시).
  */
-const VERSION = 2;
+const VERSION = 3;
 /** 이보다 오래된 스냅샷은 쓰지 않는다 — 칩을 정리한 지 한 달이 지났으면 새로 받는 게 맞다. */
 export const QUICK_HOME_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -181,21 +181,24 @@ export function loadCachedPetList(
 }
 
 /**
- * 스냅샷의 처방 목록 — 저장 당시 오늘 대상이던 처방에, 그 뒤 시작일이 된 예정 처방을 더한다. 서버와
+ * 스냅샷의 처방 목록 — 저장 당시 오늘 대상이던 처방에서 그 뒤 종료일이 지난 것을 빼고, 시작일이 된 예정 처방을 더한다. 서버와
  * 같은 KST 날짜 규칙(`courseStartsByTodayBefore`)으로 판정한다. 이미 있는 id는 중복해 넣지 않는다.
  */
-export function coursesActiveAt<TCourse extends { id: string }>(
+export function coursesActiveAt<TCourse extends { id: string; endDate?: string | null }>(
   courses: TCourse[],
   upcoming: UpcomingCourse[],
   now: Date,
   build: (course: UpcomingCourse) => TCourse,
 ): TCourse[] {
   const limit = courseStartsByTodayBefore(now);
+  const todayStart = startOfTodayBoundary(now);
+  // 저장 뒤 종료일이 지난 처방은 뺀다 — 서버와 같은 규칙(endDate >= 오늘 KST 0시, 종료일 당일 포함)
+  const stillRunning = courses.filter((c) => !c.endDate || new Date(c.endDate) >= todayStart);
   const known = new Set(courses.map((c) => c.id));
   const started = upcoming
     .filter((c) => !known.has(c.id) && new Date(c.startDate) < limit)
     .map(build);
-  return [...courses, ...started];
+  return [...stillRunning, ...started];
 }
 
 /** 로그아웃·계정 전환 — 모든 사용자의 스냅샷을 지운다. */

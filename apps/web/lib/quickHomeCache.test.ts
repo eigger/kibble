@@ -165,6 +165,16 @@ describe("upcoming courses in the snapshot", () => {
     expect(loaded?.upcomingCourses.map((c) => c.id)).toEqual(["u1"]);
   });
 
+  it("discards an older-version snapshot (v2 had no course end dates)", () => {
+    const s = memory();
+    saveQuickHomeCache(me, snap("a"), NOW, s);
+    const key = "kibble_quick_home:u1:a";
+    const entry = JSON.parse(s.getItem(key)!);
+    entry.v = 2;
+    s.setItem(key, JSON.stringify(entry));
+    expect(loadQuickHomeCache(me, "a", { now: NOW, storage: s })).toBeNull();
+  });
+
   it("discards a v1 snapshot that has no upcoming list", () => {
     const s = memory();
     saveQuickHomeCache(me, snap("a"), NOW, s);
@@ -182,6 +192,22 @@ describe("upcoming courses in the snapshot", () => {
     const list = [upcoming("u1", "2026-09-03T12:00:00+09:00")];
     const morning = new Date("2026-09-03T07:55:00+09:00");
     expect(coursesActiveAt([{ id: "c1" }], list, morning, build).map((c) => c.id)).toEqual(["c1", "u1"]);
+  });
+
+  it("drops a previous course that ended before today and adds the new one (D-1 snapshot opened on day D)", () => {
+    const previous = { id: "old", endDate: "2026-09-02T12:00:00+09:00" };
+    const list = [upcoming("new", "2026-09-03T12:00:00+09:00")];
+    const morning = new Date("2026-09-03T07:55:00+09:00");
+    const withEnd = (c: UpcomingCourse) => ({ id: c.id, endDate: null as string | null });
+    expect(coursesActiveAt([previous], list, morning, withEnd).map((c) => c.id)).toEqual(["new"]);
+  });
+
+  it("keeps a course through its whole end day and drops it the day after", () => {
+    const ending = { id: "c1", endDate: "2026-09-03T12:00:00+09:00" };
+    const withEnd = (c: UpcomingCourse) => ({ id: c.id });
+    expect(coursesActiveAt([ending], [], new Date("2026-09-03T00:10:00+09:00"), withEnd)).toHaveLength(1);
+    expect(coursesActiveAt([ending], [], new Date("2026-09-03T23:50:00+09:00"), withEnd)).toHaveLength(1);
+    expect(coursesActiveAt([ending], [], new Date("2026-09-04T00:00:00+09:00"), withEnd)).toHaveLength(0);
   });
 
   it("keeps a still-upcoming course out and never duplicates a known id", () => {

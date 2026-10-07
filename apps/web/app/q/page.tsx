@@ -83,6 +83,8 @@ interface ActiveMedicationCourse {
   doseTimes: string[];
   doseSlotsToday: DoseSlotToday[];
   dosesGivenToday: number;
+  /** 종료일 — 오프라인 스냅샷이 종료일이 지난 처방을 거르는 데 쓴다 */
+  endDate?: string | null;
 }
 
 interface QuickHomePayload {

@@ -131,6 +131,8 @@ export async function homeRoutes(app: FastifyInstance) {
       doseTimes: course.doseTimes,
       doseSlotsToday: course.doseSlotsToday,
       dosesGivenToday: course.dosesGivenToday,
+      // 오프라인 스냅샷이 종료일을 넘긴 처방을 걸러 내는 데 쓴다 (기존 필드 의미는 그대로)
+      endDate: course.endDate,
     }));
 
     // 오프라인 스냅샷용 — 시작 전 처방의 최소 필드만(startDate와 함께). 클라이언트가 시작일에 맞춰
