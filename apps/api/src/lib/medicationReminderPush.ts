@@ -6,6 +6,7 @@ import {
   normalizeDoseTimes,
   parseMedicationReminderPrefs,
   resolveDoseTimeOccurredAt,
+  startOfTodayBoundary,
   type MedicationPushKind,
 } from "@kibble/shared";
 import type { PrismaClient } from "@prisma/client";
@@ -35,6 +36,17 @@ export function pushCopy(
 }
 
 /**
+ * 오늘(KST) 알릴 수 있는 처방의 날짜 창. 처방 시작·종료일은 **그날 정오**로 저장된다(웹 처방 폼) —
+ * `now`와 시각으로 비교하면 시작일 정오 전의 아침 슬롯(07:55 미리 알림, 08:10 놓침 알림)이 통째로
+ * 빠진다. 그래서 KST 날짜로 본다: 시작일이 오늘 안이면(내일 0시 전) 포함, 종료일이 오늘 0시 이후면
+ * (종료일 당일 늦은 슬롯까지) 포함.
+ */
+export function reminderCourseWindow(now: Date): { startBefore: Date; endNotBefore: Date } {
+  const todayStart = startOfTodayBoundary(now);
+  return { startBefore: new Date(todayStart.getTime() + 86_400_000), endNotBefore: todayStart };
+}
+
+/**
  * 이 슬롯이 알릴 만한가. 처방을 만든 시각보다 앞선 오늘의 슬롯은 알리지 않는다 — 오후에 처방을
  * 만들었는데 아침 슬롯의 "기록이 없어요"가 바로 날아가면 안 된다(시작일을 과거로 잡아도 마찬가지).
  */
@@ -48,6 +60,7 @@ export async function processMedicationReminderPushes(
 ): Promise<number> {
   const dayKey = kstDayKey(now);
   const since = new Date(`${dayKey}T00:00:00+09:00`);
+  const { startBefore, endNotBefore } = reminderCourseWindow(now);
 
   const settings = await db.setting.findMany({
     where: { key: { startsWith: "household:" } },
@@ -72,10 +85,10 @@ export async function processMedicationReminderPushes(
         householdId,
         archivedAt: null,
         // 시작 전 처방과 보관된 반려동물에는 알리지 않는다
-        startDate: { lte: now },
+        startDate: { lt: startBefore },
         pet: { archivedAt: null },
         doseTimes: { isEmpty: false },
-        OR: [{ endDate: null }, { endDate: { gte: since } }],
+        OR: [{ endDate: null }, { endDate: { gte: endNotBefore } }],
       },
       include: { pet: { select: { name: true } } },
     });
