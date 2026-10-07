@@ -420,7 +420,7 @@ export function RoutineEditSheet({
                     )}
                   </div>
                   {!medication && (
-                  <div className="field-row routine-item-amount">
+                  <div className={`field-row routine-item-amount${meal ? " routine-item-amount-meal" : ""}`}>
                     {meal && (
                       <div className="field-group flex-1">
                         <label className="field-label" htmlFor={`routine-item-offered-${index}`}>

@@ -163,7 +163,7 @@ async function checkItems(
   return { medicationTypeIds, mealTypeIds };
 }
 
-function itemRows(
+export function itemRows(
   householdId: string,
   items: RoutineItemInput[],
   medicationTypeIds: ReadonlySet<string>,
