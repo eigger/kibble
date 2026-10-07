@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  courseStartsByTodayBefore,
+  medicationCoursesWithProgress,
   nextDoseOrdinal,
   pastMedicationCourseWhere,
   resolveCourseEndedAt,
@@ -112,5 +114,30 @@ describe("pastMedicationCourseWhere", () => {
     expect(pastMedicationCourseWhere(now)).toEqual({
       OR: [{ archivedAt: { not: null } }, { endDate: { lt: new Date("2026-09-10T15:00:00.000Z") } }],
     });
+  });
+});
+
+describe("courseStartsByTodayBefore (시작일은 KST 정오로 저장된다)", () => {
+  const includes = (startDate: string, now: string) =>
+    new Date(startDate) < courseStartsByTodayBefore(new Date(now));
+
+  it("includes a course starting today, even in the morning before its noon timestamp", () => {
+    expect(includes("2026-09-02T12:00:00+09:00", "2026-09-02T07:55:00+09:00")).toBe(true);
+  });
+
+  it("excludes a course that starts tomorrow", () => {
+    expect(includes("2026-09-03T12:00:00+09:00", "2026-09-02T23:59:00+09:00")).toBe(false);
+  });
+});
+
+describe("medicationCoursesWithProgress start filter", () => {
+  it("asks only for courses that have started by today (KST day)", async () => {
+    const findMany = vi.fn(async () => []);
+    const db = { medicationCourse: { findMany }, event: {} } as never;
+    const now = new Date("2026-09-02T07:55:00+09:00");
+    await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    const where = (findMany.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
+    expect(where.startDate).toEqual({ lt: courseStartsByTodayBefore(now) });
+    expect(where.householdId).toBe("h1");
   });
 });

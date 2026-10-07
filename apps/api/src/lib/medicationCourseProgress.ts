@@ -223,6 +223,15 @@ export async function listPastMedicationCourses(
   });
 }
 
+/**
+ * 오늘(KST) 시작했거나 이미 시작한 처방의 시작일 상한 — `startDate < 이 값`. 처방 시작일은 그날 KST
+ * **정오**로 저장되므로 `now`와 시각으로 비교하지 않고 날짜로 본다(시작일 당일 아침에도 진행 중).
+ * 진행 중 목록과 복약 리마인더가 같은 규칙을 쓴다.
+ */
+export function courseStartsByTodayBefore(now: Date): Date {
+  return new Date(startOfTodayBoundary(now).getTime() + 86_400_000);
+}
+
 export async function medicationCoursesWithProgress(
   db: Pick<PrismaClient, "medicationCourse" | "event">,
   householdId: string,
@@ -235,6 +244,8 @@ export async function medicationCoursesWithProgress(
       ...householdWhere(householdId),
       petId,
       archivedAt: null,
+      // 내일 이후 시작하는 처방은 오늘 복약 대상이 아니다 (관리 화면 목록에는 그대로 보인다)
+      startDate: { lt: courseStartsByTodayBefore(now) },
       OR: [{ endDate: null }, { endDate: { gte: since } }],
     },
     orderBy: [{ startDate: "desc" }, { name: "asc" }],
