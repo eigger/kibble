@@ -50,4 +50,16 @@ describe("deferOnce", () => {
     expect(run).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
+
+  it("without a delay it only ends on flush or cancel", () => {
+    vi.useFakeTimers();
+    const run = vi.fn();
+    const action = deferOnce(run, null);
+    vi.advanceTimersByTime(60_000);
+    expect(run).not.toHaveBeenCalled();
+    action.flush();
+    action.flush();
+    expect(run).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });

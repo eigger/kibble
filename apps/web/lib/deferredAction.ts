@@ -12,7 +12,8 @@ export interface DeferredAction {
  */
 export function deferOnce(
   run: () => void,
-  delayMs: number,
+  /** null이면 타이머 없이 `flush`/`cancel`로만 끝난다 — 토스트 수명 같은 외부 신호에 맞출 때 */
+  delayMs: number | null,
   timers: {
     set: (fn: () => void, ms: number) => unknown;
     clear: (handle: unknown) => void;
@@ -22,12 +23,12 @@ export function deferOnce(
   },
 ): DeferredAction {
   let done = false;
-  const handle = timers.set(() => finish(true), delayMs);
+  const handle = delayMs == null ? null : timers.set(() => finish(true), delayMs);
 
   function finish(shouldRun: boolean) {
     if (done) return;
     done = true;
-    timers.clear(handle);
+    if (handle != null) timers.clear(handle);
     if (shouldRun) run();
   }
 
