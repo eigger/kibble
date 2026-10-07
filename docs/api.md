@@ -244,6 +244,8 @@ curl -sS -X PATCH "$BASE/api/events/<event-id>" \
   -d '{"note":"잘 먹음","quantity":40,"unit":"g","productId":"<product-id>"}'
 ```
 
+처방에 연결된 복약의 `occurredAt`을 다른 날(KST 하루)로 옮기면 도착일 기준으로 슬롯·하루 한도를 확인해 충돌이면 `409`(현지화된 메시지 `{ "error": "…" }`)이며, 복원과 같은 규칙이다. 같은 날 안에서 시각만 바꾸는 수정은 검사하지 않는다.
+
 ### 소프트 삭제 / 복구
 
 ```bash
