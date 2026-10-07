@@ -86,6 +86,12 @@ describe("루틴 저장 — 보관된 제품 (이미 연결된 항목)", () => {
     const res = await patch(ARCHIVED);
     expect(res.statusCode).toBe(200);
     expect(mockPrisma.routineItem.createMany).toHaveBeenCalled();
+    // K-1 — 보관 예외를 열어도 가구·반려동물 범위는 그대로다
+    const { where } = mockPrisma.product.count.mock.calls[0][0] as {
+      where: { householdId: string; OR: object[] };
+    };
+    expect(where.householdId).toBe(HH);
+    expect(where.OR).toEqual([{ petId: null }, { petId: PET }]);
   });
 
   it("새로 연결하려는 보관 제품은 거절된다 (productNotFound 404)", async () => {

@@ -650,8 +650,12 @@ export default function QuickRecordPage() {
       // 들어간 건은 되돌릴 수 있어야 한다 — 실패 토스트에 실행취소를 붙인다
       const summary = t("routineFailedItems", { names: names(failed.map((f) => f.item)) });
       const reason = formatApiErrorMessage(failed[0].error, t("recordError"), locale);
+      // 일부가 오프라인 큐에 남았거나 건너뛴 항목이 있으면 같은 토스트에 함께 알린다
+      const parts = [`${summary} · ${reason}`];
+      if (queued) parts.push(t("offlineQueuedToast"));
+      parts.push(...skipNotes());
       show(
-        `${summary} · ${reason}`,
+        parts.join(" · "),
         "error",
         ids.length > 0 ? { label: t("undo"), onClick: () => void undoRoutine(ids) } : undefined,
       );

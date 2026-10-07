@@ -148,9 +148,9 @@ export function RoutineEditSheet({
   );
   const presetById = useMemo(() => new Map(presets.map((p) => [p.id, p])), [presets]);
 
-  // 보관된 제품은 목록에서 빠지지만 항목은 그 id를 들고 있다 — 숨기면 "없음"으로 보이는데
+  // 보관·비활성 제품은 목록에서 빠지지만 항목은 그 id를 들고 있다 — 숨기면 "없음"으로 보이는데
   // 저장은 옛 id로 나간다. 이름을 살려 보여 주고 사용자가 비울 수 있게 한다.
-  const archivedProductNames = useMemo(() => {
+  const unlistedProductNames = useMemo(() => {
     const listed = new Set(products.map((p) => p.id));
     const names = new Map<string, string>();
     for (const it of routine?.items ?? []) {
@@ -158,8 +158,8 @@ export function RoutineEditSheet({
     }
     return names;
   }, [products, routine]);
-  const archivedProductOption = (productId: string): string | null =>
-    productId ? (archivedProductNames.get(productId) ?? null) : null;
+  const unlistedProductName = (productId: string): string | null =>
+    productId ? (unlistedProductNames.get(productId) ?? null) : null;
 
   const productGroups = useMemo(() => {
     const groups = new Map<ProductCategory, Product[]>();
@@ -419,10 +419,10 @@ export function RoutineEditSheet({
                         disabled={saving}
                       >
                         <option value="">{t("routineItemProductNone")}</option>
-                        {archivedProductOption(item.productId) && (
+                        {unlistedProductName(item.productId) && (
                           <option value={item.productId}>
-                            {t("routineItemProductArchived", {
-                              name: archivedProductOption(item.productId)!,
+                            {t("routineItemProductUnlisted", {
+                              name: unlistedProductName(item.productId)!,
                             })}
                           </option>
                         )}
