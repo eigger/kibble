@@ -668,20 +668,18 @@ export default function QuickRecordPage() {
   }
 
   async function restoreEvent(event: TimelineEvent) {
-    const pending = pendingUploadCancels.current.get(event.id);
+    // 복원 요청이 도는 사이 유예 타이머가 만료돼 업로드가 취소되지 않게, 시작할 때 먼저 거둔다
+    pendingUploadCancels.current.get(event.id)?.cancel();
+    pendingUploadCancels.current.delete(event.id);
     try {
       await apiJson(`/api/events/${event.id}/restore`, { method: "POST" });
-      // 되돌렸다 — 업로드는 취소하지 않고 이어간다
-      pending?.cancel();
-      pendingUploadCancels.current.delete(event.id);
       setRecentEvents((prev) =>
         prev.some((e) => e.id === event.id) ? prev : insertTimelineEvent(prev, event),
       );
       show(t("eventRestored"), "success");
     } catch (err) {
-      // 오프라인·휴지통 만료(404) — 삭제는 이미 서버에 있다. 업로드는 이제 정리한다
-      pending?.flush();
-      // 복원 실패를 그대로 알린다
+      // 오프라인·휴지통 만료(404) — 삭제는 이미 서버에 있다. 거뒀던 업로드 정리를 직접 한다
+      cancelUploadsForEvent(event.id);
       show(formatApiErrorMessage(err, t("eventRestoreError"), locale), "error");
     }
   }

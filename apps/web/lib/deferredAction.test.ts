@@ -38,4 +38,16 @@ describe("deferOnce", () => {
     expect(run).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
   });
+
+  it("cancelling before an in-flight operation keeps the timer from firing mid-way", () => {
+    vi.useFakeTimers();
+    const run = vi.fn();
+    const action = deferOnce(run, 3500);
+    vi.advanceTimersByTime(3400);
+    // 실행취소 클릭 → 복원 요청 시작 전에 거둔다. 요청이 길어져 유예가 지나도 실행되지 않는다
+    action.cancel();
+    vi.advanceTimersByTime(5000);
+    expect(run).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
