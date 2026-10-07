@@ -115,6 +115,9 @@ export default function HomePage() {
   });
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // 반려동물 전환에 실패해도 이전 데이터는 그대로 둔다 — 화면 전체를 오류로 바꾸지 않는다
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [rowLightboxAtt, setRowLightboxAtt] = useState<EventAttachment | null>(null);
 
   // 첨부는 이력 화면과 같게 다룬다 — 올라간 것을 제자리에 붙이고, 포스터가 늦은
@@ -174,16 +177,16 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, needsPet, router, t, loadHome]);
+  }, [userId, needsPet, router, t, loadHome, reloadKey]);
 
   async function selectPet(pet: Pet) {
     if (pet.id === activePet?.id || dataLoading) return;
     setDataLoading(true);
-    setLoadError(null);
+    setSwitchError(null);
     try {
       await loadHome(pet.id);
     } catch {
-      setLoadError(t("homeLoadError"));
+      setSwitchError(t("homeLoadError"));
     } finally {
       setDataLoading(false);
     }
@@ -228,11 +231,21 @@ export default function HomePage() {
           </div>
         )}
       </header>
+      {switchError && (
+        <p className="error-text" role="alert">
+          {switchError}
+        </p>
+      )}
 
       {dataLoading && !activePet ? (
         <p className="meta">{t("loading")}</p>
       ) : loadError ? (
-        <p className="error-text">{loadError}</p>
+        <div>
+          <p className="error-text">{loadError}</p>
+          <button type="button" className="secondary" onClick={() => setReloadKey((k) => k + 1)}>
+            {t("retryButton")}
+          </button>
+        </div>
       ) : (
         <div id={tabPanelId} role={pets.length >= 2 ? "tabpanel" : undefined}>
           <section className="dashboard-section" aria-labelledby="home-today-heading">

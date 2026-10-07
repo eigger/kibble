@@ -32,7 +32,6 @@ import {
   type EventDetailDraft,
   type EventDetailSaveMeta,
 } from "../../components/EventDetailSheet";
-import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PresetChip } from "../../components/PresetChip";
 import { RoutineButton } from "../../components/RoutineButton";
 import {
@@ -51,6 +50,7 @@ import {
   saveQuickHomeCache,
   shouldUseQuickHomeCache,
 } from "../../lib/quickHomeCache";
+import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
@@ -138,7 +138,6 @@ export default function QuickRecordPage() {
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
-  const [deleteConfirmEventId, setDeleteConfirmEventId] = useState<string | null>(null);
   const [detailSaveError, setDetailSaveError] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<EventAttachment[]>([]);
   const [detailPendingFiles, setDetailPendingFiles] = useState<File[]>([]);
@@ -256,13 +255,13 @@ export default function QuickRecordPage() {
     void loadQuickData(loadQuickPetId());
   }, [user, needsPet, pathname, loadQuickData]);
 
-  // 저장해 둔 칩으로 그리다가 연결이 돌아오면 새로 받는다
+  // 저장해 둔 칩으로 그리거나 불러오기에 실패한 채 연결이 돌아오면 새로 받는다
   useEffect(() => {
-    if (cachedAt == null) return;
+    if (cachedAt == null && loadError == null) return;
     const onOnline = () => void loadQuickData(pet?.id ?? loadQuickPetId());
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [cachedAt, loadQuickData, pet?.id]);
+  }, [cachedAt, loadError, loadQuickData, pet?.id]);
 
   useMergeUploadedAttachments(setRecentEvents);
   useVideoPosterRefresh(recentEvents, setRecentEvents);
@@ -615,8 +614,13 @@ export default function QuickRecordPage() {
     }
   }
 
+  /**
+   * 삭제는 묻지 않고 지운 뒤 "실행취소"를 준다 — 루틴과 같은 패턴이다. 확인 단계는 매번 1탭을
+   * 더하지만, 실수는 3초 안에 되돌릴 수 있다. 복원은 `POST /events/:id/restore`(소프트 삭제 해제).
+   */
   async function deleteEvent(eventId: string) {
     if (deletingEventId) return;
+    const removed = recentEvents.find((e) => e.id === eventId) ?? null;
     setDeletingEventId(eventId);
     cancelUploadsForEvent(eventId);
     try {
@@ -629,7 +633,11 @@ export default function QuickRecordPage() {
         setDetailPendingFiles([]);
         setDetailSaveError(null);
       }
-      show(t("recordUndone"), "info");
+      show(
+        t("eventDeleted"),
+        "info",
+        removed ? { label: t("undo"), onClick: () => void restoreEvent(removed) } : undefined,
+      );
     } catch (err) {
       show(formatApiErrorMessage(err, t("recordError"), locale), "error");
     } finally {
@@ -637,25 +645,26 @@ export default function QuickRecordPage() {
     }
   }
 
-  function requestDelete(eventId: string) {
-    if (deletingEventId) return;
-    setDeleteConfirmEventId(eventId);
-  }
-
-  async function confirmDelete() {
-    if (!deleteConfirmEventId) return;
-    const eventId = deleteConfirmEventId;
-    setDeleteConfirmEventId(null);
-    await deleteEvent(eventId);
+  async function restoreEvent(event: TimelineEvent) {
+    try {
+      await apiJson(`/api/events/${event.id}/restore`, { method: "POST" });
+      setRecentEvents((prev) =>
+        prev.some((e) => e.id === event.id) ? prev : insertTimelineEvent(prev, event),
+      );
+      show(t("eventRestored"), "success");
+    } catch (err) {
+      // 오프라인·휴지통 만료(404) — 삭제는 이미 서버에 있다. 복원 실패를 그대로 알린다
+      show(formatApiErrorMessage(err, t("eventRestoreError"), locale), "error");
+    }
   }
 
   function handleDeleteEvent() {
     if (!detailDraft?.eventId) return;
-    requestDelete(detailDraft.eventId);
+    void deleteEvent(detailDraft.eventId);
   }
 
   function handleRowDelete(event: TimelineEvent) {
-    requestDelete(event.id);
+    void deleteEvent(event.id);
   }
 
   /** 실행취소 — 방금 만든 N건을 전부 지운다. 토스트 하나로 끝낸다 */
@@ -759,11 +768,34 @@ export default function QuickRecordPage() {
     });
   }
 
+  /** 처방이 정해졌다 — 남은 슬롯이 여럿이면 시간대를, 하나면 바로 상세 시트로 */
+  function chooseMedicationCourse(preset: Preset, course: ActiveMedicationCourse) {
+    const pending = pendingDoseSlots(course.doseTimes, course.doseSlotsToday);
+    if (pending.length > 1) {
+      setPendingMedPreset(preset);
+      setPendingMedCourse(course);
+      setMedSlotPickOpen(true);
+      return;
+    }
+    setPendingMedPreset(null);
+    continueMedicationPreset(preset, course, pending[0]?.index);
+  }
+
   function onPresetTap(preset: Preset) {
     if (!pet || detailSaving) return;
     if (preset.eventType?.key === "medication") {
       if (activeMedicationCourses.length === 0) {
         show(t("medicationNoActiveCourse"), "info");
+        return;
+      }
+      const plan = planMedicationPick(activeMedicationCourses);
+      if (plan.kind === "allDone") {
+        show(t("medicationTodayComplete"), "info");
+        return;
+      }
+      // 오늘 남은 처방이 하나뿐이면 묻지 않는다 — 탭 하나를 아낀다
+      if (plan.kind === "auto") {
+        chooseMedicationCourse(preset, plan.course);
         return;
       }
       setPendingMedPreset(preset);
@@ -809,7 +841,16 @@ export default function QuickRecordPage() {
         {dataLoading ? (
           <p className="meta">{t("loading")}</p>
         ) : loadError ? (
-          <p className="error-text">{loadError}</p>
+          <div>
+            <p className="error-text">{loadError}</p>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void loadQuickData(pet?.id ?? loadQuickPetId())}
+            >
+              {t("retryButton")}
+            </button>
+          </div>
         ) : cachedAt != null ? (
           <p className="meta timeline-empty">{t("quickCachedTimeline")}</p>
         ) : previewEvents.length === 0 ? (
@@ -993,7 +1034,11 @@ export default function QuickRecordPage() {
 
       <MedicationCoursePickSheet
         open={medPickOpen}
-        courses={activeMedicationCourses}
+        courses={activeMedicationCourses.map((c) => ({
+          id: c.id,
+          name: c.name,
+          done: isCourseDoneToday(c),
+        }))}
         onClose={() => {
           setMedPickOpen(false);
           setPendingMedPreset(null);
@@ -1006,16 +1051,7 @@ export default function QuickRecordPage() {
             setPendingMedPreset(null);
             return;
           }
-
-          const pending = pendingDoseSlots(course.doseTimes, course.doseSlotsToday);
-          if (pending.length > 1) {
-            setPendingMedCourse(course);
-            setMedSlotPickOpen(true);
-            return;
-          }
-
-          setPendingMedPreset(null);
-          continueMedicationPreset(preset, course, pending[0]?.index);
+          chooseMedicationCourse(preset, course);
         }}
         t={t}
       />
@@ -1080,16 +1116,6 @@ export default function QuickRecordPage() {
         />
       )}
 
-      <ConfirmDialog
-        open={deleteConfirmEventId != null}
-        title={t("confirmDeleteEvent")}
-        confirmLabel={deletingEventId ? t("deleting") : t("delete")}
-        cancelLabel={t("cancel")}
-        danger
-        busy={deletingEventId != null}
-        onConfirm={() => void confirmDelete()}
-        onCancel={() => setDeleteConfirmEventId(null)}
-      />
     </main>
   );
 }

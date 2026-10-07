@@ -689,6 +689,7 @@ const dict = {
   },
   careLogDoseSlot: { ko: "{slot} 복약 기록", en: "Log {slot} dose" },
   medicationSlotPickTitle: { ko: "몇 시 복약인가요?", en: "Which dose time?" },
+  medicationCourseDoneToday: { ko: "오늘 완료", en: "Done today" },
   medicationTodayComplete: {
     ko: "오늘 복약을 모두 기록했습니다",
     en: "Today's doses are already logged",
@@ -878,6 +879,11 @@ const dict = {
     en: "Saved, but the list could not refresh. Pull down to refresh.",
   },
   undo: { ko: "실행 취소", en: "Undo" },
+  eventDeleted: { ko: "기록을 삭제했습니다", en: "Event deleted" },
+  eventRestoreError: {
+    ko: "되돌리지 못했습니다. 연결을 확인하세요.",
+    en: "Could not restore. Check your connection.",
+  },
   recordUndone: { ko: "기록을 취소했습니다", en: "Event removed" },
 
   // settings
