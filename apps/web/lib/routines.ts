@@ -48,8 +48,13 @@ export function routineItemSummary(
   if (isMedicationItem(item) && item.course) return item.course.name;
   const name =
     item.product?.name ?? item.productName ?? tLabel(item.preset?.label ?? item.eventType.label);
-  if (item.quantity == null) return name;
-  return `${name} ${formatQuantity(item.quantity, item.unit ?? item.eventType.defaultUnit)}`;
+  const unit = item.unit ?? item.eventType.defaultUnit;
+  if (item.quantityOffered != null && item.quantity != null) {
+    return `${name} ${formatQuantity(item.quantityOffered, unit)} / ${formatQuantity(item.quantity, unit)}`;
+  }
+  const single = item.quantity ?? item.quantityOffered;
+  if (single == null) return name;
+  return `${name} ${formatQuantity(single, unit)}`;
 }
 
 /** 버튼 아래 요약 — 항목이 많으면 "사료 10g · 영양제 · +2" */
@@ -104,6 +109,7 @@ export function buildRoutineEventBodies(
         entryId,
         dedupeKey: `routine:${petId}:${routine.id}:${suffix}:${index}`,
         quantity: medication ? undefined : (item.quantity ?? undefined),
+        quantityOffered: medication ? undefined : (item.quantityOffered ?? undefined),
         unit: medication ? undefined : (item.unit ?? undefined),
         productId: medication ? undefined : (item.productId ?? undefined),
         productName: medication ? undefined : (item.productName ?? undefined),

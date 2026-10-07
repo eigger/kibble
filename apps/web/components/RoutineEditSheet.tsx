@@ -38,10 +38,16 @@ interface ItemDraft {
   key: string;
   presetId: string;
   quantity: string;
+  /** 사료만 — 제공량. `quantity`는 섭취량이다 */
+  quantityOffered: string;
   unit: string;
   productId: string;
   /** 투약 칩일 때만 — 슬롯은 실행 때 서버가 고른다 */
   courseId: string;
+}
+
+function isMealPreset(preset: PresetDetail | undefined): boolean {
+  return preset?.eventType.key === "meal";
 }
 
 function isMedicationPreset(preset: PresetDetail | undefined): boolean {
@@ -93,6 +99,7 @@ function draftsFromRoutine(
         key: newKey(),
         presetId: first?.id ?? "",
         quantity: "",
+        quantityOffered: "",
         unit: unitForPreset(first, defaultUnitByKey),
         productId: "",
         courseId: "",
@@ -108,6 +115,7 @@ function draftsFromRoutine(
       presets.find((p) => p.eventTypeId === item.eventTypeId)?.id ??
       "",
     quantity: item.quantity != null ? String(item.quantity) : "",
+    quantityOffered: item.quantityOffered != null ? String(item.quantityOffered) : "",
     unit: item.unit ?? "",
     productId: item.productId ?? "",
     courseId: item.medicationCourseId ?? "",
@@ -174,6 +182,7 @@ export function RoutineEditSheet({
     updateItem(key, {
       presetId,
       unit: unitForPreset(preset, defaultUnitByKey),
+      ...(isMealPreset(preset) ? {} : { quantityOffered: "" }),
       courseId: isMedicationPreset(preset) ? (courses[0]?.id ?? "") : "",
     });
   }
@@ -203,6 +212,7 @@ export function RoutineEditSheet({
         key: newKey(),
         presetId: last?.presetId ?? first?.id ?? "",
         quantity: "",
+        quantityOffered: "",
         unit: last ? last.unit : unitForPreset(first, defaultUnitByKey),
         productId: "",
         courseId: last?.courseId ?? "",
@@ -245,11 +255,14 @@ export function RoutineEditSheet({
         }
         const quantityRaw = it.quantity.trim();
         const quantity = quantityRaw ? Number(quantityRaw) : null;
+        const offeredRaw = isMealPreset(preset) ? it.quantityOffered.trim() : "";
+        const offered = offeredRaw ? Number(offeredRaw) : null;
         return {
           eventTypeId: preset.eventTypeId,
           presetId: preset.id,
           productId: it.productId || null,
           quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
+          quantityOffered: offered != null && Number.isFinite(offered) ? offered : null,
           unit: it.unit.trim() || null,
         };
       })
@@ -314,6 +327,7 @@ export function RoutineEditSheet({
             {items.map((item, index) => {
               const presetLabel = tLabel(presetById.get(item.presetId)?.label ?? "");
               const medication = isMedicationPreset(presetById.get(item.presetId));
+              const meal = isMealPreset(presetById.get(item.presetId));
               const options = medication ? courseOptions(item.courseId) : [];
               return (
                 <li key={item.key} className="routine-item-row">
@@ -406,10 +420,28 @@ export function RoutineEditSheet({
                     )}
                   </div>
                   {!medication && (
-                  <div className="field-row routine-item-amount">
+                  <div className={`field-row routine-item-amount${meal ? " routine-item-amount-meal" : ""}`}>
+                    {meal && (
+                      <div className="field-group flex-1">
+                        <label className="field-label" htmlFor={`routine-item-offered-${index}`}>
+                          {t("eventDetailQuantityOffered")}
+                        </label>
+                        <input
+                          id={`routine-item-offered-${index}`}
+                          type="number"
+                          inputMode="decimal"
+                          step="any"
+                          min={0}
+                          className="text-input"
+                          value={item.quantityOffered}
+                          onChange={(e) => updateItem(item.key, { quantityOffered: e.target.value })}
+                          disabled={saving}
+                        />
+                      </div>
+                    )}
                     <div className="field-group flex-1">
                       <label className="field-label" htmlFor={`routine-item-qty-${index}`}>
-                        {t("routineItemQuantity")}
+                        {meal ? t("eventDetailQuantityConsumed") : t("routineItemQuantity")}
                       </label>
                       <input
                         id={`routine-item-qty-${index}`}

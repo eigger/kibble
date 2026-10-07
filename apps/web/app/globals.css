@@ -2332,6 +2332,11 @@ button:disabled {
   grid-template-columns: minmax(0, 1fr) 96px;
 }
 
+/* 사료 항목은 제공량·섭취량·단위 세 칸 */
+.field-row.routine-item-amount.routine-item-amount-meal {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 96px;
+}
+
 .preset-card-fields {
   margin-top: 4px;
 }

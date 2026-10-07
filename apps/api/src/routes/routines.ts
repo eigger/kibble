@@ -27,6 +27,7 @@ export const routineSelect = {
       productId: true,
       productName: true,
       quantity: true,
+      quantityOffered: true,
       unit: true,
       medicationCourseId: true,
       eventType: { select: { key: true, label: true, category: true, defaultUnit: true } },
@@ -56,6 +57,7 @@ export function serializeRoutine(row: RoutineRow, now = new Date()) {
         productId: item.productId,
         productName: item.productName,
         quantity: item.quantity != null ? item.quantity.toNumber() : null,
+        quantityOffered: item.quantityOffered != null ? item.quantityOffered.toNumber() : null,
         unit: item.unit,
         eventType: item.eventType,
         preset: preset ? { id: preset.id, label: preset.label } : null,
@@ -97,7 +99,7 @@ async function checkItems(
   items: RoutineItemInput[],
   /** 이 루틴이 이미 들고 있는 처방 — 끝났어도 그대로 둘 수 있다. 지울지는 사용자가 정한다 */
   keptCourseIds: ReadonlySet<string> = new Set(),
-): Promise<{ error: ItemCheckError } | { medicationTypeIds: Set<string> }> {
+): Promise<{ error: ItemCheckError } | { medicationTypeIds: Set<string>; mealTypeIds: Set<string> }> {
   const eventTypeIds = [...new Set(items.map((i) => i.eventTypeId))];
   const eventTypes = await prisma.eventType.findMany({
     where: { id: { in: eventTypeIds }, householdId: null, archivedAt: null },
@@ -107,6 +109,9 @@ async function checkItems(
   const medicationTypeIds = new Set(
     eventTypes.filter((type) => type.key === "medication").map((type) => type.id),
   );
+
+  // 제공량은 사료만 — 편집 시트가 사료에만 그 칸을 둔다
+  const mealTypeIds = new Set(eventTypes.filter((type) => type.key === "meal").map((type) => type.id));
 
   const courseIds: string[] = [];
   for (const item of items) {
@@ -155,13 +160,14 @@ async function checkItems(
     if (count !== productIds.length) return { error: "productNotFound" };
   }
 
-  return { medicationTypeIds };
+  return { medicationTypeIds, mealTypeIds };
 }
 
-function itemRows(
+export function itemRows(
   householdId: string,
   items: RoutineItemInput[],
   medicationTypeIds: ReadonlySet<string>,
+  mealTypeIds: ReadonlySet<string>,
 ) {
   return items.map((item, index) => ({
     householdId,
@@ -171,6 +177,7 @@ function itemRows(
     productId: item.productId ?? null,
     productName: item.productName?.trim() || null,
     quantity: item.quantity ?? null,
+    quantityOffered: mealTypeIds.has(item.eventTypeId) ? (item.quantityOffered ?? null) : null,
     unit: item.unit?.trim() || null,
     medicationCourseId: medicationTypeIds.has(item.eventTypeId)
       ? (item.medicationCourseId ?? null)
@@ -223,7 +230,7 @@ export async function routineRoutes(app: FastifyInstance) {
         petId,
         label,
         sortOrder: sortOrder ?? (maxSort._max.sortOrder ?? 0) + 1,
-        items: { create: itemRows(householdId, items, checked.medicationTypeIds) },
+        items: { create: itemRows(householdId, items, checked.medicationTypeIds, checked.mealTypeIds) },
       },
       select: routineSelect,
     });
@@ -246,6 +253,7 @@ export async function routineRoutes(app: FastifyInstance) {
     if (!existing) return reply.code(404).send({ error: t("routineNotFound", request.locale) });
 
     let medicationTypeIds: Set<string> = new Set();
+    let mealTypeIds: Set<string> = new Set();
     if (data.items) {
       const kept = new Set(
         existing.items.map((item) => item.medicationCourseId).filter((id): id is string => !!id),
@@ -255,6 +263,7 @@ export async function routineRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t(checked.error, request.locale) });
       }
       medicationTypeIds = checked.medicationTypeIds;
+      mealTypeIds = checked.mealTypeIds;
     }
 
     await prisma.$transaction(async (tx) => {
@@ -271,7 +280,7 @@ export async function routineRoutes(app: FastifyInstance) {
           where: { routineId: id, ...householdWhere(householdId) },
         });
         await tx.routineItem.createMany({
-          data: itemRows(householdId, data.items, medicationTypeIds).map((row) => ({
+          data: itemRows(householdId, data.items, medicationTypeIds, mealTypeIds).map((row) => ({
             ...row,
             routineId: id,
           })),

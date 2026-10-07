@@ -60,6 +60,7 @@ export interface RoutineItem {
   productId: string | null;
   productName: string | null;
   quantity: number | null;
+  quantityOffered: number | null;
   unit: string | null;
   eventType: { key: string; label: string; category: string; defaultUnit: string | null };
   preset: { id: string; label: string } | null;

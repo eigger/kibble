@@ -255,6 +255,8 @@ model RoutineItem {
   productId          String?
   productName        String?
   quantity           Decimal? @db.Decimal(10, 2)
+  /// 사료 항목의 제공량. `quantity`는 섭취량이다
+  quantityOffered    Decimal? @db.Decimal(10, 2)
   unit               String?
   /// 투약 항목의 처방. "이어가기"가 새 처방으로 옮긴다. 처방이 끝나면 실행 때 건너뛴다 (§7.24)
   medicationCourseId String?
