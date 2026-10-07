@@ -6,7 +6,7 @@
 
 **알아낸 것**: 처방 미존재가 `eventTypeNotFound`로, 프리셋 반려동물 불일치·슬롯 오류가 모두 `eventTargetRequired`로 나가고 있었다. 전용 키(`medicationCourseNotFound`, `presetPetMismatch`, `medicationDoseSlotInvalid`, `doseSlotWithoutCourse`, `medicationCourseNotAllowed`)로 분리.
 
-**미완**: `dedupeKey` 선조회 경로는 스코프 검사보다 먼저 기존 이벤트를 돌려준다(같은 가구 안 한정). 필요하면 후속으로 다룬다.
+**해결**: `dedupeKey` 선조회·경합 재조회 경로도 기존 기록의 eventTypeId/petId를 토큰 스코프(`scopedEventTypeId`, `scopedPetId`)와 비교해 어긋나면 403이다. soft-delete 복원도 이 검사를 먼저 통과해야 한다.
 
 ### 2026-10-07 — 루틴 사료 항목 제공량/섭취량 분리
 

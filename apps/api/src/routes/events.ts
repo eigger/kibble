@@ -124,6 +124,7 @@ export async function eventRoutes(app: FastifyInstance) {
           presetId: presetId ?? null,
           eventTypeId,
           scopedEventTypeId: tokenCtx?.eventTypeId ?? null,
+          scopedPetId: tokenCtx?.petId ?? null,
           occurredAt: body.occurredAt ? new Date(body.occurredAt) : undefined,
           quantity: body.quantity,
           quantityOffered: body.quantityOffered,

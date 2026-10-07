@@ -50,6 +50,8 @@ export type CreateEventParams = {
   eventTypeId?: string;
   /** 토큰 등으로 고정된 이벤트 타입 — 프리셋 해석 결과가 다르면 CreateEventScopeError. */
   scopedEventTypeId?: string | null;
+  /** 토큰 등으로 고정된 반려동물 — dedupe로 찾은 기존 기록이 다른 pet이면 CreateEventScopeError. */
+  scopedPetId?: string | null;
   occurredAt?: Date;
   quantity?: number | null;
   quantityOffered?: number | null;
@@ -150,11 +152,24 @@ async function restoreOrReturnDedupe(
   });
 }
 
+/** 스코프 밖 기록은 dedupe로도 반환·복원하지 않는다. */
+function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams): void {
+  if (
+    (params.scopedEventTypeId && existing.eventTypeId !== params.scopedEventTypeId) ||
+    (params.scopedPetId && existing.petId !== params.scopedPetId)
+  ) {
+    throw new CreateEventScopeError();
+  }
+}
+
 /** K-4: 이벤트 생성은 이 함수만 통과한다. */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (params.dedupeKey) {
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
-    if (existing) return restoreOrReturnDedupe(db, existing);
+    if (existing) {
+      assertDedupeInScope(existing, params);
+      return restoreOrReturnDedupe(db, existing);
+    }
   }
 
   let eventTypeId = params.eventTypeId;
@@ -348,7 +363,10 @@ export async function createEvent(db: Db, params: CreateEventParams): Promise<Cr
   } catch (err) {
     if (params.dedupeKey && isUniqueConstraintError(err)) {
       const raced = await findByDedupeKey(db, params.householdId, params.dedupeKey);
-      if (raced) return restoreOrReturnDedupe(db, raced);
+      if (raced) {
+        assertDedupeInScope(raced, params);
+        return restoreOrReturnDedupe(db, raced);
+      }
     }
     throw err;
   }

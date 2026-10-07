@@ -8,7 +8,8 @@ import {
 } from "./createEvent.js";
 import { mapCreateEventError } from "../lib/createEventErrors.js";
 
-type FakeOpts = { presetTypeId?: string; typeKey?: string; course?: boolean };
+type FakeOpts = {
+  existing?: Record<string, unknown>; presetTypeId?: string; typeKey?: string; course?: boolean };
 
 function fakeDb(opts: FakeOpts = {}) {
   const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "e1", ...data }));
@@ -34,13 +35,15 @@ function fakeDb(opts: FakeOpts = {}) {
       ),
     },
     event: {
+      findFirst: vi.fn(async () => opts.existing ?? null),
+      update: vi.fn(async ({ data }: { data: object }) => ({ ...opts.existing, ...data })),
       findMany: vi.fn(async () => []),
       aggregate: vi.fn(async () => ({ _max: { doseOrdinal: null }, _count: { _all: 0 } })),
       create,
     },
     product: { findFirst: vi.fn(async () => null) },
   };
-  return { db: db as unknown as PrismaClient, create };
+  return { db: db as unknown as PrismaClient, create, update: db.event.update };
 }
 
 const base = { householdId: "h1", petId: "pet1", source: "API" as const };
@@ -58,6 +61,38 @@ describe("createEvent token scope", () => {
     const { db, create } = fakeDb({ presetTypeId: "type-a" });
     await createEvent(db, { ...base, presetId: "p1", scopedEventTypeId: "type-a" });
     expect(create).toHaveBeenCalledOnce();
+  });
+});
+
+describe("createEvent dedupe scope", () => {
+  const existing = { id: "e0", petId: "pet1", eventTypeId: "type-b", deletedAt: new Date() };
+
+  it("neither returns nor restores an out-of-scope event type", async () => {
+    const { db, update } = fakeDb({ existing });
+    await expect(
+      createEvent(db, { ...base, eventTypeId: "type-a", scopedEventTypeId: "type-a", dedupeKey: "k" }),
+    ).rejects.toBeInstanceOf(CreateEventScopeError);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an out-of-scope pet", async () => {
+    const { db, update } = fakeDb({ existing });
+    await expect(
+      createEvent(db, { ...base, eventTypeId: "type-b", scopedPetId: "pet2", dedupeKey: "k" }),
+    ).rejects.toBeInstanceOf(CreateEventScopeError);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("restores an in-scope soft-deleted event", async () => {
+    const { db, update } = fakeDb({ existing });
+    await createEvent(db, {
+      ...base,
+      eventTypeId: "type-b",
+      scopedEventTypeId: "type-b",
+      scopedPetId: "pet1",
+      dedupeKey: "k",
+    });
+    expect(update).toHaveBeenCalledOnce();
   });
 });
 
