@@ -1,7 +1,7 @@
 "use client";
 
 import { bestEffort } from "./withTimeout";
-import { unsubscribeFromPush } from "./pushNotifications";
+import { unsubscribeBrowserPushOnly, unsubscribeFromPush } from "./pushNotifications";
 import { clearQuickHomeCache } from "./quickHomeCache";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -41,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearToken();
           localStorage.removeItem(CACHED_USER_KEY);
           clearQuickHomeCache();
+          // 토큰 만료 자동 로그아웃 — 서버를 부를 수 없으니 브라우저 구독만 해제한다.
+          // 다음 발송의 410으로 서버 행이 정리된다. 기다리지 않고 실패는 무시한다.
+          void bestEffort(unsubscribeBrowserPushOnly, 3000);
           setUser(null);
         } else {
           // 5xx·파싱 실패 등 — 로그인 상태로 오인하지 않도록 캐시를 지운다.

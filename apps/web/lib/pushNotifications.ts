@@ -74,6 +74,18 @@ export async function unsubscribeFromPush(): Promise<void> {
   }).catch(() => {});
 }
 
+/**
+ * 브라우저 구독만 해제한다(서버 호출 없음) — 토큰이 이미 만료돼 서버를 부를 수 없을 때. 푸시 서비스는
+ * 다음 발송에서 410을 돌려주고 서버가 그 행을 지운다. 서비스워커·PushManager가 없으면 조용히 끝낸다.
+ */
+export async function unsubscribeBrowserPushOnly(): Promise<void> {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager?.getSubscription();
+  await subscription?.unsubscribe();
+}
+
 export async function sendTestPush(): Promise<void> {
   await apiJson("/api/push/test", { method: "POST" });
 }
