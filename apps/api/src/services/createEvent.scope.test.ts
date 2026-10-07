@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import {
   createEvent,
   CreateEventDedupeDeletedError,
@@ -98,6 +98,21 @@ describe("createEvent dedupe scope", () => {
     ).rejects.toBeInstanceOf(CreateEventDedupeDeletedError);
     expect(update).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a deleted event found by the post-conflict lookup too", async () => {
+    // 선조회는 비었고(경합), insert가 unique 오류를 낸 뒤 재조회가 삭제된 행을 찾는다
+    const { db, create } = fakeDb({});
+    let calls = 0;
+    (db.event.findFirst as unknown as ReturnType<typeof vi.fn>) = vi.fn(async () =>
+      calls++ === 0 ? null : existing,
+    );
+    create.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "test" }),
+    );
+    await expect(
+      createEvent(db, { ...base, eventTypeId: "type-b", dedupeKey: "k" }),
+    ).rejects.toBeInstanceOf(CreateEventDedupeDeletedError);
   });
 
   it("returns a live in-scope event for the same key (idempotent retry)", async () => {

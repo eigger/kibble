@@ -539,7 +539,7 @@ model ApiToken {
 > **Phase 1로 이동 + 재설계됨** — WORKPLAN §3.6. 별도 라우트 대신 `POST /api/events`가 세션과 ApiToken을 모두 받는다.
 
 - 인증: `Authorization: Bearer <token>` (ApiToken, 해시 저장, 스코프 제한). **평문 공유 시크릿을 페이로드에 넣지 않는다.**
-- 페이로드에 `dedupeKey`(예: `ha-<entity>-<timestamp>`)를 포함해 재시도 중복을 차단.
+- 페이로드에 `dedupeKey`(예: `ha-<entity>-<timestamp>`)를 포함해 재시도 중복을 차단. 삭제된 기록과 같은 키는 되살리지 않고 409로 거절한다(휴지통 30일 후 재사용 가능).
 - Zigbee 버튼, 자동급식기, 급수기 이벤트를 수집.
 - 역방향: `GET /api/ha/states`로 "오늘 약 미투여" 등을 HA 센서로 노출.
 
