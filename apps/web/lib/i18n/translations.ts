@@ -842,6 +842,14 @@ const dict = {
     ko: "기록 입력…",
     en: "Type a log entry…",
   },
+  quickCachedNotice: {
+    ko: "연결이 없어 저장해 둔 칩으로 표시 중입니다 · {time} 기준",
+    en: "Offline — showing chips saved at {time}",
+  },
+  quickCachedTimeline: {
+    ko: "최근 기록은 연결되면 보여요. 지금 기록하면 연결될 때 자동으로 올라갑니다.",
+    en: "Recent entries appear once you're online. What you record now is sent automatically.",
+  },
   quickViewerReadOnly: {
     ko: "읽기 전용 계정이라 기록할 수 없습니다. 기록은 볼 수 있어요.",
     en: "This is a read-only account, so you can't record. You can still view entries.",

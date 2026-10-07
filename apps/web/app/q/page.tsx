@@ -45,6 +45,12 @@ import {
   saveQuickMode,
   type QuickMode,
 } from "../../lib/routines";
+import {
+  loadCachedPetList,
+  loadQuickHomeCache,
+  saveQuickHomeCache,
+  shouldUseQuickHomeCache,
+} from "../../lib/quickHomeCache";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
 import { AttachmentLightbox } from "../../components/AttachmentLightbox";
@@ -110,11 +116,13 @@ export default function QuickRecordPage() {
   const needsPet = user?.needsPet;
   // VIEWER는 읽기 전용 — 쓰기 컨트롤은 숨긴다 (서버가 403으로 막는 것을 눌러 보게 두지 않는다)
   const readOnly = user?.householdRole === "VIEWER";
-  const { t, tLabel, locale } = useLocale();
+  const { t, tLabel, locale, formatDateTime } = useLocale();
   const { show } = useToast();
   const localeTag = intlLocale(locale);
   const [pet, setPet] = useState<Pet | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
+  // 저장해 둔 칩으로 그리는 중이면 저장 시각 — 타임라인은 비어 있다
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [recentEvents, setRecentEvents] = useState<TimelineEvent[]>([]);
@@ -160,8 +168,11 @@ export default function QuickRecordPage() {
     if (!loading && needsPet) router.push("/onboarding");
   }, [loading, needsPet, router]);
 
+  const userId = user?.id;
+  const householdId = user?.householdId ?? null;
+
   const loadQuickData = useCallback(
-    async (requestedPetId?: string | null) => {
+    async (requestedPetId?: string | null, explicit = false) => {
       setDataLoading(true);
       setLoadError(null);
       try {
@@ -174,31 +185,84 @@ export default function QuickRecordPage() {
         setRoutines(data.routines ?? []);
         setRecentEvents(data.recentEvents);
         setActiveMedicationCourses(data.activeMedicationCourses ?? []);
-      } catch {
-        setLoadError(t("quickRecordLoadError"));
-        setPet(null);
-        setPresets([]);
-        setRoutines([]);
-        setRecentEvents([]);
-        setActiveMedicationCourses([]);
+        setCachedAt(null);
+        // 탭으로 직접 고른 아이는 불러온 뒤에 기억한다 — 못 불러왔는데 기억하면 다음 시작이 막힌다
+        if (explicit && data.activePet) saveQuickPetId(data.activePet.id);
+        // 다음에 오프라인으로 열 때 쓸 스냅샷 — 칩·루틴·처방·반려동물만 (타임라인은 일부러 뺀다)
+        if (userId && data.activePet) {
+          saveQuickHomeCache(
+            { userId, householdId },
+            {
+              pets: data.pets ?? [data.activePet],
+              activePet: data.activePet,
+              presets: data.presets,
+              routines: data.routines ?? [],
+              courses: data.activeMedicationCourses ?? [],
+            },
+          );
+        }
+      } catch (err) {
+        // 네트워크·5xx만 저장해 둔 칩으로 그린다. 4xx(인증·권한·404)는 그대로 오류다
+        const cached =
+          userId && shouldUseQuickHomeCache(err)
+            ? loadQuickHomeCache<Preset, Routine, ActiveMedicationCourse>(
+                { userId, householdId },
+                requestedPetId ?? null,
+                { strict: explicit },
+              )
+            : null;
+        if (cached) {
+          setPets(cached.pets as Pet[]);
+          setPet(cached.activePet as Pet);
+          setPresets(cached.presets);
+          setRoutines(cached.routines);
+          setRecentEvents([]);
+          // 오늘 몫 진행은 오래된 값이라 비운다 — 이미 먹였는지는 서버가 판정한다 (409)
+          setActiveMedicationCourses(
+            cached.courses.map((c) => ({ ...c, doseSlotsToday: [], dosesGivenToday: 0 })),
+          );
+          setCachedAt(cached.savedAt);
+          if (explicit) saveQuickPetId(cached.activePet.id);
+        } else {
+          setLoadError(t("quickRecordLoadError"));
+          setCachedAt(null);
+          // 요청한 아이의 스냅샷만 없을 수 있다 — 탭은 채워 스냅샷이 있는 다른 아이로 옮길 수 있게 한다
+          setPets(
+            userId && shouldUseQuickHomeCache(err)
+              ? (loadCachedPetList({ userId, householdId }) as Pet[])
+              : [],
+          );
+          setPet(null);
+          setPresets([]);
+          setRoutines([]);
+          setRecentEvents([]);
+          setActiveMedicationCourses([]);
+        }
       } finally {
         setDataLoading(false);
       }
     },
-    [t],
+    [t, userId, householdId],
   );
 
   function selectPet(next: Pet) {
     // 저장 진행 중에는 전환하지 않는다 — 끝난 POST의 결과가 다른 아이의 타임라인에 섞인다
     if (next.id === pet?.id || dataLoading || runningRoutineId || detailSaving) return;
-    saveQuickPetId(next.id);
-    void loadQuickData(next.id);
+    void loadQuickData(next.id, true);
   }
 
   useEffect(() => {
     if (!user || needsPet || pathname !== "/q") return;
     void loadQuickData(loadQuickPetId());
   }, [user, needsPet, pathname, loadQuickData]);
+
+  // 저장해 둔 칩으로 그리다가 연결이 돌아오면 새로 받는다
+  useEffect(() => {
+    if (cachedAt == null) return;
+    const onOnline = () => void loadQuickData(pet?.id ?? loadQuickPetId());
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [cachedAt, loadQuickData, pet?.id]);
 
   useMergeUploadedAttachments(setRecentEvents);
   useVideoPosterRefresh(recentEvents, setRecentEvents);
@@ -716,6 +780,11 @@ export default function QuickRecordPage() {
       <div className="container quick-record-body">
         <header className="quick-record-header">
           <h1>{t("quickRecordTitle")}</h1>
+          {cachedAt != null && (
+            <p className="meta" role="status">
+              {t("quickCachedNotice", { time: formatDateTime(new Date(cachedAt).toISOString()) })}
+            </p>
+          )}
           {pets.length >= 2 ? (
             <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
               {pets.map((p) => (
@@ -741,6 +810,8 @@ export default function QuickRecordPage() {
           <p className="meta">{t("loading")}</p>
         ) : loadError ? (
           <p className="error-text">{loadError}</p>
+        ) : cachedAt != null ? (
+          <p className="meta timeline-empty">{t("quickCachedTimeline")}</p>
         ) : previewEvents.length === 0 ? (
           <p className="meta timeline-empty">{t("quickRecordEmpty")}</p>
         ) : (
