@@ -39,6 +39,7 @@ import {
   QUICK_MODE_TOGGLE_EVENT,
   buildRoutineEventBodies,
   isMedicationItem,
+  runRoutineEvents,
   loadQuickMode,
   routineItemSummary,
   saveQuickMode,
@@ -602,10 +603,10 @@ export default function QuickRecordPage() {
     );
     // 오늘 몫을 이미 먹였다 — 서버가 409로 거절한다. 실패가 아니라 건너뜀이다 (§7.24)
     const alreadyGiven: RoutineItem[] = [];
+    const names = (items: RoutineItem[]) =>
+      items.map((item) => routineItemSummary(item, tLabel)).join(", ");
     const skipNotes = () => {
       const notes: string[] = [];
-      const names = (items: RoutineItem[]) =>
-        items.map((item) => routineItemSummary(item, tLabel)).join(", ");
       if (skipped.length > 0) notes.push(t("routineSkippedEnded", { names: names(skipped) }));
       if (alreadyGiven.length > 0) {
         notes.push(t("routineSkippedGiven", { names: names(alreadyGiven) }));
@@ -619,46 +620,47 @@ export default function QuickRecordPage() {
     }
     setRunningRoutineId(routine.id);
 
-    const created: CreatedEvent[] = [];
-    let queued = false;
-    let failed = false;
+    // 항목 하나의 실패(보관된 칩 404 등)가 남은 항목을 막지 않는다 — 실패는 모아서 알린다
+    let outcome: Awaited<ReturnType<typeof runRoutineEvents<CreatedEvent>>> | null = null;
     try {
-      for (const { item, body } of events) {
-        try {
-          const outcome = await createEventWithOfflineFallback({
-            userId: user.id,
-            labelKey: routine.label,
-            body,
-          });
-          if (outcome.status === "queued") queued = true;
-          else created.push(outcome.event);
-        } catch (err) {
-          if (isMedicationItem(item) && isApiError(err) && err.status === 409) {
-            alreadyGiven.push(item);
-            continue;
-          }
-          throw err;
-        }
-      }
-    } catch (err) {
-      failed = true;
-      // 중간에 끊겼어도 들어간 건은 되돌릴 수 있어야 한다 — 실패 토스트에 실행취소를 붙인다
-      const ids = created.map((e) => e.id);
-      show(
-        formatApiErrorMessage(err, t("recordError"), locale),
-        "error",
-        ids.length > 0 ? { label: t("undo"), onClick: () => void undoRoutine(ids) } : undefined,
+      outcome = await runRoutineEvents<CreatedEvent>(
+        events,
+        ({ body }) =>
+          createEventWithOfflineFallback({ userId: user.id, labelKey: routine.label, body }),
+        (item, err) => isMedicationItem(item) && isApiError(err) && err.status === 409,
       );
     } finally {
-      if (created.length > 0) {
+      if (outcome && outcome.created.length > 0) {
         setRecentEvents((prev) =>
-          created.reduce((acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)), prev),
+          outcome!.created.reduce(
+            (acc, event) => insertTimelineEvent(acc, createdEventToTimeline(event)),
+            prev,
+          ),
         );
       }
       setRunningRoutineId(null);
     }
+    if (!outcome) return;
 
-    if (failed) return;
+    const { created, queued, failed } = outcome;
+    alreadyGiven.push(...outcome.alreadyGiven);
+    const ids = created.map((e) => e.id);
+
+    if (failed.length > 0) {
+      // 들어간 건은 되돌릴 수 있어야 한다 — 실패 토스트에 실행취소를 붙인다
+      const summary = t("routineFailedItems", { names: names(failed.map((f) => f.item)) });
+      const reason = formatApiErrorMessage(failed[0].error, t("recordError"), locale);
+      // 일부가 오프라인 큐에 남았거나 건너뛴 항목이 있으면 같은 토스트에 함께 알린다
+      const parts = [`${summary} · ${reason}`];
+      if (queued) parts.push(t("offlineQueuedToast"));
+      parts.push(...skipNotes());
+      show(
+        parts.join(" · "),
+        "error",
+        ids.length > 0 ? { label: t("undo"), onClick: () => void undoRoutine(ids) } : undefined,
+      );
+      return;
+    }
     if (queued) {
       show(t("offlineQueuedToast"), "info");
       return;
@@ -668,7 +670,6 @@ export default function QuickRecordPage() {
       if (notes.length > 0) show(notes.join(" · "), "info");
       return;
     }
-    const ids = created.map((e) => e.id);
     const saved = t("routineSavedToast", { label: routine.label, count: ids.length });
     show([saved, ...notes].join(" "), "success", {
       label: t("undo"),

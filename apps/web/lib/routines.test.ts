@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildRoutineEventBodies, routineItemSummary, routineSummary } from "./routines";
+import { describe, expect, it, vi } from "vitest";
+import { buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -181,5 +181,35 @@ describe("routine meal offered/consumed", () => {
     });
     const medEvents = buildRoutineEventBodies(routineOf([med]), "p1", "2026-10-07T00:00:00.000Z", "s").events;
     expect(medEvents[0].body.quantityOffered).toBeUndefined();
+  });
+});
+
+describe("runRoutineEvents", () => {
+  const entry = (id: string): { item: RoutineItem; body: never } => ({
+    item: item({ id }),
+    body: {} as never,
+  });
+
+  it("한 항목이 실패해도 나머지는 계속 저장하고 실패를 모은다", async () => {
+    const send = vi.fn(async ({ item: it }: { item: RoutineItem }) => {
+      if (it.id === "b") throw new Error("404");
+      return { status: "created" as const, event: it.id };
+    });
+    const out = await runRoutineEvents<string>([entry("a"), entry("b"), entry("c")], send, () => false);
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(out.created).toEqual(["a", "c"]);
+    expect(out.failed.map((f) => f.item.id)).toEqual(["b"]);
+  });
+
+  it("이미 기록된 항목은 실패가 아니라 건너뜀으로 센다", async () => {
+    const out = await runRoutineEvents<string>(
+      [entry("a")],
+      async () => {
+        throw new Error("409");
+      },
+      () => true,
+    );
+    expect(out.alreadyGiven.map((i) => i.id)).toEqual(["a"]);
+    expect(out.failed).toEqual([]);
   });
 });

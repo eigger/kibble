@@ -99,6 +99,8 @@ async function checkItems(
   items: RoutineItemInput[],
   /** 이 루틴이 이미 들고 있는 처방 — 끝났어도 그대로 둘 수 있다. 지울지는 사용자가 정한다 */
   keptCourseIds: ReadonlySet<string> = new Set(),
+  /** 이 루틴이 이미 들고 있는 제품 — 보관됐어도 그대로 둘 수 있다. 비울지는 사용자가 정한다 */
+  keptProductIds: ReadonlySet<string> = new Set(),
 ): Promise<{ error: ItemCheckError } | { medicationTypeIds: Set<string>; mealTypeIds: Set<string> }> {
   const eventTypeIds = [...new Set(items.map((i) => i.eventTypeId))];
   const eventTypes = await prisma.eventType.findMany({
@@ -153,8 +155,15 @@ async function checkItems(
       where: {
         id: { in: productIds },
         ...householdWhere(householdId),
-        archivedAt: null,
         OR: [{ petId: null }, { petId }],
+        AND: [
+          {
+            OR: [
+              { archivedAt: null },
+              ...(keptProductIds.size > 0 ? [{ id: { in: [...keptProductIds] } }] : []),
+            ],
+          },
+        ],
       },
     });
     if (count !== productIds.length) return { error: "productNotFound" };
@@ -248,7 +257,11 @@ export async function routineRoutes(app: FastifyInstance) {
 
     const existing = await prisma.routine.findFirst({
       where: { id, ...householdWhere(householdId), archivedAt: null },
-      select: { id: true, petId: true, items: { select: { medicationCourseId: true } } },
+      select: {
+        id: true,
+        petId: true,
+        items: { select: { medicationCourseId: true, productId: true } },
+      },
     });
     if (!existing) return reply.code(404).send({ error: t("routineNotFound", request.locale) });
 
@@ -258,7 +271,10 @@ export async function routineRoutes(app: FastifyInstance) {
       const kept = new Set(
         existing.items.map((item) => item.medicationCourseId).filter((id): id is string => !!id),
       );
-      const checked = await checkItems(householdId, existing.petId, data.items, kept);
+      const keptProducts = new Set(
+        existing.items.map((item) => item.productId).filter((id): id is string => !!id),
+      );
+      const checked = await checkItems(householdId, existing.petId, data.items, kept, keptProducts);
       if ("error" in checked) {
         return reply.code(404).send({ error: t(checked.error, request.locale) });
       }
