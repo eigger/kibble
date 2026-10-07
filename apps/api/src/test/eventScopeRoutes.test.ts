@@ -21,6 +21,8 @@ const mockPrisma = vi.hoisted(() => ({
   eventType: { findFirst: vi.fn() },
   medicationCourse: { findFirst: vi.fn(), findMany: vi.fn() },
   event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), aggregate: vi.fn() },
+  $executeRaw: vi.fn(async () => 0),
+  $transaction: vi.fn(),
   apiToken: { findFirst: vi.fn(), update: vi.fn(async () => ({})) },
 }));
 
@@ -33,6 +35,7 @@ describe("이벤트 생성 라우트 — 오류 매핑·토큰 스코프 배선"
     vi.clearAllMocks();
     invalidateHouseholdCache(USER);
     invalidateTokenVersionCache(USER);
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
     mockPrisma.householdMember.findFirst.mockResolvedValue({ householdId: HH, role: "OWNER" });
     mockPrisma.user.findUnique.mockResolvedValue({ tokenVersion: 1 });
     mockPrisma.pet.findFirst.mockResolvedValue({ id: PET });

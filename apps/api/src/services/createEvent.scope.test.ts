@@ -14,6 +14,7 @@ type FakeOpts = {
 function fakeDb(opts: FakeOpts = {}) {
   const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "e1", ...data }));
   const db = {
+    $executeRaw: vi.fn(async () => 0),
     preset: {
       findFirst: vi.fn(async () =>
         opts.presetTypeId

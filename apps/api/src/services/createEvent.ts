@@ -162,8 +162,35 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
   }
 }
 
-/** K-4: 이벤트 생성은 이 함수만 통과한다. */
+/**
+ * K-4: 이벤트 생성은 이 함수만 통과한다.
+ *
+ * 복약(처방 연결) 기록은 "그날 슬롯 조회 → 판정 → insert"라 동시에 들어오면 같은
+ * 슬롯이 두 번 찍히고 doseOrdinal이 겹친다. 처방 단위 advisory lock으로 직렬화한다
+ * (WORKPLAN §7.24, WORKLOG 2026-10-07). 락은 트랜잭션이 끝날 때 풀린다.
+ */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
+  if (!params.medicationCourseId) return createEventUnlocked(db, params);
+
+  const run = async (tx: Prisma.TransactionClient) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${params.medicationCourseId}`}, 0))`;
+    return createEventUnlocked(tx, params);
+  };
+  // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
+  // Prisma 7.10에서는 트랜잭션 클라이언트에도 런타임에 $transaction이 있어(타입에서만
+  // 빠져 있다) 이미 트랜잭션 안에서 불러도 이 분기를 탄다 — 중첩은 SAVEPOINT가 되고
+  // 락은 바깥 트랜잭션이 끝날 때 풀린다. 아래 마지막 return은 $transaction이 없는
+  // 클라이언트(단위 테스트의 fake 등)를 위한 방어 분기이며, 실제 Prisma 클라이언트로는
+  // 도달하지 않지만 타입 안전한 폴백이라 남긴다.
+  const root = db as PrismaClient;
+  if (typeof root.$transaction === "function") {
+    // 락을 얻은 뒤 실행하는 쿼리가 새 스냅숏을 봐야 하므로 READ COMMITTED를 명시한다.
+    return root.$transaction(run, { isolationLevel: "ReadCommitted" });
+  }
+  return run(db as Prisma.TransactionClient);
+}
+
+async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (params.dedupeKey) {
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
     if (existing) {
