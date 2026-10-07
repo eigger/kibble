@@ -507,6 +507,7 @@ const dict = {
   attachmentUploadViewEvent: { ko: "해당 기록 보기", en: "View post" },
   attachmentUploadDetails: { ko: "상세 보기", en: "View details" },
   attachmentUploadDetailsTitle: { ko: "첨부 업로드 상세", en: "Upload details" },
+  attachmentUploadFileNumber: { ko: "파일 #{n}", en: "File #{n}" },
   attachmentUploadSucceededFiles: { ko: "업로드 완료 ({count})", en: "Uploaded ({count})" },
   attachmentUploadFailedFiles: { ko: "업로드 실패 ({count})", en: "Failed ({count})" },
   attachmentUploadFailedBadge: { ko: "업로드 실패", en: "Upload failed" },

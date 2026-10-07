@@ -271,3 +271,33 @@ export type ApiMessageKey = keyof typeof MESSAGES;
 export function t(key: ApiMessageKey, locale: ApiLocale, params?: Record<string, string | number>): string {
   return interpolate(MESSAGES[key][locale], params);
 }
+
+// 시스템 이벤트 타입 라벨 — DB에는 "eventType.meal" 같은 키가 그대로 들어 있고 웹이 번역한다.
+// 읽기 연동(HA 등)이 표시용 문자열을 바로 쓸 수 있도록 서버도 같은 키를 푼다. 웹 사전
+// (apps/web/lib/i18n/translations.ts)과 값이 같아야 한다. 사용자 정의 라벨은 키가 아니라 그대로 쓴다.
+const EVENT_TYPE_LABELS: Record<string, { ko: string; en: string }> = {
+  "eventType.meal": { ko: "사료", en: "Meal" },
+  "eventType.water": { ko: "물", en: "Water" },
+  "eventType.treat": { ko: "간식", en: "Treat" },
+  "eventType.supplement": { ko: "영양", en: "Supp" },
+  "eventType.poop": { ko: "대변", en: "Stool" },
+  "eventType.pee": { ko: "소변", en: "Urine" },
+  "eventType.vomit": { ko: "구토", en: "Vomit" },
+  "eventType.medication": { ko: "투약", en: "Medication" },
+  "eventType.remedy": { ko: "상비", en: "Remedy" },
+  "eventType.observation": { ko: "관찰", en: "Observation" },
+  "eventType.weight": { ko: "체중", en: "Weight" },
+  "eventType.temperature": { ko: "체온", en: "Temp" },
+  "eventType.symptom": { ko: "증상", en: "Symptom" },
+  "eventType.play": { ko: "놀이", en: "Play" },
+  "eventType.care": { ko: "관리", en: "Care" },
+  "eventType.walk": { ko: "산책", en: "Walk" },
+  "eventType.vet_visit": { ko: "병원", en: "Vet visit" },
+  "eventType.vaccination": { ko: "접종", en: "Vaccination" },
+  "eventType.note": { ko: "메모", en: "Note" },
+};
+
+/** 라벨이 시스템 키면 요청 언어로 풀고, 아니면(사용자 정의·모르는 키) 그대로 돌려준다. */
+export function resolveLabel(labelOrKey: string, locale: ApiLocale): string {
+  return EVENT_TYPE_LABELS[labelOrKey]?.[locale] ?? labelOrKey;
+}

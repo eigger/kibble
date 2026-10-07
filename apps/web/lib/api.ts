@@ -50,7 +50,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
 // apiJson()은 컴포넌트 밖(어떤 페이지에서든 재사용되는 순수 lib 함수)이라 useLocale()의
 // t()를 쓸 수 없다 — 그래서 getStoredLocale()로 언어를 읽고 translate()를 호출한다.
-function requestFailedMessage(status: number): string {
+export function requestFailedMessage(status: number): string {
   return translate(getStoredLocale(), "requestFailed", { status });
 }
 

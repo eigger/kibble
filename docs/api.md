@@ -156,6 +156,13 @@ curl -sS -X DELETE "$BASE/api/routines/<id>" -H "$AUTH"
 `todayEventsTruncated`가 `true`가 된다. 제공·섭취량, 품목·프리셋, 케어/복약 기록 표시용
 정보를 포함한다. 기존 필드는 그대로 유지된다.
 
+`todayEvents[]`의 `label`·`presetName`은 `eventType.meal` 같은 **원시 라벨 키**이고, 관리·관찰
+기록의 `productName`은 태그 slug를 `,`로 이은 문자열이다. 표시용으로는 해석된 필드를 쓴다 —
+`eventTypeLabel`·`presetLabel`은 `X-Locale` 헤더(`ko`/`en`, 없으면 `ko`)로 푼 라벨(사용자 정의
+라벨은 그대로), `productLabel`은 제품 이름(태그 타입은 `null`), `productTags`는 태그 타입의
+`productName`을 나눈 목록이다(slug 또는 사용자가 쓴 자유 문구 — slug의 표시 이름은 서버가
+풀지 않는다).
+
 ```bash
 # 세션으로
 curl -sS "$BASE/api/states?petId=<pet-id>" -H "$AUTH"
@@ -172,7 +179,7 @@ curl -sS "$BASE/api/states" -H "Authorization: Bearer kbl_..."
 | `lastEvents[]` | 이벤트 타입별 **마지막 기록** — 시각, 수량·단위, 척도값, `hoursSince`(경과 시간) |
 | `today[]` | 오늘(KST 기준) 타입별 **건수와 합계** — 급여량·음수량 등 |
 | `todaySummary[]` | 오늘 이벤트 타입별 **단위 분리 합계와 마지막 값** — `totals`, `lastOccurredAt`, `lastScaleValue`, `lastQuantity` 등 |
-| `todayEvents[]` | 오늘 개별 기록 최신순 최대 100건 — 종류, 시각, 제공량·섭취량, 품목·프리셋, 메모, 복약 과정 |
+| `todayEvents[]` | 오늘 개별 기록 최신순 최대 100건 — 종류, 시각, 제공량·섭취량, 품목·프리셋, 메모, 복약 과정. 표시용 `eventTypeLabel`·`presetLabel`·`productLabel`·`productTags` 포함 |
 | `todayEventsTruncated` | 오늘 기록이 100건을 초과해 일부가 생략됐는지 여부 |
 | `todaySince` | 오늘 합계의 시작 경계 |
 | `medication` | 진행 중 과정·회차별 오늘 복약 슬롯 상태, 오늘 먹인/계획된 횟수, **시각이 지난 슬롯** |

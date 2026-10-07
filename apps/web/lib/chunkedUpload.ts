@@ -1,5 +1,11 @@
 import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
-import { apiFetch, ApiError, isRetriableUploadStatus, UPLOAD_RETRY_ATTEMPTS } from "./api";
+import {
+  apiFetch,
+  ApiError,
+  isRetriableUploadStatus,
+  requestFailedMessage,
+  UPLOAD_RETRY_ATTEMPTS,
+} from "./api";
 import { findPendingUploadFor, removePendingUpload, savePendingUpload } from "./pendingUploads";
 import { isUploadCancelled, throwIfAborted } from "./uploadAbort";
 import type { EventAttachment } from "./types";
@@ -23,7 +29,7 @@ export function shouldUseChunkedUpload(file: File): boolean {
 
 async function errorFromResponse(res: Response): Promise<ApiError> {
   const body = await res.json().catch(() => null);
-  const message = typeof body?.error === "string" ? body.error : `요청 실패 (${res.status})`;
+  const message = typeof body?.error === "string" ? body.error : requestFailedMessage(res.status);
   return new ApiError(message, res.status);
 }
 
