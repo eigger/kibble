@@ -71,6 +71,7 @@ export async function homeRoutes(app: FastifyInstance) {
         todaySummary: [],
         recentEvents: [],
         activeMedicationCourses: [],
+        upcomingMedicationCourses: [],
         journalStats: { totalEventCount: 0, distinctDayCount: 0 },
       };
     }
@@ -130,7 +131,21 @@ export async function homeRoutes(app: FastifyInstance) {
       doseTimes: course.doseTimes,
       doseSlotsToday: course.doseSlotsToday,
       dosesGivenToday: course.dosesGivenToday,
+      // 오프라인 스냅샷이 종료일을 넘긴 처방을 걸러 내는 데 쓴다 (기존 필드 의미는 그대로)
+      endDate: course.endDate,
     }));
+
+    // 오프라인 스냅샷용 — 시작 전 처방의 최소 필드만(startDate와 함께). 클라이언트가 시작일에 맞춰
+    // 활성으로 본다. `activeMedicationCourses`의 의미는 그대로다(오늘 대상만).
+    const upcomingMedicationCourses = medicationCourses
+      .filter((course) => course.upcoming)
+      .map((course) => ({
+        id: course.id,
+        name: course.name,
+        dosesPerDay: course.dosesPerDay,
+        doseTimes: course.doseTimes,
+        startDate: course.startDate,
+      }));
 
     return {
       pets,
@@ -140,6 +155,7 @@ export async function homeRoutes(app: FastifyInstance) {
       todaySummary,
       recentEvents,
       activeMedicationCourses,
+      upcomingMedicationCourses,
       journalStats,
     };
   });

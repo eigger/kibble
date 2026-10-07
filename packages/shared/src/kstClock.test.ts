@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kstDayDiff, kstDayKey } from "./kstClock.js";
+import { courseStartsByTodayBefore, kstDayDiff, kstDayKey } from "./kstClock.js";
 
 describe("kstDayDiff", () => {
   it("returns 0 for the same date in KST", () => {
@@ -58,5 +58,14 @@ describe("kstDayDiff", () => {
       const mar01_2023 = new Date("2023-03-01T00:00:00.000Z");
       expect(kstDayDiff(mar01_2023, feb28_2023)).toBe(1);
     });
+  });
+});
+
+describe("courseStartsByTodayBefore", () => {
+  it("is the next KST midnight, so a course stored at noon starts 'today' all morning", () => {
+    const limit = courseStartsByTodayBefore(new Date("2026-09-02T07:55:00+09:00"));
+    expect(limit.toISOString()).toBe(new Date("2026-09-03T00:00:00+09:00").toISOString());
+    expect(new Date("2026-09-02T12:00:00+09:00") < limit).toBe(true);
+    expect(new Date("2026-09-03T12:00:00+09:00") < limit).toBe(false);
   });
 });

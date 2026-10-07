@@ -1,5 +1,9 @@
 import type { MedicationCourse, PrismaClient } from "@prisma/client";
-import { kstDayKey, normalizeDoseTimes } from "@kibble/shared";
+import {
+  courseStartsByTodayBefore as sharedCourseStartsByTodayBefore,
+  kstDayKey,
+  normalizeDoseTimes,
+} from "@kibble/shared";
 import { householdWhere } from "./householdScope.js";
 import { startOfTodayBoundary } from "./kstClock.js";
 
@@ -230,9 +234,7 @@ export async function listPastMedicationCourses(
  * **정오**로 저장되므로 `now`와 시각으로 비교하지 않고 날짜로 본다(시작일 당일 아침에도 진행 중).
  * 진행 중 목록과 복약 리마인더가 같은 규칙을 쓴다.
  */
-export function courseStartsByTodayBefore(now: Date): Date {
-  return new Date(startOfTodayBoundary(now).getTime() + 86_400_000);
-}
+export const courseStartsByTodayBefore = sharedCourseStartsByTodayBefore;
 
 /** 시작 전인가 — 내일 이후에 시작한다(KST 날짜 규칙). */
 export function isCourseUpcoming(startDate: Date, now: Date): boolean {
