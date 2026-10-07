@@ -1,5 +1,9 @@
 # 작업 기록
 
+### 2026-10-08 — /q 반려동물 탭의 tabpanel 연결
+
+`role="tab"`인데 `aria-controls`와 대응 `tabpanel`이 없었다(홈과 /q 모드 전환 탭은 연결돼 있었다). 탭이 보일 때(2마리 이상)만 타임라인 영역과 입력 바 영역을 `role="tabpanel"` + `aria-labelledby`(선택된 탭)로 만들고 탭의 `aria-controls`가 둘을 가리킨다. 1마리면 마크업 그대로. 입력 바가 없는 VIEWER는 타임라인만 제어한다. id 생성은 `lib/quickPetTabs.ts`.
+
 ### 2026-10-08 — 기록 수정(PATCH)으로 복약 날짜를 옮길 때 슬롯 검사
 
 **문제**: PATCH는 `occurredAt`만 바꾸고 `doseSlotIndex`는 유지하며 처방 락·`doseConflict`를 거치지 않았다. 오늘 08:00 슬롯 복약을 이력 상세에서 어제로 옮기면 어제 같은 슬롯이 있어도 같은 날 같은 슬롯이 두 건이 됐다. **수정**(`services/updateEvent.ts`의 `applyEventUpdate`, 라우트는 얇게): 처방에 연결된 이벤트의 `occurredAt`을 **KST 하루가 달라지게** 바꿀 때만, `createEvent`·복원과 같은 처방 락 안에서 **도착일 기준**으로 `doseConflict`를 검사하고(자기 자신·삭제 행 제외, 가구·펫·처방 범위) 충돌이면 409(`medicationDoseSlotTaken`/`LimitReached`). 같은 날 안에서 시각만 바꾸거나 비처방 이벤트는 검사 없이 기존대로. K-1·VIEWER 차단은 그대로.

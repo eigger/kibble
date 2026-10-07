@@ -52,6 +52,7 @@ import {
   shouldUseQuickHomeCache,
   type UpcomingCourse,
 } from "../../lib/quickHomeCache";
+import { quickPetControls, quickPetPanelIds, quickPetTabId } from "../../lib/quickPetTabs";
 import { restoredEventBelongsToView } from "../../lib/restoreView";
 import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
 import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
@@ -860,6 +861,9 @@ export default function QuickRecordPage() {
     openDetailForNewPreset(preset);
   }
 
+  // 탭이 보일 때만(2마리 이상) 탭패널을 연결한다 — 1마리면 마크업 그대로
+  const petTabs = pets.length >= 2;
+
   if (loading || !user || needsPet) return null;
 
   return (
@@ -872,14 +876,16 @@ export default function QuickRecordPage() {
               {t("quickCachedNotice", { time: formatDateTime(new Date(cachedAt).toISOString()) })}
             </p>
           )}
-          {pets.length >= 2 ? (
+          {petTabs ? (
             <div className="pet-tabs" role="tablist" aria-label={t("homePetTabsLabel")}>
               {pets.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   role="tab"
+                  id={quickPetTabId(p.id)}
                   aria-selected={p.id === pet?.id}
+                  aria-controls={quickPetControls(p.id, !readOnly)}
                   className={`pet-tab${p.id === pet?.id ? " pet-tab-active" : ""}`}
                   onClick={() => selectPet(p)}
                 >
@@ -892,7 +898,13 @@ export default function QuickRecordPage() {
           )}
         </header>
 
-        <section className="quick-record-timeline" aria-label={t("quickRecordRecentTitle")}>
+        <section
+          className="quick-record-timeline"
+          id={petTabs && pet ? quickPetPanelIds(pet.id).timeline : undefined}
+          role={petTabs && pet ? "tabpanel" : undefined}
+          aria-labelledby={petTabs && pet ? quickPetTabId(pet.id) : undefined}
+          aria-label={petTabs && pet ? undefined : t("quickRecordRecentTitle")}
+        >
         {dataLoading ? (
           <p className="meta">{t("loading")}</p>
         ) : loadError ? (
@@ -984,7 +996,12 @@ export default function QuickRecordPage() {
         </footer>
       ) : (
       <footer className="home-input-bar quick-record-input-bar">
-        <div className="home-input-bar-inner">
+        <div
+          className="home-input-bar-inner"
+          id={petTabs && pet ? quickPetPanelIds(pet.id).input : undefined}
+          role={petTabs && pet ? "tabpanel" : undefined}
+          aria-labelledby={petTabs && pet ? quickPetTabId(pet.id) : undefined}
+        >
           {hasRoutines && (
             <div className="quick-mode-bar">
               <div className="quick-mode-switch" role="tablist" aria-label={t("quickModeLabel")}>
