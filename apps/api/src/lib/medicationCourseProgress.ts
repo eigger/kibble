@@ -29,6 +29,8 @@ export type MedicationCourseProgress = {
   canUndoToday: boolean;
   dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
   doseSlotsToday: DoseSlotToday[];
+  /** 시작 전(KST 날짜 규칙) — 케어 화면에는 "예정"으로 보이고, 오늘 복약 대상·선택에서는 빠진다 */
+  upcoming: boolean;
 };
 
 export type MedicationCourseRow = {
@@ -232,6 +234,20 @@ export function courseStartsByTodayBefore(now: Date): Date {
   return new Date(startOfTodayBoundary(now).getTime() + 86_400_000);
 }
 
+/** 시작 전인가 — 내일 이후에 시작한다(KST 날짜 규칙). */
+export function isCourseUpcoming(startDate: Date, now: Date): boolean {
+  return startDate >= courseStartsByTodayBefore(now);
+}
+
+/**
+ * 오늘 복약 대상만. 진행 중 처방 목록(`medicationCoursesWithProgress`)은 시작 전 처방도 `upcoming`
+ * 표시와 함께 돌려주므로(케어 화면은 예정 처방을 보여 주고 수정·종료할 수 있어야 한다), 오늘 대상·
+ * 선택·집계 경로(/q 칩, 홈 오늘 복약, 상태 API)는 이 함수로 거른다.
+ */
+export function todayDoseTargets<T extends { upcoming: boolean }>(courses: T[]): T[] {
+  return courses.filter((course) => !course.upcoming);
+}
+
 export async function medicationCoursesWithProgress(
   db: Pick<PrismaClient, "medicationCourse" | "event">,
   householdId: string,
@@ -244,8 +260,6 @@ export async function medicationCoursesWithProgress(
       ...householdWhere(householdId),
       petId,
       archivedAt: null,
-      // 내일 이후 시작하는 처방은 오늘 복약 대상이 아니다 (관리 화면 목록에는 그대로 보인다)
-      startDate: { lt: courseStartsByTodayBefore(now) },
       OR: [{ endDate: null }, { endDate: { gte: since } }],
     },
     orderBy: [{ startDate: "desc" }, { name: "asc" }],
@@ -356,6 +370,7 @@ function toProgress(
     canUndoToday: dosesGivenToday > 0,
     dosesToday,
     doseSlotsToday,
+    upcoming: isCourseUpcoming(course.startDate, now),
   };
 }
 

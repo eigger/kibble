@@ -109,6 +109,34 @@ describe("GET /api/states — 역방향 읽기 (WORKPLAN P2-04)", () => {
     expect(res.statusCode).toBe(200);
   });
 
+  it("시작 전(내일 시작) 처방은 상태의 오늘 복약 집계에서 빠진다", async () => {
+    const base = {
+      householdId: HH,
+      petId: PET,
+      name: "내일약",
+      ingredients: null,
+      dosage: null,
+      dosesPerDay: 1,
+      doseTimes: [],
+      totalDoses: null,
+      endDate: null,
+      note: null,
+      archivedAt: null,
+      createdAt: new Date("2026-08-01T00:00:00Z"),
+    };
+    const startsTomorrow = new Date(Date.now() + 36 * 3600_000);
+    mockPrisma.medicationCourse.findMany.mockResolvedValue([
+      { ...base, id: "c_tomorrow", startDate: startsTomorrow },
+    ]);
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/states?petId=${PET}`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().medication).toMatchObject({ activeCourses: 0, dosesPlannedToday: 0, courses: [] });
+  });
+
   it("최근에 갱신된 토큰은 폴링마다 lastUsedAt을 쓰지 않는다 (K-7 예외 2)", async () => {
     mockPrisma.apiToken.findFirst.mockResolvedValue({
       id: "token_1",

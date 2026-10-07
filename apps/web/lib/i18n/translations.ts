@@ -687,6 +687,7 @@ const dict = {
     ko: "복약 시간을 모두 입력하세요",
     en: "Enter all dose times",
   },
+  careUpcomingStart: { ko: "예정 · {date}부터", en: "Upcoming · starts {date}" },
   careLogDoseSlot: { ko: "{slot} 복약 기록", en: "Log {slot} dose" },
   medicationSlotPickTitle: { ko: "몇 시 복약인가요?", en: "Which dose time?" },
   medicationCourseDoneToday: { ko: "오늘 완료", en: "Done today" },

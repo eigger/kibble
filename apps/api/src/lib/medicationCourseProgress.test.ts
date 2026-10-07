@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   courseStartsByTodayBefore,
   medicationCoursesWithProgress,
+  todayDoseTargets,
   nextDoseOrdinal,
   pastMedicationCourseWhere,
   resolveCourseEndedAt,
@@ -130,14 +131,55 @@ describe("courseStartsByTodayBefore (시작일은 KST 정오로 저장된다)", 
   });
 });
 
-describe("medicationCoursesWithProgress start filter", () => {
-  it("asks only for courses that have started by today (KST day)", async () => {
-    const findMany = vi.fn(async () => []);
-    const db = { medicationCourse: { findMany }, event: {} } as never;
-    const now = new Date("2026-09-02T07:55:00+09:00");
-    await medicationCoursesWithProgress(db, "h1", "pet1", now);
+describe("medicationCoursesWithProgress — 예정 처방", () => {
+  const now = new Date("2026-09-02T07:55:00+09:00");
+  const course = (id: string, startDate: string) => ({
+    id,
+    householdId: "h1",
+    petId: "pet1",
+    name: id,
+    ingredients: null,
+    dosage: null,
+    dosesPerDay: 1,
+    doseTimes: [],
+    totalDoses: null,
+    startDate: new Date(startDate),
+    endDate: null,
+    note: null,
+    archivedAt: null,
+    createdAt: new Date("2026-08-01T00:00:00Z"),
+  });
+
+  function fakeDb(courses: ReturnType<typeof course>[]) {
+    const findMany = vi.fn(async () => courses);
+    const db = {
+      medicationCourse: { findMany },
+      event: { groupBy: vi.fn(async () => []), findMany: vi.fn(async () => []) },
+    } as never;
+    return { db, findMany };
+  }
+
+  it("keeps a future course in the list (care screen) and flags it upcoming", async () => {
+    const { db, findMany } = fakeDb([
+      course("today", "2026-09-02T12:00:00+09:00"),
+      course("tomorrow", "2026-09-03T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(rows.map((r) => [r.id, r.upcoming])).toEqual([
+      ["today", false],
+      ["tomorrow", true],
+    ]);
     const where = (findMany.mock.calls[0] as unknown as [{ where: Record<string, unknown> }])[0].where;
-    expect(where.startDate).toEqual({ lt: courseStartsByTodayBefore(now) });
+    expect(where.startDate).toBeUndefined();
     expect(where.householdId).toBe("h1");
+  });
+
+  it("todayDoseTargets drops upcoming courses for /q, home and states", async () => {
+    const { db } = fakeDb([
+      course("today", "2026-09-02T12:00:00+09:00"),
+      course("tomorrow", "2026-09-03T12:00:00+09:00"),
+    ]);
+    const rows = await medicationCoursesWithProgress(db, "h1", "pet1", now);
+    expect(todayDoseTargets(rows).map((r) => r.id)).toEqual(["today"]);
   });
 });
