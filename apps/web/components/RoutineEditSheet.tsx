@@ -182,6 +182,7 @@ export function RoutineEditSheet({
     updateItem(key, {
       presetId,
       unit: unitForPreset(preset, defaultUnitByKey),
+      ...(isMealPreset(preset) ? {} : { quantityOffered: "" }),
       courseId: isMedicationPreset(preset) ? (courses[0]?.id ?? "") : "",
     });
   }

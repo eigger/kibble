@@ -50,7 +50,7 @@ export function routineItemSummary(
     item.product?.name ?? item.productName ?? tLabel(item.preset?.label ?? item.eventType.label);
   const unit = item.unit ?? item.eventType.defaultUnit;
   if (item.quantityOffered != null && item.quantity != null) {
-    return `${name} ${formatQuantity(item.quantity, null)}/${formatQuantity(item.quantityOffered, unit)}`;
+    return `${name} ${formatQuantity(item.quantityOffered, unit)} / ${formatQuantity(item.quantity, unit)}`;
   }
   const single = item.quantity ?? item.quantityOffered;
   if (single == null) return name;

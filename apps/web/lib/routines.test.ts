@@ -154,3 +154,32 @@ describe("buildRoutineEventBodies", () => {
     ).toBe("아침약");
   });
 });
+
+describe("routine meal offered/consumed", () => {
+  const routineOf = (items: RoutineItem[]) =>
+    ({ id: "r1", petId: "p1", label: "아침", sortOrder: 0, items }) as Routine;
+
+  it("summarises offered / consumed, or whichever exists", () => {
+    expect(routineItemSummary(item({ quantity: 8, quantityOffered: 10, unit: "g" }), tLabel)).toBe(
+      "사료 10g / 8g",
+    );
+    expect(routineItemSummary(item({ quantityOffered: 10, unit: "g" }), tLabel)).toBe("사료 10g");
+    expect(routineItemSummary(item({ quantity: 8, unit: "g" }), tLabel)).toBe("사료 8g");
+  });
+
+  it("sends both quantities to the event, but not for medication", () => {
+    const meal = item({ quantity: 8, quantityOffered: 10, unit: "g" });
+    const { events } = buildRoutineEventBodies(routineOf([meal]), "p1", "2026-10-07T00:00:00.000Z", "s");
+    expect(events[0].body.quantity).toBe(8);
+    expect(events[0].body.quantityOffered).toBe(10);
+
+    const med = item({
+      eventType: { key: "medication", label: "투약", category: "HEALTH", defaultUnit: null },
+      quantityOffered: 3,
+      medicationCourseId: "c1",
+      course: { id: "c1", name: "아침약", ended: false },
+    });
+    const medEvents = buildRoutineEventBodies(routineOf([med]), "p1", "2026-10-07T00:00:00.000Z", "s").events;
+    expect(medEvents[0].body.quantityOffered).toBeUndefined();
+  });
+});

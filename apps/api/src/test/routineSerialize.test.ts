@@ -20,6 +20,7 @@ function medicationRow(course: { endDate: Date | null; archivedAt: Date | null }
         productId: null,
         productName: null,
         quantity: null as Prisma.Decimal | null,
+        quantityOffered: new Prisma.Decimal("10.5") as Prisma.Decimal | null,
         unit: null,
         medicationCourseId: course ? "c1" : null,
         eventType: { key: "medication", label: "투약", category: "HEALTH" as const, defaultUnit: null },
@@ -38,6 +39,11 @@ describe("serializeRoutine — 투약 항목 (§7.24)", () => {
     const [item] = serializeRoutine(medicationRow({ endDate: null, archivedAt: null }), now).items;
     expect(item.medicationCourseId).toBe("c1");
     expect(item.course).toEqual({ id: "c1", name: "아침약", ended: false });
+  });
+
+  it("serializes quantityOffered as a number", () => {
+    const [item] = serializeRoutine(medicationRow({ endDate: null, archivedAt: null }), now).items;
+    expect(item.quantityOffered).toBe(10.5);
   });
 
   it("marks an archived course as ended but keeps its id", () => {

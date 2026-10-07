@@ -129,10 +129,12 @@ curl -sS -X POST "$BASE/api/routines" -H "$AUTH" -H "Content-Type: application/j
   "petId": "<pet-id>",
   "label": "아침 밥",
   "items": [
-    { "eventTypeId": "<meal-type-id>", "presetId": "<meal-preset-id>", "productId": "<product-id>", "quantity": 10, "unit": "g" },
+    { "eventTypeId": "<meal-type-id>", "presetId": "<meal-preset-id>", "productId": "<product-id>", "quantityOffered": 12, "quantity": 10, "unit": "g" },
     { "eventTypeId": "<water-type-id>", "quantity": 5.5, "unit": "ml" }
   ]
 }'
+
+# quantity = 섭취량. quantityOffered(제공량)는 사료(meal) 항목만 저장되고 다른 타입에서는 버려진다
 
 # PATCH — items가 있으면 항목 전체를 바꾼다
 curl -sS -X PATCH "$BASE/api/routines/<id>" -H "$AUTH" -H "Content-Type: application/json" -d '{ "label": "저녁 밥" }'
