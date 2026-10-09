@@ -18,6 +18,17 @@ describe("createRoutineSchema", () => {
     );
   });
 
+  it("accepts a long tag list as productName", () => {
+    const productName = Array.from({ length: 20 }, (_, i) => `tag_number_${i}`).join(",");
+    expect(
+      createRoutineSchema.safeParse({
+        petId: "p1",
+        label: "관찰",
+        items: [{ eventTypeId: "t1", productName }],
+      }).success,
+    ).toBe(true);
+  });
+
   it("coerces quantity to a number", () => {
     const parsed = createRoutineSchema.parse({
       petId: "p1",

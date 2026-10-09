@@ -202,6 +202,7 @@ export default function RoutinesPage() {
       <RoutineEditSheet
         open={sheetOpen}
         petId={petId}
+        species={pets.find((pet) => pet.id === petId)?.species}
         routine={editing}
         presets={presets}
         courses={courses}

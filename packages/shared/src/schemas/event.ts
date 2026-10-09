@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRODUCT_NAME_MAX } from "../eventTypeKeys.js";
 import { latitudeSchema, longitudeSchema } from "./maps.js";
 
 const decimalOptional = z.coerce.number().finite().optional();
@@ -18,7 +19,7 @@ export const createEventSchema = z.object({
   unit: z.string().trim().max(32).optional(),
   scaleValue: z.coerce.number().int().optional(),
   productId: z.string().trim().min(1).nullable().optional(),
-  productName: z.string().trim().max(120).optional(),
+  productName: z.string().trim().max(PRODUCT_NAME_MAX).optional(),
   clinicName: z.string().trim().max(120).optional(),
   clinicAddress: z.string().trim().max(500).optional(),
   clinicLatitude: latitudeSchema.optional(),
@@ -45,7 +46,7 @@ export const updateEventSchema = z
     unit: z.string().trim().max(32).nullable().optional(),
     scaleValue: z.coerce.number().int().nullable().optional(),
     productId: z.string().trim().min(1).nullable().optional(),
-    productName: z.string().trim().max(120).nullable().optional(),
+    productName: z.string().trim().max(PRODUCT_NAME_MAX).nullable().optional(),
     clinicName: z.string().trim().max(120).nullable().optional(),
     clinicAddress: z.string().trim().max(500).nullable().optional(),
     clinicLatitude: latitudeSchema.nullable().optional(),

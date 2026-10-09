@@ -1,4 +1,8 @@
 import type { CreateEventInput } from "@kibble/shared";
+import { formatProductNameDisplay } from "./eventDetailTags";
+import { productValueDisplay } from "./eventDetailFields";
+import type { TranslationKey } from "./i18n/translations";
+import { isRoutineTagType } from "./routineDraft";
 import type { Routine, RoutineItem } from "./types";
 
 /** `/q` 입력 바의 모드 — 기록 칩 / 루틴. 기기별로 마지막 모드를 기억한다 (§7.24) */
@@ -40,6 +44,24 @@ export function isRoutineItemSkipped(item: RoutineItem): boolean {
   return isMedicationItem(item) && (!item.course || item.course.ended);
 }
 
+/**
+ * 항목 이름. 태그 타입(관리·관찰·구토)의 `productName`은 이름이 아니라 태그 slug 목록이라
+ * 라벨로 풀고 연결 제품을 뒤에 붙인다 — "모래 보충 · 벤토나이트" (§7.20, §7.24)
+ */
+function itemDisplayName(item: RoutineItem, tLabel: (labelOrKey: string) => string): string {
+  const fallback = tLabel(item.preset?.label ?? item.eventType.label);
+  if (isRoutineTagType(item.eventType.key)) {
+    const tags = formatProductNameDisplay(item.eventType.key, item.productName, (key: TranslationKey) =>
+      tLabel(key),
+    );
+    // 태그가 없으면 제품 이름만 — 제품만 잇던 기존 항목의 표시는 그대로다
+    return tags
+      ? (productValueDisplay(true, tags, item.product?.name ?? null) ?? fallback)
+      : (item.product?.name ?? fallback);
+  }
+  return item.product?.name ?? item.productName ?? fallback;
+}
+
 /** 항목 한 줄 — "로얄캐닌 10g", "물 5.5ml", "영양제", 투약은 처방 이름("아침약") */
 export function routineItemSummary(
   item: RoutineItem,
@@ -48,8 +70,7 @@ export function routineItemSummary(
   amountLabels?: { offered: string; consumed: string },
 ): string {
   if (isMedicationItem(item) && item.course) return item.course.name;
-  const name =
-    item.product?.name ?? item.productName ?? tLabel(item.preset?.label ?? item.eventType.label);
+  const name = itemDisplayName(item, tLabel);
   const unit = item.unit ?? item.eventType.defaultUnit;
   if (item.quantityOffered != null && item.quantity != null) {
     if (amountLabels) {

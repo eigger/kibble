@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { PRODUCT_LINK_ONLY_EVENT_KEYS } from "@kibble/shared";
 import { householdWhere } from "./householdScope.js";
 
 /** `productName`이 제품 이름인 타입 — 이름 제안·자주 쓰는 이름·등록 제품을 전부 받는다. */
@@ -10,11 +11,8 @@ export const PRODUCT_NAME_EVENT_KEYS = new Set(["meal", "treat", "supplement", "
  */
 export const TAG_VALUED_PRODUCT_NAME_KEYS = new Set(["vomit", "observation", "care", "temperature"]);
 
-/**
- * 태그 타입 중 등록 제품(`productId`)만 잇는 타입 — 관리는 위생용품(모래·샴푸·치약)을,
- * 체온은 체온계(DEVICE)를 단다. 자주 쓰는 이름은 세지 않는다 (태그 CSV라 의미가 없다).
- */
-export const PRODUCT_LINK_ONLY_EVENT_KEYS = new Set(["care", "temperature"]);
+// 자주 쓰는 이름은 세지 않는다 (태그 CSV라 의미가 없다) — 목록 자체는 웹 루틴 시트와 공유한다
+export { PRODUCT_LINK_ONLY_EVENT_KEYS };
 
 /**
  * 마지막 기록의 태그·제품을 그대로 다시 여는 태그 타입. 관리는 안 준다 — 지난 관리(모래)와
