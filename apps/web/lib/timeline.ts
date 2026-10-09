@@ -83,6 +83,7 @@ export function createdEventToTimeline(event: CreatedEvent): TimelineEvent {
     contact: event.contact ?? null,
     course: event.course ?? null,
     doseOrdinal: event.doseOrdinal ?? null,
+    doseSlotIndex: event.doseSlotIndex ?? null,
     note: event.note,
     preset: event.preset,
     eventType: {

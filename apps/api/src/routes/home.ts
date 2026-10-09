@@ -9,32 +9,15 @@ import {
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
 import { medicationCoursesWithProgress, todayDoseTargets } from "../lib/medicationCourseProgress.js";
+import { eventWithRelationsSelect } from "../services/createEvent.js";
 import { routineSelect, serializeRoutine } from "./routines.js";
 
+// 이력(GET /api/events)과 같은 필드 — 빠진 필드가 있으면 /q 최근 기록에서만 내용이 사라진다
+// (제품 연결·entryId 묶음·진료처 좌표·비용 등)
 const recentEventSelect = {
-  id: true,
-  occurredAt: true,
-  createdAt: true,
-  updatedAt: true,
-  quantity: true,
-  quantityOffered: true,
-  unit: true,
-  scaleValue: true,
-  productName: true,
-  note: true,
-  doseSlotIndex: true,
-  doseOrdinal: true,
-  preset: { select: { id: true, label: true } },
-  contact: { select: { id: true, name: true, address: true } },
-  course: {
-    select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
-  },
-  eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
-  createdBy: { select: { id: true, name: true } },
-  updatedBy: { select: { id: true, name: true } },
-  attachments: {
-    select: { id: true, path: true, mime: true, size: true, width: true, height: true },
-    orderBy: { createdAt: "asc" as const },
+  ...eventWithRelationsSelect,
+  eventType: {
+    select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true },
   },
 } as const;
 
