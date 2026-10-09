@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { timelineEventSelect } from "../services/createEvent.js";
 
@@ -18,6 +19,22 @@ describe("timelineEventSelect", () => {
       longitude: true,
       placeUrl: true,
     });
-    expect(timelineEventSelect.eventType.select).toMatchObject({ key: true, color: true });
+  });
+
+  it("이벤트 타입은 목록 표시에 쓰는 필드를 전부 싣는다", () => {
+    expect(timelineEventSelect.eventType.select).toEqual({
+      key: true,
+      label: true,
+      icon: true,
+      color: true,
+      scaleType: true,
+      category: true,
+    });
+  });
+
+  // 원래 버그는 라우트가 자기 select를 따로 들고 있던 것이다 — 두 라우트가 공유 select를 쓰는지 고정한다
+  it.each(["../routes/events.ts", "../routes/home.ts"])("%s는 timelineEventSelect를 쓴다", (file) => {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    expect(source).toMatch(/select:\s*timelineEventSelect\b/);
   });
 });

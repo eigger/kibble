@@ -12,7 +12,6 @@ import { medicationCoursesWithProgress, todayDoseTargets } from "../lib/medicati
 import { timelineEventSelect } from "../services/createEvent.js";
 import { routineSelect, serializeRoutine } from "./routines.js";
 
-
 /** 홈 화면용 — 반려동물·프리셋·오늘 요약·최근 이벤트를 한 번에 반환한다. */
 export async function homeRoutes(app: FastifyInstance) {
   app.get("/", { preHandler: [app.authenticate] }, async (request, reply) => {
