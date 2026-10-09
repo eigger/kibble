@@ -38,12 +38,12 @@ describe("routineItemSummary — tag types", () => {
     ).toBe("모래 보충 · 벤토나이트");
   });
 
-  it("never shows a raw slug and keeps the chip label when only a product is linked", () => {
+  it("shows only the product name when no tags are set (unchanged for existing items)", () => {
     expect(
       routineItemSummary(item({ ...care, product: { id: "p", name: "치약" } }), (k) =>
         k === "eventType.care" ? "관리" : k,
       ),
-    ).toBe("관리 · 치약");
+    ).toBe("치약");
   });
 
   it("sends the tag list as productName", () => {

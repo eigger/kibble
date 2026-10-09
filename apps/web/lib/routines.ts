@@ -1,7 +1,8 @@
 import type { CreateEventInput } from "@kibble/shared";
-import { eventDetailTagsFor, formatProductNameDisplay } from "./eventDetailTags";
+import { formatProductNameDisplay } from "./eventDetailTags";
 import { productValueDisplay } from "./eventDetailFields";
 import type { TranslationKey } from "./i18n/translations";
+import { isRoutineTagType } from "./routineDraft";
 import type { Routine, RoutineItem } from "./types";
 
 /** `/q` 입력 바의 모드 — 기록 칩 / 루틴. 기기별로 마지막 모드를 기억한다 (§7.24) */
@@ -44,18 +45,19 @@ export function isRoutineItemSkipped(item: RoutineItem): boolean {
 }
 
 /**
- * 항목 이름. 태그 타입(관리·관찰·구토·체온)의 `productName`은 이름이 아니라 태그 slug 목록이라
+ * 항목 이름. 태그 타입(관리·관찰·구토)의 `productName`은 이름이 아니라 태그 slug 목록이라
  * 라벨로 풀고 연결 제품을 뒤에 붙인다 — "모래 보충 · 벤토나이트" (§7.20, §7.24)
  */
 function itemDisplayName(item: RoutineItem, tLabel: (labelOrKey: string) => string): string {
   const fallback = tLabel(item.preset?.label ?? item.eventType.label);
-  if (eventDetailTagsFor(item.eventType.key).length > 0) {
+  if (isRoutineTagType(item.eventType.key)) {
     const tags = formatProductNameDisplay(item.eventType.key, item.productName, (key: TranslationKey) =>
       tLabel(key),
     );
-    const shown = productValueDisplay(true, tags, item.product?.name ?? null);
-    // 태그가 없으면 칩 라벨을 앞에 둔다 — 제품만 덜렁 보이면 무슨 일인지 모른다
-    return tags ? (shown ?? fallback) : shown ? `${fallback} · ${shown}` : fallback;
+    // 태그가 없으면 제품 이름만 — 제품만 잇던 기존 항목의 표시는 그대로다
+    return tags
+      ? (productValueDisplay(true, tags, item.product?.name ?? null) ?? fallback)
+      : (item.product?.name ?? fallback);
   }
   return item.product?.name ?? item.productName ?? fallback;
 }

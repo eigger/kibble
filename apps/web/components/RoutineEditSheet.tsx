@@ -7,13 +7,16 @@ import { formatApiErrorMessage } from "../lib/apiErrorMessage";
 import { useLocale } from "../lib/i18n/locale-context";
 import type { TranslationKey } from "../lib/i18n/translations";
 import { useToast } from "../lib/toast-context";
-import { eventDetailFields } from "../lib/eventDetailFields";
+import { toggleProductNameTag } from "../lib/eventDetailTags";
 import {
-  encodeProductNameValue,
-  eventDetailTagsFor,
-  parseProductNameValue,
-  toggleProductNameTag,
-} from "../lib/eventDetailTags";
+  buildItemPayload,
+  draftFromItem,
+  isRoutineTagType,
+  isTagOnlyType,
+  itemHasAmount,
+  resetOnTypeChange,
+  type ItemDraft,
+} from "../lib/routineDraft";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EventDetailTagPicker } from "./EventDetailTagPicker";
 import type {
@@ -45,33 +48,8 @@ interface RoutineEditSheetProps {
   onDeleted: (id: string) => void;
 }
 
-interface ItemDraft {
-  key: string;
-  presetId: string;
-  quantity: string;
-  /** 사료만 — 제공량. `quantity`는 섭취량이다 */
-  quantityOffered: string;
-  unit: string;
-  productId: string;
-  /** 투약 칩일 때만 — 슬롯은 실행 때 서버가 고른다 */
-  courseId: string;
-  /** 태그 타입(관리·관찰·구토·체온)일 때 고른 태그 — `productName`에 slug CSV로 저장한다 */
-  tagIds: string[];
-  /** 태그 목록에 없는 옛 값 — 보이지 않아도 저장 때 그대로 돌려보낸다 (K-13) */
-  tagCustom: string;
-}
-
 function isMealPreset(preset: PresetDetail | undefined): boolean {
   return preset?.eventType.key === "meal";
-}
-
-function hasTags(preset: PresetDetail | undefined): boolean {
-  return preset != null && eventDetailTagsFor(preset.eventType.key).length > 0;
-}
-
-/** 태그만으로 말이 되는 타입 — 제품을 잇는 건 관리(위생용품)·체온(체온계)뿐이다 */
-function tagOnly(preset: PresetDetail | undefined): boolean {
-  return hasTags(preset) && preset?.eventType.key !== "care" && preset?.eventType.key !== "temperature";
 }
 
 function isMedicationPreset(preset: PresetDetail | undefined): boolean {
@@ -133,24 +111,16 @@ function draftsFromRoutine(
     ];
   }
   const known = new Set(presets.map((p) => p.id));
-  return routine.items.map((item) => {
-    const parsed = parseProductNameValue(item.eventType.key, item.productName);
-    return {
-    key: newKey(),
-    // 칩이 없어졌거나(보관) 목록에 없으면 같은 타입의 칩으로 되돌린다 — 옛 id를 들고 있으면 저장 때 항목이 조용히 빠진다
-    presetId:
+  return routine.items.map((item) =>
+    draftFromItem(
+      item,
+      newKey(),
+      // 칩이 없어졌거나(보관) 목록에 없으면 같은 타입의 칩으로 되돌린다 — 옛 id를 들고 있으면 저장 때 항목이 조용히 빠진다
       (item.presetId && known.has(item.presetId) ? item.presetId : null) ??
-      presets.find((p) => p.eventTypeId === item.eventTypeId)?.id ??
-      "",
-    quantity: item.quantity != null ? String(item.quantity) : "",
-    quantityOffered: item.quantityOffered != null ? String(item.quantityOffered) : "",
-    unit: item.unit ?? "",
-    productId: item.productId ?? "",
-    courseId: item.medicationCourseId ?? "",
-    tagIds: parsed.tagIds,
-    tagCustom: parsed.custom,
-    };
-  });
+        presets.find((p) => p.eventTypeId === item.eventTypeId)?.id ??
+        "",
+    ),
+  );
 }
 
 /** 루틴 정의 시트 — 이름 + 항목(칩·제품·양·단위, 투약이면 처방) 목록 (§7.24) */
@@ -224,13 +194,13 @@ export function RoutineEditSheet({
 
   function changePreset(key: string, presetId: string) {
     const preset = presetById.get(presetId);
+    const current = items.find((it) => it.key === key);
     updateItem(key, {
+      ...resetOnTypeChange(current ? presetById.get(current.presetId) : undefined, preset),
       presetId,
       unit: unitForPreset(preset, defaultUnitByKey),
       ...(isMealPreset(preset) ? {} : { quantityOffered: "" }),
       courseId: isMedicationPreset(preset) ? (courses[0]?.id ?? "") : "",
-      tagIds: [],
-      tagCustom: "",
     });
   }
 
@@ -294,33 +264,10 @@ export function RoutineEditSheet({
     const name = label.trim();
     if (!name || missingCourse) return;
 
-    const payloadItems = items
-      .map((it) => {
-        const preset = presetById.get(it.presetId);
-        if (!preset) return null;
-        if (isMedicationPreset(preset)) {
-          // 투약은 처방만 — 용량은 처방에 적혀 있고 슬롯은 실행 때 정해진다
-          return { eventTypeId: preset.eventTypeId, presetId: preset.id, medicationCourseId: it.courseId };
-        }
-        const quantityRaw = it.quantity.trim();
-        const quantity = quantityRaw ? Number(quantityRaw) : null;
-        const offeredRaw = isMealPreset(preset) ? it.quantityOffered.trim() : "";
-        const offered = offeredRaw ? Number(offeredRaw) : null;
-        const tagged = hasTags(preset);
-        return {
-          eventTypeId: preset.eventTypeId,
-          presetId: preset.id,
-          productId: it.productId || null,
-          // 태그 타입의 productName은 이름이 아니라 slug 목록이다 (§7.20) — 비우면 null로 지운다
-          productName: tagged
-            ? encodeProductNameValue(preset.eventType.key, it.tagIds, it.tagCustom) || null
-            : null,
-          quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
-          quantityOffered: offered != null && Number.isFinite(offered) ? offered : null,
-          unit: it.unit.trim() || null,
-        };
-      })
-      .filter((v): v is NonNullable<typeof v> => v != null);
+    const payloadItems = items.flatMap((it) => {
+      const preset = presetById.get(it.presetId);
+      return preset ? [buildItemPayload(it, preset, species)] : [];
+    });
     if (payloadItems.length === 0) return;
 
     setSaving(true);
@@ -383,11 +330,11 @@ export function RoutineEditSheet({
               const medication = isMedicationPreset(presetById.get(item.presetId));
               const meal = isMealPreset(presetById.get(item.presetId));
               const preset = presetById.get(item.presetId);
-              const tagged = hasTags(preset);
-              const showProduct = !tagOnly(preset) || !!item.productId;
+              const typeKey = preset?.eventType.key;
+              const tagged = isRoutineTagType(typeKey);
+              const showProduct = !isTagOnlyType(typeKey) || !!item.productId;
               // 관리·관찰·구토는 양이 없는 타입이다 — 있으면 입력란이 쓸모없이 떠 있다
-              const showAmount =
-                !medication && (!tagged || eventDetailFields(preset?.eventType.key, null).quantity);
+              const showAmount = !medication && itemHasAmount(typeKey);
               const options = medication ? courseOptions(item.courseId) : [];
               return (
                 <li key={item.key} className="routine-item-row">

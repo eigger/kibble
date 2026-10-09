@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRODUCT_NAME_MAX } from "../eventTypeKeys.js";
 
 const decimalOptional = z.coerce.number().finite().optional().nullable();
 const labelField = z.string().trim().min(1).max(100);
@@ -11,7 +12,7 @@ export const routineItemSchema = z.object({
   /** 같은 타입의 칩. 이벤트에 실려 타임라인 라벨이 칩과 같아진다 */
   presetId: z.string().trim().min(1).optional().nullable(),
   productId: z.string().trim().min(1).optional().nullable(),
-  productName: z.string().trim().max(120).optional().nullable(),
+  productName: z.string().trim().max(PRODUCT_NAME_MAX).optional().nullable(),
   quantity: decimalOptional,
   /** 사료 항목의 제공량. `quantity`는 섭취량이다 */
   quantityOffered: decimalOptional,
