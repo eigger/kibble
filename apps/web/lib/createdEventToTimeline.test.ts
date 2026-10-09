@@ -43,4 +43,10 @@ describe("createdEventToTimeline — 등록 직후 제품 연결", () => {
     expect(event.product).toBeNull();
     expect(eventDetailLine(event, (key) => key)).toBeNull();
   });
+
+  it("복약 슬롯을 보존한다", () => {
+    const event = createdEventToTimeline({ ...created(), doseSlotIndex: 2 });
+    expect(event.doseSlotIndex).toBe(2);
+    expect(createdEventToTimeline(created()).doseSlotIndex).toBeNull();
+  });
 });

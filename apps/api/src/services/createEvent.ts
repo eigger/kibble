@@ -454,6 +454,17 @@ export const eventWithRelationsSelect = {
   },
 } as const;
 
+/**
+ * 타임라인 목록(이력 GET /api/events, 빠른 기록 GET /api/home)이 함께 쓰는 select.
+ * 두 곳이 따로 필드를 나열하면 한쪽에서만 제품 연결·묶음·비용 등이 빠진다.
+ */
+export const timelineEventSelect = {
+  ...eventWithRelationsSelect,
+  eventType: {
+    select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true },
+  },
+} as const;
+
 export type CreatedEventWithRelations = Prisma.EventGetPayload<{
   select: typeof eventWithRelationsSelect;
 }>;

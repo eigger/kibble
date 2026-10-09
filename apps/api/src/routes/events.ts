@@ -18,8 +18,8 @@ import {
 } from "../lib/authenticate.js";
 import {
   createEvent,
-  eventSelect,
   eventWithRelationsSelect,
+  timelineEventSelect,
   validateScaleValue,
 } from "../services/createEvent.js";
 import { applyEventUpdate } from "../services/updateEvent.js";
@@ -287,31 +287,7 @@ export async function eventRoutes(app: FastifyInstance) {
       },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: limit,
-      select: {
-        ...eventSelect,
-        eventType: { select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true } },
-        product: eventWithRelationsSelect.product,
-        preset: { select: { id: true, label: true } },
-        contact: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            latitude: true,
-            longitude: true,
-            placeUrl: true,
-          },
-        },
-        course: {
-          select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
-        },
-        createdBy: { select: { id: true, name: true } },
-        updatedBy: { select: { id: true, name: true } },
-        attachments: {
-          select: { id: true, path: true, mime: true, size: true, width: true, height: true },
-          orderBy: { createdAt: "asc" },
-        },
-      },
+      select: timelineEventSelect,
     });
 
     return events;

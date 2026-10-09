@@ -9,17 +9,9 @@ import {
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
 import { medicationCoursesWithProgress, todayDoseTargets } from "../lib/medicationCourseProgress.js";
-import { eventWithRelationsSelect } from "../services/createEvent.js";
+import { timelineEventSelect } from "../services/createEvent.js";
 import { routineSelect, serializeRoutine } from "./routines.js";
 
-// 이력(GET /api/events)과 같은 필드 — 빠진 필드가 있으면 /q 최근 기록에서만 내용이 사라진다
-// (제품 연결·entryId 묶음·진료처 좌표·비용 등)
-const recentEventSelect = {
-  ...eventWithRelationsSelect,
-  eventType: {
-    select: { key: true, label: true, icon: true, color: true, scaleType: true, category: true },
-  },
-} as const;
 
 /** 홈 화면용 — 반려동물·프리셋·오늘 요약·최근 이벤트를 한 번에 반환한다. */
 export async function homeRoutes(app: FastifyInstance) {
@@ -100,7 +92,7 @@ export async function homeRoutes(app: FastifyInstance) {
         where: { ...petScope, deletedAt: null },
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
         take: 6,
-        select: recentEventSelect,
+        select: timelineEventSelect,
       }),
       journalStatsForPet(prisma, householdId, activePet.id),
       medicationCoursesWithProgress(prisma, householdId, activePet.id),
