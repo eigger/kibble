@@ -9,34 +9,8 @@ import {
   SystemEventTypesNotSeededError,
 } from "../lib/seed/ensurePresetsForPet.js";
 import { medicationCoursesWithProgress, todayDoseTargets } from "../lib/medicationCourseProgress.js";
+import { timelineEventSelect } from "../services/createEvent.js";
 import { routineSelect, serializeRoutine } from "./routines.js";
-
-const recentEventSelect = {
-  id: true,
-  occurredAt: true,
-  createdAt: true,
-  updatedAt: true,
-  quantity: true,
-  quantityOffered: true,
-  unit: true,
-  scaleValue: true,
-  productName: true,
-  note: true,
-  doseSlotIndex: true,
-  doseOrdinal: true,
-  preset: { select: { id: true, label: true } },
-  contact: { select: { id: true, name: true, address: true } },
-  course: {
-    select: { id: true, name: true, totalDoses: true, dosage: true, dosesPerDay: true, doseTimes: true },
-  },
-  eventType: { select: { key: true, label: true, icon: true, scaleType: true, category: true } },
-  createdBy: { select: { id: true, name: true } },
-  updatedBy: { select: { id: true, name: true } },
-  attachments: {
-    select: { id: true, path: true, mime: true, size: true, width: true, height: true },
-    orderBy: { createdAt: "asc" as const },
-  },
-} as const;
 
 /** 홈 화면용 — 반려동물·프리셋·오늘 요약·최근 이벤트를 한 번에 반환한다. */
 export async function homeRoutes(app: FastifyInstance) {
@@ -117,7 +91,7 @@ export async function homeRoutes(app: FastifyInstance) {
         where: { ...petScope, deletedAt: null },
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
         take: 6,
-        select: recentEventSelect,
+        select: timelineEventSelect,
       }),
       journalStatsForPet(prisma, householdId, activePet.id),
       medicationCoursesWithProgress(prisma, householdId, activePet.id),
