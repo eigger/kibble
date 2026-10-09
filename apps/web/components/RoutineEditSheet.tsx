@@ -7,7 +7,15 @@ import { formatApiErrorMessage } from "../lib/apiErrorMessage";
 import { useLocale } from "../lib/i18n/locale-context";
 import type { TranslationKey } from "../lib/i18n/translations";
 import { useToast } from "../lib/toast-context";
+import { eventDetailFields } from "../lib/eventDetailFields";
+import {
+  encodeProductNameValue,
+  eventDetailTagsFor,
+  parseProductNameValue,
+  toggleProductNameTag,
+} from "../lib/eventDetailTags";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EventDetailTagPicker } from "./EventDetailTagPicker";
 import type {
   EventTypeAliasesRow,
   MedicationCourseRow,
@@ -15,11 +23,14 @@ import type {
   Product,
   ProductCategory,
   Routine,
+  Species,
 } from "../lib/types";
 
 interface RoutineEditSheetProps {
   open: boolean;
   petId: string;
+  /** 종별 태그(모래 갈이·패드 교체)를 거른다. 모르면 전부 보인다 */
+  species?: Species | null;
   /** null이면 새 루틴 */
   routine: Routine | null;
   /** 이 반려동물의 칩 — 숨긴 것 포함 */
@@ -44,10 +55,23 @@ interface ItemDraft {
   productId: string;
   /** 투약 칩일 때만 — 슬롯은 실행 때 서버가 고른다 */
   courseId: string;
+  /** 태그 타입(관리·관찰·구토·체온)일 때 고른 태그 — `productName`에 slug CSV로 저장한다 */
+  tagIds: string[];
+  /** 태그 목록에 없는 옛 값 — 보이지 않아도 저장 때 그대로 돌려보낸다 (K-13) */
+  tagCustom: string;
 }
 
 function isMealPreset(preset: PresetDetail | undefined): boolean {
   return preset?.eventType.key === "meal";
+}
+
+function hasTags(preset: PresetDetail | undefined): boolean {
+  return preset != null && eventDetailTagsFor(preset.eventType.key).length > 0;
+}
+
+/** 태그만으로 말이 되는 타입 — 제품을 잇는 건 관리(위생용품)·체온(체온계)뿐이다 */
+function tagOnly(preset: PresetDetail | undefined): boolean {
+  return hasTags(preset) && preset?.eventType.key !== "care" && preset?.eventType.key !== "temperature";
 }
 
 function isMedicationPreset(preset: PresetDetail | undefined): boolean {
@@ -103,11 +127,15 @@ function draftsFromRoutine(
         unit: unitForPreset(first, defaultUnitByKey),
         productId: "",
         courseId: "",
+        tagIds: [],
+        tagCustom: "",
       },
     ];
   }
   const known = new Set(presets.map((p) => p.id));
-  return routine.items.map((item) => ({
+  return routine.items.map((item) => {
+    const parsed = parseProductNameValue(item.eventType.key, item.productName);
+    return {
     key: newKey(),
     // 칩이 없어졌거나(보관) 목록에 없으면 같은 타입의 칩으로 되돌린다 — 옛 id를 들고 있으면 저장 때 항목이 조용히 빠진다
     presetId:
@@ -119,13 +147,17 @@ function draftsFromRoutine(
     unit: item.unit ?? "",
     productId: item.productId ?? "",
     courseId: item.medicationCourseId ?? "",
-  }));
+    tagIds: parsed.tagIds,
+    tagCustom: parsed.custom,
+    };
+  });
 }
 
 /** 루틴 정의 시트 — 이름 + 항목(칩·제품·양·단위, 투약이면 처방) 목록 (§7.24) */
 export function RoutineEditSheet({
   open,
   petId,
+  species,
   routine,
   presets,
   courses,
@@ -197,6 +229,8 @@ export function RoutineEditSheet({
       unit: unitForPreset(preset, defaultUnitByKey),
       ...(isMealPreset(preset) ? {} : { quantityOffered: "" }),
       courseId: isMedicationPreset(preset) ? (courses[0]?.id ?? "") : "",
+      tagIds: [],
+      tagCustom: "",
     });
   }
 
@@ -229,6 +263,8 @@ export function RoutineEditSheet({
         unit: last ? last.unit : unitForPreset(first, defaultUnitByKey),
         productId: "",
         courseId: last?.courseId ?? "",
+        tagIds: [],
+        tagCustom: "",
       },
     ]);
   }
@@ -270,10 +306,15 @@ export function RoutineEditSheet({
         const quantity = quantityRaw ? Number(quantityRaw) : null;
         const offeredRaw = isMealPreset(preset) ? it.quantityOffered.trim() : "";
         const offered = offeredRaw ? Number(offeredRaw) : null;
+        const tagged = hasTags(preset);
         return {
           eventTypeId: preset.eventTypeId,
           presetId: preset.id,
           productId: it.productId || null,
+          // 태그 타입의 productName은 이름이 아니라 slug 목록이다 (§7.20) — 비우면 null로 지운다
+          productName: tagged
+            ? encodeProductNameValue(preset.eventType.key, it.tagIds, it.tagCustom) || null
+            : null,
           quantity: quantity != null && Number.isFinite(quantity) ? quantity : null,
           quantityOffered: offered != null && Number.isFinite(offered) ? offered : null,
           unit: it.unit.trim() || null,
@@ -341,6 +382,12 @@ export function RoutineEditSheet({
               const presetLabel = tLabel(presetById.get(item.presetId)?.label ?? "");
               const medication = isMedicationPreset(presetById.get(item.presetId));
               const meal = isMealPreset(presetById.get(item.presetId));
+              const preset = presetById.get(item.presetId);
+              const tagged = hasTags(preset);
+              const showProduct = !tagOnly(preset) || !!item.productId;
+              // 관리·관찰·구토는 양이 없는 타입이다 — 있으면 입력란이 쓸모없이 떠 있다
+              const showAmount =
+                !medication && (!tagged || eventDetailFields(preset?.eventType.key, null).quantity);
               const options = medication ? courseOptions(item.courseId) : [];
               return (
                 <li key={item.key} className="routine-item-row">
@@ -406,7 +453,7 @@ export function RoutineEditSheet({
                           <p className="meta">{t("routineItemNoActiveCourse")}</p>
                         )}
                       </div>
-                    ) : (
+                    ) : showProduct ? (
                     <div className="field-group flex-1">
                       <label className="field-label" htmlFor={`routine-item-product-${index}`}>
                         {t("routineItemProduct")}
@@ -437,9 +484,23 @@ export function RoutineEditSheet({
                         ))}
                       </select>
                     </div>
-                    )}
+                    ) : null}
                   </div>
-                  {!medication && (
+                  {tagged && (
+                    <EventDetailTagPicker
+                      eventTypeKey={preset?.eventType.key}
+                      species={species}
+                      selectedIds={item.tagIds}
+                      disabled={saving}
+                      t={t}
+                      onToggle={(tagId) =>
+                        updateItem(item.key, {
+                          tagIds: toggleProductNameTag(preset?.eventType.key, item.tagIds, tagId),
+                        })
+                      }
+                    />
+                  )}
+                  {showAmount && (
                   <div className={`field-row routine-item-amount${meal ? " routine-item-amount-meal" : ""}`}>
                     {meal && (
                       <div className="field-group flex-1">

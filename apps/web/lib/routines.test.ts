@@ -24,6 +24,41 @@ function item(overrides: Partial<RoutineItem>): RoutineItem {
   };
 }
 
+describe("routineItemSummary — tag types", () => {
+  const care = {
+    eventType: { key: "care", label: "eventType.care", category: "CARE", defaultUnit: null },
+  };
+
+  it("resolves tag slugs to labels and appends the linked product", () => {
+    expect(
+      routineItemSummary(
+        item({ ...care, productName: "litter_topup", product: { id: "p", name: "벤토나이트" } }),
+        (k) => (k === "eventTag.care.litter_topup" ? "모래 보충" : k),
+      ),
+    ).toBe("모래 보충 · 벤토나이트");
+  });
+
+  it("never shows a raw slug and keeps the chip label when only a product is linked", () => {
+    expect(
+      routineItemSummary(item({ ...care, product: { id: "p", name: "치약" } }), (k) =>
+        k === "eventType.care" ? "관리" : k,
+      ),
+    ).toBe("관리 · 치약");
+  });
+
+  it("sends the tag list as productName", () => {
+    const routine: Routine = {
+      id: "r",
+      petId: "pet",
+      label: "화장실",
+      sortOrder: 0,
+      items: [item({ ...care, productName: "litter_topup,toilet_clean" })],
+    };
+    const { events } = buildRoutineEventBodies(routine, "pet", "2026-10-09T00:00:00.000Z", "s");
+    expect(events[0].body.productName).toBe("litter_topup,toilet_clean");
+  });
+});
+
 describe("routineItemSummary", () => {
   it("uses product name and falls back to the type's default unit", () => {
     expect(
