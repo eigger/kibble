@@ -3,13 +3,14 @@
 import { flushSync } from "react-dom";
 import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
+import type { LightboxTarget } from "./AttachmentLightbox";
 
 /** 이 이상은 "+N"으로 접는다 — 좁은 행에서 무한정 늘어나지 않게. */
 const MAX_INLINE_THUMBS = 4;
 
 type Props = {
   attachments: EventAttachment[];
-  onOpen: (attachment: EventAttachment) => void;
+  onOpen: (target: LightboxTarget) => void;
 };
 
 /**
@@ -23,7 +24,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
 
   return (
     <div className="timeline-attachments">
-      {shown.map((att) => (
+      {shown.map((att, i) => (
         <button
           key={att.id}
           type="button"
@@ -33,7 +34,7 @@ export function TimelineAttachmentThumbs({ attachments, onOpen }: Props) {
             // 클릭 안에서 라이트박스를 커밋해야 iOS 브라우저·PWA가 그 탭을
             // 재생 제스처로 본다. setState만 하면 커밋이 제스처 밖으로 밀린다.
             // play()도 그 턴에서 나가야 하므로 loadeddata를 기다리지 않는다 (R86).
-            flushSync(() => onOpen(att));
+            flushSync(() => onOpen({ items: attachments, index: i }));
           }}
         >
           <EventAttachmentThumb

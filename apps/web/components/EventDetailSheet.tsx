@@ -37,7 +37,7 @@ import { geocodeAddress } from "../lib/maps/geocode";
 import { ClinicSearchModal, type ClinicPlaceResult } from "./ClinicSearchModal";
 import { ClinicMap } from "./maps/ClinicMap";
 import { NavLaunchButtons } from "./NavLaunchButtons";
-import { AttachmentLightbox } from "./AttachmentLightbox";
+import { AttachmentLightbox, type LightboxTarget } from "./AttachmentLightbox";
 import { EventDetailChip } from "./EventDetailChip";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { EventDetailTagPicker } from "./EventDetailTagPicker";
@@ -398,7 +398,7 @@ export function EventDetailSheet({
   const [doseOrdinal, setDoseOrdinal] = useState("");
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const [lightboxAtt, setLightboxAtt] = useState<EventAttachment | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxTarget | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   // 사용자가 제품을 직접 만졌는가 — 늦게 도착한 추천 응답이 그 선택 위에 지난 세트를 덮거나 덧붙이지 않게
   const productTouchedRef = useRef(false);
@@ -562,7 +562,7 @@ export function EventDetailSheet({
     setFrequentClinics([]);
     setClinicSearchOpen(false);
     setIsEditing(draft.mode === "create" || draft.mode === "edit");
-    setLightboxAtt(null);
+    setLightbox(null);
 
     if (draft.mode === "create" && draft.petId && draft.eventTypeKey) {
       const prefs = loadEventDetailPrefs(draft.petId, draft.eventTypeKey);
@@ -738,11 +738,11 @@ export function EventDetailSheet({
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy && !lightboxAtt) onClose();
+      if (e.key === "Escape" && !busy && !lightbox) onClose();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, busy, lightboxAtt, onClose]);
+  }, [open, busy, lightbox, onClose]);
 
   useEffect(() => {
     if (open) dialogRef.current?.focus();
@@ -1143,12 +1143,12 @@ export function EventDetailSheet({
                 <section className="event-detail-view-attachments" aria-label={t("eventDetailAttachments")}>
                   <h3 className="field-label">{t("eventDetailAttachments")}</h3>
                   <ul className="event-detail-view-attachments-list">
-                    {attachments.map((att) => (
+                    {attachments.map((att, i) => (
                       <li key={att.id}>
                         <button
                           type="button"
                           className="event-detail-view-att-btn"
-                          onClick={() => flushSync(() => setLightboxAtt(att))}
+                          onClick={() => flushSync(() => setLightbox({ items: attachments, index: i }))}
                         >
                           <EventAttachmentThumb
                             path={att.path}
@@ -1662,12 +1662,14 @@ export function EventDetailSheet({
                   <legend className="field-label">{t("eventDetailAttachments")}</legend>
                   {visibleAttachments.length > 0 && (
                     <ul className="event-detail-attachments-list">
-                      {visibleAttachments.map((att) => (
+                      {visibleAttachments.map((att, i) => (
                         <li key={att.id} className="event-detail-attachments-item">
                           <button
                             type="button"
                             className="event-detail-view-att-btn"
-                            onClick={() => flushSync(() => setLightboxAtt(att))}
+                            onClick={() =>
+                              flushSync(() => setLightbox({ items: visibleAttachments, index: i }))
+                            }
                           >
                             <EventAttachmentThumb
                               path={att.path}
@@ -1742,13 +1744,16 @@ export function EventDetailSheet({
         />
       )}
 
-      {lightboxAtt && (
+      {lightbox && (
         <AttachmentLightbox
-          path={lightboxAtt.path}
-          mime={lightboxAtt.mime}
-          onClose={() => setLightboxAtt(null)}
+          items={lightbox.items}
+          index={lightbox.index}
+          onIndexChange={(index) => setLightbox({ ...lightbox, index })}
+          onClose={() => setLightbox(null)}
           closeLabel={t("close")}
           resetLabel={t("lightboxResetZoom")}
+          prevLabel={t("lightboxPrev")}
+          nextLabel={t("lightboxNext")}
         />
       )}
 

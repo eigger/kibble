@@ -13,7 +13,7 @@ import type { JournalStats } from "@kibble/shared";
 import { journalInsightMessage } from "@kibble/shared";
 import { TimelineEventBody } from "../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox } from "../components/AttachmentLightbox";
+import { AttachmentLightbox, type LightboxTarget } from "../components/AttachmentLightbox";
 import { formatEventTime } from "../lib/eventDisplay";
 import { formatScaleValuePart } from "../lib/eventDetailFields";
 import { formatAmount, relativeSince, todayCardValue } from "../lib/todayCard";
@@ -119,7 +119,7 @@ export default function HomePage() {
   // 반려동물 전환에 실패해도 이전 데이터는 그대로 둔다 — 화면 전체를 오류로 바꾸지 않는다
   const [switchError, setSwitchError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [rowLightboxAtt, setRowLightboxAtt] = useState<EventAttachment | null>(null);
+  const [rowLightbox, setRowLightbox] = useState<LightboxTarget | null>(null);
 
   // 첨부는 이력 화면과 같게 다룬다 — 올라간 것을 제자리에 붙이고, 포스터가 늦은
   // 영상만 상태를 되묻는다. 목록을 통째로 다시 받지 않는다.
@@ -334,7 +334,7 @@ export default function HomePage() {
                           {(event.attachments?.length ?? 0) > 0 && (
                             <TimelineAttachmentThumbs
                               attachments={event.attachments ?? []}
-                              onOpen={setRowLightboxAtt}
+                              onOpen={setRowLightbox}
                             />
                           )}
                         </TimelineEventBody>
@@ -348,13 +348,16 @@ export default function HomePage() {
         </div>
       )}
 
-      {rowLightboxAtt && (
+      {rowLightbox && (
         <AttachmentLightbox
-          path={rowLightboxAtt.path}
-          mime={rowLightboxAtt.mime}
-          onClose={() => setRowLightboxAtt(null)}
+          items={rowLightbox.items}
+          index={rowLightbox.index}
+          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
+          onClose={() => setRowLightbox(null)}
           closeLabel={t("close")}
           resetLabel={t("lightboxResetZoom")}
+          prevLabel={t("lightboxPrev")}
+          nextLabel={t("lightboxNext")}
         />
       )}
     </main>
