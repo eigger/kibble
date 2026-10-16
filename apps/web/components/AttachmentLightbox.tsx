@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { stepIndex, swipeDirection } from "../lib/lightboxSwipe";
@@ -53,7 +54,9 @@ export function AttachmentLightbox({
   const go = useCallback(
     (dir: -1 | 1) => {
       const next = stepIndex(index, dir, items.length);
-      if (next !== null) onIndexChange(next);
+      // 영상으로 넘어올 때 새 <video>의 play()가 이 제스처 턴 안에서 나가야
+      // iOS가 소리 재생을 허용한다. 썸네일로 열 때와 같은 이유로 flushSync (R86).
+      if (next !== null) flushSync(() => onIndexChange(next));
     },
     [index, items.length, onIndexChange],
   );
@@ -71,9 +74,12 @@ export function AttachmentLightbox({
   // 영상은 확대가 없으니 여기서 직접 스와이프를 본다. 사진은 ZoomableImage가 본다.
   const videoSwipeRef = useRef<Point | null>(null);
   function handleVideoPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    videoSwipeRef.current =
-      e.clientY > rect.bottom - VIDEO_CONTROLS_HEIGHT ? null : { x: e.clientX, y: e.clientY };
+    // 컨트롤은 래퍼가 아니라 <video> 하단에 있다 — 가로 영상은 래퍼 가운데에 떠 있다.
+    const rect = (
+      e.currentTarget.querySelector("video") ?? e.currentTarget
+    ).getBoundingClientRect();
+    const onControls = e.clientY > rect.bottom - VIDEO_CONTROLS_HEIGHT && e.clientY <= rect.bottom;
+    videoSwipeRef.current = onControls ? null : { x: e.clientX, y: e.clientY };
   }
   function handleVideoPointerUp(e: React.PointerEvent<HTMLDivElement>) {
     const from = videoSwipeRef.current;
