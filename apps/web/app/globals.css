@@ -2536,6 +2536,58 @@ button:disabled {
   width: 100%;
 }
 
+/* 영상 스와이프 영역. 세로 스크롤은 브라우저에 두고 가로 끌기만 우리가 본다. */
+.attachment-lightbox-swipe {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+
+.attachment-lightbox-counter {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.attachment-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 56px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.attachment-lightbox-prev {
+  left: 8px;
+}
+
+.attachment-lightbox-next {
+  right: 8px;
+}
+
+/* 터치 기기는 스와이프가 주 수단이라 화살표가 사진을 가리지 않게 숨긴다. */
+@media (pointer: coarse) {
+  .attachment-lightbox-nav {
+    display: none;
+  }
+}
+
 @keyframes timelineHighlightPulse {
   0% {
     background-color: color-mix(in srgb, var(--color-primary) 28%, transparent);

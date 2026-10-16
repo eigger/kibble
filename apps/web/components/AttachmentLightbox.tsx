@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
+import { stepIndex, swipeDirection } from "../lib/lightboxSwipe";
 import {
   clampScale,
   clampTranslate,
@@ -16,26 +18,72 @@ import {
   type ZoomState,
 } from "../lib/zoomPan";
 
+/** 라이트박스가 보여 줄 첨부 묶음(한 이벤트의 첨부)과 현재 위치 */
+export type LightboxTarget = { items: EventAttachment[]; index: number };
+
 type Props = {
-  path: string;
-  mime: string;
+  items: EventAttachment[];
+  index: number;
+  onIndexChange: (index: number) => void;
   onClose: () => void;
   closeLabel: string;
   resetLabel?: string;
+  prevLabel?: string;
+  nextLabel?: string;
 };
 
 type Point = { x: number; y: number };
 
-export function AttachmentLightbox({ path, mime, onClose, closeLabel, resetLabel }: Props) {
-  const isVideo = mime.startsWith("video/");
+/** 영상 하단 네이티브 컨트롤(탐색 바)과 겹치는 높이. 여기서 시작한 끌기는 스와이프가 아니다. */
+const VIDEO_CONTROLS_HEIGHT = 64;
+
+export function AttachmentLightbox({
+  items,
+  index,
+  onIndexChange,
+  onClose,
+  closeLabel,
+  resetLabel,
+  prevLabel,
+  nextLabel,
+}: Props) {
+  const current = items[index];
+  const isVideo = current?.mime.startsWith("video/") ?? false;
+
+  const go = useCallback(
+    (dir: -1 | 1) => {
+      const next = stepIndex(index, dir, items.length);
+      if (next !== null) onIndexChange(next);
+    },
+    [index, items.length, onIndexChange],
+  );
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, go]);
+
+  // 영상은 확대가 없으니 여기서 직접 스와이프를 본다. 사진은 ZoomableImage가 본다.
+  const videoSwipeRef = useRef<Point | null>(null);
+  function handleVideoPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    videoSwipeRef.current =
+      e.clientY > rect.bottom - VIDEO_CONTROLS_HEIGHT ? null : { x: e.clientX, y: e.clientY };
+  }
+  function handleVideoPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const from = videoSwipeRef.current;
+    videoSwipeRef.current = null;
+    if (!from) return;
+    const dir = swipeDirection(e.clientX - from.x, e.clientY - from.y);
+    if (dir !== 0) go(dir);
+  }
+
+  if (!current) return null;
 
   return (
     <div
@@ -48,19 +96,66 @@ export function AttachmentLightbox({ path, mime, onClose, closeLabel, resetLabel
       <button type="button" className="attachment-lightbox-close" onClick={onClose}>
         {closeLabel}
       </button>
+      {items.length > 1 && (
+        <span className="attachment-lightbox-counter" aria-live="polite">
+          {index + 1} / {items.length}
+        </span>
+      )}
       <div className="attachment-lightbox-body" onClick={(e) => e.stopPropagation()}>
         {isVideo ? (
-          <EventAttachmentThumb
-            path={path}
-            mime={mime}
-            alt=""
-            className="attachment-lightbox-media attachment-lightbox-video"
-            controls
-          />
+          <div
+            key={current.id}
+            className="attachment-lightbox-swipe"
+            onPointerDown={handleVideoPointerDown}
+            onPointerUp={handleVideoPointerUp}
+            onPointerCancel={() => {
+              videoSwipeRef.current = null;
+            }}
+          >
+            <EventAttachmentThumb
+              path={current.path}
+              mime={current.mime}
+              alt=""
+              className="attachment-lightbox-media attachment-lightbox-video"
+              controls
+            />
+          </div>
         ) : (
-          <ZoomableImage path={path} mime={mime} resetLabel={resetLabel} />
+          <ZoomableImage
+            key={current.id}
+            path={current.path}
+            mime={current.mime}
+            resetLabel={resetLabel}
+            onSwipe={go}
+          />
         )}
       </div>
+      {index > 0 && (
+        <button
+          type="button"
+          className="attachment-lightbox-nav attachment-lightbox-prev"
+          aria-label={prevLabel}
+          onClick={(e) => {
+            e.stopPropagation();
+            go(-1);
+          }}
+        >
+          ‹
+        </button>
+      )}
+      {index < items.length - 1 && (
+        <button
+          type="button"
+          className="attachment-lightbox-nav attachment-lightbox-next"
+          aria-label={nextLabel}
+          onClick={(e) => {
+            e.stopPropagation();
+            go(1);
+          }}
+        >
+          ›
+        </button>
+      )}
     </div>
   );
 }
@@ -73,10 +168,12 @@ function ZoomableImage({
   path,
   mime,
   resetLabel,
+  onSwipe,
 }: {
   path: string;
   mime: string;
   resetLabel?: string;
+  onSwipe: (dir: -1 | 1) => void;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -86,6 +183,8 @@ function ZoomableImage({
   const pointersRef = useRef(new Map<number, Point>());
   const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
   const panRef = useRef<{ from: Point; tx: number; ty: number } | null>(null);
+  // 1배에서 한 손가락으로 시작한 제스처만 스와이프 후보. 핀치가 끼면 취소한다.
+  const swipeRef = useRef<Point | null>(null);
   // 렌더 중에 ref를 쓰지 않는다. 커밋 뒤 동기화하고, 제스처 "시작" 판단에만 쓴다 —
   // 실제 계산은 아래 settle의 함수형 갱신이 항상 최신 prev를 받는다.
   const zoomRef = useRef(zoom);
@@ -135,6 +234,9 @@ function ZoomableImage({
       const [a, b] = Array.from(pointers.values());
       pinchRef.current = { distance: distance(a, b), scale: zoomRef.current.scale };
       panRef.current = null;
+      swipeRef.current = null;
+    } else if (pointers.size === 1 && !isZoomed(zoomRef.current)) {
+      swipeRef.current = { x: e.clientX, y: e.clientY };
     } else if (pointers.size === 1 && isZoomed(zoomRef.current)) {
       panRef.current = {
         from: { x: e.clientX, y: e.clientY },
@@ -174,6 +276,12 @@ function ZoomableImage({
 
   function endPointer(e: React.PointerEvent) {
     const pointers = pointersRef.current;
+    const swipeFrom = swipeRef.current;
+    if (swipeFrom && e.type === "pointerup" && !isZoomed(zoomRef.current)) {
+      const dir = swipeDirection(e.clientX - swipeFrom.x, e.clientY - swipeFrom.y);
+      if (dir !== 0) onSwipe(dir);
+    }
+    if (pointers.size <= 1) swipeRef.current = null;
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchRef.current = null;
     if (pointers.size === 0) panRef.current = null;

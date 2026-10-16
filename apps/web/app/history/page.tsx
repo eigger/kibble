@@ -19,7 +19,7 @@ import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
 import { TimelineEventBody } from "../../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox } from "../../components/AttachmentLightbox";
+import { AttachmentLightbox, type LightboxTarget } from "../../components/AttachmentLightbox";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
 import { HistoryTypeFilter } from "../../components/HistoryTypeFilter";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -74,7 +74,7 @@ export default function HistoryPage() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   // 이력 행 사진을 바로 눌렀을 때 — 상세 시트를 거치지 않고 라이트박스만 연다.
-  const [rowLightboxAtt, setRowLightboxAtt] = useState<EventAttachment | null>(null);
+  const [rowLightbox, setRowLightbox] = useState<LightboxTarget | null>(null);
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -561,7 +561,7 @@ export default function HistoryPage() {
                             {(event.attachments?.length ?? 0) > 0 && (
                               <TimelineAttachmentThumbs
                                 attachments={event.attachments ?? []}
-                                onOpen={setRowLightboxAtt}
+                                onOpen={setRowLightbox}
                               />
                             )}
                           </TimelineEventBody>
@@ -631,13 +631,16 @@ export default function HistoryPage() {
         locale={locale}
       />
 
-      {rowLightboxAtt && (
+      {rowLightbox && (
         <AttachmentLightbox
-          path={rowLightboxAtt.path}
-          mime={rowLightboxAtt.mime}
-          onClose={() => setRowLightboxAtt(null)}
+          items={rowLightbox.items}
+          index={rowLightbox.index}
+          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
+          onClose={() => setRowLightbox(null)}
           closeLabel={t("close")}
           resetLabel={t("lightboxResetZoom")}
+          prevLabel={t("lightboxPrev")}
+          nextLabel={t("lightboxNext")}
         />
       )}
 

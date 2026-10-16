@@ -58,7 +58,7 @@ import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
 import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox } from "../../components/AttachmentLightbox";
+import { AttachmentLightbox, type LightboxTarget } from "../../components/AttachmentLightbox";
 import {
   deleteEventAttachment,
 } from "../../lib/eventAttachments";
@@ -148,7 +148,7 @@ export default function QuickRecordPage() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   // 이력 행 사진을 바로 눌렀을 때 — 상세 시트를 거치지 않고 라이트박스만 연다.
-  const [rowLightboxAtt, setRowLightboxAtt] = useState<EventAttachment | null>(null);
+  const [rowLightbox, setRowLightbox] = useState<LightboxTarget | null>(null);
   const [detailDraft, setDetailDraft] = useState<EventDetailDraft | null>(null);
   const [detailSaving, setDetailSaving] = useState(false);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -947,7 +947,7 @@ export default function QuickRecordPage() {
                       {(event.attachments?.length ?? 0) > 0 && (
                         <TimelineAttachmentThumbs
                           attachments={event.attachments ?? []}
-                          onOpen={setRowLightboxAtt}
+                          onOpen={setRowLightbox}
                         />
                       )}
                     </TimelineEventBody>
@@ -1179,13 +1179,16 @@ export default function QuickRecordPage() {
         locale={locale}
       />
 
-      {rowLightboxAtt && (
+      {rowLightbox && (
         <AttachmentLightbox
-          path={rowLightboxAtt.path}
-          mime={rowLightboxAtt.mime}
-          onClose={() => setRowLightboxAtt(null)}
+          items={rowLightbox.items}
+          index={rowLightbox.index}
+          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
+          onClose={() => setRowLightbox(null)}
           closeLabel={t("close")}
           resetLabel={t("lightboxResetZoom")}
+          prevLabel={t("lightboxPrev")}
+          nextLabel={t("lightboxNext")}
         />
       )}
 
