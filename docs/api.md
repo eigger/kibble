@@ -298,9 +298,13 @@ curl -sS -X POST "$BASE/api/products" \
   }'
 ```
 
-선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `flavor`, `usage`, `registeredIngredients`, `ingredientRegistrationNo`, `importer`, `manufacturedAt`, `storage`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`, `adverseReactions`(string[]), `notes`.
+선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `flavor`, `usage`, `registeredIngredients`, `ingredientRegistrationNo`, `importer`, `manufacturedAt`, `storage`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`(`VERY_HIGH`·`HIGH`·`MEDIUM`·`LOW`·`VERY_LOW`), `adverseReactions`(string[]), `notes`.
 
 날짜 4종(`expiryDate`·`openedAt`·`purchaseDate`·`manufacturedAt`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
+
+**기호성**
+
+- `palatability`: `VERY_HIGH`(아주 잘 먹음 ★5) · `HIGH`(잘 먹음 ★4) · `MEDIUM`(보통 ★3) · `LOW`(잘 안 먹음 ★2) · `VERY_LOW`(안 먹음 / 거부 ★1)
 
 **제형과 입자크기**
 

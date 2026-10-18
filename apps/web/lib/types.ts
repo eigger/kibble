@@ -110,7 +110,7 @@ export type ProductCategory =
   | "HYGIENE"
   | "DEVICE"
   | "OTHER";
-export type Palatability = "HIGH" | "MEDIUM" | "LOW";
+export type Palatability = "VERY_HIGH" | "HIGH" | "MEDIUM" | "LOW" | "VERY_LOW";
 export type ProductForm =
   | "DRY"
   | "WET"

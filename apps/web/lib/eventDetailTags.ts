@@ -37,8 +37,9 @@ const OBSERVATION_BODY: EventDetailTag[] = [
   // 탈모와 별개다 — 원형 각질·딱지처럼 보호자가 "곰팡이"로 부르는 피부 소견. 진단은 수의사가 (K-16)
   { id: "fungus", labelKey: "eventTag.observation.fungus", group: "body" },
   { id: "teeth", labelKey: "eventTag.observation.teeth", group: "body" },
-  { id: "gum_color", labelKey: "eventTag.observation.gum_color", group: "body" },
-  // 잇몸 색과 별개다 — 귀 안쪽·코·피부 등 전반이 창백한지. 잇몸은 R139대로 따로 본다
+  { id: "gum", labelKey: "eventTag.observation.gum", group: "body" },
+  { id: "drool", labelKey: "eventTag.observation.drool", group: "body" },
+  // 잇몸과 별개다 — 귀 안쪽·코·피부 등 전반이 창백한지. 잇몸은 R139대로 따로 본다
   { id: "complexion", labelKey: "eventTag.observation.complexion", group: "body" },
   { id: "pupil", labelKey: "eventTag.observation.pupil", group: "body" },
   { id: "wound", labelKey: "eventTag.observation.wound", group: "body" },
@@ -48,6 +49,7 @@ const OBSERVATION_BEHAVIOR: EventDetailTag[] = [
   { id: "scratching", labelKey: "eventTag.observation.scratching", group: "behavior" },
   { id: "cough", labelKey: "eventTag.observation.cough", group: "behavior" },
   { id: "sneezing", labelKey: "eventTag.observation.sneezing", group: "behavior" },
+  { id: "burp", labelKey: "eventTag.observation.burp", group: "behavior" },
   { id: "limping", labelKey: "eventTag.observation.limping", group: "behavior" },
   { id: "breathing", labelKey: "eventTag.observation.breathing", group: "behavior" },
   { id: "vocalizing", labelKey: "eventTag.observation.vocalizing", group: "behavior" },
@@ -113,7 +115,7 @@ export const EVENT_DETAIL_TAGS: Partial<Record<string, EventDetailTag[]>> = {
 
 /** 이름을 바꾼 태그 — 저장된 옛 slug를 현재 id로 읽는다 (실기록 보존). */
 const LEGACY_TAG_IDS: Partial<Record<string, Record<string, string>>> = {
-  observation: { ear_smell: "smell" },
+  observation: { ear_smell: "smell", gum_color: "gum" },
 };
 
 export const EVENT_DETAIL_TAG_GROUP_LABEL_KEYS: Record<EventDetailTagGroupKey, TranslationKey> = {

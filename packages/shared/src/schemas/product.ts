@@ -15,7 +15,13 @@ export const PRODUCT_CATEGORIES = [
 export const productCategorySchema = z.enum(PRODUCT_CATEGORIES);
 export type ProductCategory = z.infer<typeof productCategorySchema>;
 
-export const PALATABILITIES = ["HIGH", "MEDIUM", "LOW"] as const;
+export const PALATABILITIES = [
+  "VERY_HIGH",
+  "HIGH",
+  "MEDIUM",
+  "LOW",
+  "VERY_LOW",
+] as const;
 export const palatabilitySchema = z.enum(PALATABILITIES);
 export type Palatability = z.infer<typeof palatabilitySchema>;
 

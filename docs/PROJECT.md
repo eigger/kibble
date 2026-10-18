@@ -496,6 +496,58 @@ model ApiToken {
   pet       Pet?      @relation(fields: [petId], references: [id], onDelete: SetNull)
   eventType EventType? @relation(fields: [eventTypeId], references: [id], onDelete: SetNull)
 }
+
+// ---------- 제품 관리 ----------
+model Product {
+  id                       String          @id @default(cuid())
+  householdId              String
+  petId                    String?
+  name                     String
+  brand                    String?
+  category                 ProductCategory @default(MEAL)
+  photoPath                String?
+  purchaseUrl              String?
+  flavor                   String?
+  origin                   String?
+  form                     ProductForm?
+  kibbleSize               KibbleSize?
+  weightG                  Int?
+  ingredientRegistrationNo String?
+  registeredIngredients    String?
+  importer                 String?
+  manufacturedAt           DateTime?
+  storage                  String?
+  usage                    String?
+  dosage                   String?
+  mainIngredients          String?
+  ingredients              String?
+  expiryDate               DateTime?
+  openedAt                 DateTime?
+  purchaseDate             DateTime?
+  costKrw                  Int?
+  isActive                 Boolean         @default(true)
+  palatability             Palatability?
+  adverseReactions         String[]        @default([])
+  notes                    String?
+  archivedAt               DateTime?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet       Pet?      @relation(fields: [petId], references: [id], onDelete: SetNull)
+  events    Event[]
+
+  @@index([householdId, category, archivedAt])
+  @@index([householdId, isActive, archivedAt])
+}
+
+enum Palatability {
+  VERY_HIGH
+  HIGH
+  MEDIUM
+  LOW
+  VERY_LOW
+}
 ```
 
 ### 모델 관련 결정 사항

@@ -51,20 +51,23 @@ describe("eventDetailTags", () => {
     expect(formatProductNameDisplay("vomit", "hairball,거품", t)).toBe("헤어볼 · 거품");
   });
 
-  it("reads the renamed ear_smell slug as smell", () => {
-    expect(parseProductNameValue("observation", "ear_smell,cough")).toEqual({
-      tagIds: ["smell", "cough"],
+  it("reads the renamed ear_smell slug as smell and gum_color as gum", () => {
+    expect(parseProductNameValue("observation", "ear_smell,cough,gum_color")).toEqual({
+      tagIds: ["smell", "cough", "gum"],
       custom: "",
     });
     // 다른 타입에서는 별칭이 적용되지 않는다
     expect(parseProductNameValue("vomit", "ear_smell").custom).toBe("ear_smell");
+    expect(parseProductNameValue("vomit", "gum_color").custom).toBe("gum_color");
   });
 
   it("groups observation tags into body and behavior, in that order", () => {
     const groups = eventDetailTagGroupsFor("observation");
     expect(groups.map((g) => g.group)).toEqual(["body", "behavior"]);
-    expect(groups[0].tags.map((t) => t.id)).toContain("gum_color");
+    expect(groups[0].tags.map((t) => t.id)).toContain("gum");
+    expect(groups[0].tags.map((t) => t.id)).toContain("drool");
     expect(groups[0].tags.map((t) => t.id)).toContain("complexion");
+    expect(groups[1].tags.map((t) => t.id)).toContain("burp");
     expect(groups[1].tags.map((t) => t.id)).toContain("sleep_change");
   });
 

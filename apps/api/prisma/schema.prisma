@@ -342,9 +342,11 @@ enum ProductCategory {
 }
 
 enum Palatability {
+  VERY_HIGH
   HIGH
   MEDIUM
   LOW
+  VERY_LOW
 }
 
 /// 제품 사진 여러 장. 대표 한 장은 Product.photoPath가 가리킨다.
