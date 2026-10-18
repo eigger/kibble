@@ -105,9 +105,11 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   };
 
   const palatabilityMap: Record<string, string> = {
+    VERY_HIGH: t("productPalatabilityVeryHigh"),
     HIGH: t("productPalatabilityHigh"),
     MEDIUM: t("productPalatabilityMedium"),
     LOW: t("productPalatabilityLow"),
+    VERY_LOW: t("productPalatabilityVeryLow"),
   };
 
   const formMap: Record<ProductForm, string> = {

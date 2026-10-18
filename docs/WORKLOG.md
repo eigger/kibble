@@ -1,5 +1,11 @@
 # 작업 기록
 
+### 2026-10-18 — 관찰 태그 추가·수정 및 제품 기호성 5단계 세분화
+
+- **관찰 태그 (몸)**: 침(`drool`) 태그 추가, 잇몸 색(`gum_color`)을 잇몸(`gum`)으로 이름 변경. 기존 기록의 `gum_color` slug는 `LEGACY_TAG_IDS`를 통해 `gum`으로 정규화하여 하위 호환 유지.
+- **관찰 태그 (증상·행동)**: 트름(`burp`) 태그 추가.
+- **제품 기호성(Palatability) 5단계 세분화**: 기존 3단계(`HIGH`, `MEDIUM`, `LOW`)에서 5단계(`VERY_HIGH`: 아주 잘 먹음 (★5), `HIGH`: 잘 먹음 (★4), `MEDIUM`: 보통 (★3), `LOW`: 잘 안 먹음 (★2), `VERY_LOW`: 안 먹음 / 거부 (★1))로 세분화. Prisma 마이그레이션(`20261018000000_product_palatability_5_levels`) 추가 및 제품 등록·수정·상세 시트와 shared 스키마 갱신.
+
 ### 2026-10-08 — /q 반려동물 탭의 tabpanel 연결
 
 `role="tab"`인데 `aria-controls`와 대응 `tabpanel`이 없었다(홈과 /q 모드 전환 탭은 연결돼 있었다). 탭이 보일 때(2마리 이상)만 타임라인 영역과 입력 바 영역을 `role="tabpanel"` + `aria-labelledby`(선택된 탭)로 만들고 탭의 `aria-controls`가 둘을 가리킨다. 1마리면 마크업 그대로. 입력 바가 없는 VIEWER는 타임라인만 제어한다. id 생성은 `lib/quickPetTabs.ts`.

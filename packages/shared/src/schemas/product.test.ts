@@ -47,6 +47,15 @@ describe("createProductSchema", () => {
     expect(res.success).toBe(true);
   });
 
+  it("accepts 5 levels of palatability and rejects invalid ones", () => {
+    for (const palatability of ["VERY_HIGH", "HIGH", "MEDIUM", "LOW", "VERY_LOW"] as const) {
+      expect(createProductSchema.safeParse({ name: "사료", palatability }).success).toBe(true);
+    }
+    expect(createProductSchema.safeParse({ name: "사료", palatability: "SUPER_HIGH" }).success).toBe(
+      false,
+    );
+  });
+
   it("rejects dangerous URL schemes for purchaseUrl", () => {
     expect(
       createProductSchema.safeParse({

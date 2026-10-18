@@ -683,9 +683,11 @@ export function ProductEditSheet({
                     disabled={saving}
                   >
                     <option value="">{t("statusUnset")}</option>
+                    <option value="VERY_HIGH">{t("productPalatabilityVeryHigh")}</option>
                     <option value="HIGH">{t("productPalatabilityHigh")}</option>
                     <option value="MEDIUM">{t("productPalatabilityMedium")}</option>
                     <option value="LOW">{t("productPalatabilityLow")}</option>
+                    <option value="VERY_LOW">{t("productPalatabilityVeryLow")}</option>
                   </select>
                 </div>
 

@@ -156,6 +156,44 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     );
   });
 
+  it("POST /api/products는 5단계 기호성을 저장한다", async () => {
+    mockPrisma.product.create.mockResolvedValue({
+      id: PRODUCT_ID,
+      householdId: HH,
+      name: "츄르",
+      category: "TREAT",
+      palatability: "VERY_HIGH",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiryDate: null,
+      openedAt: null,
+      purchaseDate: null,
+      manufacturedAt: null,
+      archivedAt: null,
+      pet: null,
+    });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/products",
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: {
+        name: "츄르",
+        category: "TREAT",
+        palatability: "VERY_HIGH",
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(mockPrisma.product.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          palatability: "VERY_HIGH",
+        }),
+      }),
+    );
+  });
+
   it("PATCH /api/products/:id는 제품 정보를 수정한다", async () => {
     const now = new Date();
     mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, householdId: HH });
