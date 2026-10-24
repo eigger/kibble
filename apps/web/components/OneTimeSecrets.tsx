@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useToast } from "../lib/toast-context";
 import { todayStamp } from "../lib/download";
+import { useDialog } from "../lib/useDialog";
 
 export type OneTimeSecret = {
   label: string;
@@ -54,9 +55,8 @@ export function OneTimeSecrets({ title, hint, secrets, downloadFilename, onClose
   const titleId = useId();
   const firstValueRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    firstValueRef.current?.focus();
-  }, []);
+  // Escape도 "저장함" 확인 전에는 닫히지 않는다 (handleClose가 막는다)
+  const dialogRef = useDialog({ onClose: handleClose, initialFocus: firstValueRef });
 
   function secretsAsText() {
     return secrets.map((s) => `${s.label}: ${s.value}`).join("\n");
@@ -106,6 +106,7 @@ export function OneTimeSecrets({ title, hint, secrets, downloadFilename, onClose
   return (
     <div
       className="one-time-secrets-backdrop"
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}

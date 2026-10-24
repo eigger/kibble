@@ -3,6 +3,7 @@
 import { formatDoseTime, intlLocale } from "@kibble/shared";
 import type { TranslationKey } from "../lib/i18n/translations";
 import type { DoseSlotToday } from "../lib/types";
+import { useDialog } from "../lib/useDialog";
 
 type SlotOption = {
   index: number;
@@ -28,12 +29,14 @@ export function MedicationDoseSlotPickSheet({
   t,
   locale,
 }: Props) {
+  const dialogRef = useDialog({ open, onClose });
   if (!open) return null;
   const localeTag = intlLocale(locale);
 
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card med-course-pick-sheet"
         role="dialog"
         aria-modal="true"

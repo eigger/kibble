@@ -1,19 +1,30 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type RefObject } from "react";
 import { usePathname } from "next/navigation";
 import { buildBugReportUrl } from "../lib/bugReport";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 
 interface BugReportModalProps {
   onClose: () => void;
+  /** 닫을 때 포커스를 돌려줄 곳 (열기 메뉴가 먼저 사라지는 호출처용) */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
-export function BugReportModal({ onClose }: BugReportModalProps) {
+export function BugReportModal({ onClose, returnFocusRef }: BugReportModalProps) {
   const pathname = usePathname();
   const { t, locale } = useLocale();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  // 입력 중 Escape로 신고 내용이 사라지지 않게 한다 (WORKPLAN §7.27)
+  const dialogRef = useDialog({
+    onClose,
+    closeOnEscape: false,
+    initialFocus: titleInputRef,
+    returnFocus: returnFocusRef,
+  });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +42,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
   return (
     <div className="confirm-dialog-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="card bug-report-modal"
         role="dialog"
         aria-modal="true"
@@ -56,7 +68,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t("bugReportTitlePlaceholder")}
-              autoFocus
+              ref={titleInputRef}
               required
             />
           </label>

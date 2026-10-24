@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatWeightG, intlLocale, kstDayDiff } from "@kibble/shared";
 import type { Product, ProductForm, ProductPhotoMeta } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 import { apiJson } from "../lib/api";
 import { ProductPhoto } from "./ProductPhoto";
 import {
@@ -59,6 +60,13 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
     setPreviewPhotoId(photoId ?? photos.find((p) => p.isPrimary)?.id ?? null);
     setPreviewOpen(true);
   }
+
+  const previewing = previewOpen && !!(previewPhotoId || product?.photoPath);
+  const sheetRef = useDialog({ open: open && !!product && !previewing, onClose, initialFocus: "container" });
+  const previewRef = useDialog({
+    open: open && !!product && previewing,
+    onClose: () => setPreviewOpen(false),
+  });
 
   if (!open || !product) return null;
 
@@ -179,10 +187,11 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   }
   if (product.storage) specs.push({ label: t("productStorageLabel"), value: product.storage, wide: true });
 
-  if (previewOpen && (previewPhotoId || product.photoPath)) {
+  if (previewing) {
     // 시트 위에 겹치지 않고 갈아 끼운다 — 배경 두 겹이 쌓이면 닫기 대상이 헷갈린다.
     return (
       <div
+        ref={previewRef}
         className="attachment-lightbox-backdrop"
         role="dialog"
         aria-modal="true"
@@ -212,6 +221,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={sheetRef}
         className="sheet-card product-detail-sheet"
         role="dialog"
         aria-modal="true"
@@ -349,7 +359,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
                 <div className="product-reaction-row">
                   <span className="product-info-label">{t("productPalatabilityLabel")}</span>
                   <span className="product-palatability-tag">
-                    {palatabilityMap[product.palatability] ?? product.palatability}
+                    {palatabilityMap[product.palatability] ?? "—"}
                   </span>
                 </div>
               )}

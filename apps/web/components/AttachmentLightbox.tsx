@@ -6,6 +6,7 @@ import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { stepIndex, swipeDirection } from "../lib/lightboxSwipe";
 import { shouldIgnoreArrowKey } from "../lib/lightboxKeys";
+import { useDialog } from "../lib/useDialog";
 import {
   clampScale,
   clampTranslate,
@@ -67,8 +68,8 @@ export function AttachmentLightbox({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      // Escape는 useDialog가 맡는다 (시트 위에 겹쳐 열려도 맨 위 하나만 닫힌다)
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         // 영상 컨트롤·입력창에서 누른 좌우 키는 그쪽 몫이다
         if (shouldIgnoreArrowKey(e)) return;
         go(e.key === "ArrowLeft" ? -1 : 1);
@@ -76,7 +77,9 @@ export function AttachmentLightbox({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, go]);
+  }, [go]);
+
+  const dialogRef = useDialog({ onClose, open: !!current });
 
   // 영상은 확대가 없으니 여기서 직접 스와이프를 본다. 사진은 ZoomableImage가 본다.
   const videoSwipeRef = useRef<Point | null>(null);
@@ -101,6 +104,7 @@ export function AttachmentLightbox({
   return (
     <div
       className="attachment-lightbox-backdrop"
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={dialogLabel ?? closeLabel}

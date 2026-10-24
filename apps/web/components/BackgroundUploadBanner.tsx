@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 import {
   bindBackgroundFetchBridge,
   cancelBackgroundUpload,
@@ -27,6 +28,7 @@ function formatFileSize(bytes: number): string {
 export function BackgroundUploadBanner() {
   const { t } = useLocale();
   const [showDetails, setShowDetails] = useState(false);
+  const detailsRef = useDialog({ open: showDetails, onClose: () => setShowDetails(false) });
   const snapshot = useSyncExternalStore(
     subscribeBackgroundUpload,
     getBackgroundUpload,
@@ -109,6 +111,7 @@ export function BackgroundUploadBanner() {
       {showDetails && (
         <div className="modal-backdrop" onClick={() => setShowDetails(false)}>
           <div
+            ref={detailsRef}
             className="modal-card bg-upload-details-modal"
             role="dialog"
             aria-modal="true"
