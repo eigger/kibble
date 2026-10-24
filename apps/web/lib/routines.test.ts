@@ -311,6 +311,43 @@ describe("performRoutineMove", () => {
     expect(out).toEqual({ status: "failed", error });
   });
 
+  it("judges staleness by the pet at response time, not at request time", async () => {
+    let current = "p1";
+    const moved = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        return [];
+      },
+    });
+    expect(moved).toEqual({ status: "stale" });
+
+    // p1 -> p2 -> 응답 전에 p1로 복귀: 응답 시점 값(p1) 기준이라 적용된다
+    current = "p1";
+    const back = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        current = "p1";
+        return [{ id: "b" }, { id: "a" }];
+      },
+    });
+    expect(back.status).toBe("saved");
+
+    current = "p1";
+    const failed = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        throw new Error("x");
+      },
+    });
+    expect(failed).toEqual({ status: "stale" });
+  });
+
   it("drops both success and failure when the pet tab changed meanwhile", async () => {
     const ok = await performRoutineMove({ ...base, currentPetId: () => "p2", put: async () => [] });
     const bad = await performRoutineMove({

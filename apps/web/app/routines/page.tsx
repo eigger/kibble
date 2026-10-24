@@ -47,6 +47,8 @@ export default function RoutinesPage() {
   const [reorderError, setReorderError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState("");
   const petIdRef = useRef("");
+  const newBtnRef = useRef<HTMLButtonElement>(null);
+  const [focusNewBtn, setFocusNewBtn] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
   const [focusTarget, setFocusTarget] = useState<{ id: string; dir: RoutineMoveDirection } | null>(
     null,
@@ -144,11 +146,19 @@ export default function RoutinesPage() {
     setFocusTarget(null);
   }, [focusTarget, routines]);
 
+  // 이동한 루틴이 재조회 결과에 없으면(다른 탭에서 지움) 포커스를 '새 루틴' 버튼으로 — 잠금이 풀린 뒤에 준다
+  useEffect(() => {
+    if (!focusNewBtn || reordering) return;
+    newBtnRef.current?.focus();
+    setFocusNewBtn(false);
+  }, [focusNewBtn, reordering]);
+
   async function handleMove(routine: Routine, dir: RoutineMoveDirection) {
     if (reorderingRef.current) return;
     const next = moveRoutine(routines, routine.id, dir);
     if (next === routines) return;
     const requestPetId = petId;
+    // 잠금은 의도적으로 화면 전체다 — 응답 직후 풀리므로 탭을 옮긴 직후 잠깐 새 탭 버튼도 잠기지만 직렬화가 단순해진다
     reorderingRef.current = true;
     setReordering(true);
     setReorderError(null);
@@ -160,39 +170,49 @@ export default function RoutinesPage() {
         position: String(next.findIndex((r) => r.id === routine.id) + 1),
       }),
     );
-    const outcome = await performRoutineMove({
-      list: routines,
-      id: routine.id,
-      dir,
-      petId: requestPetId,
-      currentPetId: () => petIdRef.current,
-      put: (ids) =>
-        apiJson<Routine[]>("/api/routines/order", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ petId: requestPetId, ids }),
-        }),
-    });
-    if (outcome.status === "saved") {
-      setRoutines(outcome.list);
-    } else if (outcome.status === "failed") {
-      // 롤백 대신 서버 기준으로 다시 불러온다 — 404(다른 탭에서 지움·보관)면 이전 순서도 낡았다
-      setMoveNote("");
-      setReorderError(t("routineReorderError"));
-      setFocusTarget({ id: routine.id, dir });
-      await refreshRoutines(requestPetId, routines);
+    try {
+      const outcome = await performRoutineMove({
+        list: routines,
+        id: routine.id,
+        dir,
+        petId: requestPetId,
+        currentPetId: () => petIdRef.current,
+        put: (ids) =>
+          apiJson<Routine[]>("/api/routines/order", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ petId: requestPetId, ids }),
+          }),
+      });
+      if (outcome.status === "saved") {
+        setRoutines(outcome.list);
+      } else if (outcome.status === "failed") {
+        // 롤백 대신 서버 기준으로 다시 불러온다 — 404(다른 탭에서 지움·보관)면 이전 순서도 낡았다
+        setMoveNote("");
+        setReorderError(t("routineReorderError"));
+        const rows = await refreshRoutines(requestPetId, routines);
+        if (rows) {
+          if (rows.some((r) => r.id === routine.id)) setFocusTarget({ id: routine.id, dir });
+          else setFocusNewBtn(true);
+        }
+      }
+    } finally {
+      reorderingRef.current = false;
+      setReordering(false);
     }
-    reorderingRef.current = false;
-    setReordering(false);
   }
 
-  /** 서버 목록으로 되돌린다. 불러오지 못하면 이동 전 순서로 롤백한다 */
-  async function refreshRoutines(forPetId: string, fallback: Routine[]) {
+  /** 서버 목록으로 되돌린다. 불러오지 못하면 이동 전 순서로 롤백한다. 그 사이 탭이 바뀌었으면 null */
+  async function refreshRoutines(forPetId: string, fallback: Routine[]): Promise<Routine[] | null> {
     try {
       const rows = await apiJson<Routine[]>(`/api/routines?petId=${encodeURIComponent(forPetId)}`);
-      if (petIdRef.current === forPetId) setRoutines(rows);
+      if (petIdRef.current !== forPetId) return null;
+      setRoutines(rows);
+      return rows;
     } catch {
-      if (petIdRef.current === forPetId) setRoutines(fallback);
+      if (petIdRef.current !== forPetId) return null;
+      setRoutines(fallback);
+      return fallback;
     }
   }
 
@@ -234,7 +254,9 @@ export default function RoutinesPage() {
             <h1>{t("routinesTitle")}</h1>
             <p className="meta">{t("routinesIntro")}</p>
           </div>
+          {/* 이동 중에는 disabled — 포커스가 여기 있을 일이 없다(이동 버튼만 aria-disabled로 포커스를 지킨다) */}
           <button
+            ref={newBtnRef}
             type="button"
             className="page-add-btn"
             onClick={openNew}
@@ -252,7 +274,11 @@ export default function RoutinesPage() {
                 role="tab"
                 aria-selected={pet.id === petId}
                 className={`pet-tab${pet.id === petId ? " pet-tab-active" : ""}`}
-                onClick={() => setPetId(pet.id)}
+                onClick={() => {
+                  // effect를 기다리지 않고 진행 중인 이동 응답을 바로 stale로 만든다
+                  petIdRef.current = pet.id;
+                  setPetId(pet.id);
+                }}
               >
                 {pet.name}
               </button>
