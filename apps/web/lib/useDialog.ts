@@ -10,6 +10,8 @@ import {
 } from "./dialogFocus";
 
 const dialogStack = createDialogStack();
+/** 스택 아래 다이얼로그로 포커스를 돌려줄 때 쓴다. */
+const containers = new Map<symbol, () => HTMLElement | null>();
 
 type Options = {
   /** 다이얼로그가 화면에 있는가. 늘 마운트돼 있는 컴포넌트는 open 상태를 넘긴다. */
@@ -49,10 +51,14 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
   useEffect(() => {
     if (!open) return;
     const token = Symbol("dialog");
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialogStack.push(token);
-
     const container = ref.current;
+    const active = document.activeElement;
+    // 이미 다이얼로그 안에 있던 포커스(리렌더로 다시 열린 경우 등)는 복원 대상이 아니다
+    const opener =
+      active instanceof HTMLElement && !(container && container.contains(active)) ? active : null;
+    dialogStack.push(token);
+    containers.set(token, () => ref.current);
+
     if (container) {
       if (!container.hasAttribute("tabindex")) container.setAttribute("tabindex", "-1");
       const want = initialRef.current;
@@ -86,7 +92,18 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       dialogStack.remove(token);
-      if (opener?.isConnected) opener.focus({ preventScroll: true });
+      containers.delete(token);
+      if (opener?.isConnected) {
+        opener.focus({ preventScroll: true });
+        return;
+      }
+      // 열기 직전 요소가 사라졌다 — 아래에 다이얼로그가 있으면 거기로, 없으면 main으로
+      const below = dialogStack.top();
+      const fallback = (below && containers.get(below)?.()) || document.querySelector<HTMLElement>("main");
+      if (fallback) {
+        if (!fallback.hasAttribute("tabindex")) fallback.setAttribute("tabindex", "-1");
+        fallback.focus({ preventScroll: true });
+      }
     };
   }, [open]);
 

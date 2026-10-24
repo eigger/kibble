@@ -17,8 +17,20 @@ export const FOCUSABLE_SELECTOR = [
   "[tabindex]",
 ].join(",");
 
+/** display:none 조상이나 visibility:hidden이면 포커스를 받을 수 없다. 레이아웃이 없는 jsdom에서도 동작한다. */
+function isRendered(el: HTMLElement): boolean {
+  const view = el.ownerDocument.defaultView;
+  if (!view) return true;
+  if (view.getComputedStyle(el).visibility !== "visible") return false;
+  for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+    if (view.getComputedStyle(node).display === "none") return false;
+  }
+  return true;
+}
+
 function isTabbable(el: HTMLElement): boolean {
-  if ((el as HTMLButtonElement).disabled) return false;
+  if (el.matches(":disabled")) return false;
+  if (!isRendered(el)) return false;
   if (el instanceof HTMLInputElement && el.type === "hidden") return false;
   // tabindex="-1"은 포커스는 되지만 Tab 순서에는 없다
   const tabindex = el.getAttribute("tabindex");
@@ -29,7 +41,22 @@ function isTabbable(el: HTMLElement): boolean {
 
 /** 컨테이너 안에서 Tab으로 닿을 수 있는 요소를 DOM 순서대로 돌려준다. */
 export function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(isTabbable);
+  const tabbable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(isTabbable);
+  return collapseRadioGroups(tabbable);
+}
+
+/** 같은 name의 라디오는 Tab으로 한 칸이다 — 선택된 것, 없으면 첫 번째만 남긴다. */
+function collapseRadioGroups(list: HTMLElement[]): HTMLElement[] {
+  const isRadio = (el: HTMLElement): el is HTMLInputElement =>
+    el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
+  const keep = new Map<string, HTMLInputElement>();
+  for (const el of list) {
+    if (!isRadio(el)) continue;
+    const key = `${el.form?.id ?? ""}|${el.name}`;
+    const current = keep.get(key);
+    if (!current || (el.checked && !current.checked)) keep.set(key, el);
+  }
+  return list.filter((el) => !isRadio(el) || keep.get(`${el.form?.id ?? ""}|${el.name}`) === el);
 }
 
 /**
@@ -55,6 +82,9 @@ export function createDialogStack() {
     remove(token: symbol) {
       const i = stack.indexOf(token);
       if (i >= 0) stack.splice(i, 1);
+    },
+    top(): symbol | undefined {
+      return stack[stack.length - 1];
     },
     isTop(token: symbol) {
       return stack.length > 0 && stack[stack.length - 1] === token;

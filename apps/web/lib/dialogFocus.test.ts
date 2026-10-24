@@ -49,7 +49,47 @@ describe("getFocusable", () => {
   });
 });
 
+describe("getFocusable visibility and groups", () => {
+  it("skips display:none, visibility:hidden and fieldset-disabled controls", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    root.innerHTML = `
+      <button id="a">a</button>
+      <div style="display:none"><button id="b">b</button></div>
+      <button id="c" style="visibility:hidden">c</button>
+      <fieldset disabled><button id="d">d</button></fieldset>
+      <button id="e">e</button>
+    `;
+    expect(getFocusable(root).map((el) => el.id)).toEqual(["a", "e"]);
+    root.remove();
+  });
+
+  it("counts a radio group once: the checked one, else the first", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <input type="radio" name="g" id="r1" />
+      <input type="radio" name="g" id="r2" checked />
+      <input type="radio" name="h" id="s1" />
+      <input type="radio" name="h" id="s2" />
+      <button id="z">z</button>
+    `;
+    expect(getFocusable(root).map((el) => el.id)).toEqual(["r2", "s1", "z"]);
+  });
+});
+
 describe("dialog stack", () => {
+  it("top() is the most recently opened token", () => {
+    const stack = createDialogStack();
+    const a = Symbol("a");
+    const b = Symbol("b");
+    expect(stack.top()).toBeUndefined();
+    stack.push(a);
+    stack.push(b);
+    expect(stack.top()).toBe(b);
+    stack.remove(b);
+    expect(stack.top()).toBe(a);
+  });
+
   it("only the most recently opened dialog is on top", () => {
     const stack = createDialogStack();
     const sheet = Symbol("sheet");

@@ -62,7 +62,7 @@ export function MedicationCourseSheet({
 }: Props) {
   const [draft, setDraft] = useState<MedicationCourseDraft>(emptyMedicationCourseDraft());
   const [saving, setSaving] = useState(false);
-  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: false, initialFocus: "container" });
 
   useEffect(() => {
     if (!open) return;

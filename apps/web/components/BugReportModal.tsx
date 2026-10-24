@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { buildBugReportUrl } from "../lib/bugReport";
 import { useLocale } from "../lib/i18n/locale-context";
@@ -15,7 +15,9 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
   const { t, locale } = useLocale();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const dialogRef = useDialog({ onClose });
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  // 입력 중 Escape로 신고 내용이 사라지지 않게 한다 (WORKPLAN §7.27)
+  const dialogRef = useDialog({ onClose, closeOnEscape: false, initialFocus: titleInputRef });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -59,7 +61,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t("bugReportTitlePlaceholder")}
-              autoFocus
+              ref={titleInputRef}
               required
             />
           </label>

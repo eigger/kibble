@@ -379,6 +379,18 @@ describe("household isolation table (K-3)", () => {
     }
     row.extra?.();
 
+    // 모든 조회·쓰기 호출의 where에 가구 조건이 있다 — "where 없는(또는 가구 없는) 조회 추가"를 잡는다.
+    // householdMember/user는 인증이 쓰는 모델이라 제외한다.
+    for (const [name, model] of h.models) {
+      if (name === "householdMember" || name === "user") continue;
+      for (const [method, fn] of Object.entries(model)) {
+        for (const call of fn.mock.calls) {
+          const where = (call[0] as { where?: unknown } | undefined)?.where;
+          expect(JSON.stringify(where ?? null), `${name}.${method} where`).toContain(HH_A);
+        }
+      }
+    }
+
     // 어떤 모델에도 쓰기가 일어나지 않았다
     for (const [name, model] of h.models) {
       for (const method of WRITE_METHODS) {

@@ -41,7 +41,7 @@ export function ProductEditSheet({
 }: Props) {
   const { t } = useLocale();
   const [saving, setSaving] = useState(false);
-  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: false, initialFocus: "container" });
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");

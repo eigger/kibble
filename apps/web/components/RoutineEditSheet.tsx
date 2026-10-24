@@ -144,7 +144,7 @@ export function RoutineEditSheet({
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: false, initialFocus: "container" });
 
   const defaultUnitByKey = useMemo(
     () => new Map(eventTypes.map((et) => [et.key, et.defaultUnit ?? null])),
