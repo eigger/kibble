@@ -70,6 +70,13 @@ describe("TRUST_PROXY — rate limit이 클라이언트 IP 기준으로 나뉜�
     expect((await login("203.0.113.2")).statusCode).toBe(401);
   });
 
+  it("unset TRUST_PROXY uses the private-range default (each client its own bucket)", async () => {
+    app = await makeApp();
+    for (let i = 0; i < 10; i++) expect((await login("203.0.113.1")).statusCode).toBe(401);
+    expect((await login("203.0.113.1")).statusCode).toBe(429);
+    expect((await login("203.0.113.2")).statusCode).toBe(401);
+  });
+
   it("with TRUST_PROXY=false the header is ignored (no spoofing, one shared bucket)", async () => {
     process.env.TRUST_PROXY = "false";
     app = await makeApp();

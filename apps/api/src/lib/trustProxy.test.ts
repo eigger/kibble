@@ -36,10 +36,11 @@ describe("default trust", () => {
     expect(await ip("1.2.3.4", "198.51.100.9")).toBe("198.51.100.9");
   });
 
-  it("compose files no longer carry the value", () => {
+  it("compose files pass the value through without a default", () => {
+    // 줄이 없으면 .env의 TRUST_PROXY가 컨테이너에 닿지 않는다. 기본값은 코드에 둔다 — 업데이트 diff에 안 잡히게
     for (const file of ["docker-compose.yml", "docker-compose.prod.yml"]) {
       const text = readFileSync(new URL(`../../../../${file}`, import.meta.url), "utf8");
-      expect(text).not.toMatch(/TRUST_PROXY/);
+      expect(text).toMatch(/^\s+TRUST_PROXY: \$\{TRUST_PROXY:-\}$/m);
     }
   });
 });
