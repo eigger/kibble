@@ -34,6 +34,7 @@ describe("isoDatetime", () => {
       "2024-01-02T24:00:00Z",
       "2024-01-02T03:04:05",
       "9999-12-31T23:59:59-05:00",
+      "0000-01-01T08:00:00+09:00",
     ]) {
       expect(isoDatetime.safeParse(bad).success, bad).toBe(false);
     }

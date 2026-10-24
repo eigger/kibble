@@ -6,7 +6,7 @@ const withoutSeconds = z.string().datetime({ offset: true, precision: -1 });
 /**
  * 느슨한 표기를 ISO 8601로 맞춘다 (K-12 — 붙이는 쪽을 탓하지 않는다).
  * - 날짜와 시각 사이 공백: HA `{{ now() }}` → `2024-01-02 03:04:05.123456+09:00`
- * - 콜론 없는 오프셋: `+0900`
+ * - 콜론 없는 오프셋: `+0900` (zod 4 `datetime()`이 거부해서 필요하다)
  */
 function normalize(s: string): string {
   return s

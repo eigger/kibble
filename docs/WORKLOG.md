@@ -9,7 +9,7 @@
 - **`PATCH /events/:id`**: 병원 Contact 생성·갱신 전에 기록의 존재·가구를 먼저 확인한다.
 - **`GET /products?category=잘못된값`**: 500 대신 필터를 무시한다(K-12) — 400도 아니고 빈 목록도 아닌 **전체 목록** 정책. shared의 `productCategorySchema`로 판정한다.
 - **시각 표기**: HA `now()`의 공백 구분자·`+0900`·마이크로초도 받아 UTC로 정규화, 연도 0000~9999 밖은 400. 결정은 WORKPLAN §7.26.
-- **`PATCH /events/:id` 순서**: 400 검증(scaleValue)을 끝낸 뒤 병원 Contact를 쓴다. 마지막 `applyEventUpdate`의 409는 Contact가 결과에 들어가야 해서 앞으로 못 옮긴다(Contact만 남을 수 있음 — 멱등 upsert라 허용).
+- **`PATCH /events/:id` 순서**: 400 검증(scaleValue)을 끝낸 뒤 병원 Contact를 쓴다. 마지막 `applyEventUpdate`의 409는 Contact가 결과에 들어가야 해서 앞으로 못 옮긴다(409가 나도 `contactPatch`가 기존 Contact의 주소·좌표·URL을 덮어쓴 채 남을 수 있다 — 같은 병원 정보를 다시 보내면 같은 값이라 허용).
 - **처방 `endDate < startDate`**: 거부하지 않고 서버가 `endDate = startDate`로 보정한다(생성·수정, 시작일만 바꿔 역전되는 경우 포함).
 
 ### 2026-10-24 — 보안·인프라 보강 (PR1)
