@@ -212,7 +212,7 @@ HTTPS가 필요하면 Tailscale Serve/Funnel 또는 앞단 Caddy에 TLS를 추�
 | `APP_PUBLIC_URL` | 권장 | 미디어 쿠키·절대 URL용, **프로덕션 CORS 허용 오리진**. **브라우저 접속 URL과 동일** |
 | `CORS_EXTRA_ORIGINS` | 선택 | 접속 도메인이 여럿이거나 웹·API 호스트가 다를 때 쉼표로 나열 |
 | `COOKIE_SECURE` | HTTPS 시 | `true` — HTTP만 쓰면 `false` 또는 생략 |
-| `TRUST_PROXY` | 선택 | `X-Forwarded-For`를 믿을 프록시 (compose 기본 `loopback,linklocal,uniquelocal` = docker 네트워크의 Caddy). 이 값이 맞아야 로그인·기록 rate limit이 기기별로 나뉜다. 끄려면 `false` (빈 값은 기본값으로 켜진다). Caddy 앞에 프록시/터널이 더 있으면 `TRUST_PROXY`만으로는 안 나뉜다 — Caddyfile 전역 블록에 `servers { trusted_proxies static <앞단 CIDR> }`를 추가해 Caddy가 앞단의 `X-Forwarded-For`를 받아들이게 해야 한다. API 포트를 프록시 없이 직접 열었다면 반드시 `TRUST_PROXY=false`로 설정할 것(compose 기본값이 켜져 있다) |
+| `TRUST_PROXY` | 선택 | `X-Forwarded-For`를 믿을 프록시 (기본 `loopback,linklocal,uniquelocal` = docker 네트워크의 Caddy. compose에는 값을 두지 않고 코드 기본값을 쓴다). 이 값이 맞아야 로그인·기록 rate limit이 기기별로 나뉜다. 끄려면 `false` (빈 값은 기본값으로 켜진다). Caddy 앞에 프록시/터널이 더 있으면 `TRUST_PROXY`만으로는 안 나뉜다 — Caddyfile 전역 블록에 `servers { trusted_proxies static <앞단 CIDR> }`를 추가해 Caddy가 앞단의 `X-Forwarded-For`를 받아들이게 해야 한다. API 포트를 프록시 없이 직접 열었다면 반드시 `TRUST_PROXY=false`로 설정할 것(기본값이 켜져 있다) |
 | `BASE_PATH` | 서브패스 시 | 웹 컨테이너를 오리진 루트가 아닌 경로에 붙일 때만 (예: `/kibble`). 비우면 루트. 이미지는 플레이스홀더로 빌드되고 기동 시 치환된다 — Home Assistant Ingress처럼 설치본마다 경로가 다른 배포용. **프록시도 맞춰야 한다** — 아래 서브패스 절. |
 | `GH_REPOSITORY_OWNER` | prod | GHCR 이미지 소유자 (기본 `eigger`) |
 | `KIBBLE_REF` | Proxmox | `master` 또는 릴리스 태그. 설치·`update` 스크립트용 |
