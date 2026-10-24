@@ -37,7 +37,8 @@ import { geocodeAddress } from "../lib/maps/geocode";
 import { ClinicSearchModal, type ClinicPlaceResult } from "./ClinicSearchModal";
 import { ClinicMap } from "./maps/ClinicMap";
 import { NavLaunchButtons } from "./NavLaunchButtons";
-import { AttachmentLightbox, type LightboxTarget } from "./AttachmentLightbox";
+import type { LightboxTarget } from "./AttachmentLightbox";
+import { LightboxHost } from "./LightboxHost";
 import { EventDetailChip } from "./EventDetailChip";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { EventDetailTagPicker } from "./EventDetailTagPicker";
@@ -1744,18 +1745,7 @@ export function EventDetailSheet({
         />
       )}
 
-      {lightbox && (
-        <AttachmentLightbox
-          items={lightbox.items}
-          index={lightbox.index}
-          onIndexChange={(index) => setLightbox({ ...lightbox, index })}
-          onClose={() => setLightbox(null)}
-          closeLabel={t("close")}
-          resetLabel={t("lightboxResetZoom")}
-          prevLabel={t("lightboxPrev")}
-          nextLabel={t("lightboxNext")}
-        />
-      )}
+      <LightboxHost target={lightbox} onChange={setLightbox} />
 
       {popupProduct && (
         <ProductDetailSheet

@@ -104,6 +104,16 @@ export async function hashAttachmentFile(absolutePath: string): Promise<string> 
   return hash.digest("hex");
 }
 
+export type LinkedCopy = {
+  path: string;
+  mime: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+  transcodeStatus: string | null;
+  posterPath: string | null;
+};
+
 /**
  * 같은 가구에 같은 바이트가 이미 있으면 새로 쓰지 않고 **하드링크**로 잇는다.
  *
@@ -115,30 +125,105 @@ export async function hashAttachmentFile(absolutePath: string): Promise<string> 
  * 휴지통에 있는 첨부는 대상에서 뺀다. 링크 자체는 안전하지만(퍼지가 지우는 건 그쪽
  * 이름 하나뿐이다) 지워질 예정인 것에 새 참조가 붙는 그림은 설명하기 어렵다.
  *
- * 실패는 전부 삼키고 false를 돌려준다 — 중복 제거는 최적화지 저장의 조건이 아니다 (K-12).
+ * 실패는 전부 삼키고 null을 돌려준다 — 중복 제거는 최적화지 저장의 조건이 아니다 (K-12).
  */
 export async function linkExistingCopy(
   householdId: string,
   contentHash: string,
-  destRelativePath: string,
-): Promise<boolean> {
+  /**
+   * 새 이름을 정한다. 원본 행이 변환을 마쳤다면 바이트는 MP4인데 `contentHash`는 업로드
+   * 원본의 것이라, 확장자를 업로드 mime이 아니라 **원본 행의 mime**에서 얻어야 한다.
+   */
+  destFor: (source: { mime?: string }) => string,
+  fallback?: { mime: string; size: number; width: number | null; height: number | null },
+): Promise<LinkedCopy | null> {
+  const selectSource = {
+    path: true,
+    mime: true,
+    size: true,
+    width: true,
+    height: true,
+    posterPath: true,
+    transcodeStatus: true,
+  } as const;
+  let destAbs: string | null = null;
   try {
     const existing = await prisma.attachment.findFirst({
       // K-1 — 가구 경계는 이벤트를 통해 건다. 남의 가구 파일에 링크가 붙으면 안 된다.
       where: { contentHash, event: { householdId, deletedAt: null } },
-      select: { path: true },
+      select: selectSource,
       orderBy: { createdAt: "asc" },
     });
-    if (!existing) return false;
+    if (!existing) return null;
 
     const sourceAbs = attachmentAbsolutePath(existing.path);
     const info = await stat(sourceAbs);
-    if (!info.isFile()) return false;
+    if (!info.isFile()) return null;
 
-    await link(sourceAbs, attachmentAbsolutePath(destRelativePath));
-    return true;
+    // 변환을 끝낸(또는 건너뛴) 파일이면 그 결과를 그대로 물려받는다 — 다시 변환하지 않는다.
+    // 대기·진행 중이면 링크한 바이트는 아직 원본이고, 실패는 상속하지 않는다(새 행이 자기
+    // 시도 횟수로 다시 기회를 받는다 — WORKPLAN §7.15).
+    const done =
+      (existing.transcodeStatus === TRANSCODE_STATUS.READY ||
+        existing.transcodeStatus === TRANSCODE_STATUS.SKIPPED) &&
+      !!existing.mime;
+
+    const destRelativePath = destFor({ mime: done ? existing.mime : undefined });
+    destAbs = attachmentAbsolutePath(destRelativePath);
+    await link(sourceAbs, destAbs);
+
+    // 조회와 link 사이에 변환이 끝났을 수 있다(그러면 링크한 바이트가 MP4다). 원본 행을
+    // 다시 읽어 달라졌으면 링크를 버리고 호출자가 새로 쓰게 한다.
+    const again = await prisma.attachment.findFirst({
+      where: { path: existing.path, event: { householdId, deletedAt: null } },
+      select: selectSource,
+    });
+    if (
+      !again ||
+      again.transcodeStatus !== existing.transcodeStatus ||
+      again.mime !== existing.mime ||
+      (typeof again.size === "number" && again.size !== (await stat(destAbs)).size)
+    ) {
+      await unlink(destAbs).catch(() => {});
+      return null;
+    }
+
+    if (done) {
+      // 포스터도 새 이름으로 잇는다. 행마다 자기 이름 하나만 지우므로 삭제가 안전하다.
+      // 원본에 포스터가 없거나 링크가 실패하면 null — 기동 백필이 메운다.
+      let posterPath: string | null = null;
+      if (existing.posterPath) {
+        try {
+          const rel =
+            destRelativePath.replace(/\.[^./]+$/, "") + "-poster" + path.extname(existing.posterPath);
+          await link(attachmentAbsolutePath(existing.posterPath), attachmentAbsolutePath(rel));
+          posterPath = rel;
+        } catch {
+          posterPath = null;
+        }
+      }
+      return {
+        path: destRelativePath,
+        mime: existing.mime,
+        size: existing.size ?? info.size,
+        width: existing.width ?? null,
+        height: existing.height ?? null,
+        transcodeStatus: existing.transcodeStatus,
+        posterPath,
+      };
+    }
+    return {
+      path: destRelativePath,
+      mime: fallback?.mime ?? existing.mime ?? "",
+      size: fallback?.size ?? info.size,
+      width: fallback?.width ?? null,
+      height: fallback?.height ?? null,
+      transcodeStatus: null,
+      posterPath: null,
+    };
   } catch {
-    return false;
+    if (destAbs) await unlink(destAbs).catch(() => {});
+    return null;
   }
 }
 
@@ -177,25 +262,37 @@ export async function saveEventAttachment(
     }
   }
 
-  const filename = `${eventId}-${randomUUID()}${ext}`;
-  const relativePath = `${EVENT_SUBDIR}/${filename}`;
-  const absolutePath = attachmentAbsolutePath(relativePath);
+  const newPath = (e: string) => `${EVENT_SUBDIR}/${eventId}-${randomUUID()}${e}`;
   const contentHash = hashAttachmentBuffer(fileBuffer);
 
-  const linked = householdId ? await linkExistingCopy(householdId, contentHash, relativePath) : false;
-  if (!linked) await writeFile(absolutePath, fileBuffer);
+  const isVideo = ALLOWED_VIDEO_MIME.has(mime);
+  const linked = householdId
+    ? await linkExistingCopy(
+        householdId,
+        contentHash,
+        (src) => newPath(isVideo ? videoExtension(src.mime ?? mime) : ext),
+        { mime: outMime, size: fileBuffer.length, width, height },
+      )
+    : null;
+  let relativePath: string;
+  if (linked) {
+    relativePath = linked.path;
+  } else {
+    relativePath = newPath(ext);
+    await writeFile(attachmentAbsolutePath(relativePath), fileBuffer);
+  }
 
   return {
     path: relativePath,
-    mime: outMime,
-    size: fileBuffer.length,
+    mime: linked?.mime ?? outMime,
+    size: linked?.size ?? fileBuffer.length,
     contentHash,
-    width,
-    height,
+    width: linked ? linked.width : width,
+    height: linked ? linked.height : height,
     // 포스터·probe는 업로드 응답 밖에서 한다. complete를 붙잡으면 폰이 99%에서
-    // 멈추고, 그 사이 ffmpeg가 작은 CT를 OOM으로 죽일 수 있다.
-    posterPath: null,
-    transcodeStatus: ALLOWED_VIDEO_MIME.has(mime) ? TRANSCODE_STATUS.PENDING : null,
+    // 멈추고, 그 사이 ffmpeg가 작은 CT를 OOM으로 죽일 수 있다. (링크한 완료본은 포스터도 상속)
+    posterPath: linked?.posterPath ?? null,
+    transcodeStatus: isVideo ? (linked?.transcodeStatus ?? TRANSCODE_STATUS.PENDING) : null,
   };
 }
 
@@ -218,31 +315,34 @@ export async function finalizeEventAttachmentFromTemp(
 
   const dir = path.join(UPLOAD_DIR, EVENT_SUBDIR);
   await mkdir(dir, { recursive: true });
-  const ext = videoExtension(mime);
-  const filename = `${eventId}-${randomUUID()}${ext}`;
-  const relativePath = `${EVENT_SUBDIR}/${filename}`;
-  const destPath = attachmentAbsolutePath(relativePath);
+  const newPath = (e: string) => `${EVENT_SUBDIR}/${eventId}-${randomUUID()}${e}`;
 
   // 해시는 rename 전에 조각에서 뽑는다. 중복이면 조각을 버리고 기존 파일에 링크만 건다 —
   // 같은 191MB 영상을 아홉 번 올려 1.7GB를 먹었던 게 정확히 이 경로였다.
   const contentHash = await hashAttachmentFile(tempPath);
-  const linked = householdId ? await linkExistingCopy(householdId, contentHash, relativePath) : false;
+  const linked = householdId
+    ? await linkExistingCopy(householdId, contentHash, (src) => newPath(videoExtension(src.mime ?? mime)))
+    : null;
+  let relativePath: string;
   if (linked) {
+    relativePath = linked.path;
     await unlink(tempPath).catch(() => {});
   } else {
-    await rename(tempPath, destPath);
+    relativePath = newPath(videoExtension(mime));
+    await rename(tempPath, attachmentAbsolutePath(relativePath));
   }
 
-  const fileStat = await stat(destPath);
+  const fileStat = await stat(attachmentAbsolutePath(relativePath));
+  const inherited = linked && linked.transcodeStatus !== null;
   return {
     path: relativePath,
-    mime,
+    mime: inherited ? linked.mime : mime,
     size: fileStat.size,
     contentHash,
-    width: null,
-    height: null,
-    posterPath: null,
-    transcodeStatus: TRANSCODE_STATUS.PENDING,
+    width: inherited ? linked.width : null,
+    height: inherited ? linked.height : null,
+    posterPath: inherited ? linked.posterPath : null,
+    transcodeStatus: inherited ? linked.transcodeStatus : TRANSCODE_STATUS.PENDING,
   };
 }
 
@@ -287,15 +387,21 @@ export async function insertEventAttachment(
       throw new WritableEventMissingError();
     }
 
-    // 동일 이벤트에 대해 최근(120초 이내) 동일한 파일(MIME, 크기, 해상도)이 이미 등록된 경우
+    // 동일 이벤트에 대해 최근(120초 이내) 동일한 파일(해시, 없으면 MIME·크기·해상도)이 이미 등록된 경우
     // 네트워크 재시도나 SW/화면 이중 전송에 따른 중복 생성으로 보고 기존 첨부를 반환한다.
+    // 해시가 있으면 해시로 비교한다(변환으로 mime·크기가 바뀐 행과도 맞는다). 해시가 없는
+    // 옛 행·저장물은 MIME·크기·해상도로 폴백한다.
     const recentDuplicate = await tx.attachment.findFirst({
       where: {
         eventId,
-        mime: saved.mime,
-        size: saved.size,
-        width: saved.width ?? null,
-        height: saved.height ?? null,
+        ...(saved.contentHash
+          ? { contentHash: saved.contentHash }
+          : {
+              mime: saved.mime,
+              size: saved.size,
+              width: saved.width ?? null,
+              height: saved.height ?? null,
+            }),
         createdAt: { gte: new Date(Date.now() - 120_000) },
       },
       select: attachmentSelect,

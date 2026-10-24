@@ -58,7 +58,8 @@ import { deferOnce, type DeferredAction } from "../../lib/deferredAction";
 import { isCourseDoneToday, planMedicationPick } from "../../lib/medicationPick";
 import { fetchQuickHome, loadQuickPetId, saveQuickPetId } from "../../lib/quickPet";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox, type LightboxTarget } from "../../components/AttachmentLightbox";
+import type { LightboxTarget } from "../../components/AttachmentLightbox";
+import { LightboxHost } from "../../components/LightboxHost";
 import {
   deleteEventAttachment,
 } from "../../lib/eventAttachments";
@@ -1179,18 +1180,7 @@ export default function QuickRecordPage() {
         locale={locale}
       />
 
-      {rowLightbox && (
-        <AttachmentLightbox
-          items={rowLightbox.items}
-          index={rowLightbox.index}
-          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
-          onClose={() => setRowLightbox(null)}
-          closeLabel={t("close")}
-          resetLabel={t("lightboxResetZoom")}
-          prevLabel={t("lightboxPrev")}
-          nextLabel={t("lightboxNext")}
-        />
-      )}
+      <LightboxHost target={rowLightbox} onChange={setRowLightbox} />
 
     </main>
   );

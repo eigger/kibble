@@ -19,7 +19,8 @@ import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
 import { EventDetailSheet, type EventDetailDraft } from "../../components/EventDetailSheet";
 import { TimelineEventBody } from "../../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox, type LightboxTarget } from "../../components/AttachmentLightbox";
+import type { LightboxTarget } from "../../components/AttachmentLightbox";
+import { LightboxHost } from "../../components/LightboxHost";
 import { HistoryPeriodFilter } from "../../components/HistoryPeriodFilter";
 import { HistoryTypeFilter } from "../../components/HistoryTypeFilter";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -631,18 +632,7 @@ export default function HistoryPage() {
         locale={locale}
       />
 
-      {rowLightbox && (
-        <AttachmentLightbox
-          items={rowLightbox.items}
-          index={rowLightbox.index}
-          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
-          onClose={() => setRowLightbox(null)}
-          closeLabel={t("close")}
-          resetLabel={t("lightboxResetZoom")}
-          prevLabel={t("lightboxPrev")}
-          nextLabel={t("lightboxNext")}
-        />
-      )}
+      <LightboxHost target={rowLightbox} onChange={setRowLightbox} />
 
       <ConfirmDialog
         open={deleteConfirmEventId != null}
