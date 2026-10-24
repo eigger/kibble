@@ -13,7 +13,8 @@ import type { JournalStats } from "@kibble/shared";
 import { journalInsightMessage } from "@kibble/shared";
 import { TimelineEventBody } from "../components/TimelineEventBody";
 import { TimelineAttachmentThumbs } from "../components/TimelineAttachmentThumbs";
-import { AttachmentLightbox, type LightboxTarget } from "../components/AttachmentLightbox";
+import type { LightboxTarget } from "../components/AttachmentLightbox";
+import { LightboxHost } from "../components/LightboxHost";
 import { formatEventTime } from "../lib/eventDisplay";
 import { formatScaleValuePart } from "../lib/eventDetailFields";
 import { formatAmount, relativeSince, todayCardValue } from "../lib/todayCard";
@@ -348,18 +349,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {rowLightbox && (
-        <AttachmentLightbox
-          items={rowLightbox.items}
-          index={rowLightbox.index}
-          onIndexChange={(index) => setRowLightbox({ ...rowLightbox, index })}
-          onClose={() => setRowLightbox(null)}
-          closeLabel={t("close")}
-          resetLabel={t("lightboxResetZoom")}
-          prevLabel={t("lightboxPrev")}
-          nextLabel={t("lightboxNext")}
-        />
-      )}
+      <LightboxHost target={rowLightbox} onChange={setRowLightbox} />
     </main>
   );
 }

@@ -479,6 +479,7 @@ const dict = {
   eventDetailLastModified: { ko: "{datetime} 수정", en: "Edited {datetime}" },
   eventDetailLastModifiedBy: { ko: "{name} · {datetime} 수정", en: "Edited by {name}, {datetime}" },
   lightboxResetZoom: { ko: "원래 크기", en: "Reset zoom" },
+  lightboxView: { ko: "첨부 보기", en: "Viewing attachment" },
   lightboxPrev: { ko: "이전 첨부", en: "Previous attachment" },
   lightboxNext: { ko: "다음 첨부", en: "Next attachment" },
   attachPhotos: { ko: "사진·영상", en: "Photos" },

@@ -4,7 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockPrisma = vi.hoisted(() => ({
-  attachment: { findFirst: vi.fn() },
+  attachment: { findFirst: vi.fn(), count: vi.fn(), create: vi.fn() },
+  $transaction: vi.fn(),
 }));
 
 vi.mock("./prisma.js", () => ({ prisma: mockPrisma }));
@@ -103,5 +104,89 @@ describe("attachment content dedupe", () => {
     const { saveEventAttachment } = await import("./eventAttachment.js");
     const saved = await saveEventAttachment("evt5", jpeg, "image/jpeg", "hh1");
     expect(saved.contentHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("inherits mime, size, dimensions and .mp4 name from an already-transcoded source", async () => {
+    const bytes = Buffer.from("transcoded-mp4-bytes");
+    const existingRel = await seedExisting(bytes);
+    mockPrisma.attachment.findFirst.mockResolvedValue({
+      path: existingRel,
+      mime: "video/mp4",
+      size: bytes.length,
+      width: 1280,
+      height: 720,
+      transcodeStatus: "ready",
+    });
+
+    const { finalizeEventAttachmentFromTemp } = await import("./eventAttachment.js");
+    const tempPath = path.join(uploadDir, "tmp", "orig.part");
+    await mkdir(path.dirname(tempPath), { recursive: true });
+    await writeFile(tempPath, Buffer.from("original-mov-bytes"));
+
+    const saved = await finalizeEventAttachmentFromTemp("evt6", tempPath, "video/quicktime", "hh1");
+
+    expect(saved.path.endsWith(".mp4")).toBe(true);
+    expect(saved.mime).toBe("video/mp4");
+    expect(saved.size).toBe(bytes.length);
+    expect(saved.width).toBe(1280);
+    expect(saved.height).toBe(720);
+    expect(saved.transcodeStatus).toBe("ready");
+  });
+
+  it("keeps the upload mime and PENDING when the linked source is still the original", async () => {
+    const bytes = Buffer.from("untranscoded-mov-bytes");
+    const existingRel = await seedExisting(bytes);
+    mockPrisma.attachment.findFirst.mockResolvedValue({
+      path: existingRel,
+      mime: "video/quicktime",
+      size: bytes.length,
+      width: null,
+      height: null,
+      transcodeStatus: "pending",
+    });
+
+    const { finalizeEventAttachmentFromTemp } = await import("./eventAttachment.js");
+    const tempPath = path.join(uploadDir, "tmp", "orig2.part");
+    await mkdir(path.dirname(tempPath), { recursive: true });
+    await writeFile(tempPath, bytes);
+
+    const saved = await finalizeEventAttachmentFromTemp("evt7", tempPath, "video/quicktime", "hh1");
+    expect(saved.path.endsWith(".mov")).toBe(true);
+    expect(saved.mime).toBe("video/quicktime");
+    expect(saved.transcodeStatus).toBe("pending");
+  });
+
+  it("matches the 120s duplicate by contentHash, and by mime/size/dims for legacy rows", async () => {
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
+      fn({
+        $queryRaw: vi.fn().mockResolvedValue([{ id: "evt8" }]),
+        attachment: mockPrisma.attachment,
+      }),
+    );
+    mockPrisma.attachment.findFirst.mockResolvedValue({ id: "a1" });
+    const { insertEventAttachment } = await import("./eventAttachment.js");
+
+    await insertEventAttachment("evt8", "hh1", {
+      path: "events/x.mov",
+      mime: "video/quicktime",
+      size: 10,
+      contentHash: "h".repeat(64),
+      width: null,
+      height: null,
+    });
+    const hashed = mockPrisma.attachment.findFirst.mock.calls.at(-1)?.[0].where;
+    expect(hashed.contentHash).toBe("h".repeat(64));
+    expect(hashed.mime).toBeUndefined();
+
+    await insertEventAttachment("evt8", "hh1", {
+      path: "events/y.jpg",
+      mime: "image/jpeg",
+      size: 5,
+      width: 2,
+      height: 3,
+    });
+    const legacy = mockPrisma.attachment.findFirst.mock.calls.at(-1)?.[0].where;
+    expect(legacy.contentHash).toBeUndefined();
+    expect(legacy).toMatchObject({ mime: "image/jpeg", size: 5, width: 2, height: 3 });
   });
 });

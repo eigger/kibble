@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import type { EventAttachment } from "../lib/types";
 import { EventAttachmentThumb } from "./EventAttachmentThumb";
 import { stepIndex, swipeDirection } from "../lib/lightboxSwipe";
+import { shouldIgnoreArrowKey } from "../lib/lightboxKeys";
 import {
   clampScale,
   clampTranslate,
@@ -28,6 +29,8 @@ type Props = {
   onIndexChange: (index: number) => void;
   onClose: () => void;
   closeLabel: string;
+  /** 대화상자 이름. 없으면 closeLabel을 쓴다 */
+  dialogLabel?: string;
   resetLabel?: string;
   prevLabel?: string;
   nextLabel?: string;
@@ -44,6 +47,7 @@ export function AttachmentLightbox({
   onIndexChange,
   onClose,
   closeLabel,
+  dialogLabel,
   resetLabel,
   prevLabel,
   nextLabel,
@@ -64,8 +68,11 @@ export function AttachmentLightbox({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") go(-1);
-      else if (e.key === "ArrowRight") go(1);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        // 영상 컨트롤·입력창에서 누른 좌우 키는 그쪽 몫이다
+        if (shouldIgnoreArrowKey(e)) return;
+        go(e.key === "ArrowLeft" ? -1 : 1);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -96,7 +103,7 @@ export function AttachmentLightbox({
       className="attachment-lightbox-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label={closeLabel}
+      aria-label={dialogLabel ?? closeLabel}
       onClick={onClose}
     >
       <button type="button" className="attachment-lightbox-close" onClick={onClose}>
