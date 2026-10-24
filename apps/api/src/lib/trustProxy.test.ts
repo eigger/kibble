@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import Fastify from "fastify";
 import { describe, expect, it } from "vitest";
-import { parseTrustProxy } from "./trustProxy.js";
+import { DEFAULT_TRUST_PROXY, parseTrustProxy } from "./trustProxy.js";
 
 describe("parseTrustProxy", () => {
-  it("defaults to off", () => {
-    expect(parseTrustProxy(undefined)).toBe(false);
-    expect(parseTrustProxy("")).toBe(false);
+  it("defaults to private ranges, false turns it off", () => {
+    expect(parseTrustProxy(undefined)).toBe(DEFAULT_TRUST_PROXY);
+    expect(parseTrustProxy("")).toBe(DEFAULT_TRUST_PROXY);
     expect(parseTrustProxy("false")).toBe(false);
   });
   it("parses true and address lists", () => {
@@ -19,19 +19,11 @@ describe("parseTrustProxy", () => {
   });
 });
 
-describe("compose default", () => {
-  const composeDefault = (file: string): string => {
-    const text = readFileSync(new URL(`../../../../${file}`, import.meta.url), "utf8");
-    const m = text.match(/TRUST_PROXY: \$\{TRUST_PROXY:-([^}]*)\}/);
-    if (!m) throw new Error(`${file}: TRUST_PROXY default not found`);
-    return m[1]!;
-  };
+describe("default trust", () => {
+  it("trusts private ranges only", async () => {
+    expect(DEFAULT_TRUST_PROXY).toBe("loopback,linklocal,uniquelocal");
 
-  it.each(["docker-compose.yml", "docker-compose.prod.yml"])("%s trusts private ranges only", async (file) => {
-    const value = composeDefault(file);
-    expect(value).toBe("loopback,linklocal,uniquelocal");
-
-    const app = Fastify({ trustProxy: parseTrustProxy(value) });
+    const app = Fastify({ trustProxy: parseTrustProxy(undefined) });
     app.get("/", async (r) => r.ip);
     const ip = async (xff: string, remoteAddress: string) =>
       (await app.inject({ url: "/", remoteAddress, headers: { "x-forwarded-for": xff } })).body;
@@ -42,5 +34,13 @@ describe("compose default", () => {
     expect(await ip("203.0.113.2, 10.0.0.9", "172.18.0.5")).toBe("203.0.113.2");
     // 공인 주소에서 직접 들어오면 헤더를 믿지 않는다
     expect(await ip("1.2.3.4", "198.51.100.9")).toBe("198.51.100.9");
+  });
+
+  it("compose files pass the value through without a default", () => {
+    // 줄이 없으면 .env의 TRUST_PROXY가 컨테이너에 닿지 않는다. 기본값은 코드에 둔다 — 업데이트 diff에 안 잡히게
+    for (const file of ["docker-compose.yml", "docker-compose.prod.yml"]) {
+      const text = readFileSync(new URL(`../../../../${file}`, import.meta.url), "utf8");
+      expect(text).toMatch(/^\s+TRUST_PROXY: \$\{TRUST_PROXY:-\}$/m);
+    }
   });
 });

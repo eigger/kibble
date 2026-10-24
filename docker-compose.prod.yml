@@ -35,8 +35,7 @@ services:
       PORT: "8080"
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost}
       COOKIE_SECURE: ${COOKIE_SECURE:-}
-      # Caddy 뒤에서 request.ip를 실제 클라이언트로 — rate limit이 기기별로 나뉜다 (사설 대역의 프록시만 신뢰)
-      TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}
+      TRUST_PROXY: ${TRUST_PROXY:-}
 
   web:
     image: ghcr.io/${GH_REPOSITORY_OWNER:-eigger}/kibble-web:latest
