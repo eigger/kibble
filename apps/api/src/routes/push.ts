@@ -50,6 +50,15 @@ export async function pushRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
     const body = parsed.data;
+    // endpoint는 전역 유니크다. 남의 endpoint로 구독하면서 소유자를 바꿔 버리면 그 사람의 구독이
+    // 사라져 알림(복약 리마인더)이 끊기고 키도 덮어써진다 — 이미 다른 사용자 소유면 갱신하지 않는다.
+    const existing = await prisma.pushSubscription.findUnique({
+      where: { endpoint: body.endpoint },
+      select: { userId: true },
+    });
+    if (existing && existing.userId !== userId) {
+      return reply.code(409).send({ error: t("forbiddenSubscription", request.locale) });
+    }
     await prisma.pushSubscription.upsert({
       where: { endpoint: body.endpoint },
       create: {
@@ -60,7 +69,6 @@ export async function pushRoutes(app: FastifyInstance) {
         locale: body.locale ?? request.locale,
       },
       update: {
-        userId,
         p256dh: body.keys.p256dh,
         auth: body.keys.auth,
         locale: body.locale ?? request.locale,

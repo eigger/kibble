@@ -84,7 +84,9 @@ export async function attachmentChunkRoutes(app: FastifyInstance) {
     },
   );
 
-  app.put("/uploads/:uploadId/chunks/:index", async (request, reply) => {
+  // 전역 bodyLimit(2MB)보다 크게 — 청크 본문은 최대 UPLOAD_CHUNK_SIZE_BYTES * 2 (아래 검사와 같은 값)
+  const chunkRouteOptions = { bodyLimit: UPLOAD_CHUNK_SIZE_BYTES * 2 };
+  app.put("/uploads/:uploadId/chunks/:index", chunkRouteOptions, async (request, reply) => {
     const householdId = requireHouseholdWrite(request, reply);
     if (!householdId) return;
 

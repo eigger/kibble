@@ -9,6 +9,7 @@ import {
   updateProfileSchema,
 } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
+import { rateLimitIp } from "../lib/rateLimitIp.js";
 import { t } from "../lib/i18n.js";
 import { emailInUse, findLoginCandidates } from "../lib/userEmail.js";
 import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersion.js";
@@ -21,6 +22,7 @@ import {
   invalidateHouseholdCache,
   findHouseholdMember,
 } from "../lib/householdScope.js";
+
 
 class BootstrapDisabledError extends Error {
   constructor() {
@@ -42,6 +44,41 @@ async function isAdminOutsideHousehold(
   return (await findHouseholdMember(householdId, target.id)) === null;
 }
 
+/**
+ * 사용자를 지우면 멤버십이 cascade로 사라진다. 그 사용자가 가구의 마지막 OWNER이고 다른 구성원이
+ * 남아 있으면 가구를 관리할 사람이 없어지므로, 가장 먼저 합류한 MEMBER를
+ * OWNER로 올린다(MEMBER가 없으면 승격 없이 둔다). 구성원이 본인뿐인 가구는 손대지 않는다 — 가구와 기록을 함께 지우면 첨부 파일이
+ * 디스크에 남고 복구도 안 되므로, 파괴적 정리는 별도 결정(WORKLOG)으로 미뤘다.
+ */
+async function promoteSuccessorOwners(
+  tx: Pick<typeof prisma, "householdMember">,
+  userId: string,
+): Promise<string[]> {
+  const owned = await tx.householdMember.findMany({
+    where: { userId, role: "OWNER" },
+    select: { householdId: true },
+  });
+  const promoted: string[] = [];
+  for (const { householdId } of owned) {
+    const others = await tx.householdMember.findMany({
+      where: { householdId, userId: { not: userId } },
+      select: { id: true, userId: true, role: true },
+      orderBy: { id: "asc" },
+    });
+    if (others.length === 0 || others.some((m) => m.role === "OWNER")) continue;
+    // VIEWER는 승격하지 않는다 — 읽기 전용으로 둔 사람에게 쓰기·관리 권한을 몰래 주지 않는다.
+    // MEMBER가 없으면 그 가구는 OWNER 없이 남는다(WORKLOG: 고아 가구와 같은 후속 과제).
+    const successor = others.find((m) => m.role === "MEMBER");
+    if (!successor) continue;
+    const { count } = await tx.householdMember.updateMany({
+      where: { id: successor.id, householdId, role: "MEMBER" },
+      data: { role: "OWNER" },
+    });
+    if (count > 0) promoted.push(successor.userId);
+  }
+  return promoted;
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.get("/bootstrap/status", async () => {
     const userCount = await prisma.user.count();
@@ -61,13 +98,17 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, 10);
     try {
       const user = await prisma.$transaction(async (tx) => {
+        // 동시에 들어온 두 요청이 모두 count=0을 보고 관리자를 둘 만들지 않도록 직렬화한다
+        // (트랜잭션이 끝나면 잠금이 풀리고, 뒤 요청은 count>0을 본다).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('kibble:bootstrap', 0))`;
         const existingCount = await tx.user.count();
         if (existingCount > 0) throw new BootstrapDisabledError();
 
         const created = await tx.user.create({
           data: { name, email, passwordHash, role: "ADMIN" },
         });
-        const household = await tx.household.create({ data: { name: "우리 집" } });
+        const household = await tx.household.create({ data: { name: t("defaultHouseholdName", request.locale) },
+        });
         await tx.householdMember.create({
           data: { householdId: household.id, userId: created.id, role: "OWNER" },
         });
@@ -91,7 +132,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     "/login",
     // 무차별 대입 방어: IP당 15분에 10회로 제한.
-    { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } },
+    // IPv6는 /64(한 가입자에게 통째로 할당되는 단위)로 묶는다 — 안 묶으면 주소만 바꿔 한도를 우회한다.
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: "15 minutes", keyGenerator: (r) => rateLimitIp(r.ip) },
+      },
+    },
     async (request, reply) => {
       const parsed = loginSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
@@ -261,14 +307,23 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: t("cannotManageOtherAdmin", request.locale) });
       }
 
+      let promotedUserIds: string[];
       try {
-        await prisma.user.delete({ where: { id } });
+        promotedUserIds = await prisma.$transaction(async (tx) => {
+          const promoted = await promoteSuccessorOwners(tx, id);
+          await tx.user.delete({ where: { id } });
+          return promoted;
+        });
       } catch (err) {
         if (isRecordNotFoundError(err)) {
           return reply.code(404).send({ error: t("userNotFound", request.locale) });
         }
         throw err;
       }
+      // 삭제된 사용자의 토큰·가구 캐시(60초)를 비운다 — 안 비우면 삭제 직후에도 한동안 통과한다.
+      invalidateTokenVersionCache(id);
+      invalidateHouseholdCache(id);
+      for (const promotedId of promotedUserIds) invalidateHouseholdCache(promotedId);
       return reply.code(204).send();
     },
   );
