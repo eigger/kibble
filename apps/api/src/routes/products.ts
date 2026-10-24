@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { ProductCategory as ProductCategoryEnum } from "@prisma/client";
 import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
 import {
   createProductSchema,
@@ -55,7 +56,8 @@ export async function productRoutes(app: FastifyInstance) {
       where.archivedAt = null;
     }
 
-    if (query.category) {
+    // K-12: 알 수 없는 카테고리는 거부하지 않고 필터를 건너뛴다 (Prisma 검증 오류 500 방지)
+    if (query.category && (Object.values(ProductCategoryEnum) as string[]).includes(query.category)) {
       where.category = query.category as ProductCategory;
     }
 
@@ -278,13 +280,20 @@ export async function productRoutes(app: FastifyInstance) {
     if (data.adverseReactions !== undefined) updateData.adverseReactions = data.adverseReactions;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    const updated = await prisma.product.update({
-      where: { id },
+    const { count } = await prisma.product.updateMany({
+      where: { id, ...householdWhere(householdId) },
       data: updateData,
-      include: {
-        pet: { select: { id: true, name: true } },
-      },
     });
+    const updated =
+      count > 0
+        ? await prisma.product.findFirst({
+            where: { id, ...householdWhere(householdId) },
+            include: { pet: { select: { id: true, name: true } } },
+          })
+        : null;
+    if (!updated) {
+      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    }
 
     return {
       ...serializeProduct(updated),
@@ -305,10 +314,13 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
     }
 
-    await prisma.product.update({
-      where: { id },
+    const { count } = await prisma.product.updateMany({
+      where: { id, ...householdWhere(householdId) },
       data: { archivedAt: new Date(), isActive: false },
     });
+    if (count === 0) {
+      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    }
 
     return reply.code(204).send();
   });
@@ -327,11 +339,20 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
     }
 
-    const restored = await prisma.product.update({
-      where: { id },
+    const { count } = await prisma.product.updateMany({
+      where: { id, ...householdWhere(householdId) },
       data: { archivedAt: null, isActive: true },
-      include: { pet: { select: { id: true, name: true } } },
     });
+    const restored =
+      count > 0
+        ? await prisma.product.findFirst({
+            where: { id, ...householdWhere(householdId) },
+            include: { pet: { select: { id: true, name: true } } },
+          })
+        : null;
+    if (!restored) {
+      return reply.code(404).send({ error: t("productNotFound", request.locale) });
+    }
 
     return {
       ...serializeProduct(restored),
@@ -418,7 +439,10 @@ export async function productRoutes(app: FastifyInstance) {
 
       // 첫 장은 자동으로 대표가 된다. 이후에는 사용자가 고른다.
       if (!existing.photoPath) {
-        await prisma.product.update({ where: { id }, data: { photoPath } });
+        await prisma.product.updateMany({
+          where: { id, ...householdWhere(householdId) },
+          data: { photoPath },
+        });
       }
 
       return reply.code(201).send({
@@ -500,11 +524,20 @@ export async function productRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("photoNotFound", request.locale) });
       }
 
-      const updated = await prisma.product.update({
-        where: { id },
+      const { count } = await prisma.product.updateMany({
+        where: { id, ...householdWhere(householdId) },
         data: { photoPath: photo.path },
-        include: { pet: { select: { id: true, name: true } } },
       });
+      const updated =
+        count > 0
+          ? await prisma.product.findFirst({
+              where: { id, ...householdWhere(householdId) },
+              include: { pet: { select: { id: true, name: true } } },
+            })
+          : null;
+      if (!updated) {
+        return reply.code(404).send({ error: t("productNotFound", request.locale) });
+      }
 
       return { ...serializeProduct(updated), pet: updated.pet };
     },
@@ -524,7 +557,12 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("photoNotFound", request.locale) });
     }
 
-    await prisma.productPhoto.delete({ where: { id: photo.id } });
+    const { count: removed } = await prisma.productPhoto.deleteMany({
+      where: { id: photo.id, product: householdWhere(householdId) },
+    });
+    if (removed === 0) {
+      return reply.code(404).send({ error: t("photoNotFound", request.locale) });
+    }
     await removeProductPhoto(photo.path);
 
     // 대표를 지웠으면 남은 것 중 첫 장을 대표로 올린다. 아니면 목록에 빈 칸이 남는다.
@@ -537,8 +575,8 @@ export async function productRoutes(app: FastifyInstance) {
         where: { productId: id },
         select: { path: true, sortOrder: true },
       });
-      await prisma.product.update({
-        where: { id },
+      await prisma.product.updateMany({
+        where: { id, ...householdWhere(householdId) },
         data: { photoPath: nextPrimaryPhotoPath(remaining) },
       });
     }

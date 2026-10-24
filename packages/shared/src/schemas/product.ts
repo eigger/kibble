@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDatetime } from "./isoDatetime.js";
 
 const POSTGRES_INT_MAX = 2_147_483_647;
 
@@ -170,13 +171,13 @@ export const createProductSchema = z.object({
   ingredientRegistrationNo: z.string().trim().max(60).nullable().optional(),
   registeredIngredients: z.string().trim().max(1000).nullable().optional(),
   importer: z.string().trim().max(120).nullable().optional(),
-  manufacturedAt: z.string().datetime().nullable().optional(),
+  manufacturedAt: isoDatetime.nullable().optional(),
   storage: z.string().trim().max(300).nullable().optional(),
   usage: z.string().trim().max(200).nullable().optional(),
   ingredients: z.string().trim().max(4000).nullable().optional(),
-  expiryDate: z.string().datetime().nullable().optional(),
-  openedAt: z.string().datetime().nullable().optional(),
-  purchaseDate: z.string().datetime().nullable().optional(),
+  expiryDate: isoDatetime.nullable().optional(),
+  openedAt: isoDatetime.nullable().optional(),
+  purchaseDate: isoDatetime.nullable().optional(),
   costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
   isActive: z.boolean().default(true),
   palatability: palatabilitySchema.nullable().optional(),
@@ -203,13 +204,13 @@ export const updateProductSchema = z
     ingredientRegistrationNo: z.string().trim().max(60).nullable().optional(),
     registeredIngredients: z.string().trim().max(1000).nullable().optional(),
     importer: z.string().trim().max(120).nullable().optional(),
-    manufacturedAt: z.string().datetime().nullable().optional(),
+    manufacturedAt: isoDatetime.nullable().optional(),
     storage: z.string().trim().max(300).nullable().optional(),
     usage: z.string().trim().max(200).nullable().optional(),
     ingredients: z.string().trim().max(4000).nullable().optional(),
-    expiryDate: z.string().datetime().nullable().optional(),
-    openedAt: z.string().datetime().nullable().optional(),
-    purchaseDate: z.string().datetime().nullable().optional(),
+    expiryDate: isoDatetime.nullable().optional(),
+    openedAt: isoDatetime.nullable().optional(),
+    purchaseDate: isoDatetime.nullable().optional(),
     costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
     isActive: z.boolean().optional(),
     palatability: palatabilitySchema.nullable().optional(),

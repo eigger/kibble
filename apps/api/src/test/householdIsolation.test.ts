@@ -86,7 +86,7 @@ describe("household isolation (K-3)", () => {
   });
 
   it("PATCH /api/events/:id returns 404 for another household's event", async () => {
-    mockPrisma.event.updateMany.mockResolvedValue({ count: 0 });
+    mockPrisma.event.findFirst.mockResolvedValue(null);
 
     const token = signJwt(app);
     const res = await app.inject({
@@ -96,12 +96,14 @@ describe("household isolation (K-3)", () => {
       payload: { note: "nope" },
     });
 
+    // 존재·가구 확인이 부수 쓰기(병원 Contact 등)보다 먼저다 — 없으면 아무것도 쓰지 않는다
     expect(res.statusCode).toBe(404);
-    expect(mockPrisma.event.updateMany).toHaveBeenCalledWith(
+    expect(mockPrisma.event.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: EVENT_OTHER, householdId: HH_A }),
       }),
     );
+    expect(mockPrisma.event.updateMany).not.toHaveBeenCalled();
   });
 
   it("DELETE /api/events/:id returns 404 for another household's event", async () => {

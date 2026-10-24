@@ -18,12 +18,14 @@ const mockPrisma = vi.hoisted(() => ({
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(async () => ({ count: 1 })),
   },
   productPhoto: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
     create: vi.fn(),
     delete: vi.fn(),
+    deleteMany: vi.fn(async () => ({ count: 1 })),
     count: vi.fn(),
   },
   event: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
@@ -58,6 +60,30 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it("GET /api/products?category=잘못된값은 500이 아니라 필터 없이 목록을 준다", async () => {
+    mockPrisma.product.findMany.mockResolvedValue([]);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/products?category=NOPE",
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const { where } = mockPrisma.product.findMany.mock.calls.at(-1)?.[0] as { where: Record<string, unknown> };
+    expect(where).not.toHaveProperty("category");
+    expect(where.householdId).toBe(HH);
+  });
+
+  it("GET /api/products?category=MEAL은 유효한 카테고리로 거른다", async () => {
+    mockPrisma.product.findMany.mockResolvedValue([]);
+    await app.inject({
+      method: "GET",
+      url: "/api/products?category=MEAL",
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+    const { where } = mockPrisma.product.findMany.mock.calls.at(-1)?.[0] as { where: Record<string, unknown> };
+    expect(where.category).toBe("MEAL");
   });
 
   it("GET /api/products는 가구의 제품 목록을 반환한다", async () => {
@@ -197,7 +223,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
   it("PATCH /api/products/:id는 제품 정보를 수정한다", async () => {
     const now = new Date();
     mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, householdId: HH });
-    mockPrisma.product.update.mockResolvedValue({
+    mockPrisma.product.findFirst.mockResolvedValue({
       id: PRODUCT_ID,
       householdId: HH,
       name: "오리젠 수정본",
@@ -216,9 +242,9 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: PRODUCT_ID },
+        where: { id: PRODUCT_ID, householdId: HH },
         data: expect.objectContaining({ name: "오리젠 수정본", isActive: false }),
       }),
     );
@@ -233,7 +259,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
       form: "DRY",
       kibbleSize: "SMALL",
     });
-    mockPrisma.product.update.mockResolvedValue({
+    mockPrisma.product.findFirst.mockResolvedValue({
       id: PRODUCT_ID,
       householdId: HH,
       name: "n",
@@ -252,7 +278,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ form: "WET", kibbleSize: null }),
       }),
@@ -266,7 +292,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
       form: "DRY",
       kibbleSize: "LARGE",
     });
-    mockPrisma.product.update.mockResolvedValue({
+    mockPrisma.product.findFirst.mockResolvedValue({
       id: PRODUCT_ID,
       householdId: HH,
       name: "n",
@@ -285,7 +311,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     // form·kibbleSize를 안 보냈으면 그 짝은 아예 건드리지 않는다
-    const call = mockPrisma.product.update.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> };
+    const call = mockPrisma.product.updateMany.mock.calls.at(-1)?.[0] as { data: Record<string, unknown> };
     expect(call.data).toEqual(expect.objectContaining({ origin: "캐나다" }));
     expect(call.data).not.toHaveProperty("kibbleSize");
     expect(call.data).not.toHaveProperty("form");
@@ -293,14 +319,14 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
 
   it("대표 사진을 지우면 남은 첫 장이 대표로 올라온다", async () => {
     mockPrisma.productPhoto.findFirst.mockResolvedValue({ id: "ph1", path: "products/a.webp" });
-    mockPrisma.productPhoto.delete.mockResolvedValue({});
+    mockPrisma.productPhoto.deleteMany.mockResolvedValue({ count: 1 });
     // 지운 사진이 대표였다
     mockPrisma.product.findFirst.mockResolvedValue({ photoPath: "products/a.webp" });
     mockPrisma.productPhoto.findMany.mockResolvedValue([
       { path: "products/c.webp", sortOrder: 2 },
       { path: "products/b.webp", sortOrder: 1 },
     ]);
-    mockPrisma.product.update.mockResolvedValue({});
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await app.inject({
       method: "DELETE",
@@ -309,14 +335,14 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(204);
-    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { photoPath: "products/b.webp" } }),
     );
   });
 
   it("대표가 아닌 사진을 지우면 대표를 건드리지 않는다", async () => {
     mockPrisma.productPhoto.findFirst.mockResolvedValue({ id: "ph2", path: "products/b.webp" });
-    mockPrisma.productPhoto.delete.mockResolvedValue({});
+    mockPrisma.productPhoto.deleteMany.mockResolvedValue({ count: 1 });
     mockPrisma.product.findFirst.mockResolvedValue({ photoPath: "products/a.webp" });
 
     const res = await app.inject({
@@ -326,7 +352,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(204);
-    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.product.updateMany).not.toHaveBeenCalled();
   });
 
   it("사진이 9장이면 더 받지 않는다", async () => {
@@ -354,7 +380,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(404);
-    expect(mockPrisma.product.update).not.toHaveBeenCalled();
+    expect(mockPrisma.product.updateMany).not.toHaveBeenCalled();
   });
 
   /**
@@ -396,7 +422,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
 
   it("DELETE /api/products/:id는 제품을 보관(soft-delete) 처리한다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue({ id: PRODUCT_ID, householdId: HH });
-    mockPrisma.product.update.mockResolvedValue({});
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await app.inject({
       method: "DELETE",
@@ -405,9 +431,9 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(204);
-    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: PRODUCT_ID },
+        where: { id: PRODUCT_ID, householdId: HH },
         data: expect.objectContaining({ isActive: false }),
       }),
     );
@@ -424,7 +450,7 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
       updatedAt: now,
       pet: null,
     });
-    mockPrisma.product.update.mockResolvedValue({
+    mockPrisma.product.findFirst.mockResolvedValue({
       id: PRODUCT_ID,
       householdId: HH,
       name: "보관된 사료",
@@ -442,9 +468,9 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(mockPrisma.product.update).toHaveBeenCalledWith(
+    expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: PRODUCT_ID },
+        where: { id: PRODUCT_ID, householdId: HH },
         data: { archivedAt: null, isActive: true },
       }),
     );

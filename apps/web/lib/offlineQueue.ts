@@ -40,6 +40,24 @@ export function withQueuedOccurredAt(body: CreateEventInput): CreateEventInput {
   return body.occurredAt ? body : { ...body, occurredAt: new Date().toISOString() };
 }
 
+/**
+ * 업그레이드는 미전송 기록·첨부를 보존해야 한다(K-13). DB_VERSION을 올릴 때마다 스토어를
+ * 지우면 오프라인에 쌓인 실기록이 사라진다. 삭제는 v1(소유자 없는 항목)에서 올라오는 경우에만
+ * 실행한다 — 이후 버전은 스토어를 유지한 채 필요한 변경만 `oldVersion < N`으로 추가한다.
+ */
+export function upgradeOfflineDb(
+  db: Pick<IDBDatabase, "objectStoreNames" | "deleteObjectStore" | "createObjectStore">,
+  oldVersion: number,
+): void {
+  if (oldVersion < 2 && db.objectStoreNames.contains(STORE)) {
+    // 소유자 없는 v1 항목을 이전할 근거가 없다(누가 넣었는지 알 수 없다). 배포 전이므로 새로 만든다.
+    db.deleteObjectStore(STORE);
+  }
+  if (!db.objectStoreNames.contains(STORE)) {
+    db.createObjectStore(STORE, { keyPath: "id" });
+  }
+}
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
@@ -48,13 +66,7 @@ function openDb(): Promise<IDBDatabase> {
     }
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error("IDB_OPEN_FAILED"));
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      // 소유자 없는 v1 항목을 이전할 근거가 없다(누가 넣었는지 알 수 없다). 배포 전이므로
-      // 스토어를 새로 만든다 — 실기록이 걸릴 일이 없고, 애매한 항목이 남지도 않는다.
-      if (db.objectStoreNames.contains(STORE)) db.deleteObjectStore(STORE);
-      db.createObjectStore(STORE, { keyPath: "id" });
-    };
+    request.onupgradeneeded = (event) => upgradeOfflineDb(request.result, event.oldVersion);
     request.onsuccess = () => resolve(request.result);
   });
 }

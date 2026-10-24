@@ -12,7 +12,7 @@ const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn() },
   user: { findUnique: vi.fn() },
   pet: { findFirst: vi.fn() },
-  medicationCourse: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+  medicationCourse: { findFirst: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
   routineItem: { updateMany: vi.fn() },
   $transaction: vi.fn(),
 }));
@@ -63,8 +63,8 @@ describe("처방 이어가기 — 이전 처방 처리", () => {
     const key = new Date(later.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
     const res = await cont(new Date(`${key}T12:00:00+09:00`).toISOString(), { endDate: null });
     expect(res.statusCode).toBe(201);
-    const [call] = mockPrisma.medicationCourse.update.mock.calls;
-    expect(call[0].where).toEqual({ id: "old" });
+    const [call] = mockPrisma.medicationCourse.updateMany.mock.calls;
+    expect(call[0].where).toEqual({ id: "old", householdId: expect.any(String) });
     expect(call[0].data.endDate).toBeInstanceOf(Date);
     expect(call[0].data.archivedAt).toBeUndefined();
   });
@@ -72,7 +72,7 @@ describe("처방 이어가기 — 이전 처방 처리", () => {
   it("archives the previous course when the new one starts today", async () => {
     const res = await cont(new Date().toISOString(), { endDate: null });
     expect(res.statusCode).toBe(201);
-    const [call] = mockPrisma.medicationCourse.update.mock.calls;
+    const [call] = mockPrisma.medicationCourse.updateMany.mock.calls;
     expect(call[0].data.archivedAt).toBeInstanceOf(Date);
     expect(call[0].data.endDate).toBeUndefined();
   });
@@ -84,6 +84,25 @@ describe("처방 이어가기 — 이전 처방 처리", () => {
       endDate: new Date(Date.now() + 86_400_000),
     });
     expect(res.statusCode).toBe(201);
-    expect(mockPrisma.medicationCourse.update).not.toHaveBeenCalled();
+    expect(mockPrisma.medicationCourse.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("종료일이 시작일보다 앞서면 거부하지 않고 시작일로 보정한다 (생성)", async () => {
+    const token = app.jwt.sign({ sub: USER, role: "ADMIN", tv: 1 }, { expiresIn: "1h" });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/care/medication-courses",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        petId: PET,
+        name: "처방",
+        startDate: "2026-09-05T12:00:00+09:00",
+        endDate: "2026-09-01T12:00:00+09:00",
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const { data } = mockPrisma.medicationCourse.create.mock.calls[0][0];
+    expect(data.startDate).toEqual(new Date("2026-09-05T03:00:00.000Z"));
+    expect(data.endDate).toEqual(data.startDate);
   });
 });

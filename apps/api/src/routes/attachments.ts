@@ -185,7 +185,12 @@ export async function attachmentRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("attachmentNotFound", request.locale) });
     }
 
-    await prisma.attachment.delete({ where: { id } });
+    const { count } = await prisma.attachment.deleteMany({
+      where: { id, event: { householdId } },
+    });
+    if (count === 0) {
+      return reply.code(404).send({ error: t("attachmentNotFound", request.locale) });
+    }
     await removeEventAttachmentFile(attachment.path, attachment.posterPath);
     return reply.code(204).send();
   });

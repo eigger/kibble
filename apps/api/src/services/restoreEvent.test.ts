@@ -19,14 +19,16 @@ function fakeDb(opts: Opts) {
         doseSlotIndex: 0,
       }
     : opts.deleted;
-  const update = vi.fn(async () => ({ id: "e1", deletedAt: null }));
+  const update = vi.fn(async () => ({ count: 1 }));
   const lock = vi.fn(async () => 0);
   const tx = {
     $executeRaw: lock,
     event: {
       findFirst: vi.fn(async () => deleted),
+      // restore 후 재조회 — 삭제 표시가 없는 행
+      // (updateMany 뒤 findFirst도 같은 mock을 쓴다)
       findMany: vi.fn(async () => opts.others ?? []),
-      update,
+      updateMany: update,
     },
     medicationCourse: {
       findFirst: vi.fn(async () =>

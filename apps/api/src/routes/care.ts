@@ -27,6 +27,7 @@ import {
   createEvent,
   CreateEventDoseConflictError,
 } from "../services/createEvent.js";
+import { clampEndDate } from "../lib/courseDates.js";
 import { planContinuation } from "../lib/courseContinuation.js";
 import { mapCreateEventError } from "../lib/createEventErrors.js";
 
@@ -193,6 +194,7 @@ export async function careRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
       }
 
+      const startDate = body.startDate ? new Date(body.startDate) : new Date();
       const data = {
         householdId,
         petId: body.petId,
@@ -202,8 +204,8 @@ export async function careRoutes(app: FastifyInstance) {
         dosesPerDay,
         doseTimes,
         totalDoses: body.totalDoses ?? undefined,
-        startDate: body.startDate ? new Date(body.startDate) : new Date(),
-        endDate: body.endDate ? new Date(body.endDate) : undefined,
+        startDate,
+        endDate: clampEndDate(startDate, body.endDate ? new Date(body.endDate) : undefined),
         note: body.note ?? undefined,
       };
 
@@ -212,14 +214,14 @@ export async function careRoutes(app: FastifyInstance) {
         if (previous && !previous.archivedAt) {
           const plan = planContinuation(previous, created.startDate, new Date());
           if (plan.kind === "archiveNow") {
-            await tx.medicationCourse.update({
-              where: { id: previous.id },
+            await tx.medicationCourse.updateMany({
+              where: { id: previous.id, ...householdWhere(householdId) },
               data: { archivedAt: new Date() },
             });
           } else if (plan.kind === "endBeforeStart") {
             // 새 처방이 내일 이후 시작 — 이전 처방은 종료일까지 오늘 대상으로 남긴다
-            await tx.medicationCourse.update({
-              where: { id: previous.id },
+            await tx.medicationCourse.updateMany({
+              where: { id: previous.id, ...householdWhere(householdId) },
               data: { endDate: plan.endDate },
             });
           }
@@ -267,8 +269,21 @@ export async function careRoutes(app: FastifyInstance) {
             )
           : undefined;
 
-      const course = await prisma.medicationCourse.update({
-        where: { id },
+      // endDate < startDate는 거부하지 않고(K-12) startDate로 보정한다. 시작일만 바꿔서
+      // 기존 종료일이 앞서게 되는 경우도 같은 규칙이다.
+      const nextStart = body.startDate !== undefined ? new Date(body.startDate) : existing.startDate;
+      const requestedEnd =
+        body.endDate !== undefined
+          ? body.endDate
+            ? new Date(body.endDate)
+            : null
+          : existing.endDate;
+      const nextEnd = requestedEnd ? clampEndDate(nextStart, requestedEnd) : null;
+      const endChanged =
+        body.endDate !== undefined || (nextEnd && nextEnd.getTime() !== existing.endDate?.getTime());
+
+      const { count } = await prisma.medicationCourse.updateMany({
+        where: { id, ...householdWhere(householdId) },
         data: {
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.ingredients !== undefined ? { ingredients: body.ingredients } : {}),
@@ -276,13 +291,18 @@ export async function careRoutes(app: FastifyInstance) {
           ...(body.dosesPerDay !== undefined ? { dosesPerDay: body.dosesPerDay } : {}),
           ...(doseTimes !== undefined ? { doseTimes } : {}),
           ...(body.totalDoses !== undefined ? { totalDoses: body.totalDoses } : {}),
-          ...(body.startDate !== undefined ? { startDate: new Date(body.startDate) } : {}),
-          ...(body.endDate !== undefined
-            ? { endDate: body.endDate ? new Date(body.endDate) : null }
-            : {}),
+          ...(body.startDate !== undefined ? { startDate: nextStart } : {}),
+          ...(endChanged ? { endDate: nextEnd } : {}),
           ...(body.note !== undefined ? { note: body.note } : {}),
         },
       });
+      if (count === 0) {
+        return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
+      }
+      const course = await findCourseInHousehold(householdId, id);
+      if (!course) {
+        return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
+      }
 
       return serializeCourse(course);
     },
@@ -301,10 +321,13 @@ export async function careRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
       }
 
-      await prisma.medicationCourse.update({
-        where: { id },
+      const { count } = await prisma.medicationCourse.updateMany({
+        where: { id, ...householdWhere(householdId) },
         data: { archivedAt: new Date() },
       });
+      if (count === 0) {
+        return reply.code(404).send({ error: t("medicationCourseNotFound", request.locale) });
+      }
 
       return { ok: true };
     },
@@ -414,10 +437,13 @@ export async function careRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: t("medicationDoseNotFound", request.locale) });
       }
 
-      await prisma.event.update({
-        where: { id: event.id },
+      const { count } = await prisma.event.updateMany({
+        where: { id: event.id, ...householdWhere(householdId) },
         data: { deletedAt: new Date() },
       });
+      if (count === 0) {
+        return reply.code(404).send({ error: t("medicationDoseNotFound", request.locale) });
+      }
 
       return { ok: true, eventId: event.id };
     },

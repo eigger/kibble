@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDatetime } from "./isoDatetime.js";
 import { DOSE_TIME_RE } from "../doseTimes.js";
 
 const doseTimeSchema = z.string().regex(DOSE_TIME_RE, "invalid dose time");
@@ -13,8 +14,8 @@ export const createMedicationCourseSchema = z.object({
   /** @deprecated use doseTimes */
   doseSlotKeys: z.array(z.string()).max(24).optional(),
   totalDoses: z.coerce.number().int().min(1).max(9999).nullable().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().nullable().optional(),
+  startDate: isoDatetime.optional(),
+  endDate: isoDatetime.nullable().optional(),
   note: z.string().trim().max(2000).nullable().optional(),
   /**
    * "새 처방으로 이어가기" — 이 처방에서 출발했다. 생성과 같은 트랜잭션에서 이전 처방을
@@ -34,8 +35,8 @@ export const updateMedicationCourseSchema = z
     doseTimes: z.array(doseTimeSchema).max(24).optional(),
     doseSlotKeys: z.array(z.string()).max(24).optional(),
     totalDoses: z.coerce.number().int().min(1).max(9999).nullable().optional(),
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().nullable().optional(),
+    startDate: isoDatetime.optional(),
+    endDate: isoDatetime.nullable().optional(),
     note: z.string().trim().max(2000).nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });

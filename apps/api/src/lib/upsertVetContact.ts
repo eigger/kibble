@@ -57,7 +57,10 @@ export async function upsertVetContact(
   if (existing) {
     const patch = contactPatch(existing, details);
     if (Object.keys(patch).length > 0) {
-      await db.contact.update({ where: { id: existing.id }, data: patch });
+      await db.contact.updateMany({
+        where: { id: existing.id, ...householdWhere(householdId) },
+        data: patch,
+      });
     }
     return existing.id;
   }

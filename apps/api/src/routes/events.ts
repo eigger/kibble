@@ -317,6 +317,12 @@ export async function eventRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
 
     const data = parsed.data;
+    // 병원 Contact 생성·갱신 같은 부수 쓰기보다 먼저 기록이 이 가구에 있는지 본다
+    const target = await prisma.event.findFirst({
+      where: { id, ...householdWhere(householdId), deletedAt: null },
+      select: { id: true },
+    });
+    if (!target) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
     const updateData: Record<string, unknown> = { updatedById: sessionUserId(request) };
     if (data.occurredAt !== undefined) updateData.occurredAt = new Date(data.occurredAt);
     if (data.quantity !== undefined) updateData.quantity = data.quantity;

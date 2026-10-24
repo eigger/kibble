@@ -22,6 +22,15 @@ function getFieldLabel(field: string, locale: Locale): string {
   return field;
 }
 
+/**
+ * zod 4 필수 누락 메시지: "Invalid input: expected string, received undefined".
+ * flatten()은 issue code를 버리고 문자열만 남기므로(API 응답 포맷은 그대로 둔다) 메시지로 판정한다.
+ * v3의 "Required"도 함께 인식한다.
+ */
+function isRequiredMessage(err: string): boolean {
+  return err === "Required" || /received undefined\s*$/.test(err);
+}
+
 function formatZodFlatten(flat: ZodFlatten, locale: Locale): string {
   const parts: string[] = [];
   for (const msg of flat.formErrors ?? []) {
@@ -34,9 +43,9 @@ function formatZodFlatten(flat: ZodFlatten, locale: Locale): string {
   for (const [field, errors] of Object.entries(flat.fieldErrors ?? {})) {
     const label = getFieldLabel(field, locale);
     for (const err of errors) {
-      if (err === "Invalid datetime" || err.includes("datetime")) {
+      if (/datetime/i.test(err)) {
         parts.push(translate(locale, "apiErrorInvalidDatetime", { label }));
-      } else if (err === "Required") {
+      } else if (isRequiredMessage(err)) {
         parts.push(translate(locale, "apiErrorFieldRequired", { label }));
       } else {
         parts.push(`${label}: ${err}`);
