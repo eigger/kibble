@@ -20,8 +20,6 @@ function interpolate(template: string, params?: Record<string, string | number>)
 // (lib/i18n/translations.ts)과는 별개다. API는 서버 프로세스 하나가 모든 요청을
 // 처리하므로 React 컨텍스트 없이 요청마다 로케일을 넘겨받아야 한다.
 const MESSAGES = {
-  itemIdRequired: { ko: "itemId가 필요합니다", en: "itemId is required" },
-  itemNotFound: { ko: "아이템을 찾을 수 없습니다", en: "Item not found" },
   fileRequired: { ko: "파일이 없습니다", en: "No file provided" },
   invalidImageFile: { ko: "손상되었거나 지원하지 않는 이미지 파일입니다", en: "Corrupted or unsupported image file" },
   unsupportedFileType: { ko: "지원하지 않는 파일 형식: {mimetype}", en: "Unsupported file type: {mimetype}" },
@@ -34,11 +32,6 @@ const MESSAGES = {
     en: "Up to 9 attachments per event",
   },
 
-  barcodeNotFound: { ko: "바코드를 찾을 수 없습니다", en: "Barcode not found" },
-  barcodeAlreadyRegistered: {
-    ko: "이미 다른 아이템에 등록된 바코드 값입니다",
-    en: "This barcode is already registered to another item",
-  },
 
   defaultHouseholdName: { ko: "우리 집", en: "Our household" },
   bootstrapDisabled: {
@@ -74,7 +67,6 @@ const MESSAGES = {
   emailAlreadyInUse: { ko: "이미 사용 중인 이메일입니다", en: "Email is already in use" },
   incorrectCurrentPassword: { ko: "현재 비밀번호가 올바르지 않습니다", en: "Current password is incorrect" },
 
-  adminRoleRequired: { ko: "관리자 권한이 필요합니다", en: "Admin role required" },
   forbidden: { ko: "권한이 없습니다", en: "Forbidden" },
   invalidApiToken: { ko: "유효하지 않은 API 토큰입니다", en: "Invalid API token" },
   apiTokenNotAllowed: {
@@ -166,45 +158,9 @@ const MESSAGES = {
     ko: "이 키는 발급 버튼으로만 바뀝니다",
     en: "This key can only be changed by generating it",
   },
-  naverCredentialsRequired: {
-    ko: "Client ID/Secret을 먼저 저장하세요.",
-    en: "Save a Client ID/Secret first.",
-  },
-  naverApiError: { ko: "네이버 API 응답 오류 ({status}): {detail}", en: "Naver API error ({status}): {detail}" },
-  naverRequestFailed: { ko: "요청 실패: {detail}", en: "Request failed: {detail}" },
-  naverCredentialsHint: { ko: "Client ID/Secret을 확인하세요.", en: "Check your Client ID/Secret." },
 
-  noBarcodedItemsSelected: {
-    ko: "선택한 아이템 중 바코드가 있는 항목이 없습니다",
-    en: "None of the selected items have a barcode",
-  },
 
-  csvFileRequired: { ko: "CSV 파일이 없습니다.", en: "No CSV file provided." },
-  emptyCsvFile: { ko: "빈 CSV 파일입니다.", en: "The CSV file is empty." },
-  csvMissingNameColumn: { ko: "CSV 헤더에 name 컬럼이 없습니다.", en: "The CSV header is missing a name column." },
-  csvRowNameEmpty: { ko: "{row}행: name이 비어 있어 건너뜀", en: "Row {row}: name is empty, skipped" },
-  csvRowBarcodeConflict: {
-    ko: "{row}행 ({name}): 바코드 값이 이미 다른 아이템에 등록되어 있음",
-    en: "Row {row} ({name}): barcode value is already registered to another item",
-  },
-  csvRowError: { ko: "{row}행 ({name}): {detail}", en: "Row {row} ({name}): {detail}" },
 
-  onlyTrashedCanBePurged: {
-    ko: "휴지통에 있는 아이템만 영구 삭제할 수 있습니다.",
-    en: "Only items already in the trash can be permanently deleted.",
-  },
-  webhookNotConfigured: {
-    ko: "웹훅이 설정되지 않았습니다. 설정 > 외부 연동에서 등록하세요.",
-    en: "No webhook configured. Set one up under Settings > Integrations.",
-  },
-  itemHasNoBarcode: {
-    ko: "이 아이템에는 바코드가 없습니다. 먼저 라벨을 발급하세요.",
-    en: "This item has no barcode. Issue a label first.",
-  },
-  cannotConsumeUnregisteredBarcode: {
-    ko: "등록되지 않은 바코드는 소비 처리할 수 없습니다. 먼저 입고로 스캔해 등록하세요.",
-    en: "An unregistered barcode can't be consumed. Scan it in restock mode first to register it.",
-  },
 
   pushNotConfigured: { ko: "서버에 푸시 알림이 설정되지 않았습니다", en: "Push notifications aren't configured on the server" },
   noPushSubscriptions: { ko: "구독 정보가 없습니다", en: "No push subscription found" },
@@ -215,28 +171,6 @@ const MESSAGES = {
   },
   forbiddenSubscription: { ko: "다른 사용자의 구독입니다", en: "This subscription belongs to another user" },
 
-  locationNotFound: { ko: "위치를 찾을 수 없습니다", en: "Location not found" },
-  auditSessionNotFound: { ko: "재점검 세션을 찾을 수 없습니다", en: "Audit session not found" },
-  auditSessionNotActive: {
-    ko: "이미 종료된 재점검 세션입니다",
-    en: "This audit session is no longer active",
-  },
-  auditSessionAlreadyActive: {
-    ko: "이미 진행 중인 재점검이 있습니다. 이어서 진행하거나 취소하세요.",
-    en: "An audit is already in progress. Resume it or cancel first.",
-  },
-  auditMoveTargetRequired: {
-    ko: "옮길 위치를 선택하세요",
-    en: "Choose a location to move items to",
-  },
-  insightsRangeRequired: {
-    ko: "기간(from·to)이 올바르지 않습니다",
-    en: "Invalid date range (from/to)",
-  },
-  insightsRangeTooLong: {
-    ko: "조회 기간은 최대 3개월입니다",
-    en: "Date range cannot exceed 3 months",
-  },
   fileTooLarge: {
     ko: "파일이 너무 큽니다 (최대 {limit})",
     en: "File is too large (max {limit})",
