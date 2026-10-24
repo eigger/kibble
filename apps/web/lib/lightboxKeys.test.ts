@@ -7,7 +7,7 @@ function ev(el: Element | null, defaultPrevented = false) {
 
 describe("shouldIgnoreArrowKey", () => {
   it("ignores arrows aimed at video/input/textarea/select", () => {
-    for (const tag of ["video", "input", "textarea", "select"]) {
+    for (const tag of ["video", "audio", "input", "textarea", "select"]) {
       expect(shouldIgnoreArrowKey(ev(document.createElement(tag)))).toBe(true);
     }
   });
@@ -20,6 +20,12 @@ describe("shouldIgnoreArrowKey", () => {
 
   it("ignores arrows already handled by someone else", () => {
     expect(shouldIgnoreArrowKey(ev(document.body, true))).toBe(true);
+  });
+
+  it("ignores arrows with alt/ctrl/meta held", () => {
+    for (const mod of ["altKey", "ctrlKey", "metaKey"]) {
+      expect(shouldIgnoreArrowKey({ ...ev(document.body), [mod]: true })).toBe(true);
+    }
   });
 
   it("lets arrows through from the body or a button", () => {

@@ -6,12 +6,17 @@
 type KeyEventLike = {
   defaultPrevented: boolean;
   target: EventTarget | null;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
 };
 
 const EDITABLE_TAGS = new Set(["VIDEO", "AUDIO", "INPUT", "TEXTAREA", "SELECT"]);
 
 export function shouldIgnoreArrowKey(e: KeyEventLike): boolean {
   if (e.defaultPrevented) return true;
+  // 브라우저 뒤로/앞으로(Alt+←/→, Cmd+[ 등)와 겹치는 조합은 넘김이 아니다
+  if (e.altKey || e.ctrlKey || e.metaKey) return true;
   const el = e.target as { tagName?: string; isContentEditable?: boolean } | null;
   if (!el || typeof el.tagName !== "string") return false;
   return EDITABLE_TAGS.has(el.tagName.toUpperCase()) || el.isContentEditable === true;
