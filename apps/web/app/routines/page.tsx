@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { kstDayKey } from "@kibble/shared";
-import { isRoutineItemSkipped, routineItemSummary } from "../../lib/routines";
+import {
+  isRoutineItemSkipped,
+  moveRoutine,
+  performRoutineMove,
+  routineItemSummary,
+  type RoutineMoveDirection,
+} from "../../lib/routines";
 import type {
   EventTypeAliasesRow,
   MedicationCourseRow,
@@ -34,6 +40,19 @@ export default function RoutinesPage() {
   const [courses, setCourses] = useState<MedicationCourseRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // 순서 이동: 요청 중에는 다음 이동을 받지 않는다 (직렬화). 버튼은 disabled 대신 aria-disabled로 잠가 포커스를 지킨다
+  const [reordering, setReordering] = useState(false);
+  const reorderingRef = useRef(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const [moveNote, setMoveNote] = useState("");
+  const petIdRef = useRef("");
+  const newBtnRef = useRef<HTMLButtonElement>(null);
+  const [focusNewBtn, setFocusNewBtn] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [focusTarget, setFocusTarget] = useState<{ id: string; dir: RoutineMoveDirection } | null>(
+    null,
+  );
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Routine | null>(null);
@@ -92,6 +111,14 @@ export default function RoutinesPage() {
     [t],
   );
 
+  // 탭을 옮기면 이전 탭의 이동 안내·오류는 의미가 없다
+  useEffect(() => {
+    petIdRef.current = petId;
+    setReorderError(null);
+    setMoveNote("");
+    setFocusTarget(null);
+  }, [petId]);
+
   useEffect(() => {
     if (petId) void loadForPet(petId);
   }, [petId, loadForPet]);
@@ -104,6 +131,89 @@ export default function RoutinesPage() {
     return t("routineCourseEndedMeta", {
       name: item.course?.name ?? tLabel(item.preset?.label ?? item.eventType.label),
     });
+  }
+
+  // 이동 뒤 포커스 복원 — 첫/마지막 칸에서 눌린 버튼은 disabled가 되므로 반대쪽 버튼으로 옮긴다
+  useEffect(() => {
+    if (!focusTarget) return;
+    const { id, dir } = focusTarget;
+    const index = routines.findIndex((r) => r.id === id);
+    const canKeep = dir === "up" ? index > 0 : index >= 0 && index < routines.length - 1;
+    const want = canKeep ? dir : dir === "up" ? "down" : "up";
+    listRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-move-id="${CSS.escape(id)}"][data-move-dir="${want}"]`)
+      ?.focus();
+    setFocusTarget(null);
+  }, [focusTarget, routines]);
+
+  // 이동한 루틴이 재조회 결과에 없으면(다른 탭에서 지움) 포커스를 '새 루틴' 버튼으로 — 잠금이 풀린 뒤에 준다
+  useEffect(() => {
+    if (!focusNewBtn || reordering) return;
+    newBtnRef.current?.focus();
+    setFocusNewBtn(false);
+  }, [focusNewBtn, reordering]);
+
+  async function handleMove(routine: Routine, dir: RoutineMoveDirection) {
+    if (reorderingRef.current) return;
+    const next = moveRoutine(routines, routine.id, dir);
+    if (next === routines) return;
+    const requestPetId = petId;
+    // 잠금은 의도적으로 화면 전체다 — 응답 직후 풀리므로 탭을 옮긴 직후 잠깐 새 탭 버튼도 잠기지만 직렬화가 단순해진다
+    reorderingRef.current = true;
+    setReordering(true);
+    setReorderError(null);
+    setRoutines(next as Routine[]);
+    setFocusTarget({ id: routine.id, dir });
+    setMoveNote(
+      t("routineMoved", {
+        label: routine.label,
+        position: String(next.findIndex((r) => r.id === routine.id) + 1),
+      }),
+    );
+    try {
+      const outcome = await performRoutineMove({
+        list: routines,
+        id: routine.id,
+        dir,
+        petId: requestPetId,
+        currentPetId: () => petIdRef.current,
+        put: (ids) =>
+          apiJson<Routine[]>("/api/routines/order", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ petId: requestPetId, ids }),
+          }),
+      });
+      if (outcome.status === "saved") {
+        setRoutines(outcome.list);
+      } else if (outcome.status === "failed") {
+        // 롤백 대신 서버 기준으로 다시 불러온다 — 404(다른 탭에서 지움·보관)면 이전 순서도 낡았다
+        setMoveNote("");
+        setReorderError(t("routineReorderError"));
+        const rows = await refreshRoutines(requestPetId, routines);
+        if (rows) {
+          if (rows.some((r) => r.id === routine.id)) setFocusTarget({ id: routine.id, dir });
+          else setFocusNewBtn(true);
+        }
+      }
+    } finally {
+      reorderingRef.current = false;
+      setReordering(false);
+    }
+  }
+
+  /** 서버 목록으로 되돌린다. 불러오지 못하면 이동 전 순서로 롤백한다. 그 사이 탭이 바뀌었으면 null */
+  async function refreshRoutines(forPetId: string, fallback: Routine[]): Promise<Routine[] | null> {
+    try {
+      const rows = await apiJson<Routine[]>(`/api/routines?petId=${encodeURIComponent(forPetId)}`);
+      if (petIdRef.current !== forPetId) return null;
+      setRoutines(rows);
+      return rows;
+    } catch {
+      if (petIdRef.current !== forPetId) return null;
+      setRoutines(fallback);
+      return fallback;
+    }
   }
 
   function openNew() {
@@ -144,11 +254,13 @@ export default function RoutinesPage() {
             <h1>{t("routinesTitle")}</h1>
             <p className="meta">{t("routinesIntro")}</p>
           </div>
+          {/* 이동 중에는 disabled — 포커스가 여기 있을 일이 없다(이동 버튼만 aria-disabled로 포커스를 지킨다) */}
           <button
+            ref={newBtnRef}
             type="button"
             className="page-add-btn"
             onClick={openNew}
-            disabled={!petId || dataLoading}
+            disabled={!petId || dataLoading || reordering}
           >
             + {t("routinesNew")}
           </button>
@@ -162,7 +274,11 @@ export default function RoutinesPage() {
                 role="tab"
                 aria-selected={pet.id === petId}
                 className={`pet-tab${pet.id === petId ? " pet-tab-active" : ""}`}
-                onClick={() => setPetId(pet.id)}
+                onClick={() => {
+                  // effect를 기다리지 않고 진행 중인 이동 응답을 바로 stale로 만든다
+                  petIdRef.current = pet.id;
+                  setPetId(pet.id);
+                }}
               >
                 {pet.name}
               </button>
@@ -180,8 +296,8 @@ export default function RoutinesPage() {
           {t("routinesEmpty")} {t("routinesHint")}
         </p>
       ) : (
-        <ul className="manage-card-list">
-          {routines.map((routine) => (
+        <ul className="manage-card-list" ref={listRef}>
+          {routines.map((routine, index) => (
             <li key={routine.id} className="manage-card">
               <div className="manage-card-main">
                 <p className="manage-card-name">{routine.label}</p>
@@ -190,13 +306,43 @@ export default function RoutinesPage() {
                 </p>
               </div>
               <div className="manage-card-actions">
-                <button type="button" className="btn-action" onClick={() => openEdit(routine)}>
+                {(["up", "down"] as const).map((dir) => {
+                  const atEdge = dir === "up" ? index === 0 : index === routines.length - 1;
+                  return (
+                    <button
+                      key={dir}
+                      type="button"
+                      className="btn-action btn-move"
+                      data-move-id={routine.id}
+                      data-move-dir={dir}
+                      aria-label={t(dir === "up" ? "routineMoveUp" : "routineMoveDown", {
+                        label: routine.label,
+                      })}
+                      disabled={atEdge}
+                      aria-disabled={reordering || undefined}
+                      onClick={() => void handleMove(routine, dir)}
+                    >
+                      <span aria-hidden="true">{dir === "up" ? "↑" : "↓"}</span>
+                    </button>
+                  );
+                })}
+                <button type="button" className="btn-action" disabled={reordering}
+                  onClick={() => openEdit(routine)}>
                   {t("edit")}
                 </button>
               </div>
             </li>
           ))}
         </ul>
+      )}
+
+      <p className="sr-only" role="status" aria-live="polite">
+        {moveNote}
+      </p>
+      {reorderError && (
+        <p className="error-text" role="alert">
+          {reorderError}
+        </p>
       )}
 
       <RoutineEditSheet

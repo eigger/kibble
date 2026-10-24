@@ -19,6 +19,8 @@ const mockPrisma = vi.hoisted(() => ({
   preset: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
   eventTypeAlias: { findMany: vi.fn(), upsert: vi.fn() },
   routine: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
+  $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   routineItem: { deleteMany: vi.fn(), createMany: vi.fn() },
   product: { count: vi.fn() },
   medicationCourse: { findMany: vi.fn() },
@@ -60,6 +62,9 @@ describe("household isolation (K-3)", () => {
     invalidateHouseholdCache(USER_A);
     invalidateTokenVersionCache(USER_A);
     setupHouseholdA();
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: typeof mockPrisma) => unknown) =>
+      fn(mockPrisma),
+    );
     app = await buildApp({ logger: false });
   });
 
@@ -357,6 +362,48 @@ describe("household isolation (K-3)", () => {
     expect(mockPrisma.routine.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: ROUTINE_OTHER, householdId: HH_A }),
+      }),
+    );
+    expect(mockPrisma.routine.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("PUT /api/routines/order scopes every query to the household and pet", async () => {
+    mockPrisma.routine.findMany.mockResolvedValue([
+      { id: "r1", sortOrder: 0, petId: "pet_a", label: "x", items: [] },
+    ]);
+    mockPrisma.routine.updateMany.mockResolvedValue({ count: 1 });
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/routines/order",
+      headers: authHeaders(token),
+      payload: { petId: "pet_a", ids: ["r1"] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    for (const call of mockPrisma.routine.findMany.mock.calls) {
+      expect(call[0].where).toEqual(
+        expect.objectContaining({ householdId: HH_A, petId: "pet_a", archivedAt: null }),
+      );
+    }
+  });
+
+  it("PUT /api/routines/order returns 404 for another household's routine id and writes nothing", async () => {
+    mockPrisma.routine.findMany.mockResolvedValue([{ id: "r1", sortOrder: 0 }]);
+
+    const token = signJwt(app);
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/routines/order",
+      headers: authHeaders(token),
+      payload: { petId: "pet_a", ids: ["r1", ROUTINE_OTHER] },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(mockPrisma.routine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ householdId: HH_A, petId: "pet_a" }),
       }),
     );
     expect(mockPrisma.routine.updateMany).not.toHaveBeenCalled();

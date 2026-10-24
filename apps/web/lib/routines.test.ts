@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
+import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -258,5 +258,106 @@ describe("runRoutineEvents", () => {
     );
     expect(out.alreadyGiven.map((i) => i.id)).toEqual(["a"]);
     expect(out.failed).toEqual([]);
+  });
+});
+
+describe("moveRoutine", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  it("swaps with the neighbour without mutating the input", () => {
+    expect(moveRoutine(list, "b", "up").map((r) => r.id)).toEqual(["b", "a", "c"]);
+    expect(moveRoutine(list, "b", "down").map((r) => r.id)).toEqual(["a", "c", "b"]);
+    expect(list.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns the same array at the edges or for an unknown id", () => {
+    expect(moveRoutine(list, "a", "up")).toBe(list);
+    expect(moveRoutine(list, "c", "down")).toBe(list);
+    expect(moveRoutine(list, "zzz", "down")).toBe(list);
+  });
+
+  it("routineOrderIds lists ids in order", () => {
+    expect(routineOrderIds(moveRoutine(list, "c", "up"))).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("performRoutineMove", () => {
+  const list = [{ id: "a" }, { id: "b" }];
+  const base = { list, id: "a", dir: "down" as const, petId: "p1" };
+
+  it("sends the moved order and returns the saved list", async () => {
+    const put = vi.fn(async (ids: string[]) => ids.map((id) => ({ id })));
+    const out = await performRoutineMove({ ...base, currentPetId: () => "p1", put });
+    expect(put).toHaveBeenCalledWith(["b", "a"]);
+    expect(out).toEqual({ status: "saved", list: [{ id: "b" }, { id: "a" }] });
+  });
+
+  it("does nothing at the edge", async () => {
+    const put = vi.fn();
+    const out = await performRoutineMove({ ...base, id: "b", currentPetId: () => "p1", put });
+    expect(out).toEqual({ status: "noop" });
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("reports failure for the current pet so the caller can roll back", async () => {
+    const error = new Error("404");
+    const out = await performRoutineMove({
+      ...base,
+      currentPetId: () => "p1",
+      put: async () => {
+        throw error;
+      },
+    });
+    expect(out).toEqual({ status: "failed", error });
+  });
+
+  it("judges staleness by the pet at response time, not at request time", async () => {
+    let current = "p1";
+    const moved = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        return [];
+      },
+    });
+    expect(moved).toEqual({ status: "stale" });
+
+    // p1 -> p2 -> 응답 전에 p1로 복귀: 응답 시점 값(p1) 기준이라 적용된다
+    current = "p1";
+    const back = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        current = "p1";
+        return [{ id: "b" }, { id: "a" }];
+      },
+    });
+    expect(back.status).toBe("saved");
+
+    current = "p1";
+    const failed = await performRoutineMove({
+      ...base,
+      currentPetId: () => current,
+      put: async () => {
+        current = "p2";
+        throw new Error("x");
+      },
+    });
+    expect(failed).toEqual({ status: "stale" });
+  });
+
+  it("drops both success and failure when the pet tab changed meanwhile", async () => {
+    const ok = await performRoutineMove({ ...base, currentPetId: () => "p2", put: async () => [] });
+    const bad = await performRoutineMove({
+      ...base,
+      currentPetId: () => "p2",
+      put: async () => {
+        throw new Error("x");
+      },
+    });
+    expect(ok).toEqual({ status: "stale" });
+    expect(bad).toEqual({ status: "stale" });
   });
 });

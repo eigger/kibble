@@ -1592,6 +1592,31 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* 루틴 순서 이동 — 위/아래 버튼 한 쌍 */
+.manage-card-actions .btn-move {
+  min-width: 32px;
+  padding: 0;
+}
+
+.manage-card-actions .btn-move[aria-disabled="true"]:not(:disabled) {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+@media (pointer: coarse) {
+  .manage-card-actions .btn-move {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    font-size: 1.1rem;
+  }
+
+  .manage-card-actions .btn-action:not(.btn-move) {
+    min-height: 44px;
+    height: 44px;
+  }
+}
+
 .care-med-doses-today {
   margin-top: 4px;
 }

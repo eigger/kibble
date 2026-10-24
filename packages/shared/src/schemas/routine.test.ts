@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRoutineSchema, updateRoutineSchema } from "./routine.js";
+import { createRoutineSchema, reorderRoutinesSchema, updateRoutineSchema } from "./routine.js";
 
 describe("createRoutineSchema", () => {
   it("requires petId, label and at least one item", () => {
@@ -46,5 +46,27 @@ describe("updateRoutineSchema", () => {
 
   it("accepts items replacement", () => {
     expect(updateRoutineSchema.safeParse({ items: [{ eventTypeId: "t1" }] }).success).toBe(true);
+  });
+});
+
+describe("reorderRoutinesSchema", () => {
+  it("accepts a petId with a non-empty id list", () => {
+    expect(reorderRoutinesSchema.safeParse({ petId: "p1", ids: ["a", "b"] }).success).toBe(true);
+  });
+
+  it("drops duplicate ids instead of rejecting (K-12)", () => {
+    const parsed = reorderRoutinesSchema.safeParse({ petId: "p1", ids: ["b", "a", "b"] });
+    expect(parsed.success && parsed.data.ids).toEqual(["b", "a"]);
+  });
+
+  it("rejects an empty list, blank ids and a missing petId", () => {
+    expect(reorderRoutinesSchema.safeParse({ petId: "p1", ids: [] }).success).toBe(false);
+    expect(reorderRoutinesSchema.safeParse({ petId: "p1", ids: [" "] }).success).toBe(false);
+    expect(reorderRoutinesSchema.safeParse({ ids: ["a"] }).success).toBe(false);
+  });
+
+  it("caps the list length", () => {
+    const ids = Array.from({ length: 201 }, (_, i) => `r${i}`);
+    expect(reorderRoutinesSchema.safeParse({ petId: "p1", ids }).success).toBe(false);
   });
 });

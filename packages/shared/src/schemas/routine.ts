@@ -39,6 +39,24 @@ export const updateRoutineSchema = z
   })
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });
 
+/** 재배치 본문(`ids`)의 상한 — 루틴 수 제한이 아니라 요청 크기 제한이다 */
+export const ROUTINE_ORDER_MAX = 200;
+
+/**
+ * 루틴 순서 재배치. `ids`가 앞에서부터의 새 순서다.
+ * 중복 id는 처음 것만 남기고 무시한다 (K-12 — 거부당하는 입력이 없다).
+ * 목록에 없는 루틴은 서버가 기존 상대 순서대로 뒤에 붙인다.
+ */
+export const reorderRoutinesSchema = z.object({
+  petId: z.string().trim().min(1),
+  ids: z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(ROUTINE_ORDER_MAX)
+    .transform((ids) => [...new Set(ids)]),
+});
+
 export type RoutineItemInput = z.infer<typeof routineItemSchema>;
 export type CreateRoutineInput = z.infer<typeof createRoutineSchema>;
 export type UpdateRoutineInput = z.infer<typeof updateRoutineSchema>;
+export type ReorderRoutinesInput = z.infer<typeof reorderRoutinesSchema>;

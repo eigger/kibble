@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { Prisma } from "@prisma/client";
-import { createRoutineSchema, updateRoutineSchema, type RoutineItemInput } from "@kibble/shared";
+import {
+  createRoutineSchema,
+  reorderRoutinesSchema,
+  updateRoutineSchema, type RoutineItemInput,
+} from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
@@ -244,6 +248,48 @@ export async function routineRoutes(app: FastifyInstance) {
       select: routineSelect,
     });
     return reply.code(201).send(serializeRoutine(created));
+  });
+
+  // 정적 경로 — `/:id`(PATCH/DELETE)와 메서드가 달라 충돌하지 않는다
+  app.put("/order", { preHandler: [app.authenticate] }, async (request, reply) => {
+    const householdId = requireHouseholdWrite(request, reply);
+    if (!householdId) return;
+
+    const parsed = reorderRoutinesSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { petId, ids } = parsed.data;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 같은 pet의 동시 재배치를 직렬화 — 두 요청이 서로의 sortOrder를 덮어 중복 순번이 생기는 것을 막는다
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:routine-order:${householdId}:${petId}`}, 0))`;
+      const current = await tx.routine.findMany({
+        where: { ...householdWhere(householdId), petId, archivedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: { id: true, sortOrder: true },
+      });
+      const known = new Set(current.map((row) => row.id));
+      // 다른 가구·다른 반려동물·보관된 id를 조용히 버리지 않고 거부한다 (데이터 오염 방지)
+      if (ids.some((id) => !known.has(id))) return null;
+
+      // 목록에 없는 루틴(다른 탭에서 추가된 것 등)은 기존 상대 순서로 뒤에 둔다
+      const listed = new Set(ids);
+      const finalIds = [...ids, ...current.filter((row) => !listed.has(row.id)).map((row) => row.id)];
+      const before = new Map(current.map((row) => [row.id, row.sortOrder]));
+      for (const [index, id] of finalIds.entries()) {
+        if (before.get(id) === index) continue;
+        await tx.routine.updateMany({
+          where: { id, ...householdWhere(householdId), petId, archivedAt: null },
+          data: { sortOrder: index },
+        });
+      }
+      return tx.routine.findMany({
+        where: { ...householdWhere(householdId), petId, archivedAt: null },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: routineSelect,
+      });
+    });
+    if (!result) return reply.code(404).send({ error: t("routineNotFound", request.locale) });
+    return result.map((row) => serializeRoutine(row));
   });
 
   app.patch("/:id", { preHandler: [app.authenticate] }, async (request, reply) => {

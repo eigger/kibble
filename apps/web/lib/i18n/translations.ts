@@ -222,6 +222,16 @@ const dict = {
   routineDeleteConfirmTitle: { ko: "이 루틴을 삭제할까요?", en: "Delete this routine?" },
   routinesSavedToast: { ko: "루틴을 저장했습니다.", en: "Routine saved." },
   routinesDeletedToast: { ko: "루틴을 삭제했습니다.", en: "Routine deleted." },
+  routineMoveUp: { ko: "{label} 위로 이동", en: "Move {label} up" },
+  routineMoveDown: { ko: "{label} 아래로 이동", en: "Move {label} down" },
+  routineMoved: {
+    ko: "{label}을(를) {position}번째로 옮겼습니다",
+    en: "Moved {label} to position {position}",
+  },
+  routineReorderError: {
+    ko: "순서를 바꾸지 못했습니다. 이전 순서로 되돌렸습니다.",
+    en: "Could not change the order. Restored the previous order.",
+  },
   routinesLoadError: { ko: "루틴을 불러오지 못했습니다.", en: "Could not load routines." },
   homeTimelineEditHint: {
     ko: "타임라인 항목을 누르면 수정할 수 있습니다.",

@@ -139,7 +139,15 @@ curl -sS -X POST "$BASE/api/routines" -H "$AUTH" -H "Content-Type: application/j
 # PATCH — items가 있으면 항목 전체를 바꾼다
 curl -sS -X PATCH "$BASE/api/routines/<id>" -H "$AUTH" -H "Content-Type: application/json" -d '{ "label": "저녁 밥" }'
 curl -sS -X DELETE "$BASE/api/routines/<id>" -H "$AUTH"
+
+# 순서 재배치 — ids가 앞에서부터의 새 순서. 응답은 정렬된 루틴 목록(GET과 같은 모양)
+curl -sS -X PUT "$BASE/api/routines/order" -H "$AUTH" -H "Content-Type: application/json" -d '{
+  "petId": "<pet-id>",
+  "ids": ["<routine-id-2>", "<routine-id-1>"]
+}'
 ```
+
+`PUT /api/routines/order` — 쓰기 권한 필요(VIEWER 403). 중복 id는 처음 것만 남기고 무시한다. 이 가구·이 반려동물의 비보관 루틴이 아닌 id가 하나라도 있으면 404이고 아무것도 바꾸지 않는다. `ids`에 없는 루틴은 기존 상대 순서로 뒤에 붙는다. `sortOrder`는 0..n-1로 다시 매겨진다. 같은 반려동물의 동시 요청은 DB 락으로 직렬화된다. 한계: `/q` 오프라인 스냅샷(`quickHomeCache`)에 담긴 루틴 순서는 다음 온라인 로드 때 갱신된다.
 
 항목의 타입·칩·제품은 같은 가구·같은 반려동물 것이어야 한다(404). `medication` 타입은 받지 않는다 — 처방·회차가 끼어 1탭이 안 된다.
 
