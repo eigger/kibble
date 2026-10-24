@@ -1,5 +1,6 @@
 import type { MedicationReminderPrefs } from "@kibble/shared";
 import { apiJson, isApiError } from "./api";
+import { bestEffort } from "./withTimeout";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -68,7 +69,7 @@ export async function subscribeToPush(locale: "ko" | "en"): Promise<void> {
     // 409 = 이 브라우저의 endpoint가 다른 사용자 소유로 남아 있다(공용 기기에서 로그아웃 때 해제가 안 된 경우).
     // 브라우저 구독을 버리고 새 endpoint로 한 번만 다시 구독한다.
     if (!isApiError(err) || err.status !== 409) throw err;
-    await unsubscribeBrowserPushOnly();
+    await bestEffort(unsubscribeBrowserPushOnly, 3000);
     await register(false);
   }
 }

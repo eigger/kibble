@@ -23,7 +23,10 @@ export async function sendPushToSubscription(
 ): Promise<boolean> {
   // 검증 도입 전에 저장된 행이나 DB에 직접 들어간 값도 서버가 내부망으로 POST하지 않게 발송 때 다시 건다.
   // 호스트명이 사설 IP로 풀리는 DNS 리바인딩은 여전히 못 막는다(WORKLOG: 알려진 한계).
-  if (!isSafePushEndpoint(subscription.endpoint)) return false;
+  if (!isSafePushEndpoint(subscription.endpoint)) {
+    await prisma.pushSubscription.deleteMany({ where: { id: subscription.id } });
+    return false;
+  }
 
   const ready = await configureWebPush();
   if (!ready) return false;
