@@ -12,6 +12,7 @@ const mockPrisma = vi.hoisted(() => ({
   householdMember: { findFirst: vi.fn() },
   user: { findUnique: vi.fn() },
   $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   routine: { findMany: vi.fn(), updateMany: vi.fn() },
 }));
 
@@ -78,6 +79,29 @@ describe("PUT /api/routines/order", () => {
         expect.objectContaining({ householdId: HH, petId: PET, archivedAt: null }),
       );
     }
+  });
+
+  it("takes a per-pet advisory lock before the first query, keyed by household and pet", async () => {
+    mockPrisma.routine.findMany.mockResolvedValue([{ id: "a", sortOrder: 0 }]);
+    await put({ petId: PET, ids: ["a"] });
+
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const [, ...values] = mockPrisma.$executeRaw.mock.calls[0]!;
+    expect(values[0]).toContain(HH);
+    expect(values[0]).toContain(PET);
+    expect(mockPrisma.$executeRaw.mock.invocationCallOrder[0]!).toBeLessThan(
+      mockPrisma.routine.findMany.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("reads the response list in sortOrder, createdAt order", async () => {
+    mockPrisma.routine.findMany
+      .mockResolvedValueOnce([{ id: "a", sortOrder: 0 }])
+      .mockResolvedValueOnce([row("a", 0)]);
+    await put({ petId: PET, ids: ["a"] });
+
+    const last = mockPrisma.routine.findMany.mock.calls.at(-1)![0];
+    expect(last.orderBy).toEqual([{ sortOrder: "asc" }, { createdAt: "asc" }]);
   });
 
   it("keeps unlisted routines after the listed ones in their existing relative order", async () => {

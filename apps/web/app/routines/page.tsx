@@ -10,8 +10,8 @@ import { kstDayKey } from "@kibble/shared";
 import {
   isRoutineItemSkipped,
   moveRoutine,
+  performRoutineMove,
   routineItemSummary,
-  routineOrderIds,
   type RoutineMoveDirection,
 } from "../../lib/routines";
 import type {
@@ -46,6 +46,7 @@ export default function RoutinesPage() {
   const reorderingRef = useRef(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState("");
+  const petIdRef = useRef("");
   const listRef = useRef<HTMLUListElement>(null);
   const [focusTarget, setFocusTarget] = useState<{ id: string; dir: RoutineMoveDirection } | null>(
     null,
@@ -108,6 +109,14 @@ export default function RoutinesPage() {
     [t],
   );
 
+  // 탭을 옮기면 이전 탭의 이동 안내·오류는 의미가 없다
+  useEffect(() => {
+    petIdRef.current = petId;
+    setReorderError(null);
+    setMoveNote("");
+    setFocusTarget(null);
+  }, [petId]);
+
   useEffect(() => {
     if (petId) void loadForPet(petId);
   }, [petId, loadForPet]);
@@ -139,7 +148,7 @@ export default function RoutinesPage() {
     if (reorderingRef.current) return;
     const next = moveRoutine(routines, routine.id, dir);
     if (next === routines) return;
-    const previous = routines;
+    const requestPetId = petId;
     reorderingRef.current = true;
     setReordering(true);
     setReorderError(null);
@@ -151,21 +160,39 @@ export default function RoutinesPage() {
         position: String(next.findIndex((r) => r.id === routine.id) + 1),
       }),
     );
-    try {
-      const saved = await apiJson<Routine[]>("/api/routines/order", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ petId, ids: routineOrderIds(next) }),
-      });
-      setRoutines(saved);
-    } catch {
-      setRoutines(previous);
+    const outcome = await performRoutineMove({
+      list: routines,
+      id: routine.id,
+      dir,
+      petId: requestPetId,
+      currentPetId: () => petIdRef.current,
+      put: (ids) =>
+        apiJson<Routine[]>("/api/routines/order", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ petId: requestPetId, ids }),
+        }),
+    });
+    if (outcome.status === "saved") {
+      setRoutines(outcome.list);
+    } else if (outcome.status === "failed") {
+      // 롤백 대신 서버 기준으로 다시 불러온다 — 404(다른 탭에서 지움·보관)면 이전 순서도 낡았다
       setMoveNote("");
       setReorderError(t("routineReorderError"));
       setFocusTarget({ id: routine.id, dir });
-    } finally {
-      reorderingRef.current = false;
-      setReordering(false);
+      await refreshRoutines(requestPetId, routines);
+    }
+    reorderingRef.current = false;
+    setReordering(false);
+  }
+
+  /** 서버 목록으로 되돌린다. 불러오지 못하면 이동 전 순서로 롤백한다 */
+  async function refreshRoutines(forPetId: string, fallback: Routine[]) {
+    try {
+      const rows = await apiJson<Routine[]>(`/api/routines?petId=${encodeURIComponent(forPetId)}`);
+      if (petIdRef.current === forPetId) setRoutines(rows);
+    } catch {
+      if (petIdRef.current === forPetId) setRoutines(fallback);
     }
   }
 
@@ -211,7 +238,7 @@ export default function RoutinesPage() {
             type="button"
             className="page-add-btn"
             onClick={openNew}
-            disabled={!petId || dataLoading}
+            disabled={!petId || dataLoading || reordering}
           >
             + {t("routinesNew")}
           </button>
@@ -273,7 +300,8 @@ export default function RoutinesPage() {
                     </button>
                   );
                 })}
-                <button type="button" className="btn-action" onClick={() => openEdit(routine)}>
+                <button type="button" className="btn-action" disabled={reordering}
+                  onClick={() => openEdit(routine)}>
                   {t("edit")}
                 </button>
               </div>

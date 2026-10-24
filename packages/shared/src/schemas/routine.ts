@@ -39,7 +39,7 @@ export const updateRoutineSchema = z
   })
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });
 
-/** 한 반려동물이 가질 수 있는 루틴 수의 상한 — 재배치 본문 크기를 막는다 */
+/** 재배치 본문(`ids`)의 상한 — 루틴 수 제한이 아니라 요청 크기 제한이다 */
 export const ROUTINE_ORDER_MAX = 200;
 
 /**

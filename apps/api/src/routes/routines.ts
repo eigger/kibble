@@ -260,6 +260,8 @@ export async function routineRoutes(app: FastifyInstance) {
     const { petId, ids } = parsed.data;
 
     const result = await prisma.$transaction(async (tx) => {
+      // 같은 pet의 동시 재배치를 직렬화 — 두 요청이 서로의 sortOrder를 덮어 중복 순번이 생기는 것을 막는다
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:routine-order:${householdId}:${petId}`}, 0))`;
       const current = await tx.routine.findMany({
         where: { ...householdWhere(householdId), petId, archivedAt: null },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],

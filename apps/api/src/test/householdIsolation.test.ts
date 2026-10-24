@@ -20,6 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
   eventTypeAlias: { findMany: vi.fn(), upsert: vi.fn() },
   routine: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), create: vi.fn(), aggregate: vi.fn() },
   $transaction: vi.fn(),
+  $executeRaw: vi.fn(),
   routineItem: { deleteMany: vi.fn(), createMany: vi.fn() },
   product: { count: vi.fn() },
   medicationCourse: { findMany: vi.fn() },

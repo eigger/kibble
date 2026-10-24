@@ -200,6 +200,36 @@ export function moveRoutine<T extends { id: string }>(
   return next;
 }
 
+export type RoutineMoveOutcome<T> =
+  /** 옮길 곳이 없다 — 아무것도 하지 않는다 */
+  | { status: "noop" }
+  /** 요청하는 사이 다른 반려동물 탭으로 넘어갔다 — 응답도 롤백도 화면에 적용하지 않는다 */
+  | { status: "stale" }
+  | { status: "saved"; list: T[] }
+  | { status: "failed"; error: unknown };
+
+/**
+ * 한 칸 이동을 서버에 보내고 결과를 분류한다. 낙관적 갱신(새 순서 표시)은 호출자가 먼저 하고,
+ * 여기서는 PUT 뒤의 분기만 맡는다 — 탭 전환 경합(stale)을 호출자가 빠뜨리지 않게 한 곳에 둔다.
+ */
+export async function performRoutineMove<T extends { id: string }>(opts: {
+  list: readonly T[];
+  id: string;
+  dir: RoutineMoveDirection;
+  petId: string;
+  currentPetId: () => string;
+  put: (ids: string[]) => Promise<T[]>;
+}): Promise<RoutineMoveOutcome<T>> {
+  const next = moveRoutine(opts.list, opts.id, opts.dir);
+  if (next === opts.list) return { status: "noop" };
+  try {
+    const list = await opts.put(routineOrderIds(next));
+    return opts.currentPetId() === opts.petId ? { status: "saved", list } : { status: "stale" };
+  } catch (error) {
+    return opts.currentPetId() === opts.petId ? { status: "failed", error } : { status: "stale" };
+  }
+}
+
 /** `PUT /api/routines/order`에 보낼 id 순서 */
 export function routineOrderIds(list: readonly { id: string }[]): string[] {
   return list.map((r) => r.id);

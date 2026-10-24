@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { moveRoutine, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
+import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -278,5 +278,49 @@ describe("moveRoutine", () => {
 
   it("routineOrderIds lists ids in order", () => {
     expect(routineOrderIds(moveRoutine(list, "c", "up"))).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("performRoutineMove", () => {
+  const list = [{ id: "a" }, { id: "b" }];
+  const base = { list, id: "a", dir: "down" as const, petId: "p1" };
+
+  it("sends the moved order and returns the saved list", async () => {
+    const put = vi.fn(async (ids: string[]) => ids.map((id) => ({ id })));
+    const out = await performRoutineMove({ ...base, currentPetId: () => "p1", put });
+    expect(put).toHaveBeenCalledWith(["b", "a"]);
+    expect(out).toEqual({ status: "saved", list: [{ id: "b" }, { id: "a" }] });
+  });
+
+  it("does nothing at the edge", async () => {
+    const put = vi.fn();
+    const out = await performRoutineMove({ ...base, id: "b", currentPetId: () => "p1", put });
+    expect(out).toEqual({ status: "noop" });
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("reports failure for the current pet so the caller can roll back", async () => {
+    const error = new Error("404");
+    const out = await performRoutineMove({
+      ...base,
+      currentPetId: () => "p1",
+      put: async () => {
+        throw error;
+      },
+    });
+    expect(out).toEqual({ status: "failed", error });
+  });
+
+  it("drops both success and failure when the pet tab changed meanwhile", async () => {
+    const ok = await performRoutineMove({ ...base, currentPetId: () => "p2", put: async () => [] });
+    const bad = await performRoutineMove({
+      ...base,
+      currentPetId: () => "p2",
+      put: async () => {
+        throw new Error("x");
+      },
+    });
+    expect(ok).toEqual({ status: "stale" });
+    expect(bad).toEqual({ status: "stale" });
   });
 });

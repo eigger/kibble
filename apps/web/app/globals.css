@@ -1603,6 +1603,14 @@ button:disabled {
   cursor: progress;
 }
 
+@media (pointer: coarse) {
+  .manage-card-actions .btn-move {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+}
+
 .care-med-doses-today {
   margin-top: 4px;
 }
