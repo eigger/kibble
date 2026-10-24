@@ -12,6 +12,7 @@ import {
   type MedicationCourseDraft,
 } from "../lib/medicationCourseDraft";
 import type { MedicationCourseProgress, MedicationCourseRow } from "../lib/types";
+import { useDialog } from "../lib/useDialog";
 import { MedicationCourseForm } from "./MedicationCourseForm";
 
 import type { TranslationKey } from "../lib/i18n/translations";
@@ -61,6 +62,7 @@ export function MedicationCourseSheet({
 }: Props) {
   const [draft, setDraft] = useState<MedicationCourseDraft>(emptyMedicationCourseDraft());
   const [saving, setSaving] = useState(false);
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
 
   useEffect(() => {
     if (!open) return;
@@ -158,6 +160,7 @@ export function MedicationCourseSheet({
   return (
     <div className="sheet-backdrop" role="presentation" onClick={saving ? undefined : onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card med-course-sheet"
         role="dialog"
         aria-modal="true"

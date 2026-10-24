@@ -18,6 +18,7 @@ import {
 } from "../lib/datetimeLocal";
 import { apiJson } from "../lib/api";
 import { eventDetailFields, formatScaleValuePart, productValueDisplay, quantityPlaceholder, resolveEventUnit, scale3FieldLabelKey, scale3ValueLabelKey } from "../lib/eventDetailFields";
+import { useDialog } from "../lib/useDialog";
 import { loadEventDetailPrefs, saveEventDetailPrefs } from "../lib/eventDetailPrefs";
 import {
   encodeProductNameValue,
@@ -400,10 +401,15 @@ export function EventDetailSheet({
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [lightbox, setLightbox] = useState<LightboxTarget | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const busy = saving || deleting;
+  const dialogRef = useDialog({
+    open: open && !!draft,
+    onClose,
+    closeOnEscape: !busy,
+    initialFocus: "container",
+  });
   // 사용자가 제품을 직접 만졌는가 — 늦게 도착한 추천 응답이 그 선택 위에 지난 세트를 덮거나 덧붙이지 않게
   const productTouchedRef = useRef(false);
-  const busy = saving || deleting;
   const syncKey = draftSyncKey(draft);
   const wantsMaps = open && draft?.eventTypeKey === "vet_visit";
   const mapConfig = useMapProviders(wantsMaps);
@@ -736,18 +742,11 @@ export function EventDetailSheet({
   const visibleAttachments = attachments.filter((a) => !removedAttachmentIds.includes(a.id));
   const showForm = isEditing;
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy && !lightbox) onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, busy, lightbox, onClose]);
+  // Escape는 useDialog가 맡는다 — 위에 라이트박스가 열려 있으면 그쪽만 닫힌다.
 
   useEffect(() => {
     if (open) dialogRef.current?.focus();
-  }, [open, syncKey]);
+  }, [open, syncKey, dialogRef]);
 
   if (!open || !draft) return null;
 

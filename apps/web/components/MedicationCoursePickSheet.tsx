@@ -1,6 +1,7 @@
 "use client";
 
 import type { TranslationKey } from "../lib/i18n/translations";
+import { useDialog } from "../lib/useDialog";
 
 type CourseOption = { id: string; name: string; done?: boolean };
 
@@ -13,11 +14,13 @@ type Props = {
 };
 
 export function MedicationCoursePickSheet({ open, courses, onClose, onPick, t }: Props) {
+  const dialogRef = useDialog({ open, onClose });
   if (!open) return null;
 
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card med-course-pick-sheet"
         role="dialog"
         aria-modal="true"

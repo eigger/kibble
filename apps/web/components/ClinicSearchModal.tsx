@@ -6,6 +6,7 @@ import type { MapProvidersConfig } from "../lib/maps/types";
 import { DARK_MAP_FILTER } from "../lib/maps/darkMode";
 import { useIsDarkMode } from "../lib/useIsDarkMode";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 
 export type ClinicPlaceResult = {
   name: string;
@@ -44,6 +45,8 @@ export function ClinicSearchModal({
   const [hospitalsOnly, setHospitalsOnly] = useState(true);
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const queryInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useDialog({ onClose, initialFocus: queryInputRef });
 
   // 현재 위치가 있으면 가까운 병원이 먼저 나온다. 거부해도 검색 자체는 동작한다.
   useEffect(() => {
@@ -133,6 +136,7 @@ export function ClinicSearchModal({
   return (
     <div className="confirm-dialog-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="card clinic-search-modal"
         role="dialog"
         aria-modal="true"
@@ -156,7 +160,7 @@ export function ClinicSearchModal({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("clinicSearchPlaceholder")}
-                autoFocus
+                ref={queryInputRef}
               />
               <button type="submit" disabled={!query.trim() || !sdkReady || searching}>
                 {searching ? t("clinicSearching") : t("clinicSearchButton")}

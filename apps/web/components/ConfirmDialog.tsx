@@ -1,5 +1,8 @@
 "use client";
 
+import { useId } from "react";
+import { useDialog } from "../lib/useDialog";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -21,18 +24,21 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+  const dialogRef = useDialog({ open, onClose: onCancel, closeOnEscape: !busy });
   if (!open) return null;
 
   return (
     <div className="confirm-dialog-backdrop" role="presentation" onClick={onCancel}>
       <div
+        ref={dialogRef}
         className="card confirm-dialog-card"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="confirm-dialog-title" className="confirm-dialog-title">
+        <h2 id={titleId} className="confirm-dialog-title">
           {title}
         </h2>
         <div className="confirm-dialog-actions">

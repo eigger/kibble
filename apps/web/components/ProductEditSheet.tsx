@@ -12,6 +12,7 @@ import type {
 } from "../lib/types";
 import { hasFormDetails, kstDayKey, weightToGrams } from "@kibble/shared";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 import { apiJson, apiFetch } from "../lib/api";
 import { MAX_PRODUCT_PHOTOS, weightToInput } from "@kibble/shared";
 import { ProductPhoto } from "./ProductPhoto";
@@ -39,6 +40,8 @@ export function ProductEditSheet({
   showToast,
 }: Props) {
   const { t } = useLocale();
+  const [saving, setSaving] = useState(false);
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
 
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
@@ -78,7 +81,6 @@ export function ProductEditSheet({
   const [pendingPrimaryId, setPendingPrimaryId] = useState<string | null>(null);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviews, setNewPreviews] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
 
   // Collapsible section states
   const [showFeeding, setShowFeeding] = useState(false);
@@ -411,6 +413,7 @@ export function ProductEditSheet({
   return (
     <div className="sheet-backdrop" role="presentation" onClick={saving ? undefined : onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card product-edit-sheet"
         role="dialog"
         aria-modal="true"

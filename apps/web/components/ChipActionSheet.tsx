@@ -1,6 +1,7 @@
 "use client";
 
 import type { TranslationKey } from "../lib/i18n/translations";
+import { useDialog } from "../lib/useDialog";
 
 interface ChipActionSheetProps {
   open: boolean;
@@ -12,11 +13,13 @@ interface ChipActionSheetProps {
 }
 
 export function ChipActionSheet({ open, label, onClose, onDetail, onHide, t }: ChipActionSheetProps) {
+  const dialogRef = useDialog({ open, onClose });
   if (!open) return null;
 
   return (
     <div className="sheet-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card chip-action-sheet"
         role="dialog"
         aria-modal="true"

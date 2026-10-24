@@ -7,6 +7,7 @@ import { formatApiErrorMessage } from "../lib/apiErrorMessage";
 import { useLocale } from "../lib/i18n/locale-context";
 import type { TranslationKey } from "../lib/i18n/translations";
 import { useToast } from "../lib/toast-context";
+import { useDialog } from "../lib/useDialog";
 import { toggleProductNameTag } from "../lib/eventDetailTags";
 import {
   buildItemPayload,
@@ -143,6 +144,7 @@ export function RoutineEditSheet({
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const dialogRef = useDialog({ open, onClose, closeOnEscape: !saving, initialFocus: "container" });
 
   const defaultUnitByKey = useMemo(
     () => new Map(eventTypes.map((et) => [et.key, et.defaultUnit ?? null])),
@@ -294,6 +296,7 @@ export function RoutineEditSheet({
     <>
     <div className="sheet-backdrop" role="presentation" onClick={saving ? undefined : onClose}>
       <div
+        ref={dialogRef}
         className="sheet-card routine-edit-sheet"
         role="dialog"
         aria-modal="true"

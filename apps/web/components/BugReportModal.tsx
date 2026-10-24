@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { buildBugReportUrl } from "../lib/bugReport";
 import { useLocale } from "../lib/i18n/locale-context";
+import { useDialog } from "../lib/useDialog";
 
 interface BugReportModalProps {
   onClose: () => void;
@@ -14,6 +15,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
   const { t, locale } = useLocale();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const dialogRef = useDialog({ onClose });
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,6 +33,7 @@ export function BugReportModal({ onClose }: BugReportModalProps) {
   return (
     <div className="confirm-dialog-backdrop" role="presentation" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="card bug-report-modal"
         role="dialog"
         aria-modal="true"

@@ -2120,6 +2120,12 @@ button:disabled {
   z-index: 90;
 }
 
+/* useDialog가 포커스를 주는 다이얼로그 자체에는 링을 그리지 않는다 */
+[role="dialog"][tabindex="-1"]:focus,
+[role="alertdialog"][tabindex="-1"]:focus {
+  outline: none;
+}
+
 .sheet-card {
   background: var(--color-surface);
   border-radius: 16px 16px 0 0;
