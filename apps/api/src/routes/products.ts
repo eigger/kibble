@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { ProductCategory as ProductCategoryEnum } from "@prisma/client";
 import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
 import {
   createProductSchema,
   kibbleSizeForForm,
   MAX_PRODUCT_PHOTOS,
   nextPrimaryPhotoPath,
+  productCategorySchema,
   updateProductSchema,
 } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
@@ -57,9 +57,8 @@ export async function productRoutes(app: FastifyInstance) {
     }
 
     // K-12: 알 수 없는 카테고리는 거부하지 않고 필터를 건너뛴다 (Prisma 검증 오류 500 방지)
-    if (query.category && (Object.values(ProductCategoryEnum) as string[]).includes(query.category)) {
-      where.category = query.category as ProductCategory;
-    }
+    const category = productCategorySchema.safeParse(query.category);
+    if (category.success) where.category = category.data;
 
     if (query.petId) {
       const petId = query.petId.trim();

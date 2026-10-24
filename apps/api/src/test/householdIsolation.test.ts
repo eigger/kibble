@@ -22,7 +22,7 @@ const mockPrisma = vi.hoisted(() => ({
   routineItem: { deleteMany: vi.fn(), createMany: vi.fn() },
   product: { count: vi.fn() },
   medicationCourse: { findMany: vi.fn() },
-  attachment: { findFirst: vi.fn(), create: vi.fn(), delete: vi.fn() },
+  attachment: { findFirst: vi.fn(), create: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   event: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
@@ -459,7 +459,36 @@ describe("household isolation (K-3)", () => {
         }),
       }),
     );
-    expect(mockPrisma.attachment.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.attachment.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("DELETE /api/attachments/:id deleteMany에 가구 조건이 들어간다 (K-1)", async () => {
+    mockPrisma.attachment.findFirst.mockResolvedValue({ id: "att_1", path: "a/x.jpg", posterPath: null });
+    mockPrisma.attachment.deleteMany.mockResolvedValue({ count: 1 });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/attachments/att_1",
+      headers: authHeaders(signJwt(app)),
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.attachment.deleteMany).toHaveBeenCalledWith({
+      where: { id: "att_1", event: { householdId: HH_A } },
+    });
+  });
+
+  it("DELETE /api/attachments/:id 경합으로 count 0이면 404", async () => {
+    mockPrisma.attachment.findFirst.mockResolvedValue({ id: "att_1", path: "a/x.jpg", posterPath: null });
+    mockPrisma.attachment.deleteMany.mockResolvedValue({ count: 0 });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/attachments/att_1",
+      headers: authHeaders(signJwt(app)),
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 
   it("GET /api/attachments/file/* returns 404 for another household's path (K-3)", async () => {

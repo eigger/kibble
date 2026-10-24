@@ -25,8 +25,7 @@ function fakeDb(opts: Opts) {
     $executeRaw: lock,
     event: {
       findFirst: vi.fn(async () => deleted),
-      // restore 후 재조회 — 삭제 표시가 없는 행
-      // (updateMany 뒤 findFirst도 같은 mock을 쓴다)
+      // 삭제된 행 조회와 복원 후 재조회가 같은 mock을 쓴다(반환 행의 id만 본다)
       findMany: vi.fn(async () => opts.others ?? []),
       updateMany: update,
     },
@@ -47,8 +46,15 @@ describe("restoreEvent", () => {
     const { db, update, lock } = fakeDb({
       deleted: { id: "e1", petId: "pet1", occurredAt: new Date(), medicationCourseId: null, doseSlotIndex: null },
     });
-    await restoreEvent(db, params);
+    const restored = await restoreEvent(db, params);
     expect(update).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "e1", householdId: "h1", deletedAt: { not: null } },
+        data: { deletedAt: null },
+      }),
+    );
+    expect(restored).toMatchObject({ id: "e1" });
     expect(lock).not.toHaveBeenCalled();
   });
 

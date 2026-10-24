@@ -320,7 +320,11 @@ export async function eventRoutes(app: FastifyInstance) {
     // 병원 Contact 생성·갱신 같은 부수 쓰기보다 먼저 기록이 이 가구에 있는지 본다
     const target = await prisma.event.findFirst({
       where: { id, ...householdWhere(householdId), deletedAt: null },
-      select: { id: true },
+      select: {
+        medicationCourseId: true,
+        eventType: { select: { key: true, scaleType: true } },
+        contact: { select: { name: true } },
+      },
     });
     if (!target) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
     const updateData: Record<string, unknown> = { updatedById: sessionUserId(request) };
@@ -341,12 +345,7 @@ export async function eventRoutes(app: FastifyInstance) {
       // 이름을 안 보내고 제품만 바꾸는 요청 — 태그 타입이면 slug 목록을 제품 이름으로 덮지 않는다
       let fillNameFromProduct = true;
       if (householdProduct && data.productName === undefined) {
-        const row = await prisma.event.findFirst({
-          where: { id, ...householdWhere(householdId), deletedAt: null },
-          select: { eventType: { select: { key: true } } },
-        });
-        if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-        fillNameFromProduct = !productNameIsTagList(row.eventType.key);
+        fillNameFromProduct = !productNameIsTagList(target.eventType.key);
       }
       const resolved = resolveEventProductFields({
         productId: data.productId,
@@ -357,6 +356,24 @@ export async function eventRoutes(app: FastifyInstance) {
       if (resolved.productId !== undefined) updateData.productId = resolved.productId;
       if (resolved.productName !== undefined) updateData.productName = resolved.productName;
     }
+    if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
+    if (data.note !== undefined) updateData.note = data.note;
+    if (data.needsReview !== undefined) updateData.needsReview = data.needsReview;
+
+    if (data.doseOrdinal !== undefined) {
+      // 회차는 투약 과정에 매인 기록만 갖는다. 그 외에는 조용히 흘린다 (K-12).
+      if (target.medicationCourseId) updateData.doseOrdinal = data.doseOrdinal;
+    }
+
+    if (data.scaleValue !== undefined && data.scaleValue !== null) {
+      try {
+        validateScaleValue(target.eventType.scaleType, data.scaleValue);
+      } catch {
+        return reply.code(400).send({ error: t("scaleValueInvalid", request.locale) });
+      }
+    }
+
+    // 병원 Contact 생성·갱신은 400 검증을 모두 통과한 뒤, 기록을 쓰기 직전에 한다
     const clinicDetailsChanged =
       data.clinicAddress !== undefined ||
       data.clinicLatitude !== undefined ||
@@ -368,46 +385,13 @@ export async function eventRoutes(app: FastifyInstance) {
         data.clinicName,
         vetContactDetails(data),
       );
-    } else if (clinicDetailsChanged) {
+    } else if (clinicDetailsChanged && target.contact?.name) {
       // 이름을 안 보냈으면 기존 Contact의 이름을 그대로 두고 주소·좌표만 갱신한다.
-      const row = await prisma.event.findFirst({
-        where: { id, ...householdWhere(householdId), deletedAt: null },
-        select: { contact: { select: { id: true, name: true } } },
-      });
-      if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-      if (row.contact?.name) {
-        updateData.contactId = await resolveClinicContactId(
-          householdId,
-          row.contact.name,
-          vetContactDetails(data),
-        );
-      }
-    }
-    if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
-    if (data.note !== undefined) updateData.note = data.note;
-    if (data.needsReview !== undefined) updateData.needsReview = data.needsReview;
-
-    if (data.doseOrdinal !== undefined) {
-      const row = await prisma.event.findFirst({
-        where: { id, ...householdWhere(householdId), deletedAt: null },
-        select: { medicationCourseId: true },
-      });
-      if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-      // 회차는 투약 과정에 매인 기록만 갖는다. 그 외에는 조용히 흘린다 (K-12).
-      if (row.medicationCourseId) updateData.doseOrdinal = data.doseOrdinal;
-    }
-
-    if (data.scaleValue !== undefined && data.scaleValue !== null) {
-      const row = await prisma.event.findFirst({
-        where: { id, ...householdWhere(householdId), deletedAt: null },
-        select: { eventType: { select: { scaleType: true } } },
-      });
-      if (!row) return reply.code(404).send({ error: t("eventNotFound", request.locale) });
-      try {
-        validateScaleValue(row.eventType.scaleType, data.scaleValue);
-      } catch {
-        return reply.code(400).send({ error: t("scaleValueInvalid", request.locale) });
-      }
+      updateData.contactId = await resolveClinicContactId(
+        householdId,
+        target.contact.name,
+        vetContactDetails(data),
+      );
     }
 
     let updatedCount: number;

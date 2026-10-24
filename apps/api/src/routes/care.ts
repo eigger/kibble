@@ -269,8 +269,9 @@ export async function careRoutes(app: FastifyInstance) {
             )
           : undefined;
 
-      // endDate < startDate는 거부하지 않고(K-12) startDate로 보정한다. 시작일만 바꿔서
-      // 기존 종료일이 앞서게 되는 경우도 같은 규칙이다.
+      // endDate < startDate는 거부하지 않고(K-12) startDate로 보정한다. 요청이 날짜(startDate/endDate)를
+      // 건드릴 때만 한다 — 이름·메모만 바꾸는 PATCH가 기존 행의 endDate를 고치면 안 된다.
+      const datesTouched = body.startDate !== undefined || body.endDate !== undefined;
       const nextStart = body.startDate !== undefined ? new Date(body.startDate) : existing.startDate;
       const requestedEnd =
         body.endDate !== undefined
@@ -279,8 +280,6 @@ export async function careRoutes(app: FastifyInstance) {
             : null
           : existing.endDate;
       const nextEnd = requestedEnd ? clampEndDate(nextStart, requestedEnd) : null;
-      const endChanged =
-        body.endDate !== undefined || (nextEnd && nextEnd.getTime() !== existing.endDate?.getTime());
 
       const { count } = await prisma.medicationCourse.updateMany({
         where: { id, ...householdWhere(householdId) },
@@ -292,7 +291,7 @@ export async function careRoutes(app: FastifyInstance) {
           ...(doseTimes !== undefined ? { doseTimes } : {}),
           ...(body.totalDoses !== undefined ? { totalDoses: body.totalDoses } : {}),
           ...(body.startDate !== undefined ? { startDate: nextStart } : {}),
-          ...(endChanged ? { endDate: nextEnd } : {}),
+          ...(datesTouched ? { endDate: nextEnd } : {}),
           ...(body.note !== undefined ? { note: body.note } : {}),
         },
       });

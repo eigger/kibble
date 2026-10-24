@@ -5,9 +5,11 @@
 - **시각 입력**: zod 4의 `datetime()`은 `+09:00` 오프셋과 초 생략을 거부해 HA 자동화가 400을 받았다(K-12/K-14). `isoDatetime`(shared)으로 오프셋·`Z`·초 생략을 모두 받고 UTC ISO로 정규화한다. 이벤트·처방·제품·토큰 만료에 공통 적용.
 - **zod 4 필수 누락 메시지**: 웹의 `"Required"` 매칭은 죽은 코드였다. v4 메시지(`received undefined`)를 인식하도록 고쳤다(R171).
 - **오프라인 큐 업그레이드**: `onupgradeneeded`가 무조건 스토어를 지워 다음 `DB_VERSION` 증가 때 미전송 기록·첨부가 사라질 뻔했다(K-13). `oldVersion < 2`일 때만 지운다. 이후 버전은 스토어를 유지하고 `oldVersion < N` 단위로 변경만 추가한다.
-- **K-1 쓰기 쿼리**: 가구 확인 뒤 `update/delete({ where: { id } })`를 `updateMany/deleteMany` + `householdWhere`로 바꾸고 count===0은 404로 처리(동작 유지).
+- **K-1 쓰기 쿼리**: 가구 확인 뒤 `update/delete({ where: { id } })`를 `updateMany/deleteMany` + `householdWhere`로 바꾸고 count===0은 404로 처리. 평상시 동작은 같고, 확인과 쓰기 사이에 행이 사라지는 경합에서는 500(P2025)이던 것이 404가 된다.
 - **`PATCH /events/:id`**: 병원 Contact 생성·갱신 전에 기록의 존재·가구를 먼저 확인한다.
-- **`GET /products?category=잘못된값`**: 500 대신 필터를 무시한다(K-12).
+- **`GET /products?category=잘못된값`**: 500 대신 필터를 무시한다(K-12) — 400도 아니고 빈 목록도 아닌 **전체 목록** 정책. shared의 `productCategorySchema`로 판정한다.
+- **시각 표기**: HA `now()`의 공백 구분자·`+0900`·마이크로초도 받아 UTC로 정규화, 연도 0000~9999 밖은 400. 결정은 WORKPLAN §7.26.
+- **`PATCH /events/:id` 순서**: 400 검증(scaleValue)을 끝낸 뒤 병원 Contact를 쓴다. 마지막 `applyEventUpdate`의 409는 Contact가 결과에 들어가야 해서 앞으로 못 옮긴다(Contact만 남을 수 있음 — 멱등 upsert라 허용).
 - **처방 `endDate < startDate`**: 거부하지 않고 서버가 `endDate = startDate`로 보정한다(생성·수정, 시작일만 바꿔 역전되는 경우 포함).
 
 ### 2026-10-24 — 보안·인프라 보강 (PR1)

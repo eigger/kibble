@@ -338,6 +338,9 @@ describe("productRoutes — 제품 등록 및 조회 API", () => {
     expect(mockPrisma.product.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { photoPath: "products/b.webp" } }),
     );
+    expect(mockPrisma.productPhoto.deleteMany).toHaveBeenCalledWith({
+      where: { id: "ph1", product: { householdId: HH } },
+    });
   });
 
   it("대표가 아닌 사진을 지우면 대표를 건드리지 않는다", async () => {

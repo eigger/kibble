@@ -40,7 +40,7 @@ export async function restoreEvent(
 
   const courseId = deleted.medicationCourseId;
   if (!courseId) {
-    return reviveEvent(db, where, deleted.id);
+    return reviveEvent(db, where);
   }
 
   return withMedicationCourseLock(db, courseId, async (tx) => {
@@ -81,7 +81,7 @@ export async function restoreEvent(
       if (conflict) throw new CreateEventDoseConflictError(conflict);
     }
 
-    return reviveEvent(tx, where, deleted.id);
+    return reviveEvent(tx, where);
   });
 }
 
@@ -89,14 +89,13 @@ export async function restoreEvent(
 async function reviveEvent(
   db: Db,
   where: { id: string; householdId: string },
-  eventId: string,
 ): Promise<CreatedEvent> {
   const { count } = await db.event.updateMany({
     where: { ...where, deletedAt: { not: null } },
     data: { deletedAt: null },
   });
   if (count === 0) throw new CreateEventNotFoundError("event");
-  const row = await db.event.findFirst({ where: { ...where, id: eventId }, select: eventSelect });
+  const row = await db.event.findFirst({ where, select: eventSelect });
   if (!row) throw new CreateEventNotFoundError("event");
   return row;
 }

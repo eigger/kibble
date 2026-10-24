@@ -217,7 +217,7 @@ curl -sS -X POST "$BASE/api/events" \
   -d '{"dedupeKey":"auto:001"}'
 ```
 
-선택 필드: `occurredAt`(ISO 8601 — `Z`·`+09:00` 같은 오프셋 모두 가능, 초 생략 `2024-01-02T03:04Z`도 가능. 서버가 UTC로 정규화해 저장), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시), `productId`(제품 연결), `productName`(자유 텍스트 제품명).
+선택 필드: `occurredAt`(ISO 8601 — 예: `2024-01-02T12:00:00+09:00`. `Z`·`+09:00`·`+0900` 오프셋, 초 생략, 소수초, 공백 구분자(`2024-01-02 12:00:00+09:00`, HA `now()`) 모두 가능. 오프셋 없는 시각과 날짜만은 400. 서버가 UTC로 정규화해 저장), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시), `productId`(제품 연결), `productName`(자유 텍스트 제품명).
 
 ### 단건 읽기
 
