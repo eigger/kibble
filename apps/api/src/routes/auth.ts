@@ -22,6 +22,9 @@ import {
   findHouseholdMember,
 } from "../lib/householdScope.js";
 
+/** pg_advisory_xact_lock 키 — 최초 관리자 생성 경합 직렬화 전용 */
+const BOOTSTRAP_LOCK_KEY = 726_001;
+
 class BootstrapDisabledError extends Error {
   constructor() {
     super("BOOTSTRAP_DISABLED");
@@ -40,6 +43,35 @@ async function isAdminOutsideHousehold(
 ): Promise<boolean> {
   if (target.role !== "ADMIN") return false;
   return (await findHouseholdMember(householdId, target.id)) === null;
+}
+
+/**
+ * 사용자를 지우면 멤버십이 cascade로 사라진다. 그 사용자가 가구의 마지막 OWNER이고 다른 구성원이
+ * 남아 있으면 가구를 관리할 사람이 없어지므로, 가장 먼저 합류한 비-VIEWER(없으면 VIEWER)를
+ * OWNER로 올린다. 구성원이 본인뿐인 가구는 손대지 않는다 — 가구와 기록을 함께 지우면 첨부 파일이
+ * 디스크에 남고 복구도 안 되므로, 파괴적 정리는 별도 결정(WORKLOG)으로 미뤘다.
+ */
+async function promoteSuccessorOwners(
+  tx: Pick<typeof prisma, "householdMember">,
+  userId: string,
+): Promise<string[]> {
+  const owned = await tx.householdMember.findMany({
+    where: { userId, role: "OWNER" },
+    select: { householdId: true },
+  });
+  const promoted: string[] = [];
+  for (const { householdId } of owned) {
+    const others = await tx.householdMember.findMany({
+      where: { householdId, userId: { not: userId } },
+      select: { id: true, userId: true, role: true },
+      orderBy: { id: "asc" },
+    });
+    if (others.length === 0 || others.some((m) => m.role === "OWNER")) continue;
+    const successor = others.find((m) => m.role === "MEMBER") ?? others[0]!;
+    await tx.householdMember.update({ where: { id: successor.id }, data: { role: "OWNER" } });
+    promoted.push(successor.userId);
+  }
+  return promoted;
 }
 
 export async function authRoutes(app: FastifyInstance) {
@@ -61,13 +93,17 @@ export async function authRoutes(app: FastifyInstance) {
     const passwordHash = await bcrypt.hash(password, 10);
     try {
       const user = await prisma.$transaction(async (tx) => {
+        // 동시에 들어온 두 요청이 모두 count=0을 보고 관리자를 둘 만들지 않도록 직렬화한다
+        // (트랜잭션이 끝나면 잠금이 풀리고, 뒤 요청은 count>0을 본다).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BOOTSTRAP_LOCK_KEY})`;
         const existingCount = await tx.user.count();
         if (existingCount > 0) throw new BootstrapDisabledError();
 
         const created = await tx.user.create({
           data: { name, email, passwordHash, role: "ADMIN" },
         });
-        const household = await tx.household.create({ data: { name: "우리 집" } });
+        const household = await tx.household.create({ data: { name: t("defaultHouseholdName", request.locale) },
+        });
         await tx.householdMember.create({
           data: { householdId: household.id, userId: created.id, role: "OWNER" },
         });
@@ -261,14 +297,23 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: t("cannotManageOtherAdmin", request.locale) });
       }
 
+      let promotedUserIds: string[];
       try {
-        await prisma.user.delete({ where: { id } });
+        promotedUserIds = await prisma.$transaction(async (tx) => {
+          const promoted = await promoteSuccessorOwners(tx, id);
+          await tx.user.delete({ where: { id } });
+          return promoted;
+        });
       } catch (err) {
         if (isRecordNotFoundError(err)) {
           return reply.code(404).send({ error: t("userNotFound", request.locale) });
         }
         throw err;
       }
+      // 삭제된 사용자의 토큰·가구 캐시(60초)를 비운다 — 안 비우면 삭제 직후에도 한동안 통과한다.
+      invalidateTokenVersionCache(id);
+      invalidateHouseholdCache(id);
+      for (const promotedId of promotedUserIds) invalidateHouseholdCache(promotedId);
       return reply.code(204).send();
     },
   );

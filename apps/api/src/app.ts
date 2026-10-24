@@ -4,7 +4,6 @@ import jwt from "@fastify/jwt";
 import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
-import { UPLOAD_CHUNK_SIZE_BYTES } from "@kibble/shared";
 import { authRoutes } from "./routes/auth.js";
 import { attachmentRoutes, mediaAttachmentRoutes } from "./routes/attachments.js";
 import { attachmentChunkRoutes } from "./routes/attachmentChunks.js";
@@ -28,6 +27,9 @@ import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { pushRoutes } from "./routes/push.js";
 import { runAuthenticate } from "./lib/authenticate.js";
 import { allowedCorsOrigins, isCorsOriginAllowed } from "./lib/corsOrigin.js";
+import { parseTrustProxy } from "./lib/trustProxy.js";
+
+const GLOBAL_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
 
 export type BuildAppOptions = {
   /** false면 테스트 inject 시 로그를 끈다 */
@@ -37,7 +39,11 @@ export type BuildAppOptions = {
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const jwtSecret = resolveJwtSecret();
   const app = Fastify({
-    bodyLimit: UPLOAD_CHUNK_SIZE_BYTES * 2,
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+    // 전역은 낮게 둔다 — JSON 본문은 수 KB~수십 KB다. 큰 본문은 청크 PUT 라우트만 따로 올린다
+    // (multipart는 스트리밍이라 이 한도를 타지 않고 @fastify/multipart의 fileSize가 막는다).
+    bodyLimit: GLOBAL_BODY_LIMIT_BYTES,
+    // 느린 회선의 청크 업로드가 끊기지 않게 요청 타임아웃은 두지 않는다. 슬로로리스류는 Caddy가 앞에서 받는다.
     requestTimeout: 0,
     logger:
       options.logger === false

@@ -40,6 +40,7 @@ const MESSAGES = {
     en: "This barcode is already registered to another item",
   },
 
+  defaultHouseholdName: { ko: "우리 집", en: "Our household" },
   bootstrapDisabled: {
     ko: "이미 관리자 계정이 있어 초기 설정을 할 수 없습니다",
     en: "Bootstrap is disabled — an admin account already exists",

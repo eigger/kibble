@@ -11,7 +11,13 @@ const GENERAL_OTHER = "general_other_hh";
 const ADMIN_SAME = "admin_same_hh";
 
 const mockPrisma = vi.hoisted(() => ({
-  householdMember: { findFirst: vi.fn(), findUnique: vi.fn() },
+  householdMember: {
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    findMany: vi.fn(async (): Promise<unknown[]> => []),
+    update: vi.fn(async () => ({})),
+  },
+  $transaction: vi.fn(),
   user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
   pet: { count: vi.fn() },
   pushSubscription: { deleteMany: vi.fn(async () => ({ count: 0 })) },
@@ -60,6 +66,8 @@ describe("admin user routes — 가구 밖 ADMIN 권한 상승 차단 (WORKPLAN 
     });
     mockPrisma.user.update.mockResolvedValue({ tokenVersion: 2 });
     mockPrisma.user.delete.mockResolvedValue({ id: "deleted" });
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
+    mockPrisma.householdMember.findMany.mockResolvedValue([]);
 
     app = await buildApp({ logger: false });
     token = signJwt(app);
@@ -100,6 +108,49 @@ describe("admin user routes — 가구 밖 ADMIN 권한 상승 차단 (WORKPLAN 
 
     expect(res.statusCode).toBe(204);
     expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: GENERAL_OTHER } });
+  });
+
+  it("promotes a successor OWNER when the last OWNER is deleted and members remain", async () => {
+    mockPrisma.householdMember.findMany.mockImplementation((async ({ where }: { where: { role?: string } }) =>
+      where.role === "OWNER"
+        ? [{ householdId: "hh_sep" }]
+        : [
+            { id: "m_viewer", userId: "viewer_u", role: "VIEWER" },
+            { id: "m_member", userId: "member_u", role: "MEMBER" },
+          ]) as never);
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/auth/users/${GENERAL_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.householdMember.update).toHaveBeenCalledWith({
+      where: { id: "m_member" },
+      data: { role: "OWNER" },
+    });
+  });
+
+  it("does not promote anyone when another OWNER remains or the user was alone", async () => {
+    mockPrisma.householdMember.findMany.mockImplementation((async ({
+      where,
+    }: {
+      where: { role?: string; householdId?: string };
+    }) => {
+      if (where.role === "OWNER") return [{ householdId: "hh_shared" }, { householdId: "hh_alone" }];
+      if (where.householdId === "hh_shared") return [{ id: "m1", userId: "u1", role: "OWNER" }];
+      return [];
+    }) as never);
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/auth/users/${GENERAL_OTHER}`,
+      headers: authHeaders(token),
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.householdMember.update).not.toHaveBeenCalled();
   });
 
   it("still resets an ADMIN who shares the requester's household", async () => {
