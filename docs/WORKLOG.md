@@ -7,6 +7,7 @@
 - `@zxing/*` 제거, API `i18n.ts`의 stash 유래 죽은 키 27개 제거(동적 조립 없음 확인 — `t()`에 넘기는 변수 키는 `createEventErrors`·`routines`뿐이고 모두 리터럴).
 - K-3 표 기반 격리 테스트 29행 추가(`householdIsolationTable.test.ts`): 제품·사진, 처방·복약, 청크 업로드 세션, 포스터, 토큰, 기록 보조 조회. **K-1 위반은 발견되지 않았다.** `/api/states`는 `stateRoutes.test.ts`가 이미 가구 밖 404·토큰 펫 스코프 403을 지킨다.
 - 기호성 5단계 배포 후 옛 번들 문제: SW는 network-first + `skipWaiting`/`clients.claim`이라 새로고침하면 새 번들이 뜨지만, 열려 있는 탭에는 새 버전을 알리는 장치가 없다(`controllerchange`/`updatefound` 처리 없음). 옛 폼이 HIGH를 덮어쓰는 것은 사용자가 기호성 select를 직접 바꿀 때만 가능해 위험이 작다고 보고 이번엔 표시 폴백만 고쳤다. 새 버전 알림이 필요해지면 별도 PR.
+- 리뷰 반영: 긴 폼 4개(제품·루틴·처방·버그 신고)는 입력 손실 방지로 Escape를 막음(§7.27). `useDialog`에 `returnFocus` 추가 — BottomNav "더보기" 메뉴에서 "문제 신고"를 누르면 열기 버튼이 같은 커밋에서 사라지고(iOS는 탭에 포커스도 안 줌) 열기 직전 요소가 body가 되므로, body/documentElement는 복원 대상에서 빼고 더보기 버튼으로 돌려준다. 복원 순서·라디오 그룹(폼+name)·`checkVisibility`·이미 옮겨진 포커스 보존은 §7.27. 격리 표 테스트는 모든 호출의 where에 householdId가 있는지 검사해 where 누락 뮤테이션 3종을 잡는다.
 - 미완: `scripts/measure-zxing-chunks.cjs`·`measure:zxing` 스크립트·`scanQueue.ts`는 죽은 코드로 남아 있다(Phase 2 스캐너 이식 때 같이 판단).
 
 ### 2026-10-25 — 첨부·라이트박스 (PR4)

@@ -19,6 +19,9 @@ export const FOCUSABLE_SELECTOR = [
 
 /** display:none 조상이나 visibility:hidden이면 포커스를 받을 수 없다. 레이아웃이 없는 jsdom에서도 동작한다. */
 function isRendered(el: HTMLElement): boolean {
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({ visibilityProperty: true });
+  }
   const view = el.ownerDocument.defaultView;
   if (!view) return true;
   if (view.getComputedStyle(el).visibility !== "visible") return false;
@@ -45,18 +48,38 @@ export function getFocusable(container: HTMLElement): HTMLElement[] {
   return collapseRadioGroups(tabbable);
 }
 
-/** 같은 name의 라디오는 Tab으로 한 칸이다 — 선택된 것, 없으면 첫 번째만 남긴다. */
-function collapseRadioGroups(list: HTMLElement[]): HTMLElement[] {
-  const isRadio = (el: HTMLElement): el is HTMLInputElement =>
-    el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
-  const keep = new Map<string, HTMLInputElement>();
+function isNamedRadio(el: Element): el is HTMLInputElement {
+  return el instanceof HTMLInputElement && el.type === "radio" && el.name !== "";
+}
+
+/** 라디오 그룹은 폼(null=폼 밖)과 name으로 구분한다. */
+function radioGroups(list: HTMLElement[]): Map<HTMLFormElement | null, Map<string, HTMLInputElement>> {
+  const groups = new Map<HTMLFormElement | null, Map<string, HTMLInputElement>>();
   for (const el of list) {
-    if (!isRadio(el)) continue;
-    const key = `${el.form?.id ?? ""}|${el.name}`;
-    const current = keep.get(key);
-    if (!current || (el.checked && !current.checked)) keep.set(key, el);
+    if (!isNamedRadio(el)) continue;
+    let byName = groups.get(el.form);
+    if (!byName) groups.set(el.form, (byName = new Map()));
+    const current = byName.get(el.name);
+    if (!current || (el.checked && !current.checked)) byName.set(el.name, el);
   }
-  return list.filter((el) => !isRadio(el) || keep.get(`${el.form?.id ?? ""}|${el.name}`) === el);
+  return groups;
+}
+
+/** 같은 그룹의 라디오는 Tab으로 한 칸이다 — 선택된 것, 없으면 첫 번째만 남긴다. */
+function collapseRadioGroups(list: HTMLElement[]): HTMLElement[] {
+  const groups = radioGroups(list);
+  return list.filter((el) => !isNamedRadio(el) || groups.get(el.form)?.get(el.name) === el);
+}
+
+/**
+ * `getFocusable` 결과 안에서 현재 포커스의 위치(없으면 -1).
+ * 라디오는 방향키로 그룹 안의 다른 항목에 있을 수 있어 그룹 대표의 위치로 본다.
+ */
+export function focusIndexOf(list: HTMLElement[], active: Element | null): number {
+  if (!active) return -1;
+  const direct = list.findIndex((el) => el === active);
+  if (direct >= 0 || !isNamedRadio(active)) return direct;
+  return list.findIndex((el) => isNamedRadio(el) && el.form === active.form && el.name === active.name);
 }
 
 /**
@@ -70,6 +93,17 @@ export function nextTabIndex(count: number, current: number, shift: boolean): nu
   if (shift && current === 0) return count - 1;
   if (!shift && current === count - 1) return 0;
   return null;
+}
+
+/**
+ * 닫을 때 포커스를 돌려줄 "열기 직전 요소"로 쓸 수 있는가.
+ * body/documentElement(= 포커스 없음)나 다이얼로그 자신 안의 요소는 아니다.
+ */
+export function restorableOpener(active: Element | null, container: HTMLElement | null): HTMLElement | null {
+  if (!(active instanceof HTMLElement)) return null;
+  if (active === active.ownerDocument.body || active === active.ownerDocument.documentElement) return null;
+  if (container?.contains(active)) return null;
+  return active;
 }
 
 /** 열린 다이얼로그 스택. 중첩(시트 위 라이트박스 등)에서 맨 위 하나만 키를 처리한다. */

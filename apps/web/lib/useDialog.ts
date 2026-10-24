@@ -3,10 +3,12 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
   createDialogStack,
+  focusIndexOf,
   getFocusable,
   isDismissKey,
   isTrapKey,
   nextTabIndex,
+  restorableOpener,
 } from "./dialogFocus";
 
 const dialogStack = createDialogStack();
@@ -24,6 +26,11 @@ type Options = {
    * "container"면 다이얼로그 자체(텍스트 입력이 많은 시트에서 모바일 키보드가 튀지 않게).
    */
   initialFocus?: RefObject<HTMLElement | null> | "first" | "container";
+  /**
+   * 닫힐 때 포커스를 돌려줄 곳. 열기 버튼이 같은 커밋에서 사라지는 메뉴 → 다이얼로그 흐름처럼
+   * 열기 직전 요소를 알 수 없을 때 호출자가 지정한다. 없으면 열기 직전 요소를 쓴다.
+   */
+  returnFocus?: RefObject<HTMLElement | null>;
 };
 
 /**
@@ -37,15 +44,18 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
   onClose,
   closeOnEscape = true,
   initialFocus = "first",
+  returnFocus,
 }: Options): RefObject<T | null> {
   const ref = useRef<T | null>(null);
   const onCloseRef = useRef(onClose);
   const escapeRef = useRef(closeOnEscape);
   const initialRef = useRef(initialFocus);
+  const returnRef = useRef(returnFocus);
   useEffect(() => {
     onCloseRef.current = onClose;
     escapeRef.current = closeOnEscape;
     initialRef.current = initialFocus;
+    returnRef.current = returnFocus;
   });
 
   useEffect(() => {
@@ -54,8 +64,8 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
     const container = ref.current;
     const active = document.activeElement;
     // 이미 다이얼로그 안에 있던 포커스(리렌더로 다시 열린 경우 등)는 복원 대상이 아니다
-    const opener =
-      active instanceof HTMLElement && !(container && container.contains(active)) ? active : null;
+    // body/documentElement는 "포커스 없음"이다 — 열기 버튼이 이미 사라졌거나 iOS가 탭에 포커스를 주지 않았다
+    const opener = restorableOpener(active, container);
     dialogStack.push(token);
     containers.set(token, () => ref.current);
 
@@ -81,7 +91,7 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
       if (!root) return;
       const list = getFocusable(root);
       const active = document.activeElement;
-      const current = active instanceof HTMLElement ? list.indexOf(active) : -1;
+      const current = focusIndexOf(list, active);
       const next = nextTabIndex(list.length, current, e.shiftKey);
       if (next === null) return;
       e.preventDefault();
@@ -93,10 +103,18 @@ export function useDialog<T extends HTMLElement = HTMLDivElement>({
       document.removeEventListener("keydown", onKeyDown);
       dialogStack.remove(token);
       containers.delete(token);
+      const target = returnRef.current?.current;
+      if (target?.isConnected) {
+        target.focus({ preventScroll: true });
+        return;
+      }
       if (opener?.isConnected) {
         opener.focus({ preventScroll: true });
         return;
       }
+      // 그 사이 사용자가 이미 다른 곳에 포커스를 두었으면 건드리지 않는다
+      const now = document.activeElement;
+      if (now && now !== document.body && now !== document.documentElement && now.isConnected) return;
       // 열기 직전 요소가 사라졌다 — 아래에 다이얼로그가 있으면 거기로, 없으면 main으로
       const below = dialogStack.top();
       const fallback = (below && containers.get(below)?.()) || document.querySelector<HTMLElement>("main");

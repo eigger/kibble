@@ -4,7 +4,9 @@ import {
   getFocusable,
   isDismissKey,
   isTrapKey,
+  focusIndexOf,
   nextTabIndex,
+  restorableOpener,
 } from "./dialogFocus";
 
 describe("nextTabIndex", () => {
@@ -74,6 +76,48 @@ describe("getFocusable visibility and groups", () => {
       <button id="z">z</button>
     `;
     expect(getFocusable(root).map((el) => el.id)).toEqual(["r2", "s1", "z"]);
+  });
+});
+
+describe("radio groups", () => {
+  it("separates groups by form, and treats radios outside any form as one group per name", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <form><input type="radio" name="g" id="f1" /><input type="radio" name="g" id="f2" /></form>
+      <form><input type="radio" name="g" id="h1" /><input type="radio" name="g" id="h2" /></form>
+      <input type="radio" name="g" id="o1" /><input type="radio" name="g" id="o2" />
+    `;
+    expect(getFocusable(root).map((el) => el.id)).toEqual(["f1", "h1", "o1"]);
+  });
+
+  it("maps a non-representative radio to its group's position", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `
+      <button id="a">a</button>
+      <input type="radio" name="g" id="r1" /><input type="radio" name="g" id="r2" checked />
+      <button id="z">z</button>
+    `;
+    const list = getFocusable(root);
+    expect(list.map((el) => el.id)).toEqual(["a", "r2", "z"]);
+    expect(focusIndexOf(list, root.querySelector("#r1"))).toBe(1);
+    expect(focusIndexOf(list, root.querySelector("#z"))).toBe(2);
+    expect(focusIndexOf(list, null)).toBe(-1);
+    expect(focusIndexOf(list, document.body)).toBe(-1);
+  });
+});
+
+describe("restorableOpener", () => {
+  it("ignores body, documentElement, null and elements inside the dialog", () => {
+    const dialog = document.createElement("div");
+    const inner = document.createElement("button");
+    dialog.appendChild(inner);
+    const outside = document.createElement("button");
+    expect(restorableOpener(document.body, dialog)).toBeNull();
+    expect(restorableOpener(document.documentElement, dialog)).toBeNull();
+    expect(restorableOpener(null, dialog)).toBeNull();
+    expect(restorableOpener(inner, dialog)).toBeNull();
+    expect(restorableOpener(outside, dialog)).toBe(outside);
+    expect(restorableOpener(outside, null)).toBe(outside);
   });
 });
 

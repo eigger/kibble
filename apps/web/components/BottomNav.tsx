@@ -236,6 +236,7 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     initBugReportCapture();
@@ -313,6 +314,7 @@ export function BottomNav() {
             );
           })}
           <button
+            ref={moreButtonRef}
             type="button"
             className={`bottom-nav-more${moreActive ? " active" : ""}`}
             aria-expanded={moreOpen}
@@ -436,7 +438,7 @@ export function BottomNav() {
           </div>
         </div>
       )}
-      {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} />}
+      {bugReportOpen && <BugReportModal onClose={() => setBugReportOpen(false)} returnFocusRef={moreButtonRef} />}
     </>
   );
 }
