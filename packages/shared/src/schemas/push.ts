@@ -8,6 +8,8 @@ const PRIVATE_HOST_SUFFIXES = [
   ".lan",
   ".home",
   ".home.arpa",
+  ".localdomain",
+  ".box",
   ".intranet",
   ".corp",
   ".test",

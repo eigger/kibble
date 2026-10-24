@@ -3,10 +3,12 @@
 ### 2026-10-24 — 보안·인프라 보강 (PR1)
 
 - **`TRUST_PROXY`**: Fastify에 `trustProxy`가 없어 Caddy 뒤에서 `request.ip`가 늘 프록시 IP였다 → rate limit(로그인 15분 10회 등)이 전원 공용. 코드 기본값은 **꺼짐**(프록시 없이 직접 노출 시 XFF 위조 방지), compose 기본값은 `loopback,linklocal,uniquelocal`. **정수 홉 수는 받지 않는다** — 이 Fastify에서 숫자값은 `inject`/XFF 실험에서 헤더를 전혀 읽지 않았고 의미("n번째 홉을 클라이언트로")도 직관과 달라 오설정 위험이 크다.
-- **푸시 구독 endpoint(SSRF)**: https·기본 포트·자격 증명 없음·IP 리터럴 아님·내부망 이름 아님만 통과(`isSafePushEndpoint`). 호스트명이 사설 IP로 풀리는 DNS 리바인딩은 못 막는다(알려진 한계). 기존 endpoint가 **다른 사용자** 소유면 409로 갱신하지 않는다 — 공용 기기에서 로그아웃(구독 미삭제) 후 다른 사용자가 같은 브라우저로 구독하면 막히는 대가가 있다(DELETE도 403이라 본인이 못 푼다). 불편이 보고되면 로그아웃 시 현재 endpoint 삭제로 푼다.
+- **푸시 구독 endpoint(SSRF)**: https·기본 포트·자격 증명 없음·IP 리터럴 아님·내부망 이름 아님만 통과(`isSafePushEndpoint`). 호스트명이 사설 IP로 풀리는 DNS 리바인딩은 못 막는다(알려진 한계). 기존 endpoint가 **다른 사용자** 소유면 409로 갱신하지 않는다. 실제 경로: 공용 기기에서 A가 로그아웃할 때 브라우저 `unsubscribe`가 실패하거나 3초 타임아웃에 걸려 서버 행이 남고, 같은 브라우저로 B가 구독하면 같은 endpoint라 409가 난다(DELETE도 403). 웹 클라이언트가 409면 브라우저 구독을 버리고 새 endpoint로 1회 재구독해 자가복구한다. 발송 시점(`sendPushToSubscription`)에도 `isSafePushEndpoint`를 다시 건다(옛 행 방어) — 발송 때 DNS를 풀어 사설 IP를 막는 것은 하지 않았다(알려진 한계).
 - **전역 `bodyLimit` 16MB → 2MB**, 청크 PUT 라우트만 16MB. multipart는 스트리밍이라 영향 없음(`fileSize` 20MB가 따로 막는다). `requestTimeout: 0`은 **유지** — Fastify에서 라우트별로 못 바꾸고, 낮추면 느린 회선의 청크 업로드가 끊긴다.
-- **사용자 삭제**: 토큰·가구 캐시 무효화 추가. 삭제 대상이 가구의 마지막 OWNER이고 다른 구성원이 남으면 가장 먼저 합류한 MEMBER(없으면 VIEWER)를 OWNER로 승격. **구성원이 본인뿐인 가구는 그대로 둔다(고아 가구)** — 가구·기록을 같이 지우면 첨부 파일이 디스크에 남고 복구가 안 된다. 가구 삭제 경로(파일 정리 포함)를 설계할 때 같이 푼다.
-- **최초 관리자 생성**: 가구 이름을 로케일로(`defaultHouseholdName`), `pg_advisory_xact_lock`으로 count 확인과 생성을 직렬화.
+- **사용자 삭제**: 토큰·가구 캐시 무효화 추가. 삭제 대상이 가구의 마지막 OWNER이고 다른 구성원이 남으면 가장 먼저 합류한 MEMBER를 OWNER로 승격(`updateMany`에 householdId 조건). **VIEWER는 승격하지 않는다** — 읽기 전용으로 둔 사람에게 관리 권한을 몰래 주지 않는다. MEMBER가 없으면 OWNER 없는 가구로 남는다(고아와 같은 후속 과제). **구성원이 본인뿐인 가구는 그대로 둔다(고아 가구)** — 가구·기록을 같이 지우면 첨부 파일이 디스크에 남고 복구가 안 된다. 고아 가구의 API 토큰은 가구 기준으로 계속 동작하므로, 가구 삭제/이관 경로를 설계할 때 토큰 폐기도 함께 정한다. 가구 삭제 경로(파일 정리 포함)를 설계할 때 같이 푼다.
+- **로그인 rate limit 키**: IPv6는 /64로 묶는다(주소만 바꿔 한도를 우회하는 것 방지).
+- **Caddy 앞단 프록시**: `TRUST_PROXY`만으로는 안 나뉜다 — Caddy가 신뢰하지 않는 앞단의 XFF를 버린다. Caddyfile `servers { trusted_proxies static … }`가 필요하다(.env.example·deploy.md 안내).
+- **최초 관리자 생성**: 가구 이름을 로케일로(`defaultHouseholdName`), `pg_advisory_xact_lock(hashtextextended('kibble:bootstrap', 0))`으로 count 확인과 생성을 직렬화.
 
 ### 2026-10-18 — 관찰 태그 추가·수정 및 제품 기호성 5단계 세분화
 

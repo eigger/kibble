@@ -9,6 +9,7 @@ import {
   updateProfileSchema,
 } from "@kibble/shared";
 import { prisma } from "../lib/prisma.js";
+import { rateLimitIp } from "../lib/rateLimitIp.js";
 import { t } from "../lib/i18n.js";
 import { emailInUse, findLoginCandidates } from "../lib/userEmail.js";
 import { bumpTokenVersion, invalidateTokenVersionCache } from "../lib/tokenVersion.js";
@@ -22,8 +23,6 @@ import {
   findHouseholdMember,
 } from "../lib/householdScope.js";
 
-/** pg_advisory_xact_lock 키 — 최초 관리자 생성 경합 직렬화 전용 */
-const BOOTSTRAP_LOCK_KEY = 726_001;
 
 class BootstrapDisabledError extends Error {
   constructor() {
@@ -47,8 +46,8 @@ async function isAdminOutsideHousehold(
 
 /**
  * 사용자를 지우면 멤버십이 cascade로 사라진다. 그 사용자가 가구의 마지막 OWNER이고 다른 구성원이
- * 남아 있으면 가구를 관리할 사람이 없어지므로, 가장 먼저 합류한 비-VIEWER(없으면 VIEWER)를
- * OWNER로 올린다. 구성원이 본인뿐인 가구는 손대지 않는다 — 가구와 기록을 함께 지우면 첨부 파일이
+ * 남아 있으면 가구를 관리할 사람이 없어지므로, 가장 먼저 합류한 MEMBER를
+ * OWNER로 올린다(MEMBER가 없으면 승격 없이 둔다). 구성원이 본인뿐인 가구는 손대지 않는다 — 가구와 기록을 함께 지우면 첨부 파일이
  * 디스크에 남고 복구도 안 되므로, 파괴적 정리는 별도 결정(WORKLOG)으로 미뤘다.
  */
 async function promoteSuccessorOwners(
@@ -67,9 +66,15 @@ async function promoteSuccessorOwners(
       orderBy: { id: "asc" },
     });
     if (others.length === 0 || others.some((m) => m.role === "OWNER")) continue;
-    const successor = others.find((m) => m.role === "MEMBER") ?? others[0]!;
-    await tx.householdMember.update({ where: { id: successor.id }, data: { role: "OWNER" } });
-    promoted.push(successor.userId);
+    // VIEWER는 승격하지 않는다 — 읽기 전용으로 둔 사람에게 쓰기·관리 권한을 몰래 주지 않는다.
+    // MEMBER가 없으면 그 가구는 OWNER 없이 남는다(WORKLOG: 고아 가구와 같은 후속 과제).
+    const successor = others.find((m) => m.role === "MEMBER");
+    if (!successor) continue;
+    const { count } = await tx.householdMember.updateMany({
+      where: { id: successor.id, householdId, role: "MEMBER" },
+      data: { role: "OWNER" },
+    });
+    if (count > 0) promoted.push(successor.userId);
   }
   return promoted;
 }
@@ -95,7 +100,7 @@ export async function authRoutes(app: FastifyInstance) {
       const user = await prisma.$transaction(async (tx) => {
         // 동시에 들어온 두 요청이 모두 count=0을 보고 관리자를 둘 만들지 않도록 직렬화한다
         // (트랜잭션이 끝나면 잠금이 풀리고, 뒤 요청은 count>0을 본다).
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BOOTSTRAP_LOCK_KEY})`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('kibble:bootstrap', 0))`;
         const existingCount = await tx.user.count();
         if (existingCount > 0) throw new BootstrapDisabledError();
 
@@ -127,7 +132,12 @@ export async function authRoutes(app: FastifyInstance) {
   app.post(
     "/login",
     // 무차별 대입 방어: IP당 15분에 10회로 제한.
-    { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } },
+    // IPv6는 /64(한 가입자에게 통째로 할당되는 단위)로 묶는다 — 안 묶으면 주소만 바꿔 한도를 우회한다.
+    {
+      config: {
+        rateLimit: { max: 10, timeWindow: "15 minutes", keyGenerator: (r) => rateLimitIp(r.ip) },
+      },
+    },
     async (request, reply) => {
       const parsed = loginSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });

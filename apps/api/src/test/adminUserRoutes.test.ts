@@ -1,8 +1,34 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../app.js";
-import { invalidateHouseholdCache } from "../lib/householdScope.js";
-import { invalidateTokenVersionCache } from "../lib/tokenVersion.js";
+import * as householdScope from "../lib/householdScope.js";
+import * as tokenVersion from "../lib/tokenVersion.js";
+
+const invalidateHouseholdCache = householdScope.invalidateHouseholdCache;
+const invalidateTokenVersionCache = tokenVersion.invalidateTokenVersionCache;
+
+// 라우트가 부르는 무효화 호출을 관찰한다(실제 동작은 그대로).
+const spies = vi.hoisted(() => ({ household: vi.fn(), token: vi.fn() }));
+vi.mock("../lib/householdScope.js", async (orig) => {
+  const mod = await orig<typeof import("../lib/householdScope.js")>();
+  return {
+    ...mod,
+    invalidateHouseholdCache: (id: string) => {
+      spies.household(id);
+      mod.invalidateHouseholdCache(id);
+    },
+  };
+});
+vi.mock("../lib/tokenVersion.js", async (orig) => {
+  const mod = await orig<typeof import("../lib/tokenVersion.js")>();
+  return {
+    ...mod,
+    invalidateTokenVersionCache: (id: string) => {
+      spies.token(id);
+      mod.invalidateTokenVersionCache(id);
+    },
+  };
+});
 
 const HH_A = "household_a";
 const ADMIN_A = "admin_a";
@@ -15,7 +41,7 @@ const mockPrisma = vi.hoisted(() => ({
     findFirst: vi.fn(),
     findUnique: vi.fn(),
     findMany: vi.fn(async (): Promise<unknown[]> => []),
-    update: vi.fn(async () => ({})),
+    updateMany: vi.fn(async () => ({ count: 1 })),
   },
   $transaction: vi.fn(),
   user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -108,6 +134,9 @@ describe("admin user routes — 가구 밖 ADMIN 권한 상승 차단 (WORKPLAN 
 
     expect(res.statusCode).toBe(204);
     expect(mockPrisma.user.delete).toHaveBeenCalledWith({ where: { id: GENERAL_OTHER } });
+    // 삭제된 사용자의 60초 캐시를 비운다
+    expect(spies.token).toHaveBeenCalledWith(GENERAL_OTHER);
+    expect(spies.household).toHaveBeenCalledWith(GENERAL_OTHER);
   });
 
   it("promotes a successor OWNER when the last OWNER is deleted and members remain", async () => {
@@ -126,10 +155,25 @@ describe("admin user routes — 가구 밖 ADMIN 권한 상승 차단 (WORKPLAN 
     });
 
     expect(res.statusCode).toBe(204);
-    expect(mockPrisma.householdMember.update).toHaveBeenCalledWith({
-      where: { id: "m_member" },
+    expect(mockPrisma.householdMember.updateMany).toHaveBeenCalledWith({
+      where: { id: "m_member", householdId: "hh_sep", role: "MEMBER" },
       data: { role: "OWNER" },
     });
+    expect(spies.household).toHaveBeenCalledWith("member_u");
+  });
+
+  it("never promotes a VIEWER — a household with only viewers left stays ownerless", async () => {
+    mockPrisma.householdMember.findMany.mockImplementation((async ({ where }: { where: { role?: string } }) =>
+      where.role === "OWNER"
+        ? [{ householdId: "hh_sep" }]
+        : [{ id: "m_viewer", userId: "viewer_u", role: "VIEWER" }]) as never);
+    const res = await app.inject({
+      method: "DELETE",
+      url: `/api/auth/users/${GENERAL_OTHER}`,
+      headers: authHeaders(token),
+    });
+    expect(res.statusCode).toBe(204);
+    expect(mockPrisma.householdMember.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not promote anyone when another OWNER remains or the user was alone", async () => {
@@ -150,7 +194,7 @@ describe("admin user routes — 가구 밖 ADMIN 권한 상승 차단 (WORKPLAN 
     });
 
     expect(res.statusCode).toBe(204);
-    expect(mockPrisma.householdMember.update).not.toHaveBeenCalled();
+    expect(mockPrisma.householdMember.updateMany).not.toHaveBeenCalled();
   });
 
   it("still resets an ADMIN who shares the requester's household", async () => {
