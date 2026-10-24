@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
+import { moveRoutine, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -258,5 +258,25 @@ describe("runRoutineEvents", () => {
     );
     expect(out.alreadyGiven.map((i) => i.id)).toEqual(["a"]);
     expect(out.failed).toEqual([]);
+  });
+});
+
+describe("moveRoutine", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  it("swaps with the neighbour without mutating the input", () => {
+    expect(moveRoutine(list, "b", "up").map((r) => r.id)).toEqual(["b", "a", "c"]);
+    expect(moveRoutine(list, "b", "down").map((r) => r.id)).toEqual(["a", "c", "b"]);
+    expect(list.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("returns the same array at the edges or for an unknown id", () => {
+    expect(moveRoutine(list, "a", "up")).toBe(list);
+    expect(moveRoutine(list, "c", "down")).toBe(list);
+    expect(moveRoutine(list, "zzz", "down")).toBe(list);
+  });
+
+  it("routineOrderIds lists ids in order", () => {
+    expect(routineOrderIds(moveRoutine(list, "c", "up"))).toEqual(["a", "c", "b"]);
   });
 });

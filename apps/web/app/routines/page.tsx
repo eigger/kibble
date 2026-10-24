@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { kstDayKey } from "@kibble/shared";
-import { isRoutineItemSkipped, routineItemSummary } from "../../lib/routines";
+import {
+  isRoutineItemSkipped,
+  moveRoutine,
+  routineItemSummary,
+  routineOrderIds,
+  type RoutineMoveDirection,
+} from "../../lib/routines";
 import type {
   EventTypeAliasesRow,
   MedicationCourseRow,
@@ -34,6 +40,16 @@ export default function RoutinesPage() {
   const [courses, setCourses] = useState<MedicationCourseRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // 순서 이동: 요청 중에는 다음 이동을 받지 않는다 (직렬화). 버튼은 disabled 대신 aria-disabled로 잠가 포커스를 지킨다
+  const [reordering, setReordering] = useState(false);
+  const reorderingRef = useRef(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const [moveNote, setMoveNote] = useState("");
+  const listRef = useRef<HTMLUListElement>(null);
+  const [focusTarget, setFocusTarget] = useState<{ id: string; dir: RoutineMoveDirection } | null>(
+    null,
+  );
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Routine | null>(null);
@@ -104,6 +120,53 @@ export default function RoutinesPage() {
     return t("routineCourseEndedMeta", {
       name: item.course?.name ?? tLabel(item.preset?.label ?? item.eventType.label),
     });
+  }
+
+  // 이동 뒤 포커스 복원 — 첫/마지막 칸에서 눌린 버튼은 disabled가 되므로 반대쪽 버튼으로 옮긴다
+  useEffect(() => {
+    if (!focusTarget) return;
+    const { id, dir } = focusTarget;
+    const index = routines.findIndex((r) => r.id === id);
+    const canKeep = dir === "up" ? index > 0 : index >= 0 && index < routines.length - 1;
+    const want = canKeep ? dir : dir === "up" ? "down" : "up";
+    listRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-move-id="${CSS.escape(id)}"][data-move-dir="${want}"]`)
+      ?.focus();
+    setFocusTarget(null);
+  }, [focusTarget, routines]);
+
+  async function handleMove(routine: Routine, dir: RoutineMoveDirection) {
+    if (reorderingRef.current) return;
+    const next = moveRoutine(routines, routine.id, dir);
+    if (next === routines) return;
+    const previous = routines;
+    reorderingRef.current = true;
+    setReordering(true);
+    setReorderError(null);
+    setRoutines(next as Routine[]);
+    setFocusTarget({ id: routine.id, dir });
+    setMoveNote(
+      t("routineMoved", {
+        label: routine.label,
+        position: String(next.findIndex((r) => r.id === routine.id) + 1),
+      }),
+    );
+    try {
+      const saved = await apiJson<Routine[]>("/api/routines/order", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ petId, ids: routineOrderIds(next) }),
+      });
+      setRoutines(saved);
+    } catch {
+      setRoutines(previous);
+      setMoveNote("");
+      setReorderError(t("routineReorderError"));
+      setFocusTarget({ id: routine.id, dir });
+    } finally {
+      reorderingRef.current = false;
+      setReordering(false);
+    }
   }
 
   function openNew() {
@@ -180,8 +243,8 @@ export default function RoutinesPage() {
           {t("routinesEmpty")} {t("routinesHint")}
         </p>
       ) : (
-        <ul className="manage-card-list">
-          {routines.map((routine) => (
+        <ul className="manage-card-list" ref={listRef}>
+          {routines.map((routine, index) => (
             <li key={routine.id} className="manage-card">
               <div className="manage-card-main">
                 <p className="manage-card-name">{routine.label}</p>
@@ -190,6 +253,26 @@ export default function RoutinesPage() {
                 </p>
               </div>
               <div className="manage-card-actions">
+                {(["up", "down"] as const).map((dir) => {
+                  const atEdge = dir === "up" ? index === 0 : index === routines.length - 1;
+                  return (
+                    <button
+                      key={dir}
+                      type="button"
+                      className="btn-action btn-move"
+                      data-move-id={routine.id}
+                      data-move-dir={dir}
+                      aria-label={t(dir === "up" ? "routineMoveUp" : "routineMoveDown", {
+                        label: routine.label,
+                      })}
+                      disabled={atEdge}
+                      aria-disabled={reordering || undefined}
+                      onClick={() => void handleMove(routine, dir)}
+                    >
+                      <span aria-hidden="true">{dir === "up" ? "↑" : "↓"}</span>
+                    </button>
+                  );
+                })}
                 <button type="button" className="btn-action" onClick={() => openEdit(routine)}>
                   {t("edit")}
                 </button>
@@ -197,6 +280,15 @@ export default function RoutinesPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      <p className="sr-only" role="status" aria-live="polite">
+        {moveNote}
+      </p>
+      {reorderError && (
+        <p className="error-text" role="alert">
+          {reorderError}
+        </p>
       )}
 
       <RoutineEditSheet

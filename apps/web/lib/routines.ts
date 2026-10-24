@@ -183,3 +183,24 @@ export async function runRoutineEvents<TCreated>(
   }
   return out;
 }
+
+export type RoutineMoveDirection = "up" | "down";
+
+/** 루틴 하나를 한 칸 옮긴 새 배열. 맨 앞에서 위로·맨 뒤에서 아래로, 없는 id면 같은 배열을 돌려준다 */
+export function moveRoutine<T extends { id: string }>(
+  list: readonly T[],
+  id: string,
+  direction: RoutineMoveDirection,
+): readonly T[] {
+  const from = list.findIndex((r) => r.id === id);
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (from < 0 || to < 0 || to >= list.length) return list;
+  const next = [...list];
+  [next[from], next[to]] = [next[to]!, next[from]!];
+  return next;
+}
+
+/** `PUT /api/routines/order`에 보낼 id 순서 */
+export function routineOrderIds(list: readonly { id: string }[]): string[] {
+  return list.map((r) => r.id);
+}
