@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -284,18 +284,23 @@ describe("attachment content dedupe", () => {
     expect(saved.transcodeStatus).toBe("pending");
     const st = await stat(path.join(uploadDir, saved.path));
     expect(st.nlink).toBe(1); // 링크가 아니라 새로 쓴 파일
+    // 버린 링크가 남지 않았다: 원본은 이름 하나, 디렉터리엔 원본 + 새 파일뿐
+    expect((await stat(path.join(uploadDir, existingRel))).nlink).toBe(1);
+    expect(await readdir(path.join(uploadDir, "events"))).toHaveLength(2);
     expect(await readFile(path.join(uploadDir, saved.path))).toEqual(bytes);
   });
 
   it("saveEventAttachment (video buffer path) inherits a finished source too", async () => {
     const existingRel = await seedExisting(Buffer.from("mp4-bytes"));
+    const posterRel = "events/src-poster.jpg";
+    await writeFile(path.join(uploadDir, posterRel), Buffer.from("poster"));
     mockPrisma.attachment.findFirst.mockResolvedValue({
       path: existingRel,
       mime: "video/mp4",
       size: 9,
       width: 1280,
       height: 720,
-      posterPath: null,
+      posterPath: posterRel,
       transcodeStatus: "ready",
     });
     const { saveEventAttachment } = await import("./eventAttachment.js");
@@ -304,5 +309,7 @@ describe("attachment content dedupe", () => {
     expect(saved.path.endsWith(".mp4")).toBe(true);
     expect(saved.size).toBe(9);
     expect(saved.transcodeStatus).toBe("ready");
+    expect(saved.posterPath).toBeTruthy();
+    expect(saved.posterPath).not.toBe(posterRel);
   });
 });

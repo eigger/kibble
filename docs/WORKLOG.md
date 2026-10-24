@@ -2,7 +2,7 @@
 
 ### 2026-10-25 — 첨부·라이트박스 (PR4)
 
-- 변환을 마친 영상과 같은 원본을 다시 올리면 새 행이 원본 mime(quicktime)·.mov·PENDING으로 기록돼 MP4 바이트와 어긋나던 것을 수정: `linkExistingCopy`가 원본 행의 mime·size·w/h·상태(READY/SKIPPED일 때)를 물려주고 확장자도 그 mime에서 얻는다. 포스터는 기동 시 백필이 메운다. 기각안 R174.
+- 변환을 마친 영상과 같은 원본을 다시 올리면 새 행이 원본 mime(quicktime)·.mov·PENDING으로 기록돼 MP4 바이트와 어긋나던 것을 수정: `linkExistingCopy`가 원본 행의 mime·size·w/h·상태(READY/SKIPPED일 때)를 물려주고 확장자도 그 mime에서 얻는다. 포스터는 새 이름으로 하드링크해 상속하고, 원본에 없을 때만 기동 백필이 메운다. 기각안 R174.
 - 리뷰 반영: 완료본 링크 시 포스터도 새 이름으로 하드링크해 상속(없으면 기동 백필), 링크 직후 원본 행 재확인(TOCTOU)으로 어긋나면 링크를 버리고 새로 씀, FAILED 원본은 상속하지 않음(행별 시도 횟수라 재변환 고리 없음), 좌우 키는 alt/ctrl/meta 조합도 무시. 결정은 WORKPLAN §7.15.
 - 120초 중복 판정은 `contentHash`로 비교, 해시 없는 옛 행은 mime·크기·해상도로 폴백.
 - 라이트박스: video/input/textarea/select/contenteditable·defaultPrevented 대상의 좌우 키는 무시(Escape는 유지), 대화상자 레이블 "첨부 보기 n/N", 연결 코드는 `LightboxHost`로 통합.

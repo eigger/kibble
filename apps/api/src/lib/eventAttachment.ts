@@ -181,7 +181,8 @@ export async function linkExistingCopy(
     if (
       !again ||
       again.transcodeStatus !== existing.transcodeStatus ||
-      again.mime !== existing.mime
+      again.mime !== existing.mime ||
+      (typeof again.size === "number" && again.size !== (await stat(destAbs)).size)
     ) {
       await unlink(destAbs).catch(() => {});
       return null;
