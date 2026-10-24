@@ -40,7 +40,7 @@ export async function restoreEvent(
 
   const courseId = deleted.medicationCourseId;
   if (!courseId) {
-    return db.event.update({ where: { id: deleted.id }, data: { deletedAt: null }, select: eventSelect });
+    return reviveEvent(db, where);
   }
 
   return withMedicationCourseLock(db, courseId, async (tx) => {
@@ -81,6 +81,21 @@ export async function restoreEvent(
       if (conflict) throw new CreateEventDoseConflictError(conflict);
     }
 
-    return tx.event.update({ where: { id: deleted.id }, data: { deletedAt: null }, select: eventSelect });
+    return reviveEvent(tx, where);
   });
+}
+
+/** K-1: 가구 조건을 쓰기 쿼리에도 건다. 그 사이 사라졌다면 "없음"으로 흘린다. */
+async function reviveEvent(
+  db: Db,
+  where: { id: string; householdId: string },
+): Promise<CreatedEvent> {
+  const { count } = await db.event.updateMany({
+    where: { ...where, deletedAt: { not: null } },
+    data: { deletedAt: null },
+  });
+  if (count === 0) throw new CreateEventNotFoundError("event");
+  const row = await db.event.findFirst({ where, select: eventSelect });
+  if (!row) throw new CreateEventNotFoundError("event");
+  return row;
 }

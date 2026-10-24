@@ -19,14 +19,15 @@ function fakeDb(opts: Opts) {
         doseSlotIndex: 0,
       }
     : opts.deleted;
-  const update = vi.fn(async () => ({ id: "e1", deletedAt: null }));
+  const update = vi.fn(async () => ({ count: 1 }));
   const lock = vi.fn(async () => 0);
   const tx = {
     $executeRaw: lock,
     event: {
       findFirst: vi.fn(async () => deleted),
+      // 삭제된 행 조회와 복원 후 재조회가 같은 mock을 쓴다(반환 행의 id만 본다)
       findMany: vi.fn(async () => opts.others ?? []),
-      update,
+      updateMany: update,
     },
     medicationCourse: {
       findFirst: vi.fn(async () =>
@@ -45,8 +46,15 @@ describe("restoreEvent", () => {
     const { db, update, lock } = fakeDb({
       deleted: { id: "e1", petId: "pet1", occurredAt: new Date(), medicationCourseId: null, doseSlotIndex: null },
     });
-    await restoreEvent(db, params);
+    const restored = await restoreEvent(db, params);
     expect(update).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "e1", householdId: "h1", deletedAt: { not: null } },
+        data: { deletedAt: null },
+      }),
+    );
+    expect(restored).toMatchObject({ id: "e1" });
     expect(lock).not.toHaveBeenCalled();
   });
 

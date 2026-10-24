@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDatetime } from "./isoDatetime.js";
 import { PRODUCT_NAME_MAX } from "../eventTypeKeys.js";
 import { latitudeSchema, longitudeSchema } from "./maps.js";
 
@@ -13,7 +14,7 @@ export const createEventSchema = z.object({
   petId: z.string().trim().min(1).optional(),
   presetId: z.string().trim().min(1).optional(),
   eventTypeId: z.string().trim().min(1).optional(),
-  occurredAt: z.string().datetime().optional(),
+  occurredAt: isoDatetime.optional(),
   quantity: decimalOptional,
   quantityOffered: decimalOptional,
   unit: z.string().trim().max(32).optional(),
@@ -40,7 +41,7 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 
 export const updateEventSchema = z
   .object({
-    occurredAt: z.string().datetime().optional(),
+    occurredAt: isoDatetime.optional(),
     quantity: decimalOptional.nullable(),
     quantityOffered: decimalOptional.nullable(),
     unit: z.string().trim().max(32).nullable().optional(),

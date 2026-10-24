@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isoDatetime } from "./isoDatetime.js";
 
 /**
  * 토큰 권한. `event:create`는 기록 생성(POST /api/events),
@@ -18,7 +19,7 @@ export const createApiTokenSchema = z.object({
   presetId: z.string().trim().min(1).optional(),
   petId: z.string().trim().min(1).optional(),
   eventTypeId: z.string().trim().min(1).optional(),
-  expiresAt: z.string().datetime().optional(),
+  expiresAt: isoDatetime.optional(),
 });
 
 export type CreateApiTokenInput = z.infer<typeof createApiTokenSchema>;

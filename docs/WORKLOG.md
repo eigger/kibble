@@ -1,5 +1,17 @@
 # 작업 기록
 
+### 2026-10-24 — 입력·데이터 정확성 (PR2)
+
+- **시각 입력**: zod 4의 `datetime()`은 `+09:00` 오프셋과 초 생략을 거부해 HA 자동화가 400을 받았다(K-12/K-14). `isoDatetime`(shared)으로 오프셋·`Z`·초 생략을 모두 받고 UTC ISO로 정규화한다. 이벤트·처방·제품·토큰 만료에 공통 적용.
+- **zod 4 필수 누락 메시지**: 웹의 `"Required"` 매칭은 죽은 코드였다. v4 메시지(`received undefined`)를 인식하도록 고쳤다(R171).
+- **오프라인 큐 업그레이드**: `onupgradeneeded`가 무조건 스토어를 지워 다음 `DB_VERSION` 증가 때 미전송 기록·첨부가 사라질 뻔했다(K-13). `oldVersion < 2`일 때만 지운다. 이후 버전은 스토어를 유지하고 `oldVersion < N` 단위로 변경만 추가한다.
+- **K-1 쓰기 쿼리**: 가구 확인 뒤 `update/delete({ where: { id } })`를 `updateMany/deleteMany` + `householdWhere`로 바꾸고 count===0은 404로 처리. 평상시 동작은 같고, 확인과 쓰기 사이에 행이 사라지는 경합에서는 500(P2025)이던 것이 404가 된다.
+- **`PATCH /events/:id`**: 병원 Contact 생성·갱신 전에 기록의 존재·가구를 먼저 확인한다.
+- **`GET /products?category=잘못된값`**: 500 대신 필터를 무시한다(K-12) — 400도 아니고 빈 목록도 아닌 **전체 목록** 정책. shared의 `productCategorySchema`로 판정한다.
+- **시각 표기**: HA `now()`의 공백 구분자·`+0900`·마이크로초도 받아 UTC로 정규화, 연도 0000~9999 밖은 400. 결정은 WORKPLAN §7.26.
+- **`PATCH /events/:id` 순서**: 400 검증(scaleValue)을 끝낸 뒤 병원 Contact를 쓴다. 마지막 `applyEventUpdate`의 409는 Contact가 결과에 들어가야 해서 앞으로 못 옮긴다(409가 나도 `contactPatch`가 기존 Contact의 주소·좌표·URL을 덮어쓴 채 남을 수 있다 — 같은 병원 정보를 다시 보내면 같은 값이라 허용).
+- **처방 `endDate < startDate`**: 거부하지 않고 서버가 `endDate = startDate`로 보정한다(생성·수정, 시작일만 바꿔 역전되는 경우 포함).
+
 ### 2026-10-24 — 보안·인프라 보강 (PR1)
 
 - **`TRUST_PROXY`**: Fastify에 `trustProxy`가 없어 Caddy 뒤에서 `request.ip`가 늘 프록시 IP였다 → rate limit(로그인 15분 10회 등)이 전원 공용. 코드 기본값은 **꺼짐**(프록시 없이 직접 노출 시 XFF 위조 방지), compose 기본값은 `loopback,linklocal,uniquelocal`. **정수 홉 수는 받지 않는다** — 이 Fastify에서 숫자값은 `inject`/XFF 실험에서 헤더를 전혀 읽지 않았고 의미("n번째 홉을 클라이언트로")도 직관과 달라 오설정 위험이 크다.
@@ -385,6 +397,7 @@
 | R168 | 기호성 5단계 세분화 시 **화면 라벨만 다시 매기기** (DB 데이터 이전 없음) | **기각** | 기존 3단계에서 HIGH(원래 ★5 "아주 잘 먹음")가 ★4("잘 먹음")로, LOW(원래 ★1 "안 먹음")가 ★2("잘 안 먹음")로 내려앉아 거부하던 제품이 약하게 표시되는 실기록 왜곡 발생. Postgres 제약상 새 enum 추가와 DML을 한 트랜잭션에서 할 수 없으므로 2단계 마이그레이션(enum 추가 → 데이터 UPDATE)으로 기존 데이터의 별점(★5, ★1) 의미를 보존 (§7.25) | — |
 | R169 | 로그인 rate limit 키를 **IP+이메일**로 | **기각** | IP당 10회가 이메일당 10회로 느슨해져 한 IP가 이메일 목록을 돌려 대입(spraying)할 수 있다. 본문 파싱 후 키 계산도 필요해 `preHandler` 훅으로 옮겨야 한다. `trustProxy`로 IP가 제대로 나뉘면 IP 단독이 더 엄격하다 | 계정별 잠금이 필요해질 때 IP 한도에 **추가**하는 형태로 |
 | R170 | 푸시 endpoint **도메인 허용 목록** | **기각** | 브라우저·플랫폼마다 push 호스트가 달라(FCM, autopush, Apple, WNS, 삼성…) 목록이 낡으면 구독이 조용히 실패한다. 대신 형태 검증(https·IP 리터럴/내부망 이름 거부) | DNS 리바인딩이 실제 문제가 되면 발송 시점 해석 IP 검사로 |
+| R171 | zod 4 오류를 메시지 문자열이 아니라 issue code로 판정하려고 API 400 포맷을 바꾸기 | **기각** | `flatten()`은 code를 버리고 문자열만 남긴다. API 400 포맷은 HA 등 외부 클라이언트가 이미 의존하므로 바꾸지 않고, 웹은 v4 메시지(`received undefined`)를 인식한다 | zod 메시지가 바뀌어 판정이 깨지면 `{ code, path }` 필드를 응답에 **추가**(기존 필드는 유지)한다 |
 
 ## 2. 세션 로그
 

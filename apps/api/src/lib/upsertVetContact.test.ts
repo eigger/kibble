@@ -11,11 +11,11 @@ type ContactRow = {
 };
 
 function fakeDb(existing: ContactRow | null) {
-  const update = vi.fn(async () => ({}));
+  const update = vi.fn(async () => ({ count: 1 }));
   const create = vi.fn(async () => ({ id: "new-contact" }));
   const findFirst = vi.fn(async () => existing);
   return {
-    db: { contact: { findFirst, update, create } } as unknown as PrismaClient,
+    db: { contact: { findFirst, updateMany: update, create } } as unknown as PrismaClient,
     findFirst,
     update,
     create,

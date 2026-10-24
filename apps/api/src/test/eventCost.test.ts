@@ -16,6 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
   pet: { findFirst: vi.fn() },
   eventType: { findFirst: vi.fn() },
   event: { create: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
+  contact: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 }));
 
 vi.mock("../lib/prisma.js", () => ({ prisma: mockPrisma }));
@@ -118,5 +119,26 @@ describe("costKrw — 병원 방문 이벤트 비용 (WORKLOG 2026-09-04)", () =
     expect(mockPrisma.event.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ costKrw: null }) }),
     );
+  });
+
+  it("PATCH: scaleValue 400이면 병원 Contact를 만들거나 고치지 않는다", async () => {
+    mockPrisma.event.findFirst.mockResolvedValue({
+      medicationCourseId: null,
+      eventType: { key: "vet_visit", scaleType: "STOOL_1_7" },
+      contact: { name: "기존 병원" },
+    });
+    mockPrisma.contact.findFirst.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/api/events/${EVENT_ID}`,
+      headers: { authorization: `Bearer ${jwt(app)}` },
+      payload: { scaleValue: 99, clinicName: "새 병원", clinicAddress: "주소" },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(mockPrisma.contact.create).not.toHaveBeenCalled();
+    expect(mockPrisma.contact.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.event.updateMany).not.toHaveBeenCalled();
   });
 });

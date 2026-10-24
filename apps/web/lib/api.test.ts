@@ -74,11 +74,11 @@ describe("apiJson", () => {
   it("stringifies a structured (zod) error body", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(jsonResponse(400, { error: { fieldErrors: { name: ["Required"] } } })),
+      vi.fn().mockResolvedValue(jsonResponse(400, { error: { fieldErrors: { name: ["Invalid input: expected string, received undefined"] } } })),
     );
     const err = await apiJson("/api/auth/me").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).message).toContain("Required");
+    expect((err as ApiError).message).toContain("received undefined");
   });
 });
 

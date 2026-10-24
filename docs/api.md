@@ -217,7 +217,7 @@ curl -sS -X POST "$BASE/api/events" \
   -d '{"dedupeKey":"auto:001"}'
 ```
 
-선택 필드: `occurredAt`(ISO 8601), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시), `productId`(제품 연결), `productName`(자유 텍스트 제품명).
+선택 필드: `occurredAt`(ISO 8601 — 예: `2024-01-02T12:00:00+09:00`. `Z`·`+09:00`·`+0900` 오프셋, 초 생략, 소수초, 공백 구분자(`2024-01-02 12:00:00+09:00`, HA `now()`) 모두 가능. `T`·`Z`는 대문자만 받는다. 오프셋 없는 시각과 날짜만은 400. 서버가 UTC로 정규화해 저장), `quantity`, `quantityOffered`, `unit`, `scaleValue`, `costKrw`(병원비, 정수), `note`, `rawText`, `eventTypeId`(프리셋 없이 직접 지정 시), `productId`(제품 연결), `productName`(자유 텍스트 제품명).
 
 ### 단건 읽기
 
@@ -300,7 +300,7 @@ curl -sS -X POST "$BASE/api/products" \
 
 선택 필드: `brand`, `petId`, `origin`, `form`, `kibbleSize`, `weightG`, `dosage`, `mainIngredients`, `ingredients`, `flavor`, `usage`, `registeredIngredients`, `ingredientRegistrationNo`, `importer`, `manufacturedAt`, `storage`, `expiryDate`, `openedAt`, `purchaseDate`, `costKrw`(정수), `purchaseUrl`(http/https URL), `isActive`, `palatability`(`VERY_HIGH`·`HIGH`·`MEDIUM`·`LOW`·`VERY_LOW`), `adverseReactions`(string[]), `notes`.
 
-날짜 4종(`expiryDate`·`openedAt`·`purchaseDate`·`manufacturedAt`)은 **ISO 8601 datetime**입니다 — `2027-12-31`처럼 날짜만 주면 400입니다.
+날짜 4종(`expiryDate`·`openedAt`·`purchaseDate`·`manufacturedAt`)은 **ISO 8601 datetime**입니다(`2027-12-31T00:00:00+09:00`처럼 오프셋 가능, UTC로 정규화) — `2027-12-31`처럼 날짜만 주면 400입니다.
 
 **기호성**
 
