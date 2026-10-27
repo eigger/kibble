@@ -6,7 +6,7 @@ import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
 import { serializeProduct } from "../lib/serializeProduct.js";
 import { sortPurchases } from "../lib/productPurchaseSnapshot.js";
-import { syncProductSnapshot } from "../services/productPurchase.js";
+import { lockProduct, syncProductSnapshot } from "../services/productPurchase.js";
 
 function serializePurchase(row: ProductPurchase) {
   return {
@@ -75,6 +75,7 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
 
     const data = parsed.data;
     const created = await prisma.$transaction(async (tx) => {
+      await lockProduct(tx, householdId, id);
       const row = await tx.productPurchase.create({
         data: {
           householdId,
@@ -142,6 +143,7 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
     if (data.openedAt !== undefined) update.openedAt = toDate(data.openedAt);
 
     const row = await prisma.$transaction(async (tx) => {
+      await lockProduct(tx, householdId, id);
       const { count } = await tx.productPurchase.updateMany({
         where: { id: purchaseId, productId: id, ...householdWhere(householdId) },
         data: update,
@@ -182,6 +184,7 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
     }
 
     const removed = await prisma.$transaction(async (tx) => {
+      await lockProduct(tx, householdId, id);
       const { count } = await tx.productPurchase.deleteMany({
         where: { id: purchaseId, productId: id, ...householdWhere(householdId) },
       });

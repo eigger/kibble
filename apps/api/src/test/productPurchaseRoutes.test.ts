@@ -245,9 +245,11 @@ describe("productPurchase routes — 다시 구매", () => {
       openedAt: "2026-05-02T03:00:00.000Z",
     });
     expect(res.statusCode).toBe(200);
-    const data = mockPrisma.product.updateMany.mock.calls[0][0].data;
-    expect(data).not.toHaveProperty("weightG");
-    expect(data).not.toHaveProperty("purchaseUrl");
+    // 첫 호출은 잠금(updatedAt)이고, 어느 쓰기에도 규격은 없다
+    for (const [arg] of mockPrisma.product.updateMany.mock.calls) {
+      expect(arg.data).not.toHaveProperty("weightG");
+      expect(arg.data).not.toHaveProperty("purchaseUrl");
+    }
   });
 
   it("PATCH(구매): 오래된 구매를 고쳐도 최신 구매의 규격은 건드리지 않는다", async () => {
@@ -262,8 +264,9 @@ describe("productPurchase routes — 다시 구매", () => {
 
     const res = await req("PATCH", `/api/products/${PRODUCT_ID}/purchases/old`, { weightG: 500 });
     expect(res.statusCode).toBe(200);
-    const data = mockPrisma.product.updateMany.mock.calls[0][0].data;
-    expect(data).not.toHaveProperty("weightG");
+    for (const [arg] of mockPrisma.product.updateMany.mock.calls) {
+      expect(arg.data).not.toHaveProperty("weightG");
+    }
   });
 });
 
@@ -301,7 +304,7 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
     const res = await patch({ name: "새 이름", costKrw: 1, purchaseDate: "2026-06-01T03:00:00.000Z", expiryDate: null });
     expect(res.statusCode).toBe(200);
     const data = mockPrisma.product.updateMany.mock.calls[0][0].data;
-    expect(data).toEqual({ name: "새 이름" });
+    expect(data).toEqual({ name: "새 이름", updatedAt: expect.any(Date) });
     // 5칸은 쓰기 뒤 sync가 행 기준(최신 구매 b)으로 채운다 — 보낸 값이 아니다
     expect(mockPrisma.product.updateMany.mock.calls[1][0].data).toMatchObject({
       purchaseDate: d("2026-02-01"),
@@ -357,7 +360,13 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
     mockPrisma.product.findFirst.mockResolvedValue(
       productRow({ purchaseDate: null, costKrw: null, _count: { purchases: 0 } }),
     );
-    mockPrisma.productPurchase.findMany.mockResolvedValue([]);
+    const rows: ReturnType<typeof purchaseRow>[] = [];
+    mockPrisma.productPurchase.findMany.mockImplementation(async () => rows);
+    mockPrisma.productPurchase.create.mockImplementation(async ({ data }: { data: object }) => {
+      const row = purchaseRow("first", data as Record<string, unknown>);
+      rows.push(row);
+      return row;
+    });
 
     const res = await patch({ costKrw: 9900 });
     expect(res.statusCode).toBe(200);
@@ -368,6 +377,8 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
       costKrw: 9900,
       purchasedAt: null,
     });
+    // 최종 Product 값은 sync가 방금 만든 행에서 읽어 쓴다
+    expect(mockPrisma.product.updateMany.mock.calls[1][0].data.costKrw).toBe(9900);
   });
 
   it("구매가 없는데 값을 비우기만 하면 행을 만들지 않는다", async () => {

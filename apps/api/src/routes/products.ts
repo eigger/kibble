@@ -301,7 +301,8 @@ export async function productRoutes(app: FastifyInstance) {
       // 저장이 구매 건수를 보기 전에 줄을 선다 (구매 0건에 첫 구매 행이 둘 생기는 것을 막는다).
       const { count: written } = await db.product.updateMany({
         where: { id, ...householdWhere(householdId) },
-        data: updateData,
+        // 5칸만 보내 updateData가 비어도 UPDATE가 생략되지 않게 updatedAt을 명시한다 (잠금 보장)
+        data: touchesPurchase ? { ...updateData, updatedAt: new Date() } : updateData,
       });
       if (written === 0 || !touchesPurchase) return written;
 
