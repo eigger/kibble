@@ -71,11 +71,20 @@ export function dayToIso(value: string): string | null {
   return value ? new Date(`${value}T12:00:00+09:00`).toISOString() : null;
 }
 
-/** 스킴이 없으면 https를 붙이고, 실행 가능한 스킴은 버린다 */
+/**
+ * 스킴이 없으면 https를 붙이고, 실행 가능한 스킴과 URL로 읽히지 않는 값은 버린다.
+ * 링크 하나가 이상하다고 구매·제품 저장 전체가 거부되면 안 된다 (K-12).
+ */
 export function normalizePurchaseUrl(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed || /^(javascript|data|vbscript):/i.test(trimmed)) return null;
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    new URL(withScheme);
+  } catch {
+    return null;
+  }
+  return withScheme;
 }
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { hasFormDetails, kstDayKey, PURCHASE_COST_MAX } from "@kibble/shared";
+import { hasFormDetails, kstDayKey } from "@kibble/shared";
 import type { Product, ProductPurchase } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useDialog } from "../lib/useDialog";
@@ -173,7 +173,6 @@ export function ProductPurchaseSheet({ open, product, purchase, onClose, onSaved
                 type="number"
                 inputMode="numeric"
                 min="0"
-                max={PURCHASE_COST_MAX}
                 className="text-input"
                 placeholder="35000"
                 value={draft.cost}

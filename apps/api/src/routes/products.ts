@@ -86,15 +86,22 @@ export async function productRoutes(app: FastifyInstance) {
 
     // 누적 구매액 — 제품 컬럼(costKrw)은 최신 구매 하나뿐이라 재구매를 담지 못한다.
     // 가격을 적은 구매가 하나도 없으면 null로 두어 "0원"과 "모름"을 구분한다.
-    const spent =
+    // DB SUM(int4)이 아니라 여기서 더한다 — 한 건이 INT 최대치까지 허용돼 합이 INT를 넘어도 목록이 죽지 않는다.
+    const priced =
       rows.length > 0
-        ? await prisma.productPurchase.groupBy({
-            by: ["productId"],
-            where: { productId: { in: rows.map((r) => r.id) }, ...householdWhere(householdId) },
-            _sum: { costKrw: true },
+        ? await prisma.productPurchase.findMany({
+            where: {
+              productId: { in: rows.map((r) => r.id) },
+              costKrw: { not: null },
+              ...householdWhere(householdId),
+            },
+            select: { productId: true, costKrw: true },
           })
         : [];
-    const spentByProduct = new Map(spent.map((g) => [g.productId, g._sum.costKrw]));
+    const spentByProduct = new Map<string, number>();
+    for (const p of priced) {
+      spentByProduct.set(p.productId, (spentByProduct.get(p.productId) ?? 0) + (p.costKrw ?? 0));
+    }
 
     return rows.map((r) => ({
       ...serializeProduct(r),

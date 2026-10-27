@@ -6054,6 +6054,10 @@ th {
   cursor: pointer;
 }
 
+.product-purchase-item.is-static {
+  cursor: default;
+}
+
 .product-purchase-item-main {
   display: flex;
   flex-wrap: wrap;

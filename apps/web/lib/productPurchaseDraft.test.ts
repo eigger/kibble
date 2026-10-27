@@ -124,6 +124,8 @@ describe("normalizePurchaseUrl / dayToIso", () => {
     expect(normalizePurchaseUrl("http://shop.example")).toBe("http://shop.example");
     expect(normalizePurchaseUrl("javascript:alert(1)")).toBeNull();
     expect(normalizePurchaseUrl("  ")).toBeNull();
+    // URL로 읽히지 않는 값은 저장 전체를 막지 않고 링크만 버린다
+    expect(normalizePurchaseUrl("not a url")).toBeNull();
   });
 
   it("날짜 칸이 비면 null", () => {
