@@ -28,6 +28,9 @@ export type PreviousPurchase = {
 /** 서버 스키마(store max 80)와 맞춘다 — 길다고 구매 한 건이 통째로 거부되면 안 된다 (K-12) */
 export const STORE_MAX = 80;
 
+/** 서버 `safeUrlSchema`의 길이 상한 */
+const URL_MAX = 1000;
+
 const day = (iso: string | null) => (iso ? kstDayKey(new Date(iso)) : "");
 
 /**
@@ -79,6 +82,8 @@ export function normalizePurchaseUrl(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed || /^(javascript|data|vbscript):/i.test(trimmed)) return null;
   const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  // 서버 스키마 상한(1000자). 추적 파라미터가 붙은 긴 링크 하나가 저장 전체를 거부시키면 안 된다
+  if (withScheme.length > URL_MAX) return null;
   try {
     new URL(withScheme);
   } catch {
