@@ -25,7 +25,6 @@ const mockPrisma = vi.hoisted(() => {
       create: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
       deleteMany: vi.fn(async () => ({ count: 1 })),
-      groupBy: vi.fn(),
     },
     $transaction: vi.fn(),
   };
@@ -189,7 +188,7 @@ describe("productPurchase routes — 다시 구매", () => {
     const res = await req("POST", `/api/products/${PRODUCT_ID}/purchases`, {});
     expect(res.statusCode).toBe(201);
     expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
-      where: { id: PRODUCT_ID, householdId: HH },
+      where: { id: PRODUCT_ID, householdId: HH, archivedAt: { not: null } },
       data: { archivedAt: null, isActive: true },
     });
   });
@@ -320,7 +319,11 @@ describe("GET /api/products — 누적 구매액", () => {
       productRow({ id: "a", costKrw: 18000, _count: { purchases: 2 } }),
       productRow({ id: "b", costKrw: null, _count: { purchases: 1 } }),
     ]);
-    mockPrisma.productPurchase.groupBy.mockResolvedValue([{ productId: "a", _sum: { costKrw: 38000 } }]);
+    // 한 건이 INT 최대치까지 허용되므로 합이 INT를 넘어도 목록은 살아 있다
+    mockPrisma.productPurchase.findMany.mockResolvedValue([
+      { productId: "a", costKrw: 2_000_000_000 },
+      { productId: "a", costKrw: 2_000_000_000 },
+    ]);
 
     const res = await app.inject({
       method: "GET",
@@ -329,9 +332,9 @@ describe("GET /api/products — 누적 구매액", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { id: string; totalSpentKrw: number | null }[];
-    expect(body.find((p) => p.id === "a")?.totalSpentKrw).toBe(38000);
+    expect(body.find((p) => p.id === "a")?.totalSpentKrw).toBe(4_000_000_000);
     expect(body.find((p) => p.id === "b")?.totalSpentKrw).toBeNull();
-    expect(mockPrisma.productPurchase.groupBy.mock.calls[0][0].where).toMatchObject({
+    expect(mockPrisma.productPurchase.findMany.mock.calls[0][0].where).toMatchObject({
       productId: { in: ["a", "b"] },
       householdId: HH,
     });

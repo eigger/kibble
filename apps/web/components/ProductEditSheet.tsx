@@ -15,6 +15,7 @@ import { useLocale } from "../lib/i18n/locale-context";
 import { useDialog } from "../lib/useDialog";
 import { apiJson, apiFetch } from "../lib/api";
 import { MAX_PRODUCT_PHOTOS, weightToInput } from "@kibble/shared";
+import { normalizePurchaseUrl } from "../lib/productPurchaseDraft";
 import { ProductPhoto } from "./ProductPhoto";
 import { CameraIcon, CalendarIcon, ChevronDownIcon, ChevronUpIcon } from "./ProductIcons";
 
@@ -299,11 +300,7 @@ export function ProductEditSheet({
 
     setSaving(true);
     try {
-      const rawUrl = purchaseUrl.trim();
-      let normalizedUrl: string | null = null;
-      if (rawUrl && !/^(javascript|data|vbscript):/i.test(rawUrl)) {
-        normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
-      }
+      const normalizedUrl = normalizePurchaseUrl(purchaseUrl);
 
       const payload: Record<string, unknown> = {
         name: name.trim(),
@@ -1077,7 +1074,9 @@ export function ProductEditSheet({
                   </label>
                   <input
                     id="prod-url"
-                    type="url"
+                    type="text"
+                    inputMode="url"
+                    autoCapitalize="none"
                     className="text-input"
                     placeholder={t("productPurchaseUrlPlaceholder")}
                     value={purchaseUrl}

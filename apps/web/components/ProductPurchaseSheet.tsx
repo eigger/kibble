@@ -204,7 +204,9 @@ export function ProductPurchaseSheet({ open, product, purchase, onClose, onSaved
             </label>
             <input
               id="purchase-url"
-              type="url"
+              type="text"
+              inputMode="url"
+              autoCapitalize="none"
               className="text-input"
               placeholder={t("productPurchaseUrlPlaceholder")}
               value={draft.url}

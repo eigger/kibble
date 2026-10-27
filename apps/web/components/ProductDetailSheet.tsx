@@ -26,6 +26,19 @@ type Props = {
   onEditPurchase?: (product: Product, purchase: ProductPurchase) => void;
 };
 
+/**
+ * 구매 이력 한 줄. 수정 경로가 연결된 곳에서는 버튼이고, 아닌 곳(예: 기록 상세에서 연 제품)에서는
+ * 흐려지는 disabled 버튼 대신 읽기 전용 행으로 그린다.
+ */
+function PurchaseRowShell({ onPress, children }: { onPress?: () => void; children: React.ReactNode }) {
+  if (!onPress) return <div className="product-purchase-item is-static">{children}</div>;
+  return (
+    <button type="button" className="product-purchase-item" onClick={onPress}>
+      {children}
+    </button>
+  );
+}
+
 export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchase, onEditPurchase }: Props) {
   const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
@@ -474,13 +487,15 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
               <ul className="product-purchase-list">
                 {purchases.map((row) => (
                   <li key={row.id}>
-                    <button
-                      type="button"
-                      className="product-purchase-item"
-                      onClick={() => {
-                        onClose();
-                        onEditPurchase?.(product, row);
-                      }}
+                    <PurchaseRowShell
+                      onPress={
+                        onEditPurchase
+                          ? () => {
+                              onClose();
+                              onEditPurchase(product, row);
+                            }
+                          : undefined
+                      }
                     >
                       <span className="product-purchase-item-main">
                         <strong>
@@ -499,7 +514,7 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
                           {t("productExpiryDateLabel")} {formatKstDate(row.expiryDate)}
                         </span>
                       )}
-                    </button>
+                    </PurchaseRowShell>
                   </li>
                 ))}
               </ul>
