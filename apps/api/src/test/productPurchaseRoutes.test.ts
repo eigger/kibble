@@ -233,6 +233,43 @@ describe("productPurchase routes — 다시 구매", () => {
     });
   });
 
+  it("구매 쓰기는 항상 Product 행 잠금이 먼저다 (POST·PATCH·DELETE)", async () => {
+    const lockFirst = (write: { mock: { invocationCallOrder: number[] } }) => {
+      const first = mockPrisma.product.updateMany.mock.calls[0][0];
+      expect(first).toEqual({ where: { id: PRODUCT_ID, householdId: HH }, data: { updatedAt: expect.any(Date) } });
+      expect(mockPrisma.product.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        write.mock.invocationCallOrder[0],
+      );
+    };
+    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("p1")]);
+
+    mockPrisma.product.findFirst
+      .mockResolvedValueOnce({ id: PRODUCT_ID, archivedAt: null })
+      .mockResolvedValueOnce(productRow());
+    mockPrisma.productPurchase.create.mockResolvedValue(purchaseRow("p2"));
+    expect((await req("POST", `/api/products/${PRODUCT_ID}/purchases`, {})).statusCode).toBe(201);
+    lockFirst(mockPrisma.productPurchase.create);
+
+    vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.productPurchase.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("p1")]);
+    mockPrisma.productPurchase.findFirst.mockResolvedValue(purchaseRow("p1"));
+    mockPrisma.product.findFirst.mockResolvedValue(productRow());
+    expect((await req("PATCH", `/api/products/${PRODUCT_ID}/purchases/p1`, { costKrw: 1 })).statusCode).toBe(200);
+    lockFirst(mockPrisma.productPurchase.updateMany);
+
+    vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(mockPrisma));
+    mockPrisma.product.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.productPurchase.deleteMany.mockResolvedValue({ count: 1 });
+    mockPrisma.productPurchase.findMany.mockResolvedValue([]);
+    mockPrisma.productPurchase.findFirst.mockResolvedValue(purchaseRow("p1"));
+    expect((await req("DELETE", `/api/products/${PRODUCT_ID}/purchases/p1`)).statusCode).toBe(204);
+    lockFirst(mockPrisma.productPurchase.deleteMany);
+  });
+
   it("PATCH(구매): 최신 구매의 개봉일만 고쳐도 시트가 고친 Product 규격(중량·링크)을 되돌리지 않는다", async () => {
     const latest = purchaseRow("new", { purchasedAt: d("2026-05-01"), weightG: 2000, purchaseUrl: "https://shop.example/a" });
     mockPrisma.productPurchase.findFirst
