@@ -542,12 +542,13 @@ model Product {
 }
 
 /// 제품의 구매 한 건. Product(정체)는 하나, 거래는 여러 건.
-/// Product의 구매·기한 컬럼은 최신 구매의 스냅샷이다 (WORKPLAN §7.13)
+/// Product의 구매일·가격·기한 컬럼은 구매 행에서 서버가 계산한 스냅샷이다 (규칙은 WORKPLAN §7.13)
 model ProductPurchase {
   id             String    @id @default(cuid())
   householdId    String
   productId      String
-  purchasedAt    DateTime
+  /// 구매일. 백필된 옛 구매처럼 모르면 null
+  purchasedAt    DateTime?
   costKrw        Int?
   weightG        Int?
   store          String?
