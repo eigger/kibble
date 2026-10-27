@@ -231,6 +231,9 @@ export function ProductEditSheet({
 
   // 기기·위생용품에 "알갱이 크기"를 묻지 않는다. 사료·영양제·간식만.
   const showFormDetails = hasFormDetails(category);
+  // 구매가 2건 이상이면 구매·기한 칸은 구매 이력이 소유한다 — 여기서 고치면 어느 구매인지 모호하다.
+  // 서버도 이 값들을 무시하므로 칸을 잠가 두는 것이 정직하다 (WORKPLAN §7.13).
+  const purchaseManaged = mode === "edit" && (product?.purchaseCount ?? 0) >= 2;
 
   if (!open) return null;
 
@@ -768,7 +771,7 @@ export function ProductEditSheet({
                     className="text-input"
                     value={manufacturedAt}
                     onChange={(e) => setManufacturedAt(e.target.value)}
-                    disabled={saving}
+                    disabled={saving || purchaseManaged}
                   />
                 </div>
 
@@ -782,7 +785,7 @@ export function ProductEditSheet({
                     className="text-input"
                     value={expiryDate}
                     onChange={(e) => setExpiryDate(e.target.value)}
-                    disabled={saving}
+                    disabled={saving || purchaseManaged}
                   />
                 </div>
 
@@ -795,7 +798,7 @@ export function ProductEditSheet({
                       type="button"
                       className="text-btn small product-opened-today-btn"
                       onClick={handleMarkOpenedToday}
-                      disabled={saving}
+                      disabled={saving || purchaseManaged}
                     >
                       <CalendarIcon size={13} />
                       <span>{t("productOpenedToday")}</span>
@@ -807,9 +810,10 @@ export function ProductEditSheet({
                     className="text-input"
                     value={openedAt}
                     onChange={(e) => setOpenedAt(e.target.value)}
-                    disabled={saving}
+                    disabled={saving || purchaseManaged}
                   />
                 </div>
+                {purchaseManaged && <p className="meta">{t("productPurchaseManagedHint")}</p>}
               </div>
             )}
           </div>
@@ -1039,7 +1043,7 @@ export function ProductEditSheet({
                       placeholder="35000"
                       value={costKrw}
                       onChange={(e) => setCostKrw(e.target.value)}
-                      disabled={saving}
+                      disabled={saving || purchaseManaged}
                     />
                   </div>
 
@@ -1053,10 +1057,11 @@ export function ProductEditSheet({
                       className="text-input"
                       value={purchaseDate}
                       onChange={(e) => setPurchaseDate(e.target.value)}
-                      disabled={saving}
+                      disabled={saving || purchaseManaged}
                     />
                   </div>
                 </div>
+                {purchaseManaged && <p className="meta">{t("productPurchaseManagedHint")}</p>}
 
                 <div className="field-group">
                   <label className="field-label" htmlFor="prod-url">

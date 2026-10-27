@@ -188,6 +188,25 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   pet?: { id: string; name: string } | null;
+  /** 구매 이력 건수. 2건 이상이면 구매·기한 칸은 이력에서 고친다 (WORKPLAN §7.13) */
+  purchaseCount?: number;
+}
+
+/** 제품의 구매 한 건. Product의 구매일·가격·기한은 이 행들에서 서버가 계산한다 */
+export interface ProductPurchase {
+  id: string;
+  productId: string;
+  /** 구매일을 모르면 null */
+  purchasedAt: string | null;
+  costKrw: number | null;
+  weightG: number | null;
+  store: string | null;
+  purchaseUrl: string | null;
+  manufacturedAt: string | null;
+  expiryDate: string | null;
+  openedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreatedEvent {

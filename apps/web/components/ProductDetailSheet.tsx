@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatWeightG, intlLocale, kstDayDiff } from "@kibble/shared";
-import type { Product, ProductForm, ProductPhotoMeta } from "../lib/types";
+import type { Product, ProductForm, ProductPhotoMeta, ProductPurchase } from "../lib/types";
 import { useLocale } from "../lib/i18n/locale-context";
 import { useDialog } from "../lib/useDialog";
 import { apiJson } from "../lib/api";
@@ -20,15 +20,20 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onEdit?: (product: Product) => void;
+  /** "다시 구매" — 제품은 두고 구매 한 건을 더한다 */
+  onRepurchase?: (product: Product) => void;
+  /** 구매 이력의 한 줄을 고친다 */
+  onEditPurchase?: (product: Product, purchase: ProductPurchase) => void;
 };
 
-export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
+export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchase, onEditPurchase }: Props) {
   const { t, locale } = useLocale();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   // 사진 미리보기. 대표든 썸네일이든 누르면 크게 본다.
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
   const [photos, setPhotos] = useState<ProductPhotoMeta[]>([]);
+  const [purchases, setPurchases] = useState<ProductPurchase[]>([]);
 
   const productId = product?.id ?? null;
   const embeddedPhotos = product?.photos;
@@ -55,6 +60,24 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
       cancelled = true;
     };
   }, [open, productId, embeddedPhotos]);
+
+  // 구매 이력. 2건 이상일 때만 목록을 보여 주므로 그때만 받는다.
+  const purchaseCount = product?.purchaseCount ?? 0;
+  useEffect(() => {
+    if (!open || !productId || purchaseCount < 2) {
+      setPurchases([]);
+      return;
+    }
+    let cancelled = false;
+    void apiJson<ProductPurchase[]>(`/api/products/${productId}/purchases`)
+      .then((rows) => {
+        if (!cancelled) setPurchases(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, productId, purchaseCount]);
 
   function openPreview(photoId?: string) {
     setPreviewPhotoId(photoId ?? photos.find((p) => p.isPrimary)?.id ?? null);
@@ -434,6 +457,47 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
             </div>
           )}
 
+          {/* 구매 이력 — 2건 이상일 때. 한 줄을 누르면 그 구매를 고친다 */}
+          {purchases.length >= 2 && (
+            <div className="product-info-card product-purchase-history">
+              <span className="product-info-label">
+                {t("productPurchaseHistoryTitle", { count: String(purchases.length) })}
+              </span>
+              <ul className="product-purchase-list">
+                {purchases.map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className="product-purchase-item"
+                      onClick={() => {
+                        onClose();
+                        onEditPurchase?.(product, row);
+                      }}
+                    >
+                      <span className="product-purchase-item-main">
+                        <strong>
+                          {row.purchasedAt ? formatKstDate(row.purchasedAt) : t("productPurchaseDateUnknown")}
+                        </strong>
+                        {row.costKrw != null && (
+                          <span>
+                            {row.costKrw.toLocaleString()}
+                            {t("eventDetailCostUnit")}
+                          </span>
+                        )}
+                        {row.store && <span className="meta">{row.store}</span>}
+                      </span>
+                      {row.expiryDate && (
+                        <span className="meta">
+                          {t("productExpiryDateLabel")} {formatKstDate(row.expiryDate)}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Ingredients Accordion */}
           {product.ingredients && (
             <div className="product-info-card product-ingredients-card">
@@ -471,12 +535,24 @@ export function ProductDetailSheet({ product, open, onClose, onEdit }: Props) {
           {onEdit && (
             <button
               type="button"
+              className="secondary"
               onClick={() => {
                 onClose();
                 onEdit(product);
               }}
             >
               {t("edit")}
+            </button>
+          )}
+          {onRepurchase && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onRepurchase(product);
+              }}
+            >
+              {t("productRepurchaseBtn")}
             </button>
           )}
         </div>
