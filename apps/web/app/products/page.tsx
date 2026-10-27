@@ -7,10 +7,11 @@ import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { useToast } from "../../lib/toast-context";
-import type { Pet, Product } from "../../lib/types";
+import type { Pet, Product, ProductPurchase } from "../../lib/types";
 import { ProductPhoto } from "../../components/ProductPhoto";
 import { ProductDetailSheet } from "../../components/ProductDetailSheet";
 import { ProductEditSheet } from "../../components/ProductEditSheet";
+import { ProductPurchaseSheet } from "../../components/ProductPurchaseSheet";
 import {
   PackageIcon,
   RotateCcwIcon,
@@ -36,6 +37,10 @@ export default function ProductsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editSheet, setEditSheet] = useState<
     { mode: "add" } | { mode: "edit"; product: Product } | null
+  >(null);
+  // 다시 구매(purchase 없음) / 구매 기록 수정(purchase 있음)
+  const [purchaseSheet, setPurchaseSheet] = useState<
+    { product: Product; purchase: ProductPurchase | null } | null
   >(null);
 
   useEffect(() => {
@@ -356,6 +361,13 @@ export default function ProductsPage() {
                     <button
                       type="button"
                       className="btn-action small"
+                      onClick={() => setPurchaseSheet({ product: p, purchase: null })}
+                    >
+                      {t("productRepurchaseBtn")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-action small"
                       onClick={() => setEditSheet({ mode: "edit", product: p })}
                     >
                       {t("edit")}
@@ -377,6 +389,27 @@ export default function ProductsPage() {
           setSelectedProduct(null);
         }}
         onEdit={(p) => setEditSheet({ mode: "edit", product: p })}
+        onRepurchase={(p) => setPurchaseSheet({ product: p, purchase: null })}
+        onEditPurchase={(p, purchase) => setPurchaseSheet({ product: p, purchase })}
+      />
+
+      <ProductPurchaseSheet
+        key={purchaseSheet ? `${purchaseSheet.product.id}:${purchaseSheet.purchase?.id ?? "new"}` : "closed"}
+        open={purchaseSheet !== null}
+        product={purchaseSheet?.product ?? null}
+        purchase={purchaseSheet?.purchase ?? null}
+        onClose={() => setPurchaseSheet(null)}
+        onSaved={() => {
+          // 보관한 제품을 다시 사면 서버가 복원한다. 보관 탭에서 말없이 사라지지 않게 알리고 옮겨 간다.
+          if (purchaseSheet && !purchaseSheet.purchase && purchaseSheet.product.archivedAt) {
+            show(t("productRestoredToast"), "info");
+            if (tab !== "active") setTab("active");
+            else void loadData();
+            return;
+          }
+          void loadData();
+        }}
+        showToast={show}
       />
 
       <ProductEditSheet
