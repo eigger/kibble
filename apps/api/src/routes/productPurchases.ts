@@ -147,7 +147,8 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
         data: update,
       });
       if (count === 0) return null;
-      await syncProductSnapshot(tx, householdId, id, purchaseId);
+      // touchedId를 넘기지 않는다 — 편집 시트가 Product에 직접 쓴 규격(중량·링크)을 되돌리지 않는다
+      await syncProductSnapshot(tx, householdId, id);
       return tx.productPurchase.findFirst({
         where: { id: purchaseId, productId: id, ...householdWhere(householdId) },
       });

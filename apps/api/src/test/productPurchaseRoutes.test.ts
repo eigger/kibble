@@ -233,6 +233,23 @@ describe("productPurchase routes — 다시 구매", () => {
     });
   });
 
+  it("PATCH(구매): 최신 구매의 개봉일만 고쳐도 시트가 고친 Product 규격(중량·링크)을 되돌리지 않는다", async () => {
+    const latest = purchaseRow("new", { purchasedAt: d("2026-05-01"), weightG: 2000, purchaseUrl: "https://shop.example/a" });
+    mockPrisma.productPurchase.findFirst
+      .mockResolvedValueOnce({ id: "new" })
+      .mockResolvedValueOnce(latest);
+    mockPrisma.product.findFirst.mockResolvedValue(productRow({ weightG: 2500 }));
+    mockPrisma.productPurchase.findMany.mockResolvedValue([latest]);
+
+    const res = await req("PATCH", `/api/products/${PRODUCT_ID}/purchases/new`, {
+      openedAt: "2026-05-02T03:00:00.000Z",
+    });
+    expect(res.statusCode).toBe(200);
+    const data = mockPrisma.product.updateMany.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty("weightG");
+    expect(data).not.toHaveProperty("purchaseUrl");
+  });
+
   it("PATCH(구매): 오래된 구매를 고쳐도 최신 구매의 규격은 건드리지 않는다", async () => {
     mockPrisma.productPurchase.findFirst
       .mockResolvedValueOnce({ id: "old" })
@@ -276,7 +293,10 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
 
   it("구매가 2건 이상이면 구매·기한 5칸을 무시한다 (거부하지 않는다)", async () => {
     mockPrisma.product.findFirst.mockResolvedValue(productRow({ _count: { purchases: 2 } }));
-    mockPrisma.productPurchase.findMany.mockResolvedValue([{ id: "a" }, { id: "b" }]);
+    mockPrisma.productPurchase.findMany.mockResolvedValue([
+      purchaseRow("a", { purchasedAt: d("2026-01-01") }),
+      purchaseRow("b", { purchasedAt: d("2026-02-01") }),
+    ]);
 
     const res = await patch({ name: "새 이름", costKrw: 1, purchaseDate: "2026-06-01T03:00:00.000Z", expiryDate: null });
     expect(res.statusCode).toBe(200);
@@ -288,7 +308,7 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
 
   it("구매가 1건이면 바뀐 필드만 그 행에 옮긴다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue(productRow());
-    mockPrisma.productPurchase.findMany.mockResolvedValue([{ id: "only" }]);
+    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("only")]);
 
     const res = await patch({ costKrw: 17000, purchaseDate: "2026-01-01T03:00:00.000Z" });
     expect(res.statusCode).toBe(200);
@@ -302,13 +322,25 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
 
   it("바뀐 값이 없는 저장(이름만 고침, 같은 날짜 재전송)은 구매 행을 건드리지 않는다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue(productRow());
-    mockPrisma.productPurchase.findMany.mockResolvedValue([{ id: "only" }]);
+    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("only")]);
 
-    // 저장된 값은 09:00(KST) 시각이어도 같은 KST 날짜면 같은 값이다
-    const res = await patch({ name: "이름만", costKrw: 15000, purchaseDate: "2026-01-01T12:00:00+09:00" });
+    // 저장된 구매일은 2026-01-01 12:00(KST). 같은 KST 날짜의 다른 시각(20:00)은 바뀐 값이 아니다
+    const res = await patch({ name: "이름만", costKrw: 15000, purchaseDate: "2026-01-01T20:00:00+09:00" });
     expect(res.statusCode).toBe(200);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     expect(mockPrisma.productPurchase.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.productPurchase.create).not.toHaveBeenCalled();
+  });
+
+  it("KST 날짜가 달라지면(전날 23:30) 바뀐 값으로 본다", async () => {
+    mockPrisma.product.findFirst.mockResolvedValue(productRow());
+    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("only")]);
+
+    const res = await patch({ purchaseDate: "2025-12-31T23:30:00+09:00" });
+    expect(res.statusCode).toBe(200);
+    expect(mockPrisma.productPurchase.updateMany).toHaveBeenCalledWith({
+      where: { id: "only", productId: PRODUCT_ID, householdId: HH },
+      data: { purchasedAt: new Date("2025-12-31T14:30:00.000Z") },
+    });
   });
 
   it("구매가 없던 제품이 처음 값을 얻으면 첫 구매 1행을 만든다 (구매일은 모름)", async () => {

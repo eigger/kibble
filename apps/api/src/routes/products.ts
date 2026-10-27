@@ -21,6 +21,7 @@ import {
 } from "../lib/productPhoto.js";
 import { sendFileWithRange } from "../lib/sendFile.js";
 import { serializeProduct } from "../lib/serializeProduct.js";
+import { syncProductSnapshot } from "../services/productPurchase.js";
 
 /** 구매 이력이 소유하는 Product 컬럼 5개 (WORKPLAN §7.13) */
 const PURCHASE_OWNED_FIELDS = [
@@ -254,45 +255,9 @@ export async function productRoutes(app: FastifyInstance) {
       }
     }
 
-    // 구매·기한 5칸은 구매 이력이 소유한다 (WORKPLAN §7.13). 구매가 2건 이상이면 정렬이 바뀔 수
-    // 있어 이 경로로는 고치지 않는다 — 거부하지 않고 무시한다 (K-12). 시트는 읽기 전용으로 보여 준다.
+    // 구매·기한 5칸은 구매 이력이 소유한다 (WORKPLAN §7.13). 건수 판단과 쓰기는 한 트랜잭션에서
+    // 하고(아래 writeProduct), 쓴 뒤에는 행 기준으로 스냅샷을 다시 맞춘다.
     const touchesPurchase = PURCHASE_OWNED_FIELDS.some((k) => data[k] !== undefined);
-    const purchaseRows = touchesPurchase
-      ? await prisma.productPurchase.findMany({
-          where: { productId: id, ...householdWhere(householdId) },
-          select: { id: true },
-        })
-      : [];
-    if (purchaseRows.length >= 2) {
-      for (const k of PURCHASE_OWNED_FIELDS) delete data[k];
-    }
-
-    // 0~1건이면 단방향 미러: 기존 값과 비교해 바뀐 필드만 유일한 구매 행에 옮긴다.
-    // 시트는 항상 전체 필드를 보내므로 이름만 고친 저장이 행을 건드리면 안 된다.
-    const purchaseChanges: Partial<
-      Pick<
-        Prisma.ProductPurchaseUncheckedCreateInput,
-        "purchasedAt" | "costKrw" | "manufacturedAt" | "expiryDate" | "openedAt"
-      >
-    > = {};
-    if (purchaseRows.length < 2) {
-      if (data.purchaseDate !== undefined && dayKey(data.purchaseDate) !== dayKey(existing.purchaseDate)) {
-        purchaseChanges.purchasedAt = toDate(data.purchaseDate);
-      }
-      if (data.costKrw !== undefined && (data.costKrw ?? null) !== existing.costKrw) {
-        purchaseChanges.costKrw = data.costKrw ?? null;
-      }
-      if (data.manufacturedAt !== undefined && dayKey(data.manufacturedAt) !== dayKey(existing.manufacturedAt)) {
-        purchaseChanges.manufacturedAt = toDate(data.manufacturedAt);
-      }
-      if (data.expiryDate !== undefined && dayKey(data.expiryDate) !== dayKey(existing.expiryDate)) {
-        purchaseChanges.expiryDate = toDate(data.expiryDate);
-      }
-      if (data.openedAt !== undefined && dayKey(data.openedAt) !== dayKey(existing.openedAt)) {
-        purchaseChanges.openedAt = toDate(data.openedAt);
-      }
-    }
-    const mirrorPurchase = Object.keys(purchaseChanges).length > 0;
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -320,22 +285,9 @@ export async function productRoutes(app: FastifyInstance) {
       updateData.registeredIngredients = data.registeredIngredients;
     }
     if (data.importer !== undefined) updateData.importer = data.importer;
-    if (data.manufacturedAt !== undefined) {
-      updateData.manufacturedAt = data.manufacturedAt ? new Date(data.manufacturedAt) : null;
-    }
     if (data.storage !== undefined) updateData.storage = data.storage;
     if (data.usage !== undefined) updateData.usage = data.usage;
     if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
-    if (data.expiryDate !== undefined) {
-      updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;
-    }
-    if (data.openedAt !== undefined) {
-      updateData.openedAt = data.openedAt ? new Date(data.openedAt) : null;
-    }
-    if (data.purchaseDate !== undefined) {
-      updateData.purchaseDate = data.purchaseDate ? new Date(data.purchaseDate) : null;
-    }
-    if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.palatability !== undefined) {
       updateData.palatability = data.palatability as Palatability;
@@ -344,38 +296,90 @@ export async function productRoutes(app: FastifyInstance) {
     if (data.notes !== undefined) updateData.notes = data.notes;
 
     const writeProduct = async (db: Pick<Prisma.TransactionClient, "product" | "productPurchase">) => {
+      const productData: Record<string, unknown> = { ...updateData };
+      let rows: { id: string }[] = [];
+      // 0~1건이면 단방향 미러: 기존 값과 비교해 바뀐 필드만 유일한 구매 행에 옮긴다.
+      // 시트는 항상 전체 필드를 보내므로 이름만 고친 저장이 행을 건드리면 안 된다.
+      // 2건 이상이면 5칸은 무시한다 — 거부하지 않는다 (K-12).
+      const purchaseChanges: Partial<
+        Pick<
+          Prisma.ProductPurchaseUncheckedCreateInput,
+          "purchasedAt" | "costKrw" | "manufacturedAt" | "expiryDate" | "openedAt"
+        >
+      > = {};
+      if (touchesPurchase) {
+        rows = await db.productPurchase.findMany({
+          where: { productId: id, ...householdWhere(householdId) },
+          select: { id: true },
+        });
+        if (rows.length < 2) {
+          if (data.purchaseDate !== undefined) {
+            productData.purchaseDate = toDate(data.purchaseDate);
+            if (dayKey(data.purchaseDate) !== dayKey(existing.purchaseDate)) {
+              purchaseChanges.purchasedAt = toDate(data.purchaseDate);
+            }
+          }
+          if (data.costKrw !== undefined) {
+            productData.costKrw = data.costKrw ?? null;
+            if ((data.costKrw ?? null) !== existing.costKrw) purchaseChanges.costKrw = data.costKrw ?? null;
+          }
+          if (data.manufacturedAt !== undefined) {
+            productData.manufacturedAt = toDate(data.manufacturedAt);
+            if (dayKey(data.manufacturedAt) !== dayKey(existing.manufacturedAt)) {
+              purchaseChanges.manufacturedAt = toDate(data.manufacturedAt);
+            }
+          }
+          if (data.expiryDate !== undefined) {
+            productData.expiryDate = toDate(data.expiryDate);
+            if (dayKey(data.expiryDate) !== dayKey(existing.expiryDate)) {
+              purchaseChanges.expiryDate = toDate(data.expiryDate);
+            }
+          }
+          if (data.openedAt !== undefined) {
+            productData.openedAt = toDate(data.openedAt);
+            if (dayKey(data.openedAt) !== dayKey(existing.openedAt)) {
+              purchaseChanges.openedAt = toDate(data.openedAt);
+            }
+          }
+        }
+      }
+
       const { count: written } = await db.product.updateMany({
         where: { id, ...householdWhere(householdId) },
-        data: updateData,
+        data: productData,
       });
-      if (written === 0 || !mirrorPurchase) return written;
+      if (written === 0 || !touchesPurchase) return written;
 
-      if (purchaseRows.length === 1) {
-        await db.productPurchase.updateMany({
-          where: { id: purchaseRows[0].id, productId: id, ...householdWhere(householdId) },
-          data: purchaseChanges,
-        });
-      } else if (Object.values(purchaseChanges).some((v) => v != null)) {
-        // 구매가 없던 제품이 처음 값을 얻었다 — 그것이 첫 구매다. 구매일을 안 적었으면 모름(null)
-        await db.productPurchase.create({
-          data: {
-            householdId,
-            productId: id,
-            purchasedAt: null,
-            costKrw: data.costKrw !== undefined ? (data.costKrw ?? null) : existing.costKrw,
-            manufacturedAt:
-              data.manufacturedAt !== undefined ? toDate(data.manufacturedAt) : existing.manufacturedAt,
-            expiryDate: data.expiryDate !== undefined ? toDate(data.expiryDate) : existing.expiryDate,
-            openedAt: data.openedAt !== undefined ? toDate(data.openedAt) : existing.openedAt,
-            weightG: data.weightG !== undefined ? (data.weightG ?? null) : existing.weightG,
-            purchaseUrl: data.purchaseUrl !== undefined ? (data.purchaseUrl ?? null) : existing.purchaseUrl,
-            ...purchaseChanges,
-          },
-        });
+      if (Object.keys(purchaseChanges).length > 0) {
+        if (rows.length === 1) {
+          await db.productPurchase.updateMany({
+            where: { id: rows[0].id, productId: id, ...householdWhere(householdId) },
+            data: purchaseChanges,
+          });
+        } else if (Object.values(purchaseChanges).some((v) => v != null)) {
+          // 구매가 없던 제품이 처음 값을 얻었다 — 그것이 첫 구매다. 구매일을 안 적었으면 모름(null)
+          await db.productPurchase.create({
+            data: {
+              householdId,
+              productId: id,
+              purchasedAt: null,
+              costKrw: data.costKrw !== undefined ? (data.costKrw ?? null) : existing.costKrw,
+              manufacturedAt:
+                data.manufacturedAt !== undefined ? toDate(data.manufacturedAt) : existing.manufacturedAt,
+              expiryDate: data.expiryDate !== undefined ? toDate(data.expiryDate) : existing.expiryDate,
+              openedAt: data.openedAt !== undefined ? toDate(data.openedAt) : existing.openedAt,
+              weightG: data.weightG !== undefined ? (data.weightG ?? null) : existing.weightG,
+              purchaseUrl: data.purchaseUrl !== undefined ? (data.purchaseUrl ?? null) : existing.purchaseUrl,
+              ...purchaseChanges,
+            },
+          });
+        }
       }
+      // 동시에 "다시 구매"가 끼어들었어도 Product가 행 기준 값으로 수렴한다
+      await syncProductSnapshot(db as Prisma.TransactionClient, householdId, id);
       return written;
     };
-    const count = mirrorPurchase ? await prisma.$transaction((tx) => writeProduct(tx)) : await writeProduct(prisma);
+    const count = touchesPurchase ? await prisma.$transaction((tx) => writeProduct(tx)) : await writeProduct(prisma);
     const updated =
       count > 0
         ? await prisma.product.findFirst({
@@ -624,7 +628,7 @@ export async function productRoutes(app: FastifyInstance) {
         count > 0
           ? await prisma.product.findFirst({
               where: { id, ...householdWhere(householdId) },
-              include: { pet: { select: { id: true, name: true } } },
+              include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
             })
           : null;
       if (!updated) {
