@@ -147,7 +147,8 @@ export default function ProductsPage() {
     let cost = 0;
     for (const p of products) {
       if (p.isActive) active++;
-      if (p.costKrw != null) cost += p.costKrw;
+      // 재구매를 담은 누적액. 목록 응답에 없으면(예전 서버) 최신 구매 가격으로 대신한다
+      cost += p.totalSpentKrw ?? p.costKrw ?? 0;
       if (p.expiryDate) {
         const diff = kstDayDiff(new Date(p.expiryDate), nowDate);
         if (diff >= 0 && diff <= 30) imminent++;

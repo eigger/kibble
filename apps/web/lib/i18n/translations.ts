@@ -1292,6 +1292,7 @@ const dict = {
   productPurchaseDeleteConfirm: { ko: "이 구매 기록을 삭제할까요?", en: "Delete this purchase?" },
   productPurchaseDeletedToast: { ko: "구매 기록을 삭제했어요", en: "Purchase deleted" },
   productPurchaseHistoryTitle: { ko: "구매 이력 {count}건", en: "{count} purchases" },
+  productPurchaseTotal: { ko: "합계 {amount}원", en: "Total ₩{amount}" },
   productPurchaseDateUnknown: { ko: "구매일 모름", en: "Date unknown" },
   productPurchaseManagedHint: {
     ko: "구매가 여러 건이라 구매 이력에서 고쳐요",

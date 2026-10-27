@@ -20,6 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
     updateMany: vi.fn(async () => ({ count: 1 })),
   },
+  productPurchase: { groupBy: vi.fn(async () => []) },
   productPhoto: {
     findMany: vi.fn(),
     findFirst: vi.fn(),

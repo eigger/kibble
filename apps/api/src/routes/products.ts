@@ -84,8 +84,21 @@ export async function productRoutes(app: FastifyInstance) {
       },
     });
 
+    // 누적 구매액 — 제품 컬럼(costKrw)은 최신 구매 하나뿐이라 재구매를 담지 못한다.
+    // 가격을 적은 구매가 하나도 없으면 null로 두어 "0원"과 "모름"을 구분한다.
+    const spent =
+      rows.length > 0
+        ? await prisma.productPurchase.groupBy({
+            by: ["productId"],
+            where: { productId: { in: rows.map((r) => r.id) }, ...householdWhere(householdId) },
+            _sum: { costKrw: true },
+          })
+        : [];
+    const spentByProduct = new Map(spent.map((g) => [g.productId, g._sum.costKrw]));
+
     return rows.map((r) => ({
       ...serializeProduct(r),
+      totalSpentKrw: spentByProduct.get(r.id) ?? null,
       pet: r.pet,
     }));
   });
