@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  createProductPurchaseSchema,
+  updateProductPurchaseSchema,
   createProductSchema,
   hasFormDetails,
   kibbleSizeForForm,
@@ -263,5 +265,28 @@ describe("상비약(MEDICATION) 카테고리와 표기사항", () => {
     expect(
       createProductSchema.safeParse({ name: "a", manufacturedAt: "2026-01-01" }).success,
     ).toBe(false);
+  });
+});
+
+describe("createProductPurchaseSchema", () => {
+  it("빈 본문도 통과한다 — 구매일 생략은 서버가 채운다 (K-12)", () => {
+    const res = createProductPurchaseSchema.safeParse({});
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.purchasedAt).toBeUndefined();
+  });
+
+  it("명시적 null 구매일(모름)을 보존한다", () => {
+    const res = createProductPurchaseSchema.safeParse({ purchasedAt: null });
+    expect(res.success && res.data.purchasedAt === null).toBe(true);
+  });
+
+  it("음수 가격과 http(s) 아닌 링크는 거부한다", () => {
+    expect(createProductPurchaseSchema.safeParse({ costKrw: -1 }).success).toBe(false);
+    expect(createProductPurchaseSchema.safeParse({ purchaseUrl: "javascript:alert(1)" }).success).toBe(false);
+  });
+
+  it("수정은 빈 본문을 거부한다", () => {
+    expect(updateProductPurchaseSchema.safeParse({}).success).toBe(false);
+    expect(updateProductPurchaseSchema.safeParse({ store: "동네 마트" }).success).toBe(true);
   });
 });

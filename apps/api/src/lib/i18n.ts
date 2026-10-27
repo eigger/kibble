@@ -131,6 +131,7 @@ const MESSAGES = {
   routineNotFound: { ko: "루틴을 찾을 수 없습니다", en: "Routine not found" },
   eventNotFound: { ko: "기록을 찾을 수 없습니다", en: "Event not found" },
   productNotFound: { ko: "제품을 찾을 수 없습니다", en: "Product not found" },
+  purchaseNotFound: { ko: "구매 기록을 찾을 수 없습니다", en: "Purchase not found" },
   petRequiredForEvent: {
     ko: "기록할 반려동물이 필요합니다",
     en: "A pet is required to create an event",

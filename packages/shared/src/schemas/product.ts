@@ -220,3 +220,26 @@ export const updateProductSchema = z
   .refine((body) => Object.keys(body).length > 0, { message: "empty update" });
 
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
+
+/**
+ * 제품 구매 한 건 (WORKPLAN §7.13). 전부 선택 입력이다 — 날짜만, 또는 아무것도 없이도 저장된다 (K-12).
+ * `purchasedAt`을 생략하면 서버가 지금으로 채우고, 명시적 null은 "구매일 모름"이다.
+ */
+const purchaseFields = {
+  purchasedAt: isoDatetime.nullable().optional(),
+  costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
+  weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
+  store: z.string().trim().max(80).nullable().optional(),
+  purchaseUrl: safeUrlSchema,
+  manufacturedAt: isoDatetime.nullable().optional(),
+  expiryDate: isoDatetime.nullable().optional(),
+  openedAt: isoDatetime.nullable().optional(),
+};
+
+export const createProductPurchaseSchema = z.object(purchaseFields);
+export type CreateProductPurchaseInput = z.infer<typeof createProductPurchaseSchema>;
+
+export const updateProductPurchaseSchema = z
+  .object(purchaseFields)
+  .refine((body) => Object.keys(body).length > 0, { message: "empty update" });
+export type UpdateProductPurchaseInput = z.infer<typeof updateProductPurchaseSchema>;

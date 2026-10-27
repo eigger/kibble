@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
+import type { Prisma, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
 import {
   createProductSchema,
   kibbleSizeForForm,
+  kstDayKey,
   MAX_PRODUCT_PHOTOS,
   nextPrimaryPhotoPath,
   productCategorySchema,
@@ -19,19 +20,21 @@ import {
   saveProductPhoto,
 } from "../lib/productPhoto.js";
 import { sendFileWithRange } from "../lib/sendFile.js";
+import { serializeProduct } from "../lib/serializeProduct.js";
 
-function serializeProduct(product: Product) {
-  return {
-    ...product,
-    createdAt: product.createdAt.toISOString(),
-    updatedAt: product.updatedAt.toISOString(),
-    expiryDate: product.expiryDate?.toISOString() ?? null,
-    openedAt: product.openedAt?.toISOString() ?? null,
-    purchaseDate: product.purchaseDate?.toISOString() ?? null,
-    manufacturedAt: product.manufacturedAt?.toISOString() ?? null,
-    archivedAt: product.archivedAt?.toISOString() ?? null,
-  };
-}
+/** 구매 이력이 소유하는 Product 컬럼 5개 (WORKPLAN §7.13) */
+const PURCHASE_OWNED_FIELDS = [
+  "purchaseDate",
+  "costKrw",
+  "manufacturedAt",
+  "expiryDate",
+  "openedAt",
+] as const;
+
+const dayKey = (v: Date | string | null | undefined) => (v ? kstDayKey(new Date(v)) : null);
+const toDate = (v: string | null | undefined) => (v ? new Date(v) : null);
+
+const withPurchaseCount = { _count: { select: { purchases: true } } } as const;
 
 export async function productRoutes(app: FastifyInstance) {
   // GET /api/products
@@ -76,6 +79,7 @@ export async function productRoutes(app: FastifyInstance) {
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }, { name: "asc" }],
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -134,9 +138,28 @@ export async function productRoutes(app: FastifyInstance) {
         palatability: (data.palatability as Palatability) ?? null,
         adverseReactions: data.adverseReactions ?? [],
         notes: data.notes ?? null,
+        // 구매·기한 값을 넣어 만들었다면 그것이 첫 구매다. 행이 없으면 "다시 구매"를 눌렀을 때
+        // 스냅샷이 다시 계산되며 첫 구매 값이 사라진다 (WORKPLAN §7.13)
+        ...(PURCHASE_OWNED_FIELDS.some((k) => data[k] != null)
+          ? {
+              purchases: {
+                create: {
+                  householdId,
+                  purchasedAt: toDate(data.purchaseDate),
+                  costKrw: data.costKrw ?? null,
+                  weightG: data.weightG ?? null,
+                  purchaseUrl: data.purchaseUrl ?? null,
+                  manufacturedAt: toDate(data.manufacturedAt),
+                  expiryDate: toDate(data.expiryDate),
+                  openedAt: toDate(data.openedAt),
+                },
+              },
+            }
+          : {}),
       },
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -156,6 +179,7 @@ export async function productRoutes(app: FastifyInstance) {
       where: { id, ...householdWhere(householdId) },
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -222,13 +246,53 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
     }
 
-    const data = parsed.data;
+    const data = { ...parsed.data };
     if (data.petId) {
       const petOk = await assertPetInHousehold(prisma, householdId, data.petId);
       if (!petOk) {
         return reply.code(404).send({ error: t("petNotFound", request.locale) });
       }
     }
+
+    // 구매·기한 5칸은 구매 이력이 소유한다 (WORKPLAN §7.13). 구매가 2건 이상이면 정렬이 바뀔 수
+    // 있어 이 경로로는 고치지 않는다 — 거부하지 않고 무시한다 (K-12). 시트는 읽기 전용으로 보여 준다.
+    const touchesPurchase = PURCHASE_OWNED_FIELDS.some((k) => data[k] !== undefined);
+    const purchaseRows = touchesPurchase
+      ? await prisma.productPurchase.findMany({
+          where: { productId: id, ...householdWhere(householdId) },
+          select: { id: true },
+        })
+      : [];
+    if (purchaseRows.length >= 2) {
+      for (const k of PURCHASE_OWNED_FIELDS) delete data[k];
+    }
+
+    // 0~1건이면 단방향 미러: 기존 값과 비교해 바뀐 필드만 유일한 구매 행에 옮긴다.
+    // 시트는 항상 전체 필드를 보내므로 이름만 고친 저장이 행을 건드리면 안 된다.
+    const purchaseChanges: Partial<
+      Pick<
+        Prisma.ProductPurchaseUncheckedCreateInput,
+        "purchasedAt" | "costKrw" | "manufacturedAt" | "expiryDate" | "openedAt"
+      >
+    > = {};
+    if (purchaseRows.length < 2) {
+      if (data.purchaseDate !== undefined && dayKey(data.purchaseDate) !== dayKey(existing.purchaseDate)) {
+        purchaseChanges.purchasedAt = toDate(data.purchaseDate);
+      }
+      if (data.costKrw !== undefined && (data.costKrw ?? null) !== existing.costKrw) {
+        purchaseChanges.costKrw = data.costKrw ?? null;
+      }
+      if (data.manufacturedAt !== undefined && dayKey(data.manufacturedAt) !== dayKey(existing.manufacturedAt)) {
+        purchaseChanges.manufacturedAt = toDate(data.manufacturedAt);
+      }
+      if (data.expiryDate !== undefined && dayKey(data.expiryDate) !== dayKey(existing.expiryDate)) {
+        purchaseChanges.expiryDate = toDate(data.expiryDate);
+      }
+      if (data.openedAt !== undefined && dayKey(data.openedAt) !== dayKey(existing.openedAt)) {
+        purchaseChanges.openedAt = toDate(data.openedAt);
+      }
+    }
+    const mirrorPurchase = Object.keys(purchaseChanges).length > 0;
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -279,15 +343,44 @@ export async function productRoutes(app: FastifyInstance) {
     if (data.adverseReactions !== undefined) updateData.adverseReactions = data.adverseReactions;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    const { count } = await prisma.product.updateMany({
-      where: { id, ...householdWhere(householdId) },
-      data: updateData,
-    });
+    const writeProduct = async (db: Pick<Prisma.TransactionClient, "product" | "productPurchase">) => {
+      const { count: written } = await db.product.updateMany({
+        where: { id, ...householdWhere(householdId) },
+        data: updateData,
+      });
+      if (written === 0 || !mirrorPurchase) return written;
+
+      if (purchaseRows.length === 1) {
+        await db.productPurchase.updateMany({
+          where: { id: purchaseRows[0].id, productId: id, ...householdWhere(householdId) },
+          data: purchaseChanges,
+        });
+      } else if (Object.values(purchaseChanges).some((v) => v != null)) {
+        // 구매가 없던 제품이 처음 값을 얻었다 — 그것이 첫 구매다. 구매일을 안 적었으면 모름(null)
+        await db.productPurchase.create({
+          data: {
+            householdId,
+            productId: id,
+            purchasedAt: null,
+            costKrw: data.costKrw !== undefined ? (data.costKrw ?? null) : existing.costKrw,
+            manufacturedAt:
+              data.manufacturedAt !== undefined ? toDate(data.manufacturedAt) : existing.manufacturedAt,
+            expiryDate: data.expiryDate !== undefined ? toDate(data.expiryDate) : existing.expiryDate,
+            openedAt: data.openedAt !== undefined ? toDate(data.openedAt) : existing.openedAt,
+            weightG: data.weightG !== undefined ? (data.weightG ?? null) : existing.weightG,
+            purchaseUrl: data.purchaseUrl !== undefined ? (data.purchaseUrl ?? null) : existing.purchaseUrl,
+            ...purchaseChanges,
+          },
+        });
+      }
+      return written;
+    };
+    const count = mirrorPurchase ? await prisma.$transaction((tx) => writeProduct(tx)) : await writeProduct(prisma);
     const updated =
       count > 0
         ? await prisma.product.findFirst({
             where: { id, ...householdWhere(householdId) },
-            include: { pet: { select: { id: true, name: true } } },
+            include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
           })
         : null;
     if (!updated) {
@@ -332,7 +425,7 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const existing = await prisma.product.findFirst({
       where: { id, ...householdWhere(householdId), archivedAt: { not: null } },
-      include: { pet: { select: { id: true, name: true } } },
+      include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
     });
     if (!existing) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
@@ -346,7 +439,7 @@ export async function productRoutes(app: FastifyInstance) {
       count > 0
         ? await prisma.product.findFirst({
             where: { id, ...householdWhere(householdId) },
-            include: { pet: { select: { id: true, name: true } } },
+            include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
           })
         : null;
     if (!restored) {
