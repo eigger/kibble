@@ -25,6 +25,7 @@ const mockPrisma = vi.hoisted(() => {
       create: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
       deleteMany: vi.fn(async () => ({ count: 1 })),
+      groupBy: vi.fn(),
     },
     $transaction: vi.fn(),
   };
@@ -304,6 +305,36 @@ describe("productPurchase routes — 다시 구매", () => {
     for (const [arg] of mockPrisma.product.updateMany.mock.calls) {
       expect(arg.data).not.toHaveProperty("weightG");
     }
+  });
+});
+
+describe("GET /api/products — 누적 구매액", () => {
+  it("재구매를 담은 합계를 totalSpentKrw로 내려주고, 가격이 없으면 null", async () => {
+    vi.clearAllMocks();
+    invalidateHouseholdCache(USER);
+    invalidateTokenVersionCache(USER);
+    mockPrisma.householdMember.findFirst.mockResolvedValue({ householdId: HH, role: "OWNER" });
+    mockPrisma.user.findUnique.mockResolvedValue({ tokenVersion: 1 });
+    const app = await buildApp({ logger: false });
+    mockPrisma.product.findMany.mockResolvedValue([
+      productRow({ id: "a", costKrw: 18000, _count: { purchases: 2 } }),
+      productRow({ id: "b", costKrw: null, _count: { purchases: 1 } }),
+    ]);
+    mockPrisma.productPurchase.groupBy.mockResolvedValue([{ productId: "a", _sum: { costKrw: 38000 } }]);
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/products",
+      headers: { authorization: `Bearer ${jwt(app)}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { id: string; totalSpentKrw: number | null }[];
+    expect(body.find((p) => p.id === "a")?.totalSpentKrw).toBe(38000);
+    expect(body.find((p) => p.id === "b")?.totalSpentKrw).toBeNull();
+    expect(mockPrisma.productPurchase.groupBy.mock.calls[0][0].where).toMatchObject({
+      productId: { in: ["a", "b"] },
+      householdId: HH,
+    });
   });
 });
 

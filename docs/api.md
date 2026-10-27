@@ -419,6 +419,8 @@ curl -sS -X PATCH "$BASE/api/products/<product-id>/purchases/<purchase-id>" \
 curl -sS -X DELETE "$BASE/api/products/<product-id>/purchases/<purchase-id>" -H "$AUTH"
 ```
 
+`GET /api/products` 목록에는 모든 구매의 가격 합 `totalSpentKrw`(가격을 적은 구매가 없으면 `null`)가 함께 담긴다.
+
 구매가 2건 이상인 제품에 `PATCH /api/products/<id>`로 구매·기한 5개 필드를 보내면 **무시**된다(거부하지 않는다). 구매 이력의 행을 고친다.
 
 ### 단건 업로드 (15MB 이하 사진 등)

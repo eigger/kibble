@@ -190,6 +190,8 @@ export interface Product {
   pet?: { id: string; name: string } | null;
   /** 구매 이력 건수. 2건 이상이면 구매·기한 칸은 이력에서 고친다 (WORKPLAN §7.13) */
   purchaseCount?: number;
+  /** 모든 구매의 가격 합. 목록 응답에만 있고, 가격을 적은 구매가 없으면 null */
+  totalSpentKrw?: number | null;
 }
 
 /** 제품의 구매 한 건. Product의 구매일·가격·기한은 이 행들에서 서버가 계산한다 */

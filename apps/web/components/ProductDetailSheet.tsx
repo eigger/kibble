@@ -462,6 +462,14 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
             <div className="product-info-card product-purchase-history">
               <span className="product-info-label">
                 {t("productPurchaseHistoryTitle", { count: String(purchases.length) })}
+                {purchases.some((row) => row.costKrw != null) && (
+                  <>
+                    {" · "}
+                    {t("productPurchaseTotal", {
+                      amount: purchases.reduce((sum, row) => sum + (row.costKrw ?? 0), 0).toLocaleString(),
+                    })}
+                  </>
+                )}
               </span>
               <ul className="product-purchase-list">
                 {purchases.map((row) => (
