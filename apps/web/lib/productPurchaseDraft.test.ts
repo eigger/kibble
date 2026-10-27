@@ -94,6 +94,30 @@ describe("purchaseDraftToPayload", () => {
   });
 });
 
+describe("수정 시 날짜 칸 생략", () => {
+  it("날짜가 원래와 같으면 보내지 않고, 바뀐 날짜만 보낸다", () => {
+    const original = purchaseDraftFromRow(row);
+    const draft = { ...original, store: "다른 마트", expiryDate: "2027-02-01" };
+    const payload = purchaseDraftToPayload(draft, true, original);
+    expect(payload).not.toHaveProperty("purchasedAt");
+    expect(payload).not.toHaveProperty("manufacturedAt");
+    expect(payload).not.toHaveProperty("openedAt");
+    expect(payload.expiryDate).toBe("2027-02-01T03:00:00.000Z");
+    expect(payload.store).toBe("다른 마트");
+  });
+
+  it("날짜를 비우면 null로 보낸다", () => {
+    const original = purchaseDraftFromRow(row);
+    const payload = purchaseDraftToPayload({ ...original, openedAt: "" }, true, original);
+    expect(payload.openedAt).toBeNull();
+  });
+
+  it("구매처는 80자로 자른다", () => {
+    const payload = purchaseDraftToPayload({ ...repurchaseDraft(null, "2026-10-27"), store: "가".repeat(100) }, true);
+    expect(payload.store).toHaveLength(80);
+  });
+});
+
 describe("normalizePurchaseUrl / dayToIso", () => {
   it("스킴이 없으면 https를 붙이고 실행 가능한 스킴은 버린다", () => {
     expect(normalizePurchaseUrl("shop.example/a")).toBe("https://shop.example/a");

@@ -10,6 +10,7 @@ import {
   purchaseDraftFromRow,
   purchaseDraftToPayload,
   repurchaseDraft,
+  STORE_MAX,
   type PurchaseDraft,
 } from "../lib/productPurchaseDraft";
 import { CalendarIcon } from "./ProductIcons";
@@ -24,6 +25,17 @@ type Props = {
   showToast: (message: string, kind: "success" | "error" | "info") => void;
 };
 
+/** 열자마자 맞는 값이 그려지게 한다 — effect만 쓰면 직전에 열었던 값이 한 프레임 보인다 */
+function initialDraft(product: Product | null, purchase?: ProductPurchase | null): PurchaseDraft {
+  if (purchase) return purchaseDraftFromRow(purchase);
+  return repurchaseDraft(
+    product
+      ? { costKrw: product.costKrw, purchaseUrl: product.purchaseUrl, weightG: product.weightG }
+      : null,
+    kstDayKey(new Date()),
+  );
+}
+
 /**
  * 다시 구매 / 구매 기록 수정 (WORKPLAN §7.13). 제품은 그대로 두고 구매 한 건을 더한다.
  * 다시 구매는 지난 구매 값을 채워서 열고, 구매일은 오늘, 기한은 비워 둔다.
@@ -31,7 +43,7 @@ type Props = {
 export function ProductPurchaseSheet({ open, product, purchase, onClose, onSaved, showToast }: Props) {
   const { t } = useLocale();
   const [saving, setSaving] = useState(false);
-  const [draft, setDraft] = useState<PurchaseDraft>(() => repurchaseDraft(null, ""));
+  const [draft, setDraft] = useState<PurchaseDraft>(() => initialDraft(product, purchase));
   const dialogRef = useDialog({ open, onClose, closeOnEscape: false, initialFocus: "container" });
 
   const editing = !!purchase;
@@ -79,7 +91,9 @@ export function ProductPurchaseSheet({ open, product, purchase, onClose, onSaved
     if (!product || saving) return;
     setSaving(true);
     try {
-      const body = JSON.stringify(purchaseDraftToPayload(draft, withWeight));
+      const body = JSON.stringify(
+        purchaseDraftToPayload(draft, withWeight, purchase ? purchaseDraftFromRow(purchase) : undefined),
+      );
       if (purchase) {
         await apiJson(`/api/products/${product.id}/purchases/${purchase.id}`, { method: "PATCH", body });
       } else {
@@ -176,6 +190,7 @@ export function ProductPurchaseSheet({ open, product, purchase, onClose, onSaved
               id="purchase-store"
               type="text"
               className="text-input"
+              maxLength={STORE_MAX}
               placeholder={t("productPurchaseStorePlaceholder")}
               value={draft.store}
               onChange={(e) => patch({ store: e.target.value })}

@@ -61,10 +61,10 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
     };
   }, [open, productId, embeddedPhotos]);
 
-  // 구매 이력. 2건 이상일 때만 목록을 보여 주므로 그때만 받는다.
+  // 구매 이력. 구매처 수정·삭제 같은 구매 단위 작업의 진입점이라 1건부터 보여 준다.
   const purchaseCount = product?.purchaseCount ?? 0;
   useEffect(() => {
-    if (!open || !productId || purchaseCount < 2) {
+    if (!open || !productId || purchaseCount < 1) {
       setPurchases([]);
       return;
     }
@@ -457,8 +457,8 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
             </div>
           )}
 
-          {/* 구매 이력 — 2건 이상일 때. 한 줄을 누르면 그 구매를 고친다 */}
-          {purchases.length >= 2 && (
+          {/* 구매 이력 — 한 줄을 누르면 그 구매를 고친다 */}
+          {purchases.length >= 1 && (
             <div className="product-info-card product-purchase-history">
               <span className="product-info-label">
                 {t("productPurchaseHistoryTitle", { count: String(purchases.length) })}

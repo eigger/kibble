@@ -1281,8 +1281,8 @@ const dict = {
     en: "Filled in from your last purchase. Change only what's different.",
   },
   productRepurchaseDatesHint: {
-    ko: "유통기한·개봉일은 봉지마다 달라서 비워 뒀어요.",
-    en: "Expiry and opened dates differ per pack, so they're left blank.",
+    ko: "제조일·유통기한·개봉일은 봉지마다 달라서 비워 뒀어요.",
+    en: "Manufactured, expiry and opened dates differ per pack, so they're left blank.",
   },
   productPurchaseStoreLabel: { ko: "구매처", en: "Store" },
   productPurchaseStorePlaceholder: { ko: "마트·쇼핑몰 이름", en: "Shop name" },

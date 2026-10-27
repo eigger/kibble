@@ -305,7 +305,7 @@ export function ProductEditSheet({
         normalizedUrl = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
       }
 
-      const payload = {
+      const payload: Record<string, unknown> = {
         name: name.trim(),
         brand: brand.trim() || null,
         category,
@@ -337,6 +337,14 @@ export function ProductEditSheet({
         adverseReactions,
         notes: notes.trim() || null,
       };
+
+      // 구매가 여러 건이면 5칸은 구매 이력이 소유한다. 시트를 연 사이 다른 기기에서 구매가 줄어도
+      // 낡은 값이 남은 구매에 미러되지 않게 아예 보내지 않는다.
+      if (purchaseManaged) {
+        for (const key of ["purchaseDate", "costKrw", "manufacturedAt", "expiryDate", "openedAt"] as const) {
+          delete payload[key];
+        }
+      }
 
       let savedId: string;
       if (mode === "add") {

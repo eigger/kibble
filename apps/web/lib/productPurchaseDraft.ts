@@ -25,6 +25,9 @@ export type PreviousPurchase = {
   weightG: number | null;
 };
 
+/** 서버 스키마(store max 80)와 맞춘다 — 길다고 구매 한 건이 통째로 거부되면 안 된다 (K-12) */
+export const STORE_MAX = 80;
+
 const day = (iso: string | null) => (iso ? kstDayKey(new Date(iso)) : "");
 
 /**
@@ -79,16 +82,34 @@ export function normalizePurchaseUrl(raw: string): string | null {
  * 입력 상태 → 서버 본문. 중량은 중량 칸을 보여 주는 카테고리(`withWeight`)일 때만 보낸다 —
  * 기기·위생용품의 구매에 중량 칸이 없으므로 값이 새로 생기지 않는다.
  */
-export function purchaseDraftToPayload(draft: PurchaseDraft, withWeight: boolean) {
+type DateKey = "purchasedAt" | "manufacturedAt" | "expiryDate" | "openedAt";
+
+export type PurchasePayload = Partial<Record<DateKey, string | null>> & {
+  costKrw: number | null;
+  store: string | null;
+  purchaseUrl: string | null;
+  weightG?: number | null;
+};
+
+export function purchaseDraftToPayload(
+  draft: PurchaseDraft,
+  withWeight: boolean,
+  /** 기존 구매를 고칠 때의 원래 값. 날짜 칸이 그대로면 보내지 않는다 */
+  original?: PurchaseDraft,
+): PurchasePayload {
   const cost = draft.cost.trim();
+  // 저장된 시각(이행분·서버가 찍은 시각)을 KST 정오로 덮어쓰면 같은 날 구매의 순서가 뒤집힐 수 있다.
+  // 날짜가 원래와 같으면 그 필드는 아예 보내지 않는다 (제품 PATCH가 KST 날짜로 비교하는 것과 같은 이유).
+  const dateField = (key: DateKey): Partial<Record<DateKey, string | null>> =>
+    original && original[key] === draft[key] ? {} : { [key]: dayToIso(draft[key]) };
   return {
-    purchasedAt: dayToIso(draft.purchasedAt),
+    ...dateField("purchasedAt"),
     costKrw: cost ? Number(cost) : null,
-    store: draft.store.trim() || null,
+    store: draft.store.trim().slice(0, STORE_MAX) || null,
     purchaseUrl: normalizePurchaseUrl(draft.url),
     ...(withWeight ? { weightG: weightToGrams(draft.weight, draft.weightUnit) } : {}),
-    manufacturedAt: dayToIso(draft.manufacturedAt),
-    expiryDate: dayToIso(draft.expiryDate),
-    openedAt: dayToIso(draft.openedAt),
+    ...dateField("manufacturedAt"),
+    ...dateField("expiryDate"),
+    ...dateField("openedAt"),
   };
 }

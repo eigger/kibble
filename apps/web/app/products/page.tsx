@@ -394,11 +394,21 @@ export default function ProductsPage() {
       />
 
       <ProductPurchaseSheet
+        key={purchaseSheet ? `${purchaseSheet.product.id}:${purchaseSheet.purchase?.id ?? "new"}` : "closed"}
         open={purchaseSheet !== null}
         product={purchaseSheet?.product ?? null}
         purchase={purchaseSheet?.purchase ?? null}
         onClose={() => setPurchaseSheet(null)}
-        onSaved={() => void loadData()}
+        onSaved={() => {
+          // 보관한 제품을 다시 사면 서버가 복원한다. 보관 탭에서 말없이 사라지지 않게 알리고 옮겨 간다.
+          if (purchaseSheet && !purchaseSheet.purchase && purchaseSheet.product.archivedAt) {
+            show(t("productRestoredToast"), "info");
+            if (tab !== "active") setTab("active");
+            else void loadData();
+            return;
+          }
+          void loadData();
+        }}
         showToast={show}
       />
 
