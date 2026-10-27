@@ -399,6 +399,28 @@ curl -sS -X DELETE "$BASE/api/products/<product-id>/photos/<photo-id>" -H "$AUTH
 
 `GET /api/products/<id>` 상세 응답에는 `photos: [{id, sortOrder, isPrimary}]`가 함께 담깁니다. 목록(`GET /api/products`) 응답에는 없습니다 — 카드는 대표 한 장만 필요합니다.
 
+### 제품 구매 이력 (재구매)
+
+제품(정체)은 그대로 두고 구매 한 건씩을 쌓는다. `Product`의 `purchaseDate`·`costKrw`·`manufacturedAt`·`expiryDate`·`openedAt`은 구매 행에서 서버가 계산한 값이다(`GET /api/products*` 응답의 읽기 경로는 그대로이고 `purchaseCount`가 추가된다). 규칙은 `docs/WORKPLAN.md` §7.13.
+
+```bash
+# 구매 목록 (최신순)
+curl -sS "$BASE/api/products/<product-id>/purchases" -H "$AUTH"
+
+# 다시 구매 — 전부 선택 입력. purchasedAt을 생략하면 지금, null이면 "모름".
+# 보관된 제품이면 복원된다. 응답은 { purchase, product }
+curl -sS -X POST "$BASE/api/products/<product-id>/purchases" \
+  -H "$AUTH" -H "Content-Type: application/json" \
+  -d '{"costKrw":18000,"weightG":2000,"store":"동네 마트","expiryDate":"2027-06-01T03:00:00.000Z"}'
+
+# 구매 수정 / 삭제 (둘 다 Product 스냅샷을 다시 계산한다)
+curl -sS -X PATCH "$BASE/api/products/<product-id>/purchases/<purchase-id>" \
+  -H "$AUTH" -H "Content-Type: application/json" -d '{"openedAt":"2026-10-27T03:00:00.000Z"}'
+curl -sS -X DELETE "$BASE/api/products/<product-id>/purchases/<purchase-id>" -H "$AUTH"
+```
+
+구매가 2건 이상인 제품에 `PATCH /api/products/<id>`로 구매·기한 5개 필드를 보내면 **무시**된다(거부하지 않는다). 구매 이력의 행을 고친다.
+
 ### 단건 업로드 (15MB 이하 사진 등)
 
 ```bash

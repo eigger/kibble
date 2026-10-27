@@ -44,6 +44,7 @@ model Household {
   events           Event[]
   eventTypeAliases EventTypeAlias[]
   products         Product[]
+  productPurchases ProductPurchase[]
   routines         Routine[]
   routineItems     RoutineItem[]
 }
@@ -319,10 +320,11 @@ model Product {
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
 
-  household    Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pet          Pet?           @relation(fields: [petId], references: [id], onDelete: SetNull)
+  household    Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pet          Pet?              @relation(fields: [petId], references: [id], onDelete: SetNull)
   events       Event[]
   photos       ProductPhoto[]
+  purchases    ProductPurchase[]
   routineItems RoutineItem[]
 
   @@index([householdId, category, archivedAt])
@@ -347,6 +349,31 @@ enum Palatability {
   MEDIUM
   LOW
   VERY_LOW
+}
+
+/// 제품의 구매 한 건. Product(정체)는 하나, 거래는 여러 건이다.
+/// Product의 구매일·가격·기한 컬럼은 이 행들에서 서버가 계산한 스냅샷이다 (WORKPLAN §7.13)
+model ProductPurchase {
+  id             String    @id @default(cuid())
+  householdId    String
+  productId      String
+  /// 구매일. 옛 구매를 백필했거나 날짜를 모르면 null
+  purchasedAt    DateTime?
+  costKrw        Int?
+  weightG        Int?
+  /// 구매처 이름(오프라인 매장 등). 링크는 purchaseUrl
+  store          String?
+  purchaseUrl    String?
+  manufacturedAt DateTime?
+  expiryDate     DateTime?
+  openedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, productId, purchasedAt(sort: Desc)])
 }
 
 /// 제품 사진 여러 장. 대표 한 장은 Product.photoPath가 가리킨다.

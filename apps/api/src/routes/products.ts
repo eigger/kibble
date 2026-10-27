@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import type { Product, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
+import type { Prisma, ProductCategory, Palatability, ProductForm, KibbleSize } from "@prisma/client";
 import {
   createProductSchema,
   kibbleSizeForForm,
+  kstDayKey,
   MAX_PRODUCT_PHOTOS,
   nextPrimaryPhotoPath,
   productCategorySchema,
@@ -19,19 +20,22 @@ import {
   saveProductPhoto,
 } from "../lib/productPhoto.js";
 import { sendFileWithRange } from "../lib/sendFile.js";
+import { serializeProduct } from "../lib/serializeProduct.js";
+import { syncProductSnapshot } from "../services/productPurchase.js";
 
-function serializeProduct(product: Product) {
-  return {
-    ...product,
-    createdAt: product.createdAt.toISOString(),
-    updatedAt: product.updatedAt.toISOString(),
-    expiryDate: product.expiryDate?.toISOString() ?? null,
-    openedAt: product.openedAt?.toISOString() ?? null,
-    purchaseDate: product.purchaseDate?.toISOString() ?? null,
-    manufacturedAt: product.manufacturedAt?.toISOString() ?? null,
-    archivedAt: product.archivedAt?.toISOString() ?? null,
-  };
-}
+/** 구매 이력이 소유하는 Product 컬럼 5개 (WORKPLAN §7.13) */
+const PURCHASE_OWNED_FIELDS = [
+  "purchaseDate",
+  "costKrw",
+  "manufacturedAt",
+  "expiryDate",
+  "openedAt",
+] as const;
+
+const dayKey = (v: Date | string | null | undefined) => (v ? kstDayKey(new Date(v)) : null);
+const toDate = (v: string | null | undefined) => (v ? new Date(v) : null);
+
+const withPurchaseCount = { _count: { select: { purchases: true } } } as const;
 
 export async function productRoutes(app: FastifyInstance) {
   // GET /api/products
@@ -76,6 +80,7 @@ export async function productRoutes(app: FastifyInstance) {
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }, { name: "asc" }],
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -134,9 +139,28 @@ export async function productRoutes(app: FastifyInstance) {
         palatability: (data.palatability as Palatability) ?? null,
         adverseReactions: data.adverseReactions ?? [],
         notes: data.notes ?? null,
+        // 구매·기한 값을 넣어 만들었다면 그것이 첫 구매다. 행이 없으면 "다시 구매"를 눌렀을 때
+        // 스냅샷이 다시 계산되며 첫 구매 값이 사라진다 (WORKPLAN §7.13)
+        ...(PURCHASE_OWNED_FIELDS.some((k) => data[k] != null)
+          ? {
+              purchases: {
+                create: {
+                  householdId,
+                  purchasedAt: toDate(data.purchaseDate),
+                  costKrw: data.costKrw ?? null,
+                  weightG: data.weightG ?? null,
+                  purchaseUrl: data.purchaseUrl ?? null,
+                  manufacturedAt: toDate(data.manufacturedAt),
+                  expiryDate: toDate(data.expiryDate),
+                  openedAt: toDate(data.openedAt),
+                },
+              },
+            }
+          : {}),
       },
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -156,6 +180,7 @@ export async function productRoutes(app: FastifyInstance) {
       where: { id, ...householdWhere(householdId) },
       include: {
         pet: { select: { id: true, name: true } },
+        ...withPurchaseCount,
       },
     });
 
@@ -222,13 +247,17 @@ export async function productRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
     }
 
-    const data = parsed.data;
+    const data = { ...parsed.data };
     if (data.petId) {
       const petOk = await assertPetInHousehold(prisma, householdId, data.petId);
       if (!petOk) {
         return reply.code(404).send({ error: t("petNotFound", request.locale) });
       }
     }
+
+    // 구매·기한 5칸은 구매 이력이 소유한다 (WORKPLAN §7.13). 건수 판단과 쓰기는 한 트랜잭션에서
+    // 하고(아래 writeProduct), 쓴 뒤에는 행 기준으로 스냅샷을 다시 맞춘다.
+    const touchesPurchase = PURCHASE_OWNED_FIELDS.some((k) => data[k] !== undefined);
 
     const updateData: Record<string, unknown> = {};
     if (data.name !== undefined) updateData.name = data.name;
@@ -256,22 +285,9 @@ export async function productRoutes(app: FastifyInstance) {
       updateData.registeredIngredients = data.registeredIngredients;
     }
     if (data.importer !== undefined) updateData.importer = data.importer;
-    if (data.manufacturedAt !== undefined) {
-      updateData.manufacturedAt = data.manufacturedAt ? new Date(data.manufacturedAt) : null;
-    }
     if (data.storage !== undefined) updateData.storage = data.storage;
     if (data.usage !== undefined) updateData.usage = data.usage;
     if (data.ingredients !== undefined) updateData.ingredients = data.ingredients;
-    if (data.expiryDate !== undefined) {
-      updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;
-    }
-    if (data.openedAt !== undefined) {
-      updateData.openedAt = data.openedAt ? new Date(data.openedAt) : null;
-    }
-    if (data.purchaseDate !== undefined) {
-      updateData.purchaseDate = data.purchaseDate ? new Date(data.purchaseDate) : null;
-    }
-    if (data.costKrw !== undefined) updateData.costKrw = data.costKrw;
     if (data.isActive !== undefined) updateData.isActive = data.isActive;
     if (data.palatability !== undefined) {
       updateData.palatability = data.palatability as Palatability;
@@ -279,15 +295,83 @@ export async function productRoutes(app: FastifyInstance) {
     if (data.adverseReactions !== undefined) updateData.adverseReactions = data.adverseReactions;
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    const { count } = await prisma.product.updateMany({
-      where: { id, ...householdWhere(householdId) },
-      data: updateData,
-    });
+    const writeProduct = async (db: Pick<Prisma.TransactionClient, "product" | "productPurchase">) => {
+      // 구매·기한 5칸은 여기서 쓰지 않는다 — 아래 syncProductSnapshot이 구매 행 기준으로 채운다.
+      // Product를 먼저 쓰는 이유: 이 쓰기가 Product 행 잠금을 잡아, 같은 제품에 동시에 들어온
+      // 저장이 구매 건수를 보기 전에 줄을 선다 (구매 0건에 첫 구매 행이 둘 생기는 것을 막는다).
+      const { count: written } = await db.product.updateMany({
+        where: { id, ...householdWhere(householdId) },
+        // 5칸만 보내 updateData가 비어도 UPDATE가 생략되지 않게 updatedAt을 명시한다 (잠금 보장)
+        data: touchesPurchase ? { ...updateData, updatedAt: new Date() } : updateData,
+      });
+      if (written === 0 || !touchesPurchase) return written;
+
+      // 0~1건이면 단방향 미러: 기존 값과 비교해 바뀐 필드만 유일한 구매 행에 옮긴다.
+      // 시트는 항상 전체 필드를 보내므로 이름만 고친 저장이 행을 건드리면 안 된다.
+      // 2건 이상이면 5칸은 무시한다 — 거부하지 않는다 (K-12).
+      const purchaseChanges: Partial<
+        Pick<
+          Prisma.ProductPurchaseUncheckedCreateInput,
+          "purchasedAt" | "costKrw" | "manufacturedAt" | "expiryDate" | "openedAt"
+        >
+      > = {};
+      const rows = await db.productPurchase.findMany({
+        where: { productId: id, ...householdWhere(householdId) },
+        select: { id: true },
+      });
+      if (rows.length < 2) {
+        if (data.purchaseDate !== undefined && dayKey(data.purchaseDate) !== dayKey(existing.purchaseDate)) {
+          purchaseChanges.purchasedAt = toDate(data.purchaseDate);
+        }
+        if (data.costKrw !== undefined && (data.costKrw ?? null) !== existing.costKrw) {
+          purchaseChanges.costKrw = data.costKrw ?? null;
+        }
+        if (data.manufacturedAt !== undefined && dayKey(data.manufacturedAt) !== dayKey(existing.manufacturedAt)) {
+          purchaseChanges.manufacturedAt = toDate(data.manufacturedAt);
+        }
+        if (data.expiryDate !== undefined && dayKey(data.expiryDate) !== dayKey(existing.expiryDate)) {
+          purchaseChanges.expiryDate = toDate(data.expiryDate);
+        }
+        if (data.openedAt !== undefined && dayKey(data.openedAt) !== dayKey(existing.openedAt)) {
+          purchaseChanges.openedAt = toDate(data.openedAt);
+        }
+      }
+
+      if (Object.keys(purchaseChanges).length > 0) {
+        if (rows.length === 1) {
+          await db.productPurchase.updateMany({
+            where: { id: rows[0].id, productId: id, ...householdWhere(householdId) },
+            data: purchaseChanges,
+          });
+        } else if (Object.values(purchaseChanges).some((v) => v != null)) {
+          // 구매가 없던 제품이 처음 값을 얻었다 — 그것이 첫 구매다. 구매일을 안 적었으면 모름(null)
+          await db.productPurchase.create({
+            data: {
+              householdId,
+              productId: id,
+              purchasedAt: null,
+              costKrw: data.costKrw !== undefined ? (data.costKrw ?? null) : existing.costKrw,
+              manufacturedAt:
+                data.manufacturedAt !== undefined ? toDate(data.manufacturedAt) : existing.manufacturedAt,
+              expiryDate: data.expiryDate !== undefined ? toDate(data.expiryDate) : existing.expiryDate,
+              openedAt: data.openedAt !== undefined ? toDate(data.openedAt) : existing.openedAt,
+              weightG: data.weightG !== undefined ? (data.weightG ?? null) : existing.weightG,
+              purchaseUrl: data.purchaseUrl !== undefined ? (data.purchaseUrl ?? null) : existing.purchaseUrl,
+              ...purchaseChanges,
+            },
+          });
+        }
+      }
+      // Product의 5칸을 행 기준으로 채운다 (구매 1건 이하에서는 보낸 값과 같다)
+      await syncProductSnapshot(db as Prisma.TransactionClient, householdId, id);
+      return written;
+    };
+    const count = touchesPurchase ? await prisma.$transaction((tx) => writeProduct(tx)) : await writeProduct(prisma);
     const updated =
       count > 0
         ? await prisma.product.findFirst({
             where: { id, ...householdWhere(householdId) },
-            include: { pet: { select: { id: true, name: true } } },
+            include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
           })
         : null;
     if (!updated) {
@@ -332,7 +416,7 @@ export async function productRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const existing = await prisma.product.findFirst({
       where: { id, ...householdWhere(householdId), archivedAt: { not: null } },
-      include: { pet: { select: { id: true, name: true } } },
+      include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
     });
     if (!existing) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
@@ -346,7 +430,7 @@ export async function productRoutes(app: FastifyInstance) {
       count > 0
         ? await prisma.product.findFirst({
             where: { id, ...householdWhere(householdId) },
-            include: { pet: { select: { id: true, name: true } } },
+            include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
           })
         : null;
     if (!restored) {
@@ -531,7 +615,7 @@ export async function productRoutes(app: FastifyInstance) {
         count > 0
           ? await prisma.product.findFirst({
               where: { id, ...householdWhere(householdId) },
-              include: { pet: { select: { id: true, name: true } } },
+              include: { pet: { select: { id: true, name: true } }, ...withPurchaseCount },
             })
           : null;
       if (!updated) {

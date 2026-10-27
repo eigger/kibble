@@ -22,6 +22,7 @@ import { homeRoutes } from "./routes/home.js";
 import { careRoutes } from "./routes/care.js";
 import { eventRoutes } from "./routes/events.js";
 import { productRoutes } from "./routes/products.js";
+import { productPurchaseRoutes } from "./routes/productPurchases.js";
 import { parseRoutes } from "./routes/parse.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { pushRoutes } from "./routes/push.js";
@@ -138,6 +139,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await app.register(homeRoutes, { prefix: "/api/home" });
   await app.register(careRoutes, { prefix: "/api/care" });
   await app.register(productRoutes, { prefix: "/api/products" });
+  await app.register(productPurchaseRoutes, { prefix: "/api/products" });
   await app.register(eventRoutes, { prefix: "/api/events" });
   await app.register(parseRoutes, { prefix: "/api/parse" });
   await app.register(stateRoutes, { prefix: "/api/states" });

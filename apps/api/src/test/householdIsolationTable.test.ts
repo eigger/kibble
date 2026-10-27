@@ -178,6 +178,42 @@ const rows: Row[] = [
     },
   },
 
+  // --- product purchases
+  {
+    name: "GET /api/products/:id/purchases",
+    method: "GET",
+    url: `/api/products/${OTHER}/purchases`,
+    query: { model: "product", method: "findFirst", where: { id: OTHER, householdId: HH_A } },
+  },
+  {
+    name: "POST /api/products/:id/purchases",
+    method: "POST",
+    url: `/api/products/${OTHER}/purchases`,
+    payload: {},
+    query: { model: "product", method: "findFirst", where: { id: OTHER, householdId: HH_A } },
+  },
+  {
+    name: "PATCH /api/products/:id/purchases/:purchaseId",
+    method: "PATCH",
+    url: `/api/products/${OTHER}/purchases/purchase_x`,
+    payload: { costKrw: 1 },
+    query: {
+      model: "productPurchase",
+      method: "findFirst",
+      where: { id: "purchase_x", productId: OTHER, householdId: HH_A },
+    },
+  },
+  {
+    name: "DELETE /api/products/:id/purchases/:purchaseId",
+    method: "DELETE",
+    url: `/api/products/${OTHER}/purchases/purchase_x`,
+    query: {
+      model: "productPurchase",
+      method: "findFirst",
+      where: { id: "purchase_x", productId: OTHER, householdId: HH_A },
+    },
+  },
+
   // --- care / medication-courses
   {
     name: "GET /api/care/medication-courses?petId=남의 펫",
