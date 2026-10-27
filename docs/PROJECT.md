@@ -558,8 +558,12 @@ model ProductPurchase {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@index([householdId, productId, purchasedAt(sort: Desc)])
 }
+// Product 쪽에는 `purchases ProductPurchase[]`, Household 쪽에는 `productPurchases ProductPurchase[]` 를 둔다
 
 enum Palatability {
   VERY_HIGH
