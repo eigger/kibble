@@ -302,13 +302,22 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
     expect(res.statusCode).toBe(200);
     const data = mockPrisma.product.updateMany.mock.calls[0][0].data;
     expect(data).toEqual({ name: "새 이름" });
+    // 5칸은 쓰기 뒤 sync가 행 기준(최신 구매 b)으로 채운다 — 보낸 값이 아니다
+    expect(mockPrisma.product.updateMany.mock.calls[1][0].data).toMatchObject({
+      purchaseDate: d("2026-02-01"),
+    });
     expect(mockPrisma.productPurchase.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.productPurchase.create).not.toHaveBeenCalled();
   });
 
-  it("구매가 1건이면 바뀐 필드만 그 행에 옮긴다", async () => {
+  it("구매가 1건이면 바뀐 필드만 그 행에 옮기고, Product는 행 기준으로 채워진다", async () => {
     mockPrisma.product.findFirst.mockResolvedValue(productRow());
-    mockPrisma.productPurchase.findMany.mockResolvedValue([purchaseRow("only")]);
+    const only = purchaseRow("only");
+    mockPrisma.productPurchase.findMany.mockResolvedValue([only]);
+    mockPrisma.productPurchase.updateMany.mockImplementation(async ({ data }: { data: object }) => {
+      Object.assign(only, data);
+      return { count: 1 };
+    });
 
     const res = await patch({ costKrw: 17000, purchaseDate: "2026-01-01T03:00:00.000Z" });
     expect(res.statusCode).toBe(200);
@@ -316,8 +325,9 @@ describe("products PATCH/POST — 구매 이력과의 동기화", () => {
       where: { id: "only", productId: PRODUCT_ID, householdId: HH },
       data: { costKrw: 17000 },
     });
-    // Product에는 보낸 값 그대로
-    expect(mockPrisma.product.updateMany.mock.calls[0][0].data.costKrw).toBe(17000);
+    // 첫 쓰기(행 잠금)에는 5칸이 없고, 최종 저장값은 sync가 쓴다
+    expect(mockPrisma.product.updateMany.mock.calls[0][0].data).not.toHaveProperty("costKrw");
+    expect(mockPrisma.product.updateMany.mock.calls[1][0].data.costKrw).toBe(17000);
   });
 
   it("바뀐 값이 없는 저장(이름만 고침, 같은 날짜 재전송)은 구매 행을 건드리지 않는다", async () => {
