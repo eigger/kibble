@@ -474,12 +474,15 @@ export function ProductDetailSheet({ product, open, onClose, onEdit, onRepurchas
               <ul className="product-purchase-list">
                 {purchases.map((row) => (
                   <li key={row.id}>
+                    {/* 수정 경로가 연결되지 않은 곳(예: 기록 상세에서 연 제품)에서는 누를 수 있는 척하지 않는다 */}
                     <button
                       type="button"
                       className="product-purchase-item"
+                      disabled={!onEditPurchase}
                       onClick={() => {
+                        if (!onEditPurchase) return;
                         onClose();
-                        onEditPurchase?.(product, row);
+                        onEditPurchase(product, row);
                       }}
                     >
                       <span className="product-purchase-item-main">

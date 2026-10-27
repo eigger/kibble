@@ -67,7 +67,7 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
 
     const product = await prisma.product.findFirst({
       where: { id, ...householdWhere(householdId) },
-      select: { id: true, archivedAt: true },
+      select: { id: true },
     });
     if (!product) {
       return reply.code(404).send({ error: t("productNotFound", request.locale) });
@@ -91,13 +91,12 @@ export async function productPurchaseRoutes(app: FastifyInstance) {
           openedAt: toDate(data.openedAt),
         },
       });
-      // 보관한 제품을 다시 샀다면 쓰겠다는 뜻이다
-      if (product.archivedAt) {
-        await tx.product.updateMany({
-          where: { id, ...householdWhere(householdId) },
-          data: { archivedAt: null, isActive: true },
-        });
-      }
+      // 보관한 제품을 다시 샀다면 쓰겠다는 뜻이다. 잠금을 잡은 뒤 조건부로 복원해야 다른 기기의
+      // 보관과 겹쳐도 "구매는 있는데 제품은 보관된 채"로 남지 않는다.
+      await tx.product.updateMany({
+        where: { id, ...householdWhere(householdId), archivedAt: { not: null } },
+        data: { archivedAt: null, isActive: true },
+      });
       await syncProductSnapshot(tx, householdId, id, row.id);
       return row;
     });

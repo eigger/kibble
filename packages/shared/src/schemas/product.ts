@@ -225,9 +225,15 @@ export type UpdateProductInput = z.infer<typeof updateProductSchema>;
  * 제품 구매 한 건 (WORKPLAN §7.13). 전부 선택 입력이다 — 날짜만, 또는 아무것도 없이도 저장된다 (K-12).
  * `purchasedAt`을 생략하면 서버가 지금으로 채우고, 명시적 null은 "구매일 모름"이다.
  */
+/**
+ * 구매 한 건의 가격 상한(1억 원). 제품 목록이 구매 가격을 합산하는데, 한 건의 상한이 INT 최대치면
+ * 바코드를 붙여넣는 실수 두 번으로 합계가 INT를 넘어 목록 전체가 실패할 수 있다.
+ */
+export const PURCHASE_COST_MAX = 100_000_000;
+
 const purchaseFields = {
   purchasedAt: isoDatetime.nullable().optional(),
-  costKrw: z.coerce.number().int().min(0).max(POSTGRES_INT_MAX).nullable().optional(),
+  costKrw: z.coerce.number().int().min(0).max(PURCHASE_COST_MAX).nullable().optional(),
   weightG: z.coerce.number().int().min(0).max(WEIGHT_G_MAX).nullable().optional(),
   store: z.string().trim().max(80).nullable().optional(),
   purchaseUrl: safeUrlSchema,

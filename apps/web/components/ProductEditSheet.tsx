@@ -1077,7 +1077,9 @@ export function ProductEditSheet({
                   </label>
                   <input
                     id="prod-url"
-                    type="url"
+                    type="text"
+                    inputMode="url"
+                    autoCapitalize="none"
                     className="text-input"
                     placeholder={t("productPurchaseUrlPlaceholder")}
                     value={purchaseUrl}

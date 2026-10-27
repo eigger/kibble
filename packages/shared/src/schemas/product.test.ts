@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createProductPurchaseSchema,
+  PURCHASE_COST_MAX,
   updateProductPurchaseSchema,
   createProductSchema,
   hasFormDetails,
@@ -283,6 +284,11 @@ describe("createProductPurchaseSchema", () => {
   it("음수 가격과 http(s) 아닌 링크는 거부한다", () => {
     expect(createProductPurchaseSchema.safeParse({ costKrw: -1 }).success).toBe(false);
     expect(createProductPurchaseSchema.safeParse({ purchaseUrl: "javascript:alert(1)" }).success).toBe(false);
+  });
+
+  it("구매 가격은 1억 원까지 — 합계가 INT를 넘지 않게 한다", () => {
+    expect(createProductPurchaseSchema.safeParse({ costKrw: PURCHASE_COST_MAX }).success).toBe(true);
+    expect(createProductPurchaseSchema.safeParse({ costKrw: PURCHASE_COST_MAX + 1 }).success).toBe(false);
   });
 
   it("수정은 빈 본문을 거부한다", () => {

@@ -189,7 +189,7 @@ describe("productPurchase routes — 다시 구매", () => {
     const res = await req("POST", `/api/products/${PRODUCT_ID}/purchases`, {});
     expect(res.statusCode).toBe(201);
     expect(mockPrisma.product.updateMany).toHaveBeenCalledWith({
-      where: { id: PRODUCT_ID, householdId: HH },
+      where: { id: PRODUCT_ID, householdId: HH, archivedAt: { not: null } },
       data: { archivedAt: null, isActive: true },
     });
   });
