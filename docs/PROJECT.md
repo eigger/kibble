@@ -541,6 +541,31 @@ model Product {
   @@index([householdId, isActive, archivedAt])
 }
 
+/// 제품의 구매 한 건. Product(정체)는 하나, 거래는 여러 건.
+/// Product의 구매일·가격·기한 컬럼은 구매 행에서 서버가 계산한 스냅샷이다 (규칙은 WORKPLAN §7.13)
+model ProductPurchase {
+  id             String    @id @default(cuid())
+  householdId    String
+  productId      String
+  /// 구매일. 백필된 옛 구매처럼 모르면 null
+  purchasedAt    DateTime?
+  costKrw        Int?
+  weightG        Int?
+  store          String?
+  purchaseUrl    String?
+  manufacturedAt DateTime?
+  expiryDate     DateTime?
+  openedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, productId, purchasedAt(sort: Desc)])
+}
+// Product 쪽에는 `purchases ProductPurchase[]`, Household 쪽에는 `productPurchases ProductPurchase[]` 를 둔다
+
 enum Palatability {
   VERY_HIGH
   HIGH
