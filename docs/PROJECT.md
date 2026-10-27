@@ -541,6 +541,26 @@ model Product {
   @@index([householdId, isActive, archivedAt])
 }
 
+/// 제품의 구매 한 건. Product(정체)는 하나, 거래는 여러 건.
+/// Product의 구매·기한 컬럼은 최신 구매의 스냅샷이다 (WORKPLAN §7.13)
+model ProductPurchase {
+  id             String    @id @default(cuid())
+  householdId    String
+  productId      String
+  purchasedAt    DateTime
+  costKrw        Int?
+  weightG        Int?
+  store          String?
+  purchaseUrl    String?
+  manufacturedAt DateTime?
+  expiryDate     DateTime?
+  openedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([householdId, productId, purchasedAt(sort: Desc)])
+}
+
 enum Palatability {
   VERY_HIGH
   HIGH
