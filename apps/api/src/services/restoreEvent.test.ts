@@ -7,6 +7,9 @@ type Opts = {
   deleted?: Record<string, unknown> | null;
   course?: Record<string, unknown> | null;
   others?: { doseSlotIndex: number | null }[];
+  /** 같은 번호를 가진 살아 있는 기록 수 */
+  ordinalClash?: number;
+  numbering?: { max: number | null; count: number };
 };
 
 function fakeDb(opts: Opts) {
@@ -27,6 +30,11 @@ function fakeDb(opts: Opts) {
       findFirst: vi.fn(async () => deleted),
       // 삭제된 행 조회와 복원 후 재조회가 같은 mock을 쓴다(반환 행의 id만 본다)
       findMany: vi.fn(async () => opts.others ?? []),
+      count: vi.fn(async () => opts.ordinalClash ?? 0),
+      aggregate: vi.fn(async () => ({
+        _max: { doseOrdinal: opts.numbering?.max ?? null },
+        _count: { _all: opts.numbering?.count ?? 0 },
+      })),
       updateMany: update,
     },
     medicationCourse: {
@@ -36,7 +44,14 @@ function fakeDb(opts: Opts) {
     },
   };
   const db = { ...tx, $transaction: async (fn: (t: typeof tx) => unknown) => fn(tx) };
-  return { db: db as unknown as PrismaClient, update, lock, findMany: tx.event.findMany };
+  return {
+    db: db as unknown as PrismaClient,
+    update,
+    lock,
+    findMany: tx.event.findMany,
+    count: tx.event.count,
+    aggregate: tx.event.aggregate,
+  };
 }
 
 const params = { householdId: "h1", eventId: "e1" };
@@ -134,6 +149,57 @@ describe("restoreEvent", () => {
     });
     await expect(restoreEvent(db, params)).rejects.toMatchObject({ message: "DOSE_LIMIT_REACHED" });
     expect(update).not.toHaveBeenCalled();
+  });
+
+  describe("doseOrdinal on restore", () => {
+    const withOrdinal = (doseOrdinal: number | null) => ({
+      id: "e1",
+      petId: "pet1",
+      occurredAt: new Date("2026-10-07T01:00:00Z"),
+      medicationCourseId: "c1",
+      doseSlotIndex: 0,
+      doseOrdinal,
+    });
+
+    it("keeps the original number when no live dose shares it (R126)", async () => {
+      const { db, update, count } = fakeDb({ deleted: withOrdinal(4), ordinalClash: 0 });
+      await restoreEvent(db, params);
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { deletedAt: null } }));
+      expect(count).toHaveBeenCalledOnce();
+    });
+
+    it("takes the next number when a live dose already uses it", async () => {
+      const { db, update, aggregate } = fakeDb({
+        deleted: withOrdinal(4),
+        ordinalClash: 1,
+        numbering: { max: 4, count: 4 },
+      });
+      await restoreEvent(db, params);
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { deletedAt: null, doseOrdinal: 5 } }),
+      );
+      expect(aggregate).toHaveBeenCalledOnce();
+    });
+
+    it("leaves unnumbered legacy rows alone", async () => {
+      const { db, update, count, aggregate } = fakeDb({ deleted: withOrdinal(null) });
+      await restoreEvent(db, params);
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: { deletedAt: null } }));
+      expect(count).not.toHaveBeenCalled();
+      expect(aggregate).not.toHaveBeenCalled();
+    });
+
+    it("scopes the clash lookup and the renumbering to household and course, live rows only", async () => {
+      const { db, count, aggregate } = fakeDb({
+        deleted: withOrdinal(4),
+        ordinalClash: 1,
+        numbering: { max: 4, count: 4 },
+      });
+      await restoreEvent(db, params);
+      const live = { householdId: "h1", medicationCourseId: "c1", deletedAt: null };
+      expect(count).toHaveBeenCalledWith({ where: { ...live, doseOrdinal: 4 } });
+      expect(aggregate).toHaveBeenCalledWith(expect.objectContaining({ where: live }));
+    });
   });
 
   it("is not found when nothing deleted matches", async () => {

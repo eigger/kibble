@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { normalizeDoseTimes, startOfTodayBoundary } from "@kibble/shared";
 import { doseConflict } from "../lib/doseCapacity.js";
 import { householdWhere } from "../lib/householdScope.js";
+import { nextDoseOrdinal } from "../lib/medicationCourseProgress.js";
 import {
   CreateEventDoseConflictError,
   CreateEventNotFoundError,
@@ -17,9 +18,9 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * 슬롯·하루 한도를 다시 본다 — 삭제 → 같은 슬롯에 다시 기록 → 이전 기록 복원으로 같은 슬롯이
  * 두 건이 되는 길을 막는다. 충돌이면 `CreateEventDoseConflictError`(라우트가 409).
  *
- * `doseOrdinal`은 다시 매기지 않고 그대로 둔다: 이력의 회차는 "그때 몇 번째였나"라는 과거
- * 사실이고(R126), 새 회차는 삭제된 행까지 센 최댓값에서 이어지므로(`createEvent`의 채번) 그 사이에
- * 만든 기록과 번호가 겹치지 않는다.
+ * `doseOrdinal`은 그대로 둔다(이력의 회차는 "그때 몇 번째였나"라는 과거 사실, R126). 단, 삭제 뒤
+ * 같은 번호로 다시 기록해 살아 있는 기록과 겹치면 그때만 다음 번호를 새로 받는다 — 새 회차는
+ * 삭제된 행을 세지 않으므로(`createEvent`의 채번) 삭제 후 재기록이 같은 번호를 쓸 수 있다.
  */
 export async function restoreEvent(
   db: Db,
@@ -34,6 +35,7 @@ export async function restoreEvent(
       occurredAt: true,
       medicationCourseId: true,
       doseSlotIndex: true,
+      doseOrdinal: true,
     },
   });
   if (!deleted) throw new CreateEventNotFoundError("event");
@@ -81,7 +83,20 @@ export async function restoreEvent(
       if (conflict) throw new CreateEventDoseConflictError(conflict);
     }
 
-    return reviveEvent(tx, where);
+    let doseOrdinal: number | undefined;
+    if (deleted.doseOrdinal != null) {
+      const live = { ...householdWhere(params.householdId), medicationCourseId: courseId, deletedAt: null };
+      const clash = await tx.event.count({ where: { ...live, doseOrdinal: deleted.doseOrdinal } });
+      if (clash > 0) {
+        const numbering = await tx.event.aggregate({
+          where: live,
+          _max: { doseOrdinal: true },
+          _count: { _all: true },
+        });
+        doseOrdinal = nextDoseOrdinal(numbering._max.doseOrdinal, numbering._count._all);
+      }
+    }
+    return reviveEvent(tx, where, doseOrdinal);
   });
 }
 
@@ -89,10 +104,11 @@ export async function restoreEvent(
 async function reviveEvent(
   db: Db,
   where: { id: string; householdId: string },
+  doseOrdinal?: number,
 ): Promise<CreatedEvent> {
   const { count } = await db.event.updateMany({
     where: { ...where, deletedAt: { not: null } },
-    data: { deletedAt: null },
+    data: { deletedAt: null, ...(doseOrdinal !== undefined ? { doseOrdinal } : {}) },
   });
   if (count === 0) throw new CreateEventNotFoundError("event");
   const row = await db.event.findFirst({ where, select: eventSelect });
