@@ -18,8 +18,8 @@ describe("nextDoseOrdinal", () => {
     expect(nextDoseOrdinal(3, 3)).toBe(4);
   });
 
-  it("leaves a gap instead of reusing a deleted dose's number", () => {
-    // 1·2·3을 찍고 2를 지운 뒤 다시 기록: 남은 이벤트는 2건이지만 3은 이미 쓰였다
+  it("leaves a gap instead of colliding with a live higher number", () => {
+    // 1·2·3 중 2를 지운 뒤 다시 기록: 살아 있는 이벤트는 2건이지만 3이 이미 있다
     expect(nextDoseOrdinal(3, 2)).toBe(4);
   });
 

@@ -352,6 +352,7 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
       where: {
         ...householdWhere(params.householdId),
         medicationCourseId: course.id,
+        deletedAt: null,
       },
       _max: { doseOrdinal: true },
       _count: { _all: true },
