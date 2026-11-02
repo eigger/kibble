@@ -16,7 +16,7 @@ type Db = PrismaClient | Prisma.TransactionClient;
  * `CreateEventDoseConflictError`(라우트가 409). 같은 날 안에서 시각만 바꾸거나 처방과 무관한 기록은
  * 검사 없이 그대로 쓴다.
  *
- * 날짜를 옮겨도 `doseSlotIndex`·`doseOrdinal`은 그대로 둔다(복원과 같은 원칙): 슬롯은 사용자가 기록한
+ * 날짜를 옮겨도 `doseSlotIndex`·`doseOrdinal`은 그대로 둔다(복원도 번호가 겹치지 않으면 같다): 슬롯은 사용자가 기록한
  * 사실이고 회차는 "그때 몇 번째였나"라는 과거 사실이다. 슬롯이 이미 찼으면 임의로 다른 칸에 넣지 않고
  * 거절한다. 반환값은 갱신된 행 수(0이면 대상 없음).
  */

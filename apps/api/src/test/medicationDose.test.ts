@@ -79,6 +79,28 @@ describe("복약 기록 — 입력 시각 · 슬롯 자동 선택 · 중복 거�
     );
   });
 
+  it("회차는 삭제하지 않은 기록만 세어 매긴다 (삭제 후 재기록이 17/16이 되지 않게)", async () => {
+    mockPrisma.medicationCourse.findFirst.mockResolvedValue({
+      id: COURSE,
+      dosesPerDay: 2,
+      doseTimes: ["08:00", "19:00"],
+    });
+    mockPrisma.event.findMany.mockResolvedValue([]);
+    mockPrisma.event.aggregate.mockResolvedValue({ _max: { doseOrdinal: 3 }, _count: { _all: 3 } });
+
+    const res = await post({ occurredAt: "2026-09-01T11:30:00.000Z" });
+
+    expect(res.statusCode).toBe(201);
+    expect(mockPrisma.event.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ householdId: HH, medicationCourseId: COURSE, deletedAt: null }),
+      }),
+    );
+    expect(mockPrisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ doseOrdinal: 4 }) }),
+    );
+  });
+
   it("슬롯을 골라도 시각을 슬롯 예정 시각으로 당기지 않는다", async () => {
     mockPrisma.medicationCourse.findFirst.mockResolvedValue({
       id: COURSE,
