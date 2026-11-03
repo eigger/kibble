@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+# The community-scripts engine lives in community-scripts/core. The ct/ and install/
+# scripts are resolved against COMMUNITY_SCRIPTS_URL, so point that at this repository's
+# proxmox/ directory: install/kibble-install.sh is then fetched from here, not upstream.
+export COMMUNITY_SCRIPTS_URL="${COMMUNITY_SCRIPTS_URL:-https://raw.githubusercontent.com/eigger/kibble/master/proxmox}"
+COMMUNITY_SCRIPTS_CORE_URL="${COMMUNITY_SCRIPTS_CORE_URL:-https://raw.githubusercontent.com/community-scripts/core/main}"
+export COMMUNITY_SCRIPTS_CORE_URL
 
-function curl() {
-  if [[ "$*" == *"community-scripts/ProxmoxVE/main/install/kibble-install.sh"* ]]; then
-    command curl -fsSL "https://raw.githubusercontent.com/eigger/kibble/master/proxmox/install/kibble-install.sh"
-  else
-    command curl "$@"
-  fi
-}
-export -f curl
+# `source <(curl ...)` would ignore a failed download and keep going with every function
+# undefined, so fetch first and stop on failure.
+if ! _kibble_build_func="$(curl -fsSL "${COMMUNITY_SCRIPTS_CORE_URL}/core/build.func")" || [[ -z "$_kibble_build_func" ]]; then
+  echo "kibble: could not download the community-scripts engine from ${COMMUNITY_SCRIPTS_CORE_URL}/core/build.func" >&2
+  exit 1
+fi
+# Source through a pipe like upstream does: the engine treats a regular-file BASH_SOURCE as a
+# local checkout.
+# shellcheck source=/dev/null
+source <(printf '%s\n' "$_kibble_build_func")
+unset _kibble_build_func
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
