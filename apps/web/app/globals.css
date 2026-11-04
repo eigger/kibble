@@ -5899,6 +5899,15 @@ th {
   scroll-snap-stop: always;
 }
 
+/* 루틴 시각 선택 시트 */
+.routine-time-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 /* 루틴 버튼 그리드 — 줄바꿈, 가로 스크롤 없음(드래그와 안 부딪히려고) */
 .routine-grid {
   display: grid;

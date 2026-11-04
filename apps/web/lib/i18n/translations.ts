@@ -172,6 +172,8 @@ const dict = {
     ko: "{label} — {count}건 저장했습니다.",
     en: "{label} — {count} saved.",
   },
+  routineWhen: { ko: "기록 시각", en: "Log time" },
+  routineRegister: { ko: "등록", en: "Log" },
   routinesTitle: { ko: "루틴", en: "Routines" },
   routinesIntro: {
     ko: "자주 똑같이 기록하는 것을 미리 정해 두면 기록 화면에서 한 번에 저장됩니다. 사료 10g, 영양제 3종처럼요.",
@@ -204,8 +206,8 @@ const dict = {
     en: "{names}: course ended, skipped",
   },
   routineSkippedGiven: {
-    ko: "{names} 오늘 이미 기록됨",
-    en: "{names}: already logged today",
+    ko: "{names} 이미 기록됨",
+    en: "{names}: already logged",
   },
   routineAddItem: { ko: "항목 추가", en: "Add item" },
   routineItemNumber: { ko: "항목 {n}", en: "Item {n}" },

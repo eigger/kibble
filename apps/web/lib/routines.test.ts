@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary } from "./routines";
+import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary, resolveRoutineOccurredAt } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -359,5 +359,22 @@ describe("performRoutineMove", () => {
     });
     expect(ok).toEqual({ status: "stale" });
     expect(bad).toEqual({ status: "stale" });
+  });
+});
+
+describe("resolveRoutineOccurredAt", () => {
+  const now = new Date("2026-11-05T03:00:30.000Z"); // KST 12:00:30
+  it("손대지 않았으면 등록하는 순간이다", () => {
+    expect(resolveRoutineOccurredAt("2026-11-05T11:00", false, now)).toBe(now.toISOString());
+  });
+  it("고친 과거 시각은 그대로 쓴다", () => {
+    expect(resolveRoutineOccurredAt("2026-11-04T09:30", true, now)).toBe("2026-11-04T00:30:00.000Z");
+  });
+  it("비었거나 해석 못 하면 지금이다", () => {
+    expect(resolveRoutineOccurredAt("", true, now)).toBe(now.toISOString());
+    expect(resolveRoutineOccurredAt("abc", true, now)).toBe(now.toISOString());
+  });
+  it("미래는 지금으로 당긴다", () => {
+    expect(resolveRoutineOccurredAt("2026-11-06T09:00", true, now)).toBe(now.toISOString());
   });
 });
