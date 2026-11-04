@@ -362,12 +362,12 @@ export default function QuickRecordPage() {
   useEffect(() => {
     if (!hasRoutines) return;
     function onToggle() {
-      if (detailOpen || medPickOpen || medSlotPickOpen) return;
+      if (detailOpen || medPickOpen || medSlotPickOpen || routineSheet != null) return;
       selectMode(quickMode === "chips" ? "routines" : "chips");
     }
     window.addEventListener(QUICK_MODE_TOGGLE_EVENT, onToggle);
     return () => window.removeEventListener(QUICK_MODE_TOGGLE_EVENT, onToggle);
-  }, [hasRoutines, quickMode, detailOpen, medPickOpen, medSlotPickOpen, selectMode]);
+  }, [hasRoutines, quickMode, detailOpen, medPickOpen, medSlotPickOpen, routineSheet, selectMode]);
 
   function openDetailFromEvent(event: TimelineEvent, edit = false) {
     if (!pet) return;
@@ -740,7 +740,7 @@ export default function QuickRecordPage() {
   }
 
   /**
-   * 루틴 1탭 — 항목마다 `POST /api/events` (K-4). 시트의 여러 제품 저장과 같은 순서·묶음 규칙(§7.22).
+   * 루틴 실행(버튼 → 시각 시트 → 등록) — 항목마다 `POST /api/events` (K-4). 시트의 여러 제품 저장과 같은 순서·묶음 규칙(§7.22).
    * 중간에 실패해도 들어간 것은 타임라인에 넣는다 — 서버에 있는 것을 화면만 모르면 안 된다.
    */
   async function runRoutine(routine: Routine, occurredAt: string) {

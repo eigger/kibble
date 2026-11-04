@@ -206,8 +206,8 @@ const dict = {
     en: "{names}: course ended, skipped",
   },
   routineSkippedGiven: {
-    ko: "{names} 오늘 이미 기록됨",
-    en: "{names}: already logged today",
+    ko: "{names} 이미 기록됨",
+    en: "{names}: already logged",
   },
   routineAddItem: { ko: "항목 추가", en: "Add item" },
   routineItemNumber: { ko: "항목 {n}", en: "Item {n}" },

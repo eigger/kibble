@@ -2,6 +2,7 @@ import type { CreateEventInput } from "@kibble/shared";
 import { formatProductNameDisplay } from "./eventDetailTags";
 import { productValueDisplay } from "./eventDetailFields";
 import type { TranslationKey } from "./i18n/translations";
+import { fromDatetimeLocalValue } from "./datetimeLocal";
 import { isRoutineTagType } from "./routineDraft";
 import type { Routine, RoutineItem } from "./types";
 
@@ -233,4 +234,15 @@ export async function performRoutineMove<T extends { id: string }>(opts: {
 /** `PUT /api/routines/order`에 보낼 id 순서 */
 export function routineOrderIds(list: readonly { id: string }[]): string[] {
   return list.map((r) => r.id);
+}
+
+/**
+ * 루틴 시트의 기록 시각. 손대지 않았으면 등록하는 순간(열어 둔 시간이 아니다), 고쳤으면 그 값.
+ * 해석 못 하는 값은 지금으로 흡수하고(K-12), 미래는 지금으로 당긴다 — 미래 슬롯이 채워지면 투약 알림이 꺼진다.
+ */
+export function resolveRoutineOccurredAt(value: string, touched: boolean, now: Date): string {
+  if (!touched) return now.toISOString();
+  const iso = fromDatetimeLocalValue(value);
+  if (!iso || new Date(iso).getTime() > now.getTime()) return now.toISOString();
+  return iso;
 }

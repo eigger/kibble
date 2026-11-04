@@ -14,7 +14,7 @@ interface RoutineButtonProps {
   amountLabels?: { offered: string; consumed: string };
 }
 
-/** 루틴 버튼 — 누르면 바로 저장된다. 칩과 달리 채움색이고 아래에 무엇이 들어가는지 요약이 있다 (§7.24) */
+/** 루틴 버튼 — 누르면 기록 시각을 고르는 시트가 열린다(등록하면 저장). 칩과 달리 채움색이고 아래에 무엇이 들어가는지 요약이 있다 (§7.24) */
 export function RoutineButton({
   routine,
   tLabel,
