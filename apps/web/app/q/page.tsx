@@ -22,6 +22,7 @@ import {
 } from "../../lib/eventDisplay";
 import { EventCategoryTag } from "../../components/EventCategoryTag";
 import { TimelineEventBody } from "../../components/TimelineEventBody";
+import { RoutineTimeSheet } from "../../components/RoutineTimeSheet";
 import { MedicationCoursePickSheet } from "../../components/MedicationCoursePickSheet";
 import {
   MedicationDoseSlotPickSheet,
@@ -41,6 +42,7 @@ import {
   runRoutineEvents,
   loadQuickMode,
   routineItemSummary,
+  routineSummary,
   saveQuickMode,
   type QuickMode,
 } from "../../lib/routines";
@@ -164,6 +166,8 @@ export default function QuickRecordPage() {
   // 입력 바 모드 — 기록 칩 / 루틴 (§7.24). 루틴이 없으면 세그먼트도 없고 칩만 보인다.
   const [quickMode, setQuickMode] = useState<QuickMode>("chips");
   const [runningRoutineId, setRunningRoutineId] = useState<string | null>(null);
+  // 루틴을 누르면 시각 선택 시트가 뜬다 — 등록하면 그 시각으로 저장한다
+  const [routineSheet, setRoutineSheet] = useState<Routine | null>(null);
   const panelsRef = useRef<HTMLDivElement>(null);
   // 지운 행의 업로드 정리 — 실행취소 유예가 끝나면(또는 화면을 떠나면) 한 번 실행된다
   const pendingUploadCancels = useRef(new Map<string, DeferredAction>());
@@ -739,14 +743,14 @@ export default function QuickRecordPage() {
    * 루틴 1탭 — 항목마다 `POST /api/events` (K-4). 시트의 여러 제품 저장과 같은 순서·묶음 규칙(§7.22).
    * 중간에 실패해도 들어간 것은 타임라인에 넣는다 — 서버에 있는 것을 화면만 모르면 안 된다.
    */
-  async function runRoutine(routine: Routine) {
+  async function runRoutine(routine: Routine, occurredAt: string) {
     if (!user || !pet || runningRoutineId || detailSaving) return;
     if (routine.items.length === 0) return;
 
     const { events, skipped } = buildRoutineEventBodies(
       routine,
       pet.id,
-      new Date().toISOString(),
+      occurredAt,
       randomSuffix(),
     );
     // 오늘 몫을 이미 먹였다 — 서버가 409로 거절한다. 실패가 아니라 건너뜀이다 (§7.24)
@@ -1095,7 +1099,7 @@ export default function QuickRecordPage() {
                     running={runningRoutineId === routine.id}
                     runningLabel={t("saving")}
                     amountLabels={{ offered: t("homeTodayOffered"), consumed: t("homeTodayConsumed") }}
-                    onTap={(r) => void runRoutine(r)}
+                    onTap={(r) => setRoutineSheet(r)}
                   />
                 ))}
               </div>
@@ -1105,6 +1109,19 @@ export default function QuickRecordPage() {
         </div>
       </footer>
       )}
+
+      <RoutineTimeSheet
+        open={routineSheet != null}
+        label={routineSheet?.label ?? ""}
+        summary={routineSheet ? routineSummary(routineSheet, tLabel) : ""}
+        onClose={() => setRoutineSheet(null)}
+        onConfirm={(occurredAt) => {
+          const routine = routineSheet;
+          setRoutineSheet(null);
+          if (routine) void runRoutine(routine, occurredAt);
+        }}
+        t={t}
+      />
 
       <MedicationCoursePickSheet
         open={medPickOpen}
