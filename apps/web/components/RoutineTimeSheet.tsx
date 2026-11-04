@@ -49,34 +49,34 @@ export function RoutineTimeSheet({ open, label, summary, onClose, onConfirm, t }
         <h2 className="med-course-sheet-title">{label}</h2>
         {summary && <p className="meta">{summary}</p>}
         <form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             onConfirm(resolveRoutineOccurredAt(value, touched, new Date()));
           }}
         >
-        <label className="field-label" htmlFor="routine-time-input">
-          {t("routineWhen")}
-        </label>
-        <input
-          id="routine-time-input"
-          type="datetime-local"
-          className="event-detail-datetime"
-          value={value}
-          max={max}
-          required
-          onChange={(e) => {
-            setValue(e.target.value);
-            setTouched(true);
-          }}
-        />
-        <div className="routine-time-actions">
-          <button type="button" className="btn-link chip-action-cancel" onClick={onClose}>
-            {t("cancel")}
-          </button>
-          <button ref={submitRef} type="submit" className="btn-primary">
-            {t("routineRegister")}
-          </button>
-        </div>
+          <label className="field-label" htmlFor="routine-time-input">
+            {t("routineWhen")}
+          </label>
+          <input
+            id="routine-time-input"
+            type="datetime-local"
+            className="event-detail-datetime"
+            value={value}
+            max={max}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setTouched(true);
+            }}
+          />
+          <div className="routine-time-actions">
+            <button type="button" className="btn-link chip-action-cancel" onClick={onClose}>
+              {t("cancel")}
+            </button>
+            <button ref={submitRef} type="submit" className="btn-primary">
+              {t("routineRegister")}
+            </button>
+          </div>
         </form>
       </div>
     </div>

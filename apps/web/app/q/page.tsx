@@ -1113,7 +1113,11 @@ export default function QuickRecordPage() {
       <RoutineTimeSheet
         open={routineSheet != null}
         label={routineSheet?.label ?? ""}
-        summary={routineSheet ? routineSummary(routineSheet, tLabel) : ""}
+        summary={routineSheet ? routineSummary(routineSheet, tLabel, routineSheet.items.length, {
+                offered: t("homeTodayOffered"),
+                consumed: t("homeTodayConsumed"),
+              })
+            : ""}
         onClose={() => setRoutineSheet(null)}
         onConfirm={(occurredAt) => {
           const routine = routineSheet;
