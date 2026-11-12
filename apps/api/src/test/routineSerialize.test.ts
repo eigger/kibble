@@ -26,7 +26,9 @@ function medicationRow(course: { endDate: Date | null; archivedAt: Date | null }
         eventType: { key: "medication", label: "투약", category: "HEALTH" as const, defaultUnit: null },
         preset: { id: "ps_med", label: "투약", archivedAt: null },
         product: null,
-        course: course ? { id: "c1", name: "아침약", ...course } : null,
+        course: course
+          ? { id: "c1", name: "아침약", startDate: new Date("2026-09-20T03:00:00.000Z"), intervalDays: 2, ...course }
+          : null,
       },
     ],
   };
@@ -38,7 +40,13 @@ describe("serializeRoutine — 투약 항목 (§7.24)", () => {
   it("returns the course id so the edit sheet can show the chosen course", () => {
     const [item] = serializeRoutine(medicationRow({ endDate: null, archivedAt: null }), now).items;
     expect(item.medicationCourseId).toBe("c1");
-    expect(item.course).toEqual({ id: "c1", name: "아침약", ended: false });
+    expect(item.course).toMatchObject({
+      id: "c1",
+      name: "아침약",
+      ended: false,
+      startDate: "2026-09-20T03:00:00.000Z",
+      intervalDays: 2,
+    });
   });
 
   it("serializes quantityOffered as a number", () => {

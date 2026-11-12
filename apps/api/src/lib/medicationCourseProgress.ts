@@ -1,6 +1,7 @@
 import type { MedicationCourse, PrismaClient } from "@prisma/client";
 import {
   courseStartsByTodayBefore as sharedCourseStartsByTodayBefore,
+  isCourseDueOn,
   kstDayKey,
   normalizeDoseTimes,
 } from "@kibble/shared";
@@ -20,6 +21,8 @@ export type MedicationCourseProgress = {
   ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
+  /** N일마다 복용(1=매일, 2=격일) */
+  intervalDays: number;
   doseTimes: string[];
   totalDoses: number | null;
   startDate: string;
@@ -29,6 +32,8 @@ export type MedicationCourseProgress = {
   dosesGivenToday: number;
   dosesRemaining: number | null;
   todayComplete: boolean;
+  /** 오늘이 복용일인가 — 격일 처방의 쉬는 날이면 false (§7.28). 시작 전이면 false */
+  dueToday: boolean;
   daysOnCourse: number;
   canUndoToday: boolean;
   dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
@@ -44,6 +49,7 @@ export type MedicationCourseRow = {
   ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
+  intervalDays: number;
   doseTimes: string[];
   totalDoses: number | null;
   startDate: string;
@@ -98,6 +104,7 @@ function serializeCourse(course: MedicationCourse): MedicationCourseRow {
     ingredients: course.ingredients,
     dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
+    intervalDays: course.intervalDays,
     doseTimes: serializeDoseTimes(course),
     totalDoses: course.totalDoses,
     startDate: course.startDate.toISOString(),
@@ -350,6 +357,7 @@ function toProgress(
   const dosesGivenToday = usesSlots
     ? doseSlotsToday.filter((slot) => slot.eventId != null).length
     : dosesToday.length;
+  const dueToday = isCourseDueOn(course.startDate, course.intervalDays, now);
   const dosesRemaining =
     course.totalDoses != null ? Math.max(0, course.totalDoses - dosesGivenTotal) : null;
 
@@ -359,6 +367,7 @@ function toProgress(
     ingredients: course.ingredients,
     dosage: course.dosage,
     dosesPerDay: course.dosesPerDay,
+    intervalDays: course.intervalDays,
     doseTimes,
     totalDoses: course.totalDoses,
     startDate: course.startDate.toISOString(),
@@ -367,7 +376,9 @@ function toProgress(
     dosesGivenTotal,
     dosesGivenToday,
     dosesRemaining,
-    todayComplete: dosesGivenToday >= course.dosesPerDay,
+    // 쉬는 날은 "할 일 없음"이라 완료로 본다 — 홈·/q의 미완 표시와 선택에서 빠진다
+    todayComplete: !dueToday || dosesGivenToday >= course.dosesPerDay,
+    dueToday,
     daysOnCourse: daysOnCourse(course.startDate, now),
     canUndoToday: dosesGivenToday > 0,
     dosesToday,

@@ -27,6 +27,8 @@ interface HomeMedicationCourse {
   name: string;
   dosesPerDay: number;
   dosesGivenToday: number;
+  /** 격일 처방의 쉬는 날이면 false */
+  dueToday?: boolean;
 }
 
 interface HomePayload {
@@ -278,7 +280,8 @@ export default function HomePage() {
                 <h3 className="today-medication-heading">{t("homeTodayMedicationHeading")}</h3>
                 <ul className="today-medication-list">
                   {medicationCourses.map((course) => {
-                    const done = course.dosesGivenToday >= course.dosesPerDay;
+                    const rest = course.dueToday === false;
+                    const done = rest || course.dosesGivenToday >= course.dosesPerDay;
                     return (
                       <li
                         key={course.id}
@@ -286,10 +289,12 @@ export default function HomePage() {
                       >
                         <span className="today-medication-name">{course.name}</span>
                         <span className="today-medication-progress">
-                          {t("careTodayProgress", {
-                            done: String(course.dosesGivenToday),
-                            total: String(course.dosesPerDay),
-                          })}
+                          {rest && course.dosesGivenToday === 0
+                            ? t("careRestDay")
+                            : t("careTodayProgress", {
+                                done: String(course.dosesGivenToday),
+                                total: String(course.dosesPerDay),
+                              })}
                         </span>
                       </li>
                     );

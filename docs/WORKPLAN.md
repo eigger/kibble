@@ -477,6 +477,7 @@ model MedicationCourse {
   name        String              // "아침약" — 약의 정체가 아니라 자리(슬롯) 이름이어도 된다 (§7.19)
   ingredients String?             // 성분 자유 텍스트. 처방마다 조성이 달라 구조화하지 않는다 (§7.19)
   dosesPerDay Int       @default(1)
+  intervalDays Int      @default(1)   // N일마다 복용. 1=매일, 2=격일 (§7.28). 복용일은 startDate 기준 달력일
   totalDoses  Int?                // 총 처방 횟수. null이면 무기한(영양제 등)
   startDate   DateTime
   endDate     DateTime?
@@ -1027,6 +1028,14 @@ P1-21/P1-25의 "칩 1탭 POST"는 케어 일지(`4388c2d`)에서 시트 경유�
 | **훅 하드닝** | 열기 직전 포커스가 다이얼로그 안에 있거나 `body`/`documentElement`(열기 버튼이 같은 커밋에서 사라졌거나 iOS가 탭에 포커스를 주지 않은 경우)면 복원 대상으로 쓰지 않는다. 복원 순서는 ① 호출자가 준 `returnFocus` ref ② 열기 직전 요소 ③ 스택 아래 다이얼로그 ④ `main`. 이미 다른 요소로 포커스가 옮겨져 있으면(③④) 건드리지 않는다. 포커스 후보는 `checkVisibility`(없으면 `display:none`·`visibility:hidden` 검사)·`:disabled`(fieldset 포함)·`inert`로 거르고, 라디오 그룹(폼+name)은 한 칸으로 센다 |
 | **미사용 `@zxing/*` 의존성 제거** | 코드에서 import하는 곳이 없다. Phase 2 스캐너(P2-02)를 이식할 때 의존성도 함께 다시 넣는다 (§5의 "Phase 2" 항목 그대로) |
 | **제품 기호성 표시는 모르는 값을 원문으로 노출하지 않는다** | 사전에 없는 enum 값은 "—"로 보인다 |
+
+### 7.28 복약 주기 — `intervalDays` (격일 등)
+
+- `MedicationCourse.intervalDays`(기본 1). **복용일 = 시작일(KST 달력일)로부터 `intervalDays`의 배수인 날.** 마지막 복약일 기준이 아니다 — 늦게 먹여도 일정이 밀리지 않고, 기록 삭제·정정에 영향받지 않으며, 오프라인 스냅샷이 시작일·주기만으로 계산한다
+- 복용일이 아닌 날: 홈·`/q`는 "오늘은 쉬는 날"로 완료 취급(미완 표시·복약 푸시·지남 판정 제외), `dosesPlannedToday`에 넣지 않는다
+- **쉬는 날의 기록은 거부하지 않는다 (K-12).** 케어 화면에서 직접 기록할 수 있고 서버 `createEvent()`도 받는다. 막는 것은 그날 몫 초과(409)뿐이다
+- 루틴의 투약 항목도 쉬는 날에는 **건너뜀**이다(처방 종료와 같은 경로, 문구만 "쉬는 날"). 루틴 응답의 `course`에 `startDate`·`intervalDays`를 실어 오프라인 스냅샷도 클라이언트가 오늘을 다시 센다
+- `totalDoses`는 그대로 "총 복약 횟수"다 — 격일이어도 날수가 아니라 횟수
 
 ### 7.10 지금 결정하지 않는 것
 

@@ -102,6 +102,9 @@ export async function homeRoutes(app: FastifyInstance) {
       id: course.id,
       name: course.name,
       dosesPerDay: course.dosesPerDay,
+      intervalDays: course.intervalDays,
+      startDate: course.startDate,
+      dueToday: course.dueToday,
       doseTimes: course.doseTimes,
       doseSlotsToday: course.doseSlotsToday,
       dosesGivenToday: course.dosesGivenToday,
@@ -117,6 +120,7 @@ export async function homeRoutes(app: FastifyInstance) {
         id: course.id,
         name: course.name,
         dosesPerDay: course.dosesPerDay,
+        intervalDays: course.intervalDays,
         doseTimes: course.doseTimes,
         startDate: course.startDate,
       }));

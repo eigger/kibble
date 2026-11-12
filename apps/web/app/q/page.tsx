@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { routePath } from "../../lib/base-path";
-import { formatDoseTime, insertTimelineEvent, intlLocale } from "@kibble/shared";
+import { formatDoseTime, insertTimelineEvent, intlLocale, isCourseDueOn } from "@kibble/shared";
 import { apiJson, isApiError } from "../../lib/api";
 import { scheduledDoseTime } from "../../lib/eventDetailFields";
 import { formatApiErrorMessage } from "../../lib/apiErrorMessage";
@@ -39,6 +39,7 @@ import {
   QUICK_MODE_TOGGLE_EVENT,
   buildRoutineEventBodies,
   isMedicationItem,
+  isRoutineItemRestDay,
   runRoutineEvents,
   loadQuickMode,
   routineItemSummary,
@@ -89,6 +90,11 @@ interface ActiveMedicationCourse {
   dosesGivenToday: number;
   /** 종료일 — 오프라인 스냅샷이 종료일이 지난 처방을 거르는 데 쓴다 */
   endDate?: string | null;
+  /** N일마다 복용·시작일 — 오프라인 스냅샷이 오늘 복용일인지 다시 계산하는 데 쓴다 (§7.28) */
+  intervalDays?: number;
+  startDate?: string;
+  /** 격일 처방의 쉬는 날이면 false. 없으면 복용일로 본다 */
+  dueToday?: boolean;
 }
 
 interface QuickHomePayload {
@@ -256,7 +262,15 @@ export default function QuickRecordPage() {
               doseTimes: c.doseTimes,
               doseSlotsToday: [],
               dosesGivenToday: 0,
-            })).map((c) => ({ ...c, doseSlotsToday: [], dosesGivenToday: 0 })),
+              intervalDays: c.intervalDays,
+              startDate: c.startDate,
+            })).map((c) => ({
+              ...c,
+              doseSlotsToday: [],
+              dosesGivenToday: 0,
+              // 스냅샷이 오래돼도 시작일·주기로 오늘 복용일인지 다시 센다
+              dueToday: c.startDate ? isCourseDueOn(c.startDate, c.intervalDays, new Date()) : true,
+            })),
           );
           setCachedAt(cached.savedAt);
           if (explicit) saveQuickPetId(cached.activePet.id);
@@ -759,7 +773,11 @@ export default function QuickRecordPage() {
       items.map((item) => routineItemSummary(item, tLabel)).join(", ");
     const skipNotes = () => {
       const notes: string[] = [];
-      if (skipped.length > 0) notes.push(t("routineSkippedEnded", { names: names(skipped) }));
+      const at = new Date(occurredAt);
+      const rest = skipped.filter((item) => isRoutineItemRestDay(item, at));
+      const ended = skipped.filter((item) => !isRoutineItemRestDay(item, at));
+      if (ended.length > 0) notes.push(t("routineSkippedEnded", { names: names(ended) }));
+      if (rest.length > 0) notes.push(t("routineSkippedRest", { names: names(rest) }));
       if (alreadyGiven.length > 0) {
         notes.push(t("routineSkippedGiven", { names: names(alreadyGiven) }));
       }
@@ -851,7 +869,9 @@ export default function QuickRecordPage() {
       }
       const plan = planMedicationPick(activeMedicationCourses);
       if (plan.kind === "allDone") {
-        show(t("medicationTodayComplete"), "info");
+        // 전부 쉬는 날이면 "다 기록했다"가 아니라 "오늘은 복용일이 아니다"
+        const allRest = activeMedicationCourses.every((c) => c.dueToday === false);
+        show(t(allRest ? "medicationRestDayToday" : "medicationTodayComplete"), "info");
         return;
       }
       // 오늘 남은 처방이 하나뿐이면 묻지 않는다 — 탭 하나를 아낀다

@@ -78,6 +78,7 @@ export function MedicationCourseSheet({
     const parsed = parseMedicationCourseDraft(draft);
     if (!parsed.ok) {
       if (parsed.reason === "name") showToast(t("careMedNameRequired"), "error");
+      else if (parsed.reason === "intervalDays") showToast(t("careIntervalInvalid"), "error");
       else if (parsed.reason === "doseTimes") showToast(t("careDoseTimesInvalid"), "error");
       return;
     }
@@ -94,6 +95,7 @@ export function MedicationCourseSheet({
             ingredients: parsed.ingredients,
             dosage: parsed.dosage,
             dosesPerDay: parsed.dosesPerDay,
+            intervalDays: parsed.intervalDays,
             doseTimes: parsed.doseTimes,
             totalDoses: parsed.totalDoses,
             startDate: parsed.startDate,
@@ -111,6 +113,7 @@ export function MedicationCourseSheet({
             ingredients: parsed.ingredients,
             dosage: parsed.dosage,
             dosesPerDay: parsed.dosesPerDay,
+            intervalDays: parsed.intervalDays,
             doseTimes: parsed.doseTimes,
             totalDoses: parsed.totalDoses,
             startDate: parsed.startDate,

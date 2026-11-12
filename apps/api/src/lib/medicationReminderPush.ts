@@ -1,6 +1,7 @@
 import {
   dueMedicationPushKinds,
   formatDoseTime,
+  isCourseDueOn,
   intlLocale,
   kstDayKey,
   normalizeDoseTimes,
@@ -126,6 +127,8 @@ export async function processMedicationReminderPushes(
     }
 
     for (const course of courses) {
+      // 격일 처방의 쉬는 날에는 알리지 않는다 (§7.28)
+      if (!isCourseDueOn(course.startDate, course.intervalDays, now)) continue;
       const doseTimes = normalizeDoseTimes(course.doseTimes, course.dosesPerDay);
       for (let index = 0; index < doseTimes.length; index++) {
         const time = doseTimes[index];

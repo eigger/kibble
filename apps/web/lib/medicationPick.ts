@@ -2,10 +2,13 @@ export interface PickableCourse {
   id: string;
   dosesPerDay: number;
   dosesGivenToday: number;
+  /** 오늘이 복용일이 아니면 false(격일 처방의 쉬는 날). 없으면 복용일로 본다 */
+  dueToday?: boolean;
 }
 
 /** 오늘 몫을 다 먹였나. 오프라인 스냅샷은 `dosesGivenToday`가 0이라 항상 아니다 — 서버가 409로 판정한다. */
 export function isCourseDoneToday(course: PickableCourse): boolean {
+  if (course.dueToday === false) return true;
   return course.dosesGivenToday >= course.dosesPerDay;
 }
 

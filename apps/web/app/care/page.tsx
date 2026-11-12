@@ -82,11 +82,20 @@ function courseMetaParts(
     }
     return parts.join(" · ");
   }
+  if (course.intervalDays > 1) {
+    parts.push(
+      course.intervalDays === 2
+        ? t("careEveryOtherDay")
+        : t("careEveryNDays", { n: String(course.intervalDays) }),
+    );
+  }
   parts.push(
-    t("careTodayProgress", {
-      done: String(course.dosesGivenToday),
-      total: String(course.dosesPerDay),
-    }),
+    course.dueToday === false && course.dosesGivenToday === 0
+      ? t("careRestDay")
+      : t("careTodayProgress", {
+          done: String(course.dosesGivenToday),
+          total: String(course.dosesPerDay),
+        }),
     t("careDaysOnCourse", { days: String(course.daysOnCourse) }),
   );
   if (course.dosesRemaining != null) {
