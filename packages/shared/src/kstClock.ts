@@ -63,3 +63,19 @@ export function kstDayDiff(target: Date, base = new Date()): number {
   const baseMidnight = new Date(`${baseKey}T00:00:00.000Z`).getTime();
   return Math.round((targetMidnight - baseMidnight) / 86_400_000);
 }
+
+/**
+ * 복약 주기 — 오늘이 복용일인가 (WORKPLAN §7.28). 복용일은 시작일(KST 달력일)로부터
+ * `intervalDays`의 배수인 날이다. 마지막 복약일이 아니라 시작일 기준이라 늦게 먹여도 일정이
+ * 밀리지 않고, 오프라인 스냅샷(시작일·주기만 있다)도 같은 답을 낸다. 시작 전이면 false.
+ */
+export function isCourseDueOn(
+  startDate: Date | string,
+  intervalDays: number | null | undefined,
+  now = new Date(),
+): boolean {
+  const interval = Number.isFinite(intervalDays) && (intervalDays as number) >= 1 ? Math.floor(intervalDays as number) : 1;
+  const diff = kstDayDiff(now, new Date(startDate));
+  if (diff < 0) return false;
+  return diff % interval === 0;
+}

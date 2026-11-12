@@ -1,4 +1,4 @@
-import type { CreateEventInput } from "@kibble/shared";
+import { isCourseDueOn, type CreateEventInput } from "@kibble/shared";
 import { formatProductNameDisplay } from "./eventDetailTags";
 import { productValueDisplay } from "./eventDetailFields";
 import type { TranslationKey } from "./i18n/translations";
@@ -40,9 +40,19 @@ export function isMedicationItem(item: RoutineItem): boolean {
   return item.eventType.key === "medication";
 }
 
-/** 실행해도 기록되지 않을 항목 — 처방이 끝났거나 지워진 투약 항목 */
-export function isRoutineItemSkipped(item: RoutineItem): boolean {
-  return isMedicationItem(item) && (!item.course || item.course.ended);
+/** 격일 처방의 쉬는 날인가 — 시작일·주기로 오늘을 다시 센다(스냅샷이 오래돼도 맞다). 정보가 없으면 복용일 (§7.28) */
+export function isRoutineItemRestDay(item: RoutineItem, now = new Date()): boolean {
+  const course = item.course;
+  if (!isMedicationItem(item) || !course || course.ended || !course.startDate) return false;
+  return !isCourseDueOn(course.startDate, course.intervalDays, now);
+}
+
+/** 실행해도 기록되지 않을 항목 — 처방이 끝났거나 지워진 투약 항목, 또는 격일 처방의 쉬는 날 */
+export function isRoutineItemSkipped(item: RoutineItem, now = new Date()): boolean {
+  return (
+    (isMedicationItem(item) && (!item.course || item.course.ended)) ||
+    isRoutineItemRestDay(item, now)
+  );
 }
 
 /**
@@ -122,10 +132,12 @@ export function buildRoutineEventBodies(
   occurredAt: string,
   suffix: string,
 ): { events: RoutineEventBody[]; skipped: RoutineItem[] } {
+  // 쉬는 날 판정은 지금이 아니라 기록하는 날 기준이다 — 서버도 occurredAt의 날에 귀속시킨다
+  const at = new Date(occurredAt);
   const runnable = routine.items
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => !isRoutineItemSkipped(item));
-  const skipped = routine.items.filter(isRoutineItemSkipped);
+    .filter(({ item }) => !isRoutineItemSkipped(item, at));
+  const skipped = routine.items.filter((item) => isRoutineItemSkipped(item, at));
   const entryId = runnable.length > 1 ? `entry:${suffix}` : undefined;
   const events: RoutineEventBody[] = [];
   for (let i = runnable.length - 1; i >= 0; i -= 1) {

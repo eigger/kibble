@@ -209,7 +209,9 @@ export async function petStateFor(
 
   for (const course of courses) {
     dosesGivenToday += course.dosesGivenToday;
-    dosesPlannedToday += course.dosesPerDay;
+    // 쉬는 날(격일 처방)은 오늘 계획에 넣지 않고 지남 판정도 건너뛴다 (§7.28)
+    if (course.dueToday) dosesPlannedToday += course.dosesPerDay;
+    else continue;
     for (const slot of course.doseSlotsToday) {
       if (slot.eventId) continue;
       const [hh, mm] = slot.time.split(":").map(Number);

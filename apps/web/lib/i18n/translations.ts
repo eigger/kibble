@@ -205,6 +205,11 @@ const dict = {
     ko: "{names} 처방 종료 · 건너뜀",
     en: "{names}: course ended, skipped",
   },
+  routineCourseRestMeta: { ko: "{name} 오늘은 쉬는 날", en: "{name}: rest day today" },
+  routineSkippedRest: {
+    ko: "{names} 쉬는 날 · 건너뜀",
+    en: "{names}: rest day, skipped",
+  },
   routineSkippedGiven: {
     ko: "{names} 이미 기록됨",
     en: "{names}: already logged",
@@ -710,6 +715,10 @@ const dict = {
     ko: "오늘 복약을 모두 기록했습니다",
     en: "Today's doses are already logged",
   },
+  medicationRestDayToday: {
+    ko: "오늘은 복용일이 아니에요 (격일 처방)",
+    en: "Not a dose day today (every-other-day course)",
+  },
   medicationsTitle: { ko: "투약 관리", en: "Medication courses" },
   medicationsIntro: {
     ko: "처방 약·영양제 과정을 등록하고 기간·횟수를 수정합니다. 복약 체크는 하단 투약 탭에서 하세요.",
@@ -752,6 +761,15 @@ const dict = {
   historyCourseFilterClear: { ko: "처방 필터 해제", en: "Clear course filter" },
   careMedNamePlaceholder: { ko: "예: ○○ 캡슐", en: "e.g. antibiotic capsules" },
   careDosesPerDay: { ko: "하루 횟수", en: "Doses per day" },
+  careIntervalDays: { ko: "복용 주기 (며칠마다)", en: "Every N days" },
+  careIntervalHint: {
+    ko: "1=매일, 2=격일(이틀에 한 번). 시작일부터 센다",
+    en: "1 = daily, 2 = every other day. Counted from the start date",
+  },
+  careIntervalInvalid: { ko: "복용 주기는 1~365일로 입력하세요", en: "Enter an interval of 1–365 days" },
+  careEveryNDays: { ko: "{n}일마다", en: "Every {n} days" },
+  careEveryOtherDay: { ko: "격일", en: "Every other day" },
+  careRestDay: { ko: "오늘은 쉬는 날", en: "Rest day today" },
   careTotalDoses: { ko: "총 횟수 (선택)", en: "Total doses (optional)" },
   careDosage: { ko: "1회 용량 (선택)", en: "Dose amount (optional)" },
   careDosagePlaceholder: { ko: "0.5정", en: "half a tablet" },

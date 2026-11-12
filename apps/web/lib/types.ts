@@ -68,7 +68,14 @@ export interface RoutineItem {
   /** 투약 항목의 처방. 슬롯은 실행 때 서버가 고른다 (§7.24) */
   medicationCourseId: string | null;
   /** `ended`면 실행 때 이 항목을 건너뛴다 — 처방이 끝났거나(보관·endDate 경과) 지워졌다 */
-  course: { id: string; name: string; ended: boolean } | null;
+  course: {
+    id: string;
+    name: string;
+    ended: boolean;
+    /** 격일 처방의 쉬는 날 판정용. 옛 스냅샷에는 없다 — 없으면 복용일로 본다 (§7.28) */
+    startDate?: string;
+    intervalDays?: number;
+  } | null;
 }
 
 /** 루틴 — 누르면 항목 전부가 지금 시각으로 저장된다 */
@@ -288,6 +295,8 @@ export interface MedicationCourseProgress {
   /** 1회 용량 자유 텍스트("0.5정"). 처방 단위로 정해진다 */
   dosage: string | null;
   dosesPerDay: number;
+  /** N일마다 복용(1=매일, 2=격일) */
+  intervalDays: number;
   doseTimes: string[];
   totalDoses: number | null;
   startDate: string;
@@ -297,6 +306,8 @@ export interface MedicationCourseProgress {
   dosesGivenToday: number;
   dosesRemaining: number | null;
   todayComplete: boolean;
+  /** 오늘이 복용일인가 — 격일 처방의 쉬는 날이면 false */
+  dueToday: boolean;
   daysOnCourse: number;
   canUndoToday: boolean;
   dosesToday: { id: string; occurredAt: string; doseSlotIndex: number | null }[];
@@ -319,6 +330,7 @@ export interface MedicationCourseRow {
   ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
+  intervalDays: number;
   doseTimes: string[];
   totalDoses: number | null;
   startDate: string;

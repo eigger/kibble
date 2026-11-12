@@ -8,6 +8,7 @@ import { useAuth } from "../../lib/auth-context";
 import { useLocale } from "../../lib/i18n/locale-context";
 import { kstDayKey } from "@kibble/shared";
 import {
+  isRoutineItemRestDay,
   isRoutineItemSkipped,
   moveRoutine,
   performRoutineMove,
@@ -128,7 +129,7 @@ export default function RoutinesPage() {
         offered: t("homeTodayOffered"),
         consumed: t("homeTodayConsumed"),
       });
-    return t("routineCourseEndedMeta", {
+    return t(isRoutineItemRestDay(item) ? "routineCourseRestMeta" : "routineCourseEndedMeta", {
       name: item.course?.name ?? tLabel(item.preset?.label ?? item.eventType.label),
     });
   }

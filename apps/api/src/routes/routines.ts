@@ -37,7 +37,16 @@ export const routineSelect = {
       eventType: { select: { key: true, label: true, category: true, defaultUnit: true } },
       preset: { select: { id: true, label: true, archivedAt: true } },
       product: { select: { id: true, name: true } },
-      course: { select: { id: true, name: true, endDate: true, archivedAt: true } },
+      course: {
+        select: {
+          id: true,
+          name: true,
+          endDate: true,
+          archivedAt: true,
+          startDate: true,
+          intervalDays: true,
+        },
+      },
     },
   },
 } as const;
@@ -73,6 +82,9 @@ export function serializeRoutine(row: RoutineRow, now = new Date()) {
               id: item.course.id,
               name: item.course.name,
               ended: isMedicationCourseEnded(item.course, now),
+              // 격일 처방의 쉬는 날 판정용 — 오프라인 스냅샷이 다시 계산한다 (§7.28)
+              startDate: item.course.startDate.toISOString(),
+              intervalDays: item.course.intervalDays,
             }
           : null,
       };

@@ -42,6 +42,8 @@ export interface UpcomingCourse {
   id: string;
   name: string;
   dosesPerDay: number;
+  /** 옛 스냅샷에는 없다 — 없으면 매일 */
+  intervalDays?: number;
   doseTimes: string[];
   startDate: string;
 }

@@ -530,6 +530,8 @@ model MedicationCourse {
   // 정해지고 회차마다 바뀌지 않으므로 기록할 때 다시 묻지 않는다.
   dosage      String?
   dosesPerDay Int       @default(1)
+  // N일마다 복용(1=매일, 2=격일). 복용일은 startDate 기준 KST 달력일 (WORKPLAN §7.28)
+  intervalDays Int      @default(1)
   doseTimes   String[]  @default([])
   totalDoses  Int?
   startDate   DateTime

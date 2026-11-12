@@ -402,6 +402,7 @@ model MedicationCourse {
   dosage      String?             // 1회 용량 "0.5정"·"2.5ml". 단위가 제각각이라 자유 텍스트다.
                                   // 처방 단위로 정해지므로 기록할 때 다시 묻지 않는다 (R127)
   dosesPerDay Int       @default(1)
+  intervalDays Int      @default(1)   // N일마다 복용(1=매일, 2=격일). 복용일은 startDate 기준 달력일 (WORKPLAN §7.28)
   totalDoses  Int?                // 총 처방 횟수. null이면 무기한(영양제 등)
   startDate   DateTime
   endDate     DateTime?

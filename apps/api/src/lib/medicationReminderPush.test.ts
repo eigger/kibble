@@ -50,6 +50,8 @@ describe("processMedicationReminderPushes", () => {
       id: "c1",
       name: "항생제",
       dosesPerDay: 1,
+      intervalDays: 1,
+      startDate: new Date("2026-08-30T12:00:00+09:00"),
       doseTimes: ["20:00"],
       createdAt: new Date("2026-08-01T00:00:00+09:00"),
       pet: { name: "초코" },
@@ -96,6 +98,17 @@ describe("processMedicationReminderPushes", () => {
     const { db } = fakeDb({ createdAt: new Date("2026-09-01T20:20:00+09:00") });
     await processMedicationReminderPushes(db, now);
     expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("격일 처방의 쉬는 날에는 알리지 않고 복용일에는 알린다", async () => {
+    // 시작 08-30, 격일 → 08-30, 09-01 복용일 / 08-31 쉬는 날
+    const rest = fakeDb({ intervalDays: 2, startDate: new Date("2026-08-31T12:00:00+09:00") });
+    await processMedicationReminderPushes(rest.db, now);
+    expect(sendMock).not.toHaveBeenCalled();
+
+    const due = fakeDb({ intervalDays: 2 });
+    await processMedicationReminderPushes(due.db, now);
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 
   it("builds the copy per subscription locale", async () => {

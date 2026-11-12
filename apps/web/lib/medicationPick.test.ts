@@ -33,3 +33,15 @@ describe("planMedicationPick", () => {
     expect(isCourseDoneToday(course("a", 1, 0))).toBe(false);
   });
 });
+
+describe("쉬는 날 (격일 처방, §7.28)", () => {
+  it("dueToday=false 면 기록이 없어도 오늘 몫을 마친 것으로 본다", () => {
+    expect(isCourseDoneToday({ id: "a", dosesPerDay: 1, dosesGivenToday: 0, dueToday: false })).toBe(true);
+  });
+  it("쉬는 날 처방만 있으면 allDone, 복용일 처방이 하나면 auto", () => {
+    const rest = { id: "a", dosesPerDay: 1, dosesGivenToday: 0, dueToday: false };
+    const due = { id: "b", dosesPerDay: 1, dosesGivenToday: 0, dueToday: true };
+    expect(planMedicationPick([rest]).kind).toBe("allDone");
+    expect(planMedicationPick([rest, due])).toEqual({ kind: "auto", course: due });
+  });
+});

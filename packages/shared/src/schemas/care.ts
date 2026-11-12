@@ -10,6 +10,8 @@ export const createMedicationCourseSchema = z.object({
   ingredients: z.string().trim().max(2000).nullable().optional(),
   dosage: z.string().trim().max(60).nullable().optional(),
   dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
+  /** N일마다 복용 (1=매일, 2=격일) — WORKPLAN §7.28 */
+  intervalDays: z.coerce.number().int().min(1).max(365).optional(),
   doseTimes: z.array(doseTimeSchema).max(24).optional(),
   /** @deprecated use doseTimes */
   doseSlotKeys: z.array(z.string()).max(24).optional(),
@@ -32,6 +34,7 @@ export const updateMedicationCourseSchema = z
     ingredients: z.string().trim().max(2000).nullable().optional(),
     dosage: z.string().trim().max(60).nullable().optional(),
     dosesPerDay: z.coerce.number().int().min(1).max(24).optional(),
+    intervalDays: z.coerce.number().int().min(1).max(365).optional(),
     doseTimes: z.array(doseTimeSchema).max(24).optional(),
     doseSlotKeys: z.array(z.string()).max(24).optional(),
     totalDoses: z.coerce.number().int().min(1).max(9999).nullable().optional(),

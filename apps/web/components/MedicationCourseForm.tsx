@@ -98,6 +98,20 @@ export function MedicationCourseForm({
           />
         </div>
       </div>
+      <label className="field-label" htmlFor={`${formId}-interval`}>
+        {t("careIntervalDays")}
+      </label>
+      <input
+        id={`${formId}-interval`}
+        className="care-input"
+        type="number"
+        min={1}
+        max={365}
+        value={draft.intervalDays}
+        onChange={(e) => onChange({ intervalDays: e.target.value })}
+        disabled={disabled}
+      />
+      <p className="meta">{t("careIntervalHint")}</p>
       <fieldset className="dose-time-fieldset">
         <legend className="field-label">{t("careDoseTimes")}</legend>
         <div className="dose-time-row">

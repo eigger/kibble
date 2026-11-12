@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, runRoutineEvents, routineItemSummary, routineSummary, resolveRoutineOccurredAt } from "./routines";
+import { moveRoutine, performRoutineMove, routineOrderIds, buildRoutineEventBodies, isRoutineItemSkipped, isRoutineItemRestDay, runRoutineEvents, routineItemSummary, routineSummary, resolveRoutineOccurredAt } from "./routines";
 import type { Routine, RoutineItem } from "./types";
 
 const tLabel = (key: string) => (key === "eventType.meal" ? "사료" : key);
@@ -376,5 +376,35 @@ describe("resolveRoutineOccurredAt", () => {
   });
   it("미래는 지금으로 당긴다", () => {
     expect(resolveRoutineOccurredAt("2026-11-06T09:00", true, now)).toBe(now.toISOString());
+  });
+});
+
+describe("격일 처방의 쉬는 날 (§7.28)", () => {
+  const med = (startDate: string, intervalDays: number) =>
+    item({
+      eventType: { key: "medication", label: "투약", category: "HEALTH", defaultUnit: null },
+      medicationCourseId: "c1",
+      course: { id: "c1", name: "아침약", ended: false, startDate, intervalDays },
+    });
+  const start = "2026-11-10T12:00:00+09:00";
+
+  it("쉬는 날은 건너뛰고 복용일은 실행한다", () => {
+    expect(isRoutineItemSkipped(med(start, 2), new Date("2026-11-11T09:00:00+09:00"))).toBe(true);
+    expect(isRoutineItemRestDay(med(start, 2), new Date("2026-11-11T09:00:00+09:00"))).toBe(true);
+    expect(isRoutineItemSkipped(med(start, 2), new Date("2026-11-12T09:00:00+09:00"))).toBe(false);
+  });
+  it("옛 스냅샷(시작일 없음)은 복용일로 본다", () => {
+    const old = item({
+      eventType: { key: "medication", label: "투약", category: "HEALTH", defaultUnit: null },
+      medicationCourseId: "c1",
+      course: { id: "c1", name: "아침약", ended: false },
+    });
+    expect(isRoutineItemSkipped(old, new Date("2026-11-11T09:00:00+09:00"))).toBe(false);
+  });
+  it("과거 시각으로 실행하면 그날이 복용일인지로 판정한다", () => {
+    const routine: Routine = { id: "r1", petId: "pet", label: "아침", sortOrder: 0, items: [med(start, 2)] };
+    // 11-11은 쉬는 날, 11-10은 복용일 — 지금이 어느 날이든 occurredAt 기준
+    expect(buildRoutineEventBodies(routine, "pet", "2026-11-11T09:00:00+09:00", "s").skipped).toHaveLength(1);
+    expect(buildRoutineEventBodies(routine, "pet", "2026-11-10T22:00:00+09:00", "s").events).toHaveLength(1);
   });
 });

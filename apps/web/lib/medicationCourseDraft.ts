@@ -6,6 +6,8 @@ export type MedicationCourseDraft = {
   ingredients: string;
   dosage: string;
   dosesPerDay: string;
+  /** N일마다 복용 — 1=매일, 2=격일 */
+  intervalDays: string;
   doseTimes: string[];
   totalDoses: string;
   startDate: string;
@@ -29,6 +31,7 @@ export function emptyMedicationCourseDraft(): MedicationCourseDraft {
     ingredients: "",
     dosage: "",
     dosesPerDay: "1",
+    intervalDays: "1",
     doseTimes: defaultDoseTimes(1),
     totalDoses: "",
     startDate: today,
@@ -45,6 +48,7 @@ export function courseToDraft(
     ingredients: course.ingredients ?? "",
     dosage: course.dosage ?? "",
     dosesPerDay: String(course.dosesPerDay),
+    intervalDays: String(course.intervalDays ?? 1),
     doseTimes: [...course.doseTimes],
     totalDoses: course.totalDoses != null ? String(course.totalDoses) : "",
     startDate: toDateInputValue(course.startDate),
@@ -89,6 +93,7 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   ingredients: string | null;
   dosage: string | null;
   dosesPerDay: number;
+  intervalDays: number;
   doseTimes: string[];
   totalDoses: number | null;
   startDate: string;
@@ -96,7 +101,7 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   note: string | null;
 } | {
   ok: false;
-  reason: "name" | "dosesPerDay" | "doseTimes";
+  reason: "name" | "dosesPerDay" | "intervalDays" | "doseTimes";
 } {
   const name = draft.name.trim();
   if (!name) return { ok: false, reason: "name" };
@@ -104,6 +109,11 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
   const dosesPerDay = Number.parseInt(draft.dosesPerDay, 10);
   if (!Number.isFinite(dosesPerDay) || dosesPerDay < 1) {
     return { ok: false, reason: "dosesPerDay" };
+  }
+
+  const intervalDays = draft.intervalDays.trim() ? Number.parseInt(draft.intervalDays, 10) : 1;
+  if (!Number.isFinite(intervalDays) || intervalDays < 1 || intervalDays > 365) {
+    return { ok: false, reason: "intervalDays" };
   }
 
   const doseTimes = normalizeDoseTimes(draft.doseTimes, dosesPerDay);
@@ -119,6 +129,7 @@ export function parseMedicationCourseDraft(draft: MedicationCourseDraft): {
     ingredients: draft.ingredients.trim() || null,
     dosage: draft.dosage.trim() || null,
     dosesPerDay,
+    intervalDays,
     doseTimes,
     totalDoses,
     startDate: dateInputToIso(draft.startDate),
