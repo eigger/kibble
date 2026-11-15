@@ -208,6 +208,8 @@ export async function careRoutes(app: FastifyInstance) {
         startDate,
         endDate: clampEndDate(startDate, body.endDate ? new Date(body.endDate) : undefined),
         note: body.note ?? undefined,
+        // 출발한 처방 — 새 처방이 시작 전인 동안 루틴 투약 항목이 이쪽에 기록한다 (§7.24)
+        continuesFromId: previous?.id ?? undefined,
       };
 
       const course = await prisma.$transaction(async (tx) => {

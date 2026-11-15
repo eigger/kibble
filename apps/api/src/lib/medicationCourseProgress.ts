@@ -249,6 +249,26 @@ export function isCourseUpcoming(startDate: Date, now: Date): boolean {
 }
 
 /**
+ * 루틴 투약 항목이 오늘 기록할 처방. "이어가기"는 루틴 참조를 곧바로 새 처방으로 옮기는데, 새 처방이
+ * 내일 이후 시작이면 그 사이 루틴은 아직 끝나지 않은 **이전 처방**에 기록해야 한다. 그러지 않으면
+ * 시작 전 처방에 복약이 쌓여 첫날 회차가 2부터 찍히고, 이전 처방은 남은 날의 복약이 빠진다 (§7.24).
+ * 이전 처방이 이미 끝났거나(보관·종료일 경과) 연결이 없으면 항목의 처방 그대로다.
+ */
+export function routineDoseCourse<
+  T extends Pick<MedicationCourse, "startDate" | "endDate" | "archivedAt">,
+>(course: T & { continuesFrom?: T | null }, now: Date): T {
+  const previous = course.continuesFrom;
+  if (
+    previous &&
+    isCourseUpcoming(course.startDate, now) &&
+    !isMedicationCourseEnded(previous, now)
+  ) {
+    return previous;
+  }
+  return course;
+}
+
+/**
  * 오늘 복약 대상만. 진행 중 처방 목록(`medicationCoursesWithProgress`)은 시작 전 처방도 `upcoming`
  * 표시와 함께 돌려주므로(케어 화면은 예정 처방을 보여 주고 수정·종료할 수 있어야 한다), 오늘 대상·
  * 선택·집계 경로(/q 칩, 홈 오늘 복약, 상태 API)는 이 함수로 거른다.

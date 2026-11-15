@@ -1,5 +1,5 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
-import { normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
+import { kstDayKey, normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
 import { doseConflict } from "../lib/doseCapacity.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import { productNameIsTagList } from "../lib/frequentProducts.js";
@@ -178,9 +178,101 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
  */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (!params.medicationCourseId) return createEventUnlocked(db, params);
-  return withMedicationCourseLock(db, params.medicationCourseId, (tx) =>
-    createEventUnlocked(tx, params),
-  );
+  const requestedId = params.medicationCourseId;
+  return inTransaction(db, async (tx) => {
+    // 처방 행(시작일·연결)만 읽어 기록할 처방을 정하고, 그 처방 하나만 잠근다 — 락이 하나라
+    // 앞뒤 어느 쪽으로 옮겨 가도 교착이 생기지 않는다.
+    const target = await resolveDoseCourseId(tx, params, requestedId);
+    await lockMedicationCourse(tx, target.courseId);
+    const moved = target.courseId !== requestedId;
+    return createEventUnlocked(
+      tx,
+      {
+        ...params,
+        medicationCourseId: target.courseId,
+        // 슬롯 번호는 요청한 처방의 doseTimes 기준이다 — 다른 처방으로 옮겨 가면 기록 시각으로 다시 고른다
+        doseSlotIndex: moved ? undefined : params.doseSlotIndex,
+      },
+      { allowEndedCourse: target.allowEnded },
+    );
+  });
+}
+
+/** 이어가기 연결을 몇 단계까지 따라가나 — 순환 방어용 상한 */
+const MAX_CONTINUATION_HOPS = 10;
+
+/**
+ * 복약을 실제로 매길 처방 (WORKLOG 2026-11-15). 거부하지 않는다(K-12) — 옮겨 갈 곳이 없으면 요청한 처방 그대로다.
+ *
+ * - **뒤로**: 기록 시각(KST 날짜)이 처방 시작일보다 앞이고 "이어가기"로 만든 처방이면 출발한 처방으로 간다.
+ *   이어가기 직후 전날 밤 복약을 늦게 넣으면 새 처방 1회차가 되어 첫날 기록이 2회차부터 찍혔다.
+ *   이전 처방은 이미 보관됐을 수 있어 이 경로에서만 보관된 처방에도 기록한다. 이전 처방이 그 날보다
+ *   먼저 끝났으면(오래전 처방에서 이어간 경우) 옮기지 않는다.
+ * - **앞으로**: 요청한 처방을 이어간 처방이 이미 시작했으면 그쪽으로 간다. 루틴은 새 처방이 시작 전인 동안
+ *   이전 처방을 내려주므로, 시작일을 넘긴 오래된 스냅샷(오프라인 캐시·열어 둔 탭)이 이전 처방 id로 보낸다.
+ */
+async function resolveDoseCourseId(
+  db: Db,
+  params: CreateEventParams,
+  requestedId: string,
+): Promise<{ courseId: string; allowEnded: boolean }> {
+  const dayKey = kstDayKey(params.occurredAt ?? new Date());
+  const scope = { ...householdWhere(params.householdId), petId: params.petId };
+
+  const endedBy = (course: { endDate: Date | null; archivedAt: Date | null }) =>
+    course.archivedAt != null || (course.endDate != null && kstDayKey(course.endDate) < dayKey);
+
+  let courseId = requestedId;
+  let movedBack = false;
+  let requestedEnded = false;
+  for (let hop = 0; hop < MAX_CONTINUATION_HOPS; hop += 1) {
+    const course = await db.medicationCourse.findFirst({
+      where: { id: courseId, ...scope },
+      select: { startDate: true, endDate: true, archivedAt: true, continuesFromId: true },
+    });
+    if (hop === 0 && course) requestedEnded = endedBy(course);
+    if (!course?.continuesFromId || dayKey >= kstDayKey(course.startDate)) break;
+    const previous = await db.medicationCourse.findFirst({
+      where: { id: course.continuesFromId, ...scope },
+      select: { endDate: true, archivedAt: true },
+    });
+    const lastDay = previous?.endDate ?? previous?.archivedAt ?? null;
+    if (!previous || (lastDay && dayKey > kstDayKey(lastDay))) break;
+    courseId = course.continuesFromId;
+    movedBack = true;
+  }
+  if (movedBack) return { courseId, allowEnded: true };
+  // 앞으로는 요청한 처방이 그날 이미 끝났을 때만 본다 — 진행 중인 처방은 그대로 쓰면 된다
+  if (!requestedEnded) return { courseId, allowEnded: false };
+
+  for (let hop = 0; hop < MAX_CONTINUATION_HOPS; hop += 1) {
+    const next = await db.medicationCourse.findFirst({
+      where: { continuesFromId: courseId, ...scope, archivedAt: null },
+      orderBy: { startDate: "desc" },
+      select: { id: true, startDate: true },
+    });
+    if (!next || kstDayKey(next.startDate) > dayKey) break;
+    courseId = next.id;
+  }
+  return { courseId, allowEnded: false };
+}
+
+/**
+ * 트랜잭션 안에서 `fn`을 실행한다. `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라
+ * `in`이 false가 된다. Prisma 7.10에서는 트랜잭션 클라이언트에도 런타임에 $transaction이 있어(타입에서만
+ * 빠져 있다) 이미 트랜잭션 안에서 불러도 이 분기를 탄다 — 중첩은 SAVEPOINT가 되고 락은 바깥 트랜잭션이
+ * 끝날 때 풀린다. 마지막 return은 $transaction이 없는 클라이언트(단위 테스트의 fake 등)를 위한 방어 분기다.
+ */
+async function inTransaction<T>(
+  db: Db,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  const root = db as PrismaClient;
+  if (typeof root.$transaction === "function") {
+    // 락을 얻은 뒤 실행하는 쿼리가 새 스냅숏을 봐야 하므로 READ COMMITTED를 명시한다.
+    return root.$transaction(fn, { isolationLevel: "ReadCommitted" });
+  }
+  return fn(db as Prisma.TransactionClient);
 }
 
 /**
@@ -192,25 +284,21 @@ export async function withMedicationCourseLock<T>(
   courseId: string,
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  const run = async (tx: Prisma.TransactionClient) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+  return inTransaction(db, async (tx) => {
+    await lockMedicationCourse(tx, courseId);
     return fn(tx);
-  };
-  // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
-  // Prisma 7.10에서는 트랜잭션 클라이언트에도 런타임에 $transaction이 있어(타입에서만
-  // 빠져 있다) 이미 트랜잭션 안에서 불러도 이 분기를 탄다 — 중첩은 SAVEPOINT가 되고
-  // 락은 바깥 트랜잭션이 끝날 때 풀린다. 아래 마지막 return은 $transaction이 없는
-  // 클라이언트(단위 테스트의 fake 등)를 위한 방어 분기이며, 실제 Prisma 클라이언트로는
-  // 도달하지 않지만 타입 안전한 폴백이라 남긴다.
-  const root = db as PrismaClient;
-  if (typeof root.$transaction === "function") {
-    // 락을 얻은 뒤 실행하는 쿼리가 새 스냅숏을 봐야 하므로 READ COMMITTED를 명시한다.
-    return root.$transaction(run, { isolationLevel: "ReadCommitted" });
-  }
-  return run(db as Prisma.TransactionClient);
+  });
 }
 
-async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
+async function lockMedicationCourse(tx: Prisma.TransactionClient, courseId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+}
+
+async function createEventUnlocked(
+  db: Db,
+  params: CreateEventParams,
+  opts: { allowEndedCourse?: boolean } = {},
+): Promise<CreatedEvent> {
   if (params.dedupeKey) {
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
     if (existing) {
@@ -297,7 +385,8 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
         id: medicationCourseId,
         ...householdWhere(params.householdId),
         petId: params.petId,
-        archivedAt: null,
+        // 이어가기 연결을 거슬러 온 기록은 이미 보관된 이전 처방에도 들어간다 (resolveDoseCourseId)
+        ...(opts.allowEndedCourse ? {} : { archivedAt: null }),
       },
       select: { id: true, dosesPerDay: true, doseTimes: true },
     });
