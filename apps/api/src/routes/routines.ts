@@ -8,13 +8,22 @@ import {
 import { prisma } from "../lib/prisma.js";
 import { t } from "../lib/i18n.js";
 import { householdWhere, requireHouseholdId, requireHouseholdWrite } from "../lib/householdScope.js";
-import { isMedicationCourseEnded } from "../lib/medicationCourseProgress.js";
+import { isMedicationCourseEnded, routineDoseCourse } from "../lib/medicationCourseProgress.js";
 
 /**
  * 루틴 — 미리 정한 값으로 1탭 저장 (WORKPLAN §7.24).
  * 저장 자체는 클라이언트가 항목마다 `POST /api/events`를 부른다 (K-4, 오프라인 큐가 건별이라 R155).
  * 여기는 정의의 CRUD만.
  */
+
+const routineCourseSelect = {
+  id: true,
+  name: true,
+  endDate: true,
+  archivedAt: true,
+  startDate: true,
+  intervalDays: true,
+} as const;
 
 export const routineSelect = {
   id: true,
@@ -39,12 +48,8 @@ export const routineSelect = {
       product: { select: { id: true, name: true } },
       course: {
         select: {
-          id: true,
-          name: true,
-          endDate: true,
-          archivedAt: true,
-          startDate: true,
-          intervalDays: true,
+          ...routineCourseSelect,
+          continuesFrom: { select: routineCourseSelect },
         },
       },
     },
@@ -77,16 +82,19 @@ export function serializeRoutine(row: RoutineRow, now = new Date()) {
         product: item.product,
         medicationCourseId: item.medicationCourseId,
         // 처방이 끝났거나 지워졌으면 실행 때 이 항목을 건너뛴다 (§7.24)
-        course: item.course
-          ? {
-              id: item.course.id,
-              name: item.course.name,
-              ended: isMedicationCourseEnded(item.course, now),
-              // 격일 처방의 쉬는 날 판정용 — 오프라인 스냅샷이 다시 계산한다 (§7.28)
-              startDate: item.course.startDate.toISOString(),
-              intervalDays: item.course.intervalDays,
-            }
-          : null,
+        course: (() => {
+          const course = item.course ? routineDoseCourse(item.course, now) : null;
+          return course
+            ? {
+                id: course.id,
+                name: course.name,
+                ended: isMedicationCourseEnded(course, now),
+                // 격일 처방의 쉬는 날 판정용 — 오프라인 스냅샷이 다시 계산한다 (§7.28)
+                startDate: course.startDate.toISOString(),
+                intervalDays: course.intervalDays,
+              }
+            : null;
+        })(),
       };
     }),
   };

@@ -70,6 +70,13 @@ describe("처방 이어가기 — 이전 처방 처리", () => {
     expect(call[0].data.archivedAt).toBeUndefined();
   });
 
+  it("links the new course to the one it continues", async () => {
+    const res = await cont(new Date().toISOString(), { endDate: null });
+    expect(res.statusCode).toBe(201);
+    const [call] = mockPrisma.medicationCourse.create.mock.calls;
+    expect(call[0].data.continuesFromId).toBe("old");
+  });
+
   it("archives the previous course when the new one starts today", async () => {
     const res = await cont(new Date().toISOString(), { endDate: null });
     expect(res.statusCode).toBe(201);

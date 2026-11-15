@@ -1,5 +1,5 @@
 import type { EventSource, Prisma, PrismaClient, ScaleType } from "@prisma/client";
-import { normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
+import { kstDayKey, normalizeDoseTimes, pickDoseSlot } from "@kibble/shared";
 import { doseConflict } from "../lib/doseCapacity.js";
 import { resolveEventProductFields } from "../lib/eventProduct.js";
 import { productNameIsTagList } from "../lib/frequentProducts.js";
@@ -178,9 +178,47 @@ function assertDedupeInScope(existing: CreatedEvent, params: CreateEventParams):
  */
 export async function createEvent(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
   if (!params.medicationCourseId) return createEventUnlocked(db, params);
-  return withMedicationCourseLock(db, params.medicationCourseId, (tx) =>
-    createEventUnlocked(tx, params),
-  );
+  return withMedicationCourseLock(db, params.medicationCourseId, async (tx) => {
+    const target = await resolveDoseCourseId(tx, params, params.medicationCourseId!);
+    // 거슬러 간 처방도 잠근다 — 그 처방에 직접 들어오는 기록과 슬롯·회차가 겹치지 않게.
+    // 잠그는 순서는 항상 새 처방 → 이전 처방이라 교착이 생기지 않는다.
+    if (target.redirected) await lockMedicationCourse(tx, target.courseId);
+    return createEventUnlocked(
+      tx,
+      { ...params, medicationCourseId: target.courseId },
+      { allowEndedCourse: target.redirected },
+    );
+  });
+}
+
+/** 이어가기 연결을 몇 단계까지 거슬러 올라가나 — 순환 방어용 상한 */
+const MAX_CONTINUATION_HOPS = 10;
+
+/**
+ * 복약을 실제로 매길 처방. 기록 시각(KST 날짜)이 처방 시작일보다 앞이고 그 처방이 "이어가기"로
+ * 만들어졌으면 출발한 처방으로 거슬러 간다 — 이어가기 직후 전날 밤 복약을 늦게 기록하면 새 처방의
+ * 1회차가 되어 첫날 기록이 2회차부터 찍히던 문제 (WORKLOG 2026-11-15). 이전 처방은 이미 보관됐을
+ * 수 있으므로 거슬러 간 경우에만 보관된 처방에도 기록을 허용한다. 거부하지 않는다(K-12) — 연결이
+ * 없거나 더 거슬러 갈 곳이 없으면 요청한 처방 그대로다.
+ */
+async function resolveDoseCourseId(
+  db: Db,
+  params: CreateEventParams,
+  requestedId: string,
+): Promise<{ courseId: string; redirected: boolean }> {
+  const dayKey = kstDayKey(params.occurredAt ?? new Date());
+  let courseId = requestedId;
+  let redirected = false;
+  for (let hop = 0; hop < MAX_CONTINUATION_HOPS; hop += 1) {
+    const course = await db.medicationCourse.findFirst({
+      where: { id: courseId, ...householdWhere(params.householdId), petId: params.petId },
+      select: { startDate: true, continuesFromId: true },
+    });
+    if (!course?.continuesFromId || dayKey >= kstDayKey(course.startDate)) break;
+    courseId = course.continuesFromId;
+    redirected = true;
+  }
+  return { courseId, redirected };
 }
 
 /**
@@ -193,7 +231,7 @@ export async function withMedicationCourseLock<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   const run = async (tx: Prisma.TransactionClient) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+    await lockMedicationCourse(tx, courseId);
     return fn(tx);
   };
   // `in` 대신 typeof — 운영의 전역 prisma는 has 트랩 없는 Proxy라 `in`이 false가 된다.
@@ -210,7 +248,15 @@ export async function withMedicationCourseLock<T>(
   return run(db as Prisma.TransactionClient);
 }
 
-async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<CreatedEvent> {
+async function lockMedicationCourse(tx: Prisma.TransactionClient, courseId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`kibble:medication-course:${courseId}`}, 0))`;
+}
+
+async function createEventUnlocked(
+  db: Db,
+  params: CreateEventParams,
+  opts: { allowEndedCourse?: boolean } = {},
+): Promise<CreatedEvent> {
   if (params.dedupeKey) {
     const existing = await findByDedupeKey(db, params.householdId, params.dedupeKey);
     if (existing) {
@@ -297,7 +343,8 @@ async function createEventUnlocked(db: Db, params: CreateEventParams): Promise<C
         id: medicationCourseId,
         ...householdWhere(params.householdId),
         petId: params.petId,
-        archivedAt: null,
+        // 이어가기 연결을 거슬러 온 기록은 이미 보관된 이전 처방에도 들어간다 (resolveDoseCourseId)
+        ...(opts.allowEndedCourse ? {} : { archivedAt: null }),
       },
       select: { id: true, dosesPerDay: true, doseTimes: true },
     });

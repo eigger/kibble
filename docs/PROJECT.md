@@ -409,11 +409,14 @@ model MedicationCourse {
   contactId   String?             // 처방한 병원
   note        String?
   archivedAt  DateTime?
+  continuesFromId String?         // "이어가기"로 만들었으면 출발한 처방. 새 처방이 시작 전인 동안
+                                  // 루틴 투약 항목은 이 처방에 기록한다 (WORKPLAN §7.24)
   createdAt   DateTime  @default(now())
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
   pet       Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  continuesFrom MedicationCourse? @relation("CourseContinuation", fields: [continuesFromId], references: [id], onDelete: SetNull)
   events    Event[]
 
   @@index([householdId, petId, archivedAt])
